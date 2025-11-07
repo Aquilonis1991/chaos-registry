@@ -1,0 +1,55 @@
+// Android Build 配置
+// 此檔案將在添加 Android 平台後複製到 android/app/build.gradle
+
+android {
+    namespace "com.votechaos.app"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.votechaos.app"
+        minSdk 22
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        
+        // 支援向量圖形
+        vectorDrawables.useSupportLibrary = true
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            
+            // 簽名配置（需要設置 keystore）
+            // signingConfig signingConfigs.release
+        }
+        debug {
+            applicationIdSuffix ".debug"
+            debuggable true
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
+    
+    // AdMob（將來整合）
+    // implementation 'com.google.android.gms:play-services-ads:22.6.0'
+    
+    // Firebase（用於推送通知）
+    // implementation platform('com.google.firebase:firebase-bom:32.7.0')
+    // implementation 'com.google.firebase:firebase-messaging'
+}
+
+// 應用 Google Services（用於 AdMob 和 Firebase）
+// apply plugin: 'com.google.gms.google-services'
+

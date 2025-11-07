@@ -1,0 +1,21 @@
+# Capacitor 原生平台文件
+# 將此內容添加到您的 .gitignore 文件中
+
+# Android
+android/
+!android/app/src/main/assets/
+!android/app/src/main/res/
+
+# iOS
+ios/App/Pods/
+ios/App/App.xcworkspace/
+ios/App/*.xcodeproj/
+
+# Capacitor
+.capacitor/
+capacitor-cordova-android-plugins/
+capacitor-cordova-ios-plugins/
+
+# 建議保留原生專案設定（用於版本控制）
+# 但忽略 node_modules 和建置產物
+

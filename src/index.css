@@ -1,0 +1,198 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* 安全區域變數（Capacitor APP 使用）*/
+    --sat: env(safe-area-inset-top);
+    --sab: env(safe-area-inset-bottom);
+    --sal: env(safe-area-inset-left);
+    --sar: env(safe-area-inset-right);
+    
+    /* 新配色方案 - IronyChaos 品牌 */
+    /* 背景色：#F4F2EC 淺米白 - 模擬文件紙張質感 */
+    --background: 45 25% 94%;
+    --foreground: 220 26% 15%;
+
+    --card: 45 20% 98%;
+    --card-foreground: 220 26% 15%;
+
+    --popover: 45 20% 98%;
+    --popover-foreground: 220 26% 15%;
+
+    /* 主色：#3F4B6B 深藍灰 - 理性／制度感 */
+    --primary: 220 26% 33%;
+    --primary-foreground: 45 25% 98%;
+    --primary-glow: 220 26% 40%;
+
+    --secondary: 45 15% 96%;
+    --secondary-foreground: 220 26% 15%;
+
+    --muted: 45 10% 94%;
+    --muted-foreground: 220 20% 43%;
+
+    /* 輔色：#E3B431 暖黃橙 - 荒謬閃光／人性衝突 */
+    --accent: 43 76% 54%;
+    --accent-foreground: 220 26% 15%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 45 15% 88%;
+    --input: 45 15% 88%;
+    /* 強調色：#6A4EFF 紫藍 - 對應 IronyChaos 品牌主色 */
+    --ring: 252 100% 65%;
+
+    --radius: 1rem;
+
+    /* 漸變：使用新配色 */
+    --gradient-primary: linear-gradient(135deg, hsl(220 26% 33%), hsl(220 26% 40%));
+    --gradient-accent: linear-gradient(135deg, hsl(43 76% 54%), hsl(43 80% 60%));
+    --gradient-card: linear-gradient(180deg, hsl(45 20% 98%), hsl(45 25% 94%));
+    
+    /* 陰影：使用主色和強調色 */
+    --shadow-glow: 0 8px 32px hsl(252 100% 65% / 0.2);
+    --shadow-card: 0 2px 8px hsl(220 26% 15% / 0.05);
+    
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Tag colors - diverse palette coordinated with Pinterest aesthetic */
+    --tag-red: 348 100% 50%;
+    --tag-purple: 271 70% 55%;
+    --tag-amber: 38 85% 50%;
+    --tag-fuchsia: 320 75% 55%;
+    --tag-orange: 25 90% 50%;
+    --tag-cyan: 189 80% 45%;
+    --tag-lime: 84 70% 45%;
+    --tag-pink: 330 75% 55%;
+    --tag-violet: 258 70% 60%;
+    --tag-indigo: 239 70% 60%;
+    --tag-coral: 14 90% 55%;
+    --tag-yellow: 48 90% 50%;
+    --tag-rose: 350 80% 55%;
+    --tag-emerald: 152 70% 40%;
+    --tag-sky: 199 80% 50%;
+    --tag-teal: 173 70% 42%;
+    --tag-blue: 217 80% 55%;
+    --tag-green: 142 70% 40%;
+    --tag-magenta: 300 70% 50%;
+    --tag-navy: 220 65% 48%;
+    --tag-burgundy: 345 70% 42%;
+    --tag-olive: 60 40% 42%;
+    --tag-mint: 160 60% 52%;
+    --tag-lavender: 275 55% 65%;
+    --tag-peach: 20 80% 62%;
+    --tag-turquoise: 180 65% 48%;
+    --tag-mauve: 280 45% 58%;
+    --tag-crimson: 355 80% 48%;
+    --tag-chartreuse: 75 80% 48%;
+    --tag-salmon: 10 75% 62%;
+    --tag-plum: 290 60% 52%;
+    --tag-azure: 210 75% 58%;
+    --tag-gold: 45 95% 48%;
+    --tag-ruby: 355 85% 45%;
+    --tag-sapphire: 230 70% 48%;
+    --tag-jade: 150 65% 45%;
+    --tag-bronze: 30 55% 45%;
+    --tag-silver: 0 0% 60%;
+    --tag-cobalt: 215 75% 52%;
+  }
+
+  .dark {
+    /* 深色模式：保持品牌色調，調整亮度 */
+    --background: 220 20% 12%;
+    --foreground: 45 25% 95%;
+
+    --card: 220 20% 16%;
+    --card-foreground: 45 25% 95%;
+
+    --popover: 220 20% 16%;
+    --popover-foreground: 45 25% 95%;
+
+    /* 主色：深藍灰在深色模式下稍微提亮 */
+    --primary: 220 26% 50%;
+    --primary-foreground: 45 25% 98%;
+    --primary-glow: 220 26% 60%;
+
+    --secondary: 220 15% 20%;
+    --secondary-foreground: 45 25% 95%;
+
+    --muted: 220 15% 20%;
+    --muted-foreground: 45 20% 65%;
+
+    /* 輔色：暖黃橙在深色模式下保持鮮明 */
+    --accent: 43 76% 60%;
+    --accent-foreground: 220 26% 15%;
+
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 95%;
+
+    --border: 220 15% 25%;
+    --input: 220 15% 25%;
+    /* 強調色：紫藍在深色模式下更突出 */
+    --ring: 252 100% 70%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(220 26% 50%), hsl(220 26% 60%));
+    --gradient-accent: linear-gradient(135deg, hsl(43 76% 60%), hsl(43 80% 65%));
+    --gradient-card: linear-gradient(180deg, hsl(220 20% 16%), hsl(220 20% 12%));
+    
+    --shadow-glow: 0 8px 32px hsl(252 100% 70% / 0.3);
+    --shadow-card: 0 2px 8px hsl(0 0% 0% / 0.4);
+
+    /* Tag colors - adjusted for dark mode */
+    --tag-red: 348 95% 55%;
+    --tag-purple: 271 65% 60%;
+    --tag-amber: 38 80% 55%;
+    --tag-fuchsia: 320 70% 60%;
+    --tag-orange: 25 85% 55%;
+    --tag-cyan: 189 75% 50%;
+    --tag-lime: 84 65% 50%;
+    --tag-pink: 330 70% 60%;
+    --tag-violet: 258 65% 65%;
+    --tag-indigo: 239 65% 65%;
+    --tag-coral: 14 85% 60%;
+    --tag-yellow: 48 85% 55%;
+    --tag-rose: 350 75% 60%;
+    --tag-emerald: 152 65% 45%;
+    --tag-sky: 199 75% 55%;
+    --tag-teal: 173 65% 47%;
+    --tag-blue: 217 75% 60%;
+    --tag-green: 142 65% 45%;
+    --tag-magenta: 300 65% 55%;
+    --tag-navy: 220 60% 52%;
+    --tag-burgundy: 345 65% 47%;
+    --tag-olive: 60 35% 47%;
+    --tag-mint: 160 55% 57%;
+    --tag-lavender: 275 50% 70%;
+    --tag-peach: 20 75% 67%;
+    --tag-turquoise: 180 60% 52%;
+    --tag-mauve: 280 40% 63%;
+    --tag-crimson: 355 75% 52%;
+    --tag-chartreuse: 75 75% 52%;
+    --tag-salmon: 10 70% 67%;
+    --tag-plum: 290 55% 57%;
+    --tag-azure: 210 70% 63%;
+    --tag-gold: 45 90% 52%;
+    --tag-ruby: 355 80% 50%;
+    --tag-sapphire: 230 65% 52%;
+    --tag-jade: 150 60% 50%;
+    --tag-bronze: 30 50% 50%;
+    --tag-silver: 0 0% 65%;
+    --tag-cobalt: 215 70% 57%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}

@@ -1,0 +1,73 @@
+<!-- iOS Info.plist 額外配置 -->
+<!-- 將這些內容添加到 ios/App/App/Info.plist 的 <dict> 標籤內 -->
+
+<!-- App 名稱 -->
+<key>CFBundleDisplayName</key>
+<string>VoteChaos</string>
+
+<!-- 支援的方向 -->
+<key>UISupportedInterfaceOrientations</key>
+<array>
+    <string>UIInterfaceOrientationPortrait</string>
+    <string>UIInterfaceOrientationLandscapeLeft</string>
+    <string>UIInterfaceOrientationLandscapeRight</string>
+</array>
+
+<!-- 推送通知權限 -->
+<key>UIBackgroundModes</key>
+<array>
+    <string>remote-notification</string>
+</array>
+
+<!-- 相機權限（如果需要上傳頭像）-->
+<key>NSCameraUsageDescription</key>
+<string>VoteChaos 需要訪問相機以上傳個人頭像</string>
+
+<!-- 相簿權限 -->
+<key>NSPhotoLibraryUsageDescription</key>
+<string>VoteChaos 需要訪問相簿以選擇個人頭像</string>
+
+<!-- 追蹤權限（iOS 14.5+ 需要，用於 AdMob）-->
+<key>NSUserTrackingUsageDescription</key>
+<string>為了提供個性化廣告體驗，我們需要您的授權</string>
+
+<!-- AdMob App ID -->
+<key>GADApplicationIdentifier</key>
+<string>ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY</string>
+
+<!-- 允許 HTTPS 連接 -->
+<key>NSAppTransportSecurity</key>
+<dict>
+    <key>NSAllowsArbitraryLoads</key>
+    <false/>
+    <key>NSExceptionDomains</key>
+    <dict>
+        <key>supabase.co</key>
+        <dict>
+            <key>NSIncludesSubdomains</key>
+            <true/>
+            <key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
+            <false/>
+        </dict>
+    </dict>
+</dict>
+
+<!-- URL Scheme（用於深層連結）-->
+<key>CFBundleURLTypes</key>
+<array>
+    <dict>
+        <key>CFBundleURLName</key>
+        <string>com.votechaos.app</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+            <string>votechaos</string>
+        </array>
+    </dict>
+</array>
+
+<!-- 狀態欄樣式 -->
+<key>UIStatusBarStyle</key>
+<string>UIStatusBarStyleLightContent</string>
+<key>UIViewControllerBasedStatusBarAppearance</key>
+<true/>
+

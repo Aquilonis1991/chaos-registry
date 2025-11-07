@@ -1,0 +1,166 @@
+-- ==========================================
+-- 重置每日簽到工具腳本
+-- 在 Supabase SQL Editor 執行
+-- 說明：提供三種模式，依需求取消註解執行
+-- 依你的 schema：
+--   - daily_logins(user_id, login_date)
+--   - profiles(id, tokens, last_login_date, login_streak, total_login_days)
+--   - token_transactions(可選) 用於回滾代幣（若不存在，自動跳過）
+-- ==========================================
+
+-- 請先把這個變數改成要操作的使用者 ID（模式 A/C 需要）
+-- SELECT '00000000-0000-0000-0000-000000000000'::uuid AS target_user_id; -- 範例
+
+-- ==========================================
+-- 模式 A：重置「特定用戶」今天的簽到（允許今天再次簽到）
+-- - 刪除今日 daily_logins 記錄
+-- - 回滾今日的簽到代幣（3 代幣）與交易紀錄（若有）
+-- 注意：若你不想回滾代幣，將相關 UPDATE/DELETE 段落註解掉
+-- ==========================================
+-- BEGIN;
+--   -- 1) 回滾今日簽到代幣（避免重複領取）
+--   WITH has_tx AS (
+--     SELECT 1
+--     FROM information_schema.tables
+--     WHERE table_schema='public' AND table_name='token_transactions'
+--   )
+--   UPDATE public.profiles p
+--   SET tokens = GREATEST(p.tokens - 3, 0)
+--   WHERE p.id = (SELECT target_user_id)
+--     AND EXISTS (SELECT 1 FROM has_tx)
+--     AND EXISTS (
+--       SELECT 1 FROM public.token_transactions t
+--       WHERE t.user_id = (SELECT target_user_id)
+--         AND t.transaction_type = 'complete_mission'
+--         AND t.description = '每日登入獎勵'
+--         AND t.created_at::date = CURRENT_DATE
+--     );
+-- 
+--   -- 2) 刪除今日的交易紀錄（若表存在）
+--   DO $$
+--   BEGIN
+--     IF EXISTS (
+--       SELECT 1 FROM information_schema.tables
+--       WHERE table_schema='public' AND table_name='token_transactions'
+--     ) THEN
+--       DELETE FROM public.token_transactions
+--       WHERE user_id = (SELECT target_user_id)
+--         AND transaction_type = 'complete_mission'
+--         AND description = '每日登入獎勵'
+--         AND created_at::date = CURRENT_DATE;
+--     END IF;
+--   END $$;
+-- 
+--   -- 3) 刪除今日簽到記錄（關鍵，重置今日簽到狀態）
+--   DELETE FROM public.daily_logins
+--   WHERE user_id = (SELECT target_user_id)
+--     AND login_date = CURRENT_DATE;
+-- COMMIT;
+
+
+-- ==========================================
+-- 模式 B：重置「全體用戶」今天的簽到（群體重置）
+-- - 刪除今日 daily_logins 記錄
+-- - 可選：群體回滾今日簽到代幣與交易
+-- ==========================================
+-- BEGIN;
+--   -- 1) 可選：群體回滾今日簽到代幣（存在交易表時）
+--   WITH has_tx AS (
+--     SELECT 1
+--     FROM information_schema.tables
+--     WHERE table_schema='public' AND table_name='token_transactions'
+--   ),
+--   affected AS (
+--     SELECT DISTINCT dl.user_id
+--     FROM public.daily_logins dl
+--     WHERE dl.login_date = CURRENT_DATE
+--   )
+--   UPDATE public.profiles p
+--   SET tokens = GREATEST(p.tokens - 3, 0)
+--   WHERE EXISTS (SELECT 1 FROM has_tx)
+--     AND EXISTS (SELECT 1 FROM affected a WHERE a.user_id = p.id)
+--     AND EXISTS (
+--       SELECT 1 FROM public.token_transactions t
+--       WHERE t.user_id = p.id
+--         AND t.transaction_type = 'complete_mission'
+--         AND t.description = '每日登入獎勵'
+--         AND t.created_at::date = CURRENT_DATE
+--     );
+-- 
+--   -- 2) 可選：刪除今日的交易紀錄（存在 token_transactions 時）
+--   DO $$
+--   BEGIN
+--     IF EXISTS (
+--       SELECT 1 FROM information_schema.tables
+--       WHERE table_schema='public' AND table_name='token_transactions'
+--     ) THEN
+--       DELETE FROM public.token_transactions
+--       WHERE transaction_type = 'complete_mission'
+--         AND description = '每日登入獎勵'
+--         AND created_at::date = CURRENT_DATE;
+--     END IF;
+--   END $$;
+-- 
+--   -- 3) 刪除全體今日簽到記錄
+--   DELETE FROM public.daily_logins
+--   WHERE login_date = CURRENT_DATE;
+-- COMMIT;
+
+
+-- ==========================================
+-- 模式 C：完整重置「特定用戶」簽到系統資料
+-- - 清空該用戶所有 daily_logins
+-- - 將 login_streak/total_login_days/last_login_date 歸零
+-- - 可選：回滾所有「每日登入獎勵」代幣
+-- ==========================================
+-- BEGIN;
+--   -- 1) 可選：回滾該用戶所有「每日登入獎勵」代幣（若表存在）
+--   DO $$
+--   DECLARE
+--     v_sum INT;
+--   BEGIN
+--     IF EXISTS (
+--       SELECT 1 FROM information_schema.tables
+--       WHERE table_schema='public' AND table_name='token_transactions'
+--     ) THEN
+--       SELECT COALESCE(SUM(t.amount),0) INTO v_sum
+--       FROM public.token_transactions t
+--       WHERE t.user_id = (SELECT target_user_id)
+--         AND t.transaction_type = 'complete_mission'
+--         AND t.description = '每日登入獎勵';
+-- 
+--       UPDATE public.profiles p
+--       SET tokens = GREATEST(p.tokens - COALESCE(v_sum,0), 0)
+--       WHERE p.id = (SELECT target_user_id);
+-- 
+--       DELETE FROM public.token_transactions
+--       WHERE user_id = (SELECT target_user_id)
+--         AND transaction_type = 'complete_mission'
+--         AND description = '每日登入獎勵';
+--     END IF;
+--   END $$;
+-- 
+--   -- 2) 清空該用戶所有簽到記錄
+--   DELETE FROM public.daily_logins
+--   WHERE user_id = (SELECT target_user_id);
+-- 
+--   -- 3) 歸零個人統計
+--   UPDATE public.profiles
+--   SET 
+--     login_streak = 0,
+--     total_login_days = 0,
+--     last_login_date = NULL
+--   WHERE id = (SELECT target_user_id);
+-- COMMIT;
+
+
+-- ==========================================
+-- 驗證與 Schema 重載（建議重置後執行）
+-- ==========================================
+-- 檢查今日記錄數
+-- SELECT COUNT(*) AS today_logins
+-- FROM public.daily_logins
+-- WHERE login_date = CURRENT_DATE;
+-- 
+-- 重載 PostgREST Schema Cache
+-- SELECT pg_notify('pgrst','reload schema');

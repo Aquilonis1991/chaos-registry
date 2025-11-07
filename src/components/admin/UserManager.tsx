@@ -1,0 +1,500 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import { 
+  Loader2, 
+  Search, 
+  Gift, 
+  Ban, 
+  MoreVertical, 
+  Coins,
+  TrendingUp
+} from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { format } from "date-fns";
+import { zhTW } from "date-fns/locale";
+import { Card, CardContent } from "@/components/ui/card";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useUIText } from "@/hooks/useUIText";
+
+interface UserProfile {
+  id: string;
+  nickname: string;
+  avatar?: string;
+  tokens: number;
+  created_at: string;
+  last_login_date?: string;
+  is_admin?: boolean;
+}
+
+interface UserStats {
+  total_topics: number;
+  total_votes: number;
+  total_free_votes: number;
+  total_tokens: number;
+  created_at: string;
+  last_login: string;
+}
+
+interface UserManagerProps {
+  onSetRestriction?: (userId: string) => void;
+}
+
+export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
+  const queryClient = useQueryClient();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(20);
+  const [showRewardDialog, setShowRewardDialog] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [rewardType, setRewardType] = useState<'tokens' | 'free_create'>('tokens');
+  const [rewardAmount, setRewardAmount] = useState("");
+  const [rewardReason, setRewardReason] = useState("");
+
+  // 獲取用戶列表
+  const { language } = useLanguage();
+  const { getText, isLoading: uiTextsLoading } = useUIText(language);
+
+  const titleText = getText('admin.userManager.title', '用戶管理');
+  const subtitleText = getText('admin.userManager.subtitle', '查看和管理所有用戶，派發獎勵和設置限制');
+  const searchPlaceholder = getText('admin.userManager.search.placeholder', '搜尋用戶暱稱...');
+  const searchButtonText = getText('admin.userManager.search.button', '搜尋');
+  const tableHeaderUser = getText('admin.userManager.table.header.user', '用戶');
+  const tableHeaderTokens = getText('admin.userManager.table.header.tokens', '代幣');
+  const tableHeaderCreatedAt = getText('admin.userManager.table.header.createdAt', '註冊時間');
+  const tableHeaderLastLogin = getText('admin.userManager.table.header.lastLogin', '最後登入');
+  const tableHeaderActions = getText('admin.userManager.table.header.actions', '操作');
+  const tableEmptyText = getText('admin.userManager.table.empty', '沒有找到用戶');
+  const lastLoginNeverText = getText('admin.userManager.lastLogin.never', '從未登入');
+  const dropdownRewardText = getText('admin.userManager.dropdown.reward', '派發獎勵');
+  const dropdownRestrictionText = getText('admin.userManager.dropdown.restriction', '設置限制');
+  const dropdownStatsText = getText('admin.userManager.dropdown.stats', '查看統計');
+  const restrictionErrorText = getText('admin.userManager.dropdown.restrictionError', '無法切換到限制管理頁面');
+  const paginationTemplate = getText('admin.userManager.pagination.summary', '共 {{total}} 位用戶，第 {{page}} / {{totalPages}} 頁');
+  const paginationPrevText = getText('admin.userManager.pagination.prev', '上一頁');
+  const paginationNextText = getText('admin.userManager.pagination.next', '下一頁');
+  const rewardDialogTitle = getText('admin.userManager.dialog.title', '派發獎勵');
+  const rewardDialogDescriptionTemplate = getText('admin.userManager.dialog.description', '為 {{nickname}} 派發獎勵');
+  const rewardTypeLabel = getText('admin.userManager.dialog.rewardTypeLabel', '獎勵類型');
+  const rewardTypeTokensLabel = getText('admin.userManager.dialog.rewardType.tokens', '代幣');
+  const rewardTypeFreeCreateLabel = getText('admin.userManager.dialog.rewardType.freeCreate', '免費創建資格');
+  const rewardTypePlaceholder = getText('admin.userManager.dialog.rewardTypePlaceholder', '選擇獎勵類型');
+  const rewardTokenAmountLabel = getText('admin.userManager.dialog.tokenAmountLabel', '代幣數量');
+  const rewardTokenAmountPlaceholder = getText('admin.userManager.dialog.tokenAmountPlaceholder', '輸入代幣數量');
+  const rewardReasonLabel = getText('admin.userManager.dialog.reasonLabel', '派發原因（選填）');
+  const rewardReasonPlaceholder = getText('admin.userManager.dialog.reasonPlaceholder', '輸入派發原因...');
+  const rewardStatsTokensTemplate = getText('admin.userManager.dialog.stats.tokens', '當前代幣：{{amount}}');
+  const rewardStatsTopicsTemplate = getText('admin.userManager.dialog.stats.topics', '創建主題數：{{count}}');
+  const rewardStatsVotesTemplate = getText('admin.userManager.dialog.stats.votes', '投票總數：{{count}}');
+  const dialogCancelText = getText('admin.userManager.dialog.cancel', '取消');
+  const dialogConfirmText = getText('admin.userManager.dialog.confirm', '確認派發');
+  const dialogProcessingText = getText('admin.userManager.dialog.processing', '派發中...');
+  const tokensSuccessTemplate = getText('admin.userManager.toast.tokensSuccess', '已派發 {{amount}} 代幣');
+  const freeCreateSuccessText = getText('admin.userManager.toast.freeCreateSuccess', '已派發免費創建資格');
+  const rewardErrorPrefix = getText('admin.userManager.toast.rewardErrorPrefix', '派發失敗：');
+  const unknownErrorText = getText('admin.userManager.toast.unknownError', '未知錯誤');
+  const noUserSelectedError = getText('admin.userManager.error.noUserSelected', '未選擇用戶');
+  const notLoggedInError = getText('admin.userManager.error.notLoggedIn', '未登入');
+  const tokenAmountMustBePositive = getText('admin.userManager.error.tokenAmountPositive', '代幣數量必須大於 0');
+  const rewardFailureDefault = getText('admin.userManager.error.rewardFailure', '派發失敗');
+  const invalidTokenAmountText = getText('admin.userManager.error.invalidTokenAmount', '請輸入有效的代幣數量');
+
+  const { data: usersData, isLoading } = useQuery({
+    queryKey: ['admin-users', searchQuery, page],
+    queryFn: async () => {
+      let query = supabase
+        .from('profiles')
+        .select('id, nickname, avatar, tokens, created_at, last_login_date')
+        .order('created_at', { ascending: false });
+
+      if (searchQuery.trim()) {
+        query = query.ilike('nickname', `%${searchQuery.trim()}%`);
+      }
+
+      const { data, error, count } = await query
+        .range((page - 1) * pageSize, page * pageSize - 1)
+        .select('*', { count: 'exact' });
+
+      if (error) throw error;
+      return { users: data as UserProfile[], total: count || 0 };
+    },
+  });
+
+  // 獲取用戶統計（當選擇用戶時）
+  const { data: userStats } = useQuery({
+    queryKey: ['admin-user-stats', selectedUser?.id],
+    queryFn: async () => {
+      if (!selectedUser) return null;
+      const { data, error } = await supabase.rpc('get_user_stats', {
+        p_user_id: selectedUser.id
+      });
+      if (error) throw error;
+      return data?.[0] as UserStats | null;
+    },
+    enabled: !!selectedUser,
+  });
+
+  // 派發獎勵
+  const rewardMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedUser) throw new Error(noUserSelectedError);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error(notLoggedInError);
+
+      if (rewardType === 'tokens') {
+        const amount = parseInt(rewardAmount);
+        if (isNaN(amount) || amount <= 0) {
+          throw new Error(tokenAmountMustBePositive);
+        }
+
+        const { data, error } = await supabase.rpc('admin_grant_tokens', {
+          p_user_id: selectedUser.id,
+          p_amount: amount,
+          p_admin_id: user.id,
+          p_reason: rewardReason.trim() || null
+        });
+
+        if (error) throw error;
+        if (data && data.length > 0 && !data[0].success) {
+          throw new Error(data[0].message || rewardFailureDefault);
+        }
+        return data?.[0];
+      } else {
+        const { data, error } = await supabase.rpc('admin_grant_free_create', {
+          p_user_id: selectedUser.id,
+          p_admin_id: user.id,
+          p_reason: rewardReason.trim() || null
+        });
+
+        if (error) throw error;
+        if (data && data.length > 0 && !data[0].success) {
+          throw new Error(data[0].message || rewardFailureDefault);
+        }
+        return data?.[0];
+      }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-user-stats'] });
+      if (rewardType === 'tokens') {
+        const formattedAmount = Number(rewardAmount || 0).toLocaleString();
+        toast.success(tokensSuccessTemplate.replace('{{amount}}', formattedAmount));
+      } else {
+        toast.success(freeCreateSuccessText);
+      }
+      setShowRewardDialog(false);
+      setRewardAmount("");
+      setRewardReason("");
+    },
+    onError: (error: any) => {
+      const errorMessage = error.message || unknownErrorText;
+      toast.error(rewardErrorPrefix + errorMessage);
+    },
+  });
+
+  const handleSearch = () => {
+    setPage(1);
+    queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+  };
+
+  const handleOpenRewardDialog = (user: UserProfile) => {
+    setSelectedUser(user);
+    setShowRewardDialog(true);
+    setRewardType('tokens');
+    setRewardAmount("");
+    setRewardReason("");
+  };
+
+  const handleSubmitReward = () => {
+    if (!selectedUser) return;
+    if (rewardType === 'tokens' && (!rewardAmount.trim() || parseInt(rewardAmount) <= 0)) {
+      toast.error(invalidTokenAmountText);
+      return;
+    }
+    rewardMutation.mutate();
+  };
+
+  const totalPages = Math.ceil((usersData?.total || 0) / pageSize);
+  const paginationSummary = paginationTemplate
+    .replace('{{total}}', (usersData?.total || 0).toLocaleString())
+    .replace('{{page}}', page.toString())
+    .replace('{{totalPages}}', totalPages.toString());
+
+  if (uiTextsLoading) {
+    return (
+      <div className="flex justify-center p-8">
+        <Loader2 className="w-6 h-6 animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-2xl font-semibold">{titleText}</h2>
+          <p className="text-muted-foreground mt-1">
+            {subtitleText}
+          </p>
+        </div>
+      </div>
+
+      {/* 搜尋和篩選 */}
+      <Card className="mb-6">
+        <CardContent className="p-4">
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <Input
+                placeholder={searchPlaceholder}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+              />
+            </div>
+            <Button onClick={handleSearch}>
+              <Search className="w-4 h-4 mr-2" />
+              {searchButtonText}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 用戶列表 */}
+      <Card>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="flex justify-center p-8">
+              <Loader2 className="w-8 h-8 animate-spin" />
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{tableHeaderUser}</TableHead>
+                      <TableHead>{tableHeaderTokens}</TableHead>
+                      <TableHead>{tableHeaderCreatedAt}</TableHead>
+                      <TableHead>{tableHeaderLastLogin}</TableHead>
+                      <TableHead>{tableHeaderActions}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {usersData?.users.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                          {tableEmptyText}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      usersData?.users.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm">
+                                {user.avatar || '👤'}
+                              </div>
+                              <div>
+                                <div className="font-medium">{user.nickname}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {user.id.substring(0, 8)}...
+                                </div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Coins className="w-4 h-4 text-yellow-500" />
+                              <span className="font-semibold">{user.tokens || 0}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              {format(new Date(user.created_at), 'yyyy/MM/dd', { locale: zhTW })}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm text-muted-foreground">
+                              {user.last_login_date
+                                ? format(new Date(user.last_login_date), 'yyyy/MM/dd HH:mm', { locale: zhTW })
+                                : lastLoginNeverText}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  <MoreVertical className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleOpenRewardDialog(user)}>
+                                  <Gift className="w-4 h-4 mr-2" />
+                                  {dropdownRewardText}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => {
+                                    if (onSetRestriction) {
+                                      onSetRestriction(user.id);
+                                    } else {
+                                      toast.error(restrictionErrorText);
+                                    }
+                                  }}
+                                >
+                                  <Ban className="w-4 h-4 mr-2" />
+                                  {dropdownRestrictionText}
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={() => {
+                                    setSelectedUser(user);
+                                    queryClient.invalidateQueries({ queryKey: ['admin-user-stats'] });
+                                  }}
+                                >
+                                  <TrendingUp className="w-4 h-4 mr-2" />
+                                  {dropdownStatsText}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* 分頁 */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between p-4 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    {paginationSummary}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                    >
+                      {paginationPrevText}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                    >
+                      {paginationNextText}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 派發獎勵對話框 */}
+      <Dialog open={showRewardDialog} onOpenChange={setShowRewardDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{rewardDialogTitle}</DialogTitle>
+            <DialogDescription>
+              {rewardDialogDescriptionTemplate.replace('{{nickname}}', selectedUser?.nickname || '')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>{rewardTypeLabel}</Label>
+              <Select value={rewardType} onValueChange={(v: any) => setRewardType(v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder={rewardTypePlaceholder} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="tokens">{rewardTypeTokensLabel}</SelectItem>
+                  <SelectItem value="free_create">{rewardTypeFreeCreateLabel}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {rewardType === 'tokens' && (
+              <div>
+                <Label>{rewardTokenAmountLabel}</Label>
+                <Input
+                  type="number"
+                  placeholder={rewardTokenAmountPlaceholder}
+                  value={rewardAmount}
+                  onChange={(e) => setRewardAmount(e.target.value)}
+                  min="1"
+                />
+              </div>
+            )}
+            <div>
+              <Label>{rewardReasonLabel}</Label>
+              <Input
+                placeholder={rewardReasonPlaceholder}
+                value={rewardReason}
+                onChange={(e) => setRewardReason(e.target.value)}
+              />
+            </div>
+            {selectedUser && userStats && (
+              <div className="p-3 bg-muted rounded-lg space-y-1 text-sm">
+                <div>{rewardStatsTokensTemplate.replace('{{amount}}', (selectedUser.tokens || 0).toLocaleString())}</div>
+                <div>{rewardStatsTopicsTemplate.replace('{{count}}', (userStats.total_topics || 0).toLocaleString())}</div>
+                <div>{rewardStatsVotesTemplate.replace('{{count}}', (userStats.total_votes + userStats.total_free_votes || 0).toLocaleString())}</div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRewardDialog(false)}>
+              {dialogCancelText}
+            </Button>
+            <Button onClick={handleSubmitReward} disabled={rewardMutation.isPending}>
+              {rewardMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {dialogProcessingText}
+                </>
+              ) : (
+                <>
+                  <Gift className="w-4 h-4 mr-2" />
+                  {dialogConfirmText}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+

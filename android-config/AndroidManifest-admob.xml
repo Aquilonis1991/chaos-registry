@@ -1,0 +1,14 @@
+<!-- AdMob 配置 -->
+<!-- 將此內容添加到 android/app/src/main/AndroidManifest.xml 的 <application> 標籤內 -->
+
+<!-- AdMob App ID（測試用）-->
+<meta-data
+    android:name="com.google.android.gms.ads.APPLICATION_ID"
+    android:value="ca-app-pub-3940256099942544~3347511713"/>
+
+<!-- 生產環境請替換為您的實際 App ID -->
+<!-- <meta-data
+    android:name="com.google.android.gms.ads.APPLICATION_ID"
+    android:value="ca-app-pub-YOUR_ACTUAL_APP_ID~YOUR_ACTUAL_ID"/> -->
+
+

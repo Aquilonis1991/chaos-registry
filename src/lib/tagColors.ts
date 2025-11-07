@@ -1,0 +1,46 @@
+// Map tags to color variants with diverse palette
+export const tagColorMap: Record<string, string> = {
+  "電影": "bg-[hsl(var(--tag-red))] text-white",
+  "動漫": "bg-[hsl(var(--tag-purple))] text-white",
+  "神作": "bg-[hsl(var(--tag-gold))] text-white",
+  "音樂": "bg-[hsl(var(--tag-fuchsia))] text-white",
+  "早餐": "bg-[hsl(var(--tag-peach))] text-white",
+  "飲料": "bg-[hsl(var(--tag-turquoise))] text-white",
+  "怪味": "bg-[hsl(var(--tag-chartreuse))] text-white",
+  "穿搭": "bg-[hsl(var(--tag-pink))] text-white",
+  "香水": "bg-[hsl(var(--tag-lavender))] text-white",
+  "職場": "bg-[hsl(var(--tag-navy))] text-white",
+  "寵物": "bg-[hsl(var(--tag-coral))] text-white",
+  "迷因": "bg-[hsl(var(--tag-yellow))] text-white",
+  "長輩": "bg-[hsl(var(--tag-mauve))] text-white",
+  "政治": "bg-[hsl(var(--tag-crimson))] text-white",
+  "薪水": "bg-[hsl(var(--tag-emerald))] text-white",
+  "戀愛": "bg-[hsl(var(--tag-salmon))] text-white",
+  "遊戲": "bg-[hsl(var(--tag-cobalt))] text-white",
+  "星座": "bg-[hsl(var(--tag-violet))] text-white",
+  "運氣": "bg-[hsl(var(--tag-amber))] text-white",
+  "校園": "bg-[hsl(var(--tag-azure))] text-white",
+  "旅遊": "bg-[hsl(var(--tag-teal))] text-white",
+  "美食": "bg-[hsl(var(--tag-orange))] text-white",
+  "反串": "bg-[hsl(var(--tag-magenta))] text-white",
+  "黑梗": "bg-[hsl(var(--tag-burgundy))] text-white",
+  "閒聊": "bg-[hsl(var(--tag-blue))] text-white",
+  "崩潰": "bg-[hsl(var(--tag-rose))] text-white",
+  "發言王": "bg-[hsl(var(--tag-bronze))] text-white",
+  "通勤": "bg-[hsl(var(--tag-cyan))] text-white",
+  "陰謀": "bg-[hsl(var(--tag-indigo))] text-white",
+  "AI": "bg-[hsl(var(--tag-sapphire))] text-white",
+  "爆紅": "bg-[hsl(var(--tag-ruby))] text-white",
+  "台灣": "bg-[hsl(var(--tag-jade))] text-white",
+  "生活": "bg-[hsl(var(--tag-mint))] text-white",
+  "休閒": "bg-[hsl(var(--tag-lime))] text-white",
+  "科技": "bg-[hsl(var(--tag-silver))] text-white",
+  "程式": "bg-[hsl(var(--tag-plum))] text-white",
+  "未來": "bg-[hsl(var(--tag-sky))] text-white",
+  // Default colors for other tags
+  "default": "bg-[hsl(var(--tag-blue))] text-white",
+};
+
+export const getTagColor = (tag: string): string => {
+  return tagColorMap[tag] || tagColorMap["default"];
+};

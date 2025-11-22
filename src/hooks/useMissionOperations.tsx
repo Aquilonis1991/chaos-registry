@@ -2,6 +2,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AdMobService, watchRewardedAd } from "@/lib/admob";
 
+interface DailyLoginInfo {
+  isNewLogin: boolean;
+  currentStreak: number;
+  totalDays: number;
+  rewardTokens: number;
+  lastLoginDate: string;
+  canClaimToday: boolean;
+  streakRewardAvailable: boolean;
+}
+
 export const useMissionOperations = () => {
   const completeMission = async (missionId: string) => {
     try {
@@ -155,7 +165,7 @@ export const useMissionOperations = () => {
     }
   };
 
-  const claimDailyLogin = async () => {
+  const claimDailyLogin = async (): Promise<DailyLoginInfo | null> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('未登入');
@@ -179,27 +189,31 @@ export const useMissionOperations = () => {
       }
 
       const loginResult = result[0];
+      const today = new Date();
+      const todayDate = today.toISOString().split('T')[0];
+      const loginInfo: DailyLoginInfo = {
+        isNewLogin: loginResult.is_new_login,
+        currentStreak: loginResult.current_streak || 0,
+        totalDays: loginResult.total_days || 0,
+        rewardTokens: loginResult.reward_tokens || 0,
+        lastLoginDate: todayDate,
+        canClaimToday: false,
+        streakRewardAvailable: (loginResult.current_streak || 0) >= 4 && (loginResult.current_streak || 0) < 5,
+      };
 
-      if (!loginResult.is_new_login) {
+      if (!loginInfo.isNewLogin) {
         toast.info('今日已簽到', {
-          description: `當前連續登入 ${loginResult.current_streak} 天`
+          description: `當前連續登入 ${loginInfo.currentStreak} 天`
         });
-        return loginResult;
+        return loginInfo;
       }
 
       // 新登入獎勵
-      toast.success(`簽到成功！獲得 ${loginResult.reward_tokens.toLocaleString()} 代幣`, {
-        description: `連續登入 ${loginResult.current_streak} 天`
+      toast.success(`簽到成功！獲得 ${loginInfo.rewardTokens.toLocaleString()} 代幣`, {
+        description: `連續登入 ${loginInfo.currentStreak} 天`
       });
 
-      // 如果達到 5 天連續登入
-      if (loginResult.current_streak === 5) {
-        toast.success('🎉 連續登入5天達成！', {
-          description: '獲得免費發起主題資格'
-        });
-      }
-
-      return loginResult;
+      return loginInfo;
     } catch (error: any) {
       console.error('Daily login error:', error);
       

@@ -3,7 +3,7 @@ import App from "./App.tsx";
 import "./index.css";
 
 // 立即渲染 React App（最高優先級）
-console.log('Starting VoteChaos App...');
+console.log('Starting ChaosRegistry App...');
 createRoot(document.getElementById("root")!).render(<App />);
 console.log('React rendered');
 

@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { zhTW } from "date-fns/locale";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useUIText } from "@/hooks/useUIText";
 
 interface Announcement {
   id: string;
@@ -40,6 +42,8 @@ export const AnnouncementCarousel = ({
   showCloseButton = true, 
   onClose 
 }: AnnouncementCarouselProps) => {
+  const { language } = useLanguage();
+  const { getText } = useUIText(language);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -111,11 +115,26 @@ export const AnnouncementCarousel = ({
 
   const getPriorityBadge = (priority: number) => {
     if (priority >= 90) {
-      return <Badge variant="destructive" className="flex items-center gap-1"><Star className="w-3 h-3" />重要</Badge>;
+      return (
+        <Badge variant="destructive" className="flex items-center gap-1">
+          <Star className="w-3 h-3" />
+          {getText('announcement.badge.critical', '重要')}
+        </Badge>
+      );
     } else if (priority >= 70) {
-      return <Badge variant="default" className="flex items-center gap-1"><Star className="w-3 h-3" />一般</Badge>;
+      return (
+        <Badge variant="default" className="flex items-center gap-1">
+          <Star className="w-3 h-3" />
+          {getText('announcement.badge.high', '一般')}
+        </Badge>
+      );
     } else {
-      return <Badge variant="outline" className="flex items-center gap-1"><Star className="w-3 h-3" />通知</Badge>;
+      return (
+        <Badge variant="outline" className="flex items-center gap-1">
+          <Star className="w-3 h-3" />
+          {getText('announcement.badge.normal', '通知')}
+        </Badge>
+      );
     }
   };
 
@@ -232,11 +251,13 @@ export const AnnouncementCarousel = ({
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <Calendar className="w-4 h-4" />
-                  發布時間：{format(new Date(selectedAnnouncement.created_at), 'yyyy年MM月dd日 HH:mm', { locale: zhTW })}
+                {getText('announcement.dialog.publishedAt', '發布時間：')}
+                {format(new Date(selectedAnnouncement.created_at), 'yyyy年MM月dd日 HH:mm', { locale: zhTW })}
                 </div>
                 <div className="flex items-center gap-1">
                   <Clock className="w-4 h-4" />
-                  點擊數：{selectedAnnouncement.click_count}
+                {getText('announcement.dialog.clicks', '點擊數：')}
+                {selectedAnnouncement.click_count}
                 </div>
               </div>
 
@@ -261,7 +282,7 @@ export const AnnouncementCarousel = ({
 
               <div className="flex justify-end">
                 <Button onClick={() => setIsDialogOpen(false)}>
-                  關閉
+                  {getText('announcement.dialog.close', '關閉')}
                 </Button>
               </div>
             </div>

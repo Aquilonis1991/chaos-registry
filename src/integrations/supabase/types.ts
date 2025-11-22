@@ -111,39 +111,60 @@ export type Database = {
           ad_watch_count: number
           avatar: string
           created_at: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          deleted_reason: string | null
           created_topics: string[] | null
           id: string
+          is_deleted: boolean
           joined_topics: string[] | null
           last_login: string | null
+          last_login_date: string | null
+          login_streak: number
           nickname: string
           notifications: boolean | null
           tokens: number
+          total_login_days: number
           updated_at: string | null
         }
         Insert: {
           ad_watch_count?: number
           avatar?: string
           created_at?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_reason?: string | null
           created_topics?: string[] | null
           id: string
+          is_deleted?: boolean
           joined_topics?: string[] | null
           last_login?: string | null
+          last_login_date?: string | null
+          login_streak?: number
           nickname?: string
           notifications?: boolean | null
           tokens?: number
+          total_login_days?: number
           updated_at?: string | null
         }
         Update: {
           ad_watch_count?: number
           avatar?: string
           created_at?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_reason?: string | null
           created_topics?: string[] | null
           id?: string
+          is_deleted?: boolean
           joined_topics?: string[] | null
           last_login?: string | null
+          last_login_date?: string | null
+          login_streak?: number
           nickname?: string
           notifications?: boolean | null
           tokens?: number
+          total_login_days?: number
           updated_at?: string | null
         }
         Relationships: []
@@ -492,6 +513,44 @@ export type Database = {
           },
         ]
       }
+      user_deletion_logs: {
+        Row: {
+          deleted_at: string
+          deleted_by: string | null
+          deleted_reason: string | null
+          email: string | null
+          id: string
+          profile_snapshot: Json | null
+          user_id: string
+        }
+        Insert: {
+          deleted_at?: string
+          deleted_by?: string | null
+          deleted_reason?: string | null
+          email?: string | null
+          id?: string
+          profile_snapshot?: Json | null
+          user_id: string
+        }
+        Update: {
+          deleted_at?: string
+          deleted_by?: string | null
+          deleted_reason?: string | null
+          email?: string | null
+          id?: string
+          profile_snapshot?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_deletion_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -513,6 +572,10 @@ export type Database = {
         Args: { check_user_id: string }
         Returns: boolean
       }
+      admin_soft_delete_user: {
+        Args: { p_target_user_id: string; p_reason?: string | null }
+        Returns: Json
+      }
       validate_text_length: {
         Args: {
           field_name: string
@@ -521,6 +584,41 @@ export type Database = {
           text_value: string
         }
         Returns: boolean
+      }
+      search_topics: {
+        Args: {
+          p_query: string
+          p_limit?: number
+          p_offset?: number
+          p_sort?: string | null
+        }
+        Returns: {
+          id: string
+          title: string
+          description: string | null
+          tags: string[]
+          creator_id: string
+          creator_name: string | null
+          creator_avatar: string | null
+          created_at: string
+          end_at: string
+          status: string
+          exposure_level: string | null
+          total_votes: number
+          match_type: string | null
+        }[]
+      }
+      search_topic_suggestions: {
+        Args: {
+          p_query: string
+          p_limit?: number
+        }
+        Returns: {
+          suggestion_type: string | null
+          suggestion_text: string | null
+          topic_id: string | null
+          priority: number | null
+        }[]
       }
     }
     Enums: {

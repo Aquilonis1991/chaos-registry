@@ -5,10 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useTokenHistory } from "@/hooks/useTokenHistory";
 import { useAuth } from "@/hooks/useAuth";
-import { formatDistanceToNow } from "date-fns";
-import { zhTW } from "date-fns/locale";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
+import { formatRelativeTime } from "@/lib/relativeTime";
 
 const TokenUsageHistoryPage = () => {
   const { user } = useAuth();
@@ -90,10 +89,7 @@ const TokenUsageHistoryPage = () => {
                           <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
                             <Calendar className="w-3 h-3" />
                             <span>
-                              {formatDistanceToNow(new Date(transaction.created_at), { 
-                                addSuffix: true, 
-                                locale: zhTW 
-                              })}
+                              {formatRelativeTime(new Date(transaction.created_at), getText)}
                             </span>
                           </div>
                         </div>

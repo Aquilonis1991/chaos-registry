@@ -1,0 +1,11 @@
+key,category,zh,en,ja,description
+common.time.justNow,common_time,剛剛,Just now,たった今,相對時間：剛剛
+common.time.minutesAgo,common_time,大約 {{count}} 分鐘前,About {{count}} minutes ago,約{{count}}分前,相對時間：幾分鐘前
+common.time.hoursAgo,common_time,大約 {{count}} 小時前,About {{count}} hours ago,約{{count}}時間前,相對時間：幾小時前
+common.time.daysAgo,common_time,{{count}} 天前,{{count}} days ago,{{count}}日前,相對時間：幾天前
+common.time.expired,common_time,已結束,Expired,終了しました,已過期時顯示
+common.time.remainingSoon,common_time,即將結束,Ending soon,まもなく終了,剩餘時間不足 1 分時
+common.time.remainingMinutes,common_time,剩餘 {{count}} 分鐘,{{count}} minutes left,残り{{count}}分,剩餘分鐘
+common.time.remainingHours,common_time,剩餘 {{count}} 小時,{{count}} hours left,残り{{count}}時間,剩餘小時
+common.time.remainingDays,common_time,剩餘 {{count}} 天,{{count}} days left,残り{{count}}日,剩餘天數
+

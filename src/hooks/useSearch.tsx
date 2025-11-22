@@ -11,7 +11,7 @@ export interface SearchResult {
   created_at: string;
   end_at: string;
   status: string;
-  options: Array<{
+  options?: Array<{
     id: string;
     text: string;
     votes: number;
@@ -20,6 +20,7 @@ export interface SearchResult {
   creator_name?: string;
   creator_avatar?: string;
   match_type?: 'title' | 'tag' | 'description';
+  exposure_level?: 'normal' | 'medium' | 'high' | null;
 }
 
 interface SearchFilters {
@@ -32,12 +33,27 @@ interface SearchFilters {
   };
 }
 
+export type SearchSort = 'relevance' | 'hot' | 'latest';
+
+export interface SearchSuggestion {
+  suggestion_type: 'topic' | 'tag';
+  suggestion_text: string;
+  topic_id?: string | null;
+}
+
+const PAGE_SIZE = 20;
+
 export const useSearch = () => {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [filters, setFilters] = useState<SearchFilters>({});
+  const [sort, setSort] = useState<SearchSort>('relevance');
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [page, setPage] = useState(0);
+  const [lastQuery, setLastQuery] = useState("");
 
   // 載入搜尋歷史
   useEffect(() => {
@@ -51,108 +67,128 @@ export const useSearch = () => {
     }
   }, []);
 
-  // 執行搜尋
-  const search = async (searchQuery?: string) => {
-    const q = searchQuery !== undefined ? searchQuery : query;
-    
-    if (!q.trim()) {
+  const fetchResults = async (
+    searchQuery: string,
+    pageIndex = 0,
+    options?: { append?: boolean; skipHistory?: boolean }
+  ) => {
+    if (!searchQuery.trim()) {
       setResults([]);
+      setHasMore(false);
       return;
     }
 
     setLoading(true);
 
     try {
-      // 構建查詢
-      let dbQuery = supabase
-        .from('topics')
-        .select(`
-          *,
-          profiles:creator_id (
-            nickname,
-            avatar
-          )
-        `)
-        .eq('status', 'active')
-        .eq('is_hidden', false)  // 只顯示未隱藏的主題
-        .gte('end_at', new Date().toISOString());
-
-      // 搜尋關鍵字（標題或標籤）
-      const searchTerm = q.trim().toLowerCase();
-
-      // 使用 PostgreSQL 的文字搜尋（如果支援）或簡單的 LIKE 查詢
-      // 這裡我們先用前端篩選，因為 Supabase 的 textSearch 需要特殊配置
-      
-      // 應用篩選器
-      if (filters.status) {
-        dbQuery = dbQuery.eq('status', filters.status);
-      }
-
-      if (filters.tags && filters.tags.length > 0) {
-        dbQuery = dbQuery.overlaps('tags', filters.tags);
-      }
-
-      dbQuery = dbQuery.order('created_at', { ascending: false }).limit(50);
-
-      const { data, error } = await dbQuery;
+      const { data, error } = await supabase.rpc('search_topics', {
+        p_query: searchQuery,
+        p_limit: PAGE_SIZE,
+        p_offset: pageIndex * PAGE_SIZE,
+        p_sort: sort,
+      });
 
       if (error) throw error;
 
-      // 前端篩選和排序
-      const filtered = (data || []).filter(topic => {
-        const titleMatch = topic.title.toLowerCase().includes(searchTerm);
-        const tagMatch = topic.tags?.some((tag: string) => 
-          tag.toLowerCase().includes(searchTerm)
-        );
-        const descMatch = topic.description?.toLowerCase().includes(searchTerm);
-
-        return titleMatch || tagMatch || descMatch;
-      });
-
-      // 處理結果並添加匹配類型
-      const processedResults: SearchResult[] = filtered.map(topic => {
-        const totalVotes = topic.options?.reduce(
-          (sum: number, opt: any) => sum + (opt.votes || 0), 
-          0
-        ) || 0;
-
-        // 判斷匹配類型
-        let matchType: 'title' | 'tag' | 'description' = 'title';
-        if (topic.title.toLowerCase().includes(searchTerm)) {
-          matchType = 'title';
-        } else if (topic.tags?.some((tag: string) => tag.toLowerCase().includes(searchTerm))) {
-          matchType = 'tag';
-        } else {
-          matchType = 'description';
+      const filteredData = (data || []).filter(topic => {
+        if (filters.status && topic.status !== filters.status) return false;
+        if (filters.tags && filters.tags.length > 0) {
+          const topicTags = topic.tags || [];
+          const hasTag = filters.tags.some(tag =>
+            topicTags.some((t) => t.toLowerCase().includes(tag.toLowerCase()))
+          );
+          if (!hasTag) return false;
         }
-
-        return {
-          ...topic,
-          creator_name: topic.profiles?.nickname || '匿名用戶',
-          creator_avatar: topic.profiles?.avatar || '👤',
-          total_votes: totalVotes,
-          match_type: matchType,
-        };
+        if (filters.minVotes && (topic.total_votes || 0) < filters.minVotes) return false;
+        if (filters.dateRange?.start && new Date(topic.created_at) < filters.dateRange.start) {
+          return false;
+        }
+        if (filters.dateRange?.end && new Date(topic.created_at) > filters.dateRange.end) {
+          return false;
+        }
+        return true;
       });
 
-      // 按相關性排序（標題匹配 > 標籤匹配 > 描述匹配）
-      processedResults.sort((a, b) => {
-        const matchOrder = { title: 0, tag: 1, description: 2 };
-        return matchOrder[a.match_type!] - matchOrder[b.match_type!];
-      });
+      const processedResults: SearchResult[] = filteredData.map(topic => ({
+        ...topic,
+        creator_name: topic.creator_name || '匿名用戶',
+        creator_avatar: topic.creator_avatar || '👤',
+        total_votes: topic.total_votes || 0,
+        match_type: (topic.match_type as 'title' | 'tag' | 'description') ?? 'title',
+      }));
 
-      setResults(processedResults);
+      setResults(prev =>
+        options?.append ? [...prev, ...processedResults] : processedResults
+      );
+      setHasMore((filteredData || []).length === PAGE_SIZE);
+      setPage(pageIndex);
+      setLastQuery(searchQuery);
 
-      // 保存搜尋歷史
-      if (q.trim()) {
-        addToSearchHistory(q.trim());
+      if (!options?.skipHistory) {
+        addToSearchHistory(searchQuery);
       }
     } catch (error: any) {
       console.error('Search error:', error);
       toast.error('搜尋失敗');
-      setResults([]);
+      if (!options?.append) {
+        setResults([]);
+      }
+      setHasMore(false);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 執行搜尋
+  const search = async (searchQuery?: string, options?: { skipHistory?: boolean }) => {
+    const q = searchQuery !== undefined ? searchQuery : query;
+    
+    if (!q.trim()) {
+      setResults([]);
+      setHasMore(false);
+      return;
+    }
+
+    await fetchResults(q.trim(), 0, { append: false, skipHistory: options?.skipHistory });
+  };
+
+  const loadMore = async () => {
+    if (!hasMore || loading || !lastQuery.trim()) return;
+    await fetchResults(lastQuery, page + 1, { append: true, skipHistory: true });
+  };
+
+  // 排序變更時重新搜尋
+  useEffect(() => {
+    if (lastQuery.trim()) {
+      search(lastQuery, { skipHistory: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sort]);
+
+  const fetchSuggestions = async (text: string) => {
+    const trimmed = text.trim();
+    if (trimmed.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('search_topic_suggestions', {
+        p_query: trimmed,
+        p_limit: 10,
+      });
+
+      if (error) throw error;
+
+      setSuggestions(
+        (data || []).map(item => ({
+          suggestion_type: (item.suggestion_type as 'topic' | 'tag') ?? 'topic',
+          suggestion_text: item.suggestion_text || '',
+          topic_id: item.topic_id,
+        })).filter(item => item.suggestion_text)
+      );
+    } catch (error) {
+      console.error('Suggestion error:', error);
     }
   };
 
@@ -184,13 +220,14 @@ export const useSearch = () => {
   const clearResults = () => {
     setQuery("");
     setResults([]);
+    setHasMore(false);
   };
 
   // 應用篩選器
   const applyFilters = (newFilters: SearchFilters) => {
     setFilters(newFilters);
     if (query.trim()) {
-      search(query);
+      search(query, { skipHistory: true });
     }
   };
 
@@ -199,6 +236,10 @@ export const useSearch = () => {
     setQuery,
     results,
     loading,
+    sort,
+    setSort,
+    hasMore,
+    loadMore,
     search,
     clearResults,
     searchHistory,
@@ -206,6 +247,8 @@ export const useSearch = () => {
     removeFromHistory,
     filters,
     applyFilters,
+    suggestions,
+    fetchSuggestions,
   };
 };
 

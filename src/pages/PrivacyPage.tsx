@@ -2,9 +2,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useUIText } from "@/hooks/useUIText";
 
 const PrivacyPage = () => {
   const navigate = useNavigate();
+  const { language } = useLanguage();
+  const { getText } = useUIText(language);
 
   return (
     <div className="min-h-screen bg-background pb-8">
@@ -21,8 +25,12 @@ const PrivacyPage = () => {
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
-              <h1 className="text-xl font-bold text-primary-foreground">隱私權政策</h1>
-              <p className="text-xs text-primary-foreground/80">Privacy Policy</p>
+              <h1 className="text-xl font-bold text-primary-foreground">
+                {getText('privacyPage.header.title', '隱私權政策')}
+              </h1>
+              <p className="text-xs text-primary-foreground/80">
+                {getText('privacyPage.header.subtitle', 'Privacy Policy')}
+              </p>
             </div>
           </div>
         </div>

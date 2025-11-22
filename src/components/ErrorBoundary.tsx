@@ -2,6 +2,8 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, RefreshCcw, Home, Bug } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useUIText } from '@/hooks/useUIText';
 
 interface Props {
   children: ReactNode;
@@ -16,8 +18,98 @@ interface State {
 }
 
 /**
+ * 錯誤 UI 組件（使用 hooks）
+ */
+const ErrorUI = ({ 
+  error, 
+  errorInfo, 
+  onReset, 
+  onReload, 
+  onGoHome 
+}: { 
+  error: Error | null; 
+  errorInfo: ErrorInfo | null;
+  onReset: () => void;
+  onReload: () => void;
+  onGoHome: () => void;
+}) => {
+  const { language } = useLanguage();
+  const { getText } = useUIText(language);
+
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Card className="max-w-lg w-full">
+        <CardHeader>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
+              <AlertTriangle className="w-6 h-6 text-destructive" />
+            </div>
+            <div>
+              <CardTitle className="text-2xl">{getText('errorBoundary.title', '哎呀！出錯了')}</CardTitle>
+              <CardDescription>{getText('errorBoundary.description', '應用程式遇到了一些問題')}</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="bg-muted rounded-lg p-4">
+            <p className="text-sm font-medium mb-2">{getText('errorBoundary.messageLabel', '錯誤訊息：')}</p>
+            <p className="text-sm text-muted-foreground font-mono">
+              {error?.message || getText('errorBoundary.unknownError', '未知錯誤')}
+            </p>
+          </div>
+
+          {/* 開發模式顯示詳細資訊 */}
+          {import.meta.env.DEV && errorInfo && (
+            <details className="bg-muted rounded-lg p-4">
+              <summary className="text-sm font-medium cursor-pointer mb-2">
+                {getText('errorBoundary.devDetails', '技術詳情（開發模式）')}
+              </summary>
+              <pre className="text-xs text-muted-foreground overflow-auto max-h-40 mt-2">
+                {errorInfo.componentStack}
+              </pre>
+            </details>
+          )}
+
+          <div className="flex flex-col gap-2">
+            <Button onClick={onReset} className="w-full">
+              <RefreshCcw className="w-4 h-4 mr-2" />
+              {getText('errorBoundary.button.retry', '重試')}
+            </Button>
+            
+            <Button onClick={onReload} variant="outline" className="w-full">
+              <RefreshCcw className="w-4 h-4 mr-2" />
+              {getText('errorBoundary.button.reload', '重新載入頁面')}
+            </Button>
+
+            <Button onClick={onGoHome} variant="outline" className="w-full">
+              <Home className="w-4 h-4 mr-2" />
+              {getText('errorBoundary.button.home', '返回首頁')}
+            </Button>
+          </div>
+
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground mb-2">
+              {getText('errorBoundary.contactSupport', '如果問題持續發生，請聯繫客服')}
+            </p>
+            <Button variant="link" size="sm" asChild>
+              <a href="mailto:support@votechaos.com">
+                <Bug className="w-4 h-4 mr-2" />
+                {getText('errorBoundary.button.report', '回報問題')}
+              </a>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+/**
  * 全局錯誤邊界組件
  * 捕獲子組件中的 JavaScript 錯誤，顯示友善的錯誤頁面
+ * 
+ * 注意：Error Boundary 必須是類組件，但我們使用內部函數組件來渲染 UI，
+ * 這樣就可以使用 hooks 來接入 UI 文字管理系統。
  */
 class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
@@ -79,72 +171,15 @@ class ErrorBoundary extends Component<Props, State> {
         return this.props.fallback;
       }
 
-      // 否則顯示預設的錯誤 UI
+      // 使用函數組件來渲染 UI，這樣可以使用 hooks
       return (
-        <div className="min-h-screen bg-background flex items-center justify-center p-4">
-          <Card className="max-w-lg w-full">
-            <CardHeader>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
-                  <AlertTriangle className="w-6 h-6 text-destructive" />
-                </div>
-                <div>
-                  <CardTitle className="text-2xl">哎呀！出錯了</CardTitle>
-                  <CardDescription>應用程式遇到了一些問題</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="bg-muted rounded-lg p-4">
-                <p className="text-sm font-medium mb-2">錯誤訊息：</p>
-                <p className="text-sm text-muted-foreground font-mono">
-                  {this.state.error?.message || '未知錯誤'}
-                </p>
-              </div>
-
-              {/* 開發模式顯示詳細資訊 */}
-              {import.meta.env.DEV && this.state.errorInfo && (
-                <details className="bg-muted rounded-lg p-4">
-                  <summary className="text-sm font-medium cursor-pointer mb-2">
-                    技術詳情（開發模式）
-                  </summary>
-                  <pre className="text-xs text-muted-foreground overflow-auto max-h-40 mt-2">
-                    {this.state.errorInfo.componentStack}
-                  </pre>
-                </details>
-              )}
-
-              <div className="flex flex-col gap-2">
-                <Button onClick={this.handleReset} className="w-full">
-                  <RefreshCcw className="w-4 h-4 mr-2" />
-                  重試
-                </Button>
-                
-                <Button onClick={this.handleReload} variant="outline" className="w-full">
-                  <RefreshCcw className="w-4 h-4 mr-2" />
-                  重新載入頁面
-                </Button>
-
-                <Button onClick={this.handleGoHome} variant="outline" className="w-full">
-                  <Home className="w-4 h-4 mr-2" />
-                  返回首頁
-                </Button>
-              </div>
-
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-2">
-                  如果問題持續發生，請聯繫客服
-                </p>
-                <Button variant="link" size="sm" asChild>
-                  <a href="mailto:support@votechaos.com">
-                    <Bug className="w-4 h-4 mr-2" />
-                    回報問題
-                  </a>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <ErrorUI
+          error={this.state.error}
+          errorInfo={this.state.errorInfo}
+          onReset={this.handleReset}
+          onReload={this.handleReload}
+          onGoHome={this.handleGoHome}
+        />
       );
     }
 

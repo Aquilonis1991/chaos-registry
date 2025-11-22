@@ -1,0 +1,11 @@
+key,category,zh,en,ja,description
+search.header.title,search_page,搜尋主題,Search Topics,トピックを検索,搜尋頁面標題
+search.header.subtitle,search_page,輸入關鍵字或標籤，快速找到討論,Enter keywords or tags to find discussions quickly,キーワードやタグを入力して素早く探す,搜尋頁面副標
+search.tab.relevance,search_page,相關度,Relevance,関連度,搜尋結果排序 tab：相關度
+search.tab.hot,search_page,熱門,Hot,人気,搜尋結果排序 tab：熱門
+search.tab.latest,search_page,最新,Latest,最新,搜尋結果排序 tab：最新
+search.empty.withQuery,search_page,找不到符合的主題，換個關鍵字試試？,No topics found, try another keyword?,条件に合うトピックが見つかりません。他のキーワードを試してください,搜尋結果為空（有輸入）
+search.empty.noQuery,search_page,輸入關鍵字開始搜尋,Start typing keywords to search,キーワードを入力して検索を開始,搜尋結果為空（無輸入）
+search.loadMore,search_page,載入更多,Load More,さらに読み込む,搜尋結果載入更多按鈕
+search.button.backHome,search_page,返回首頁,Back to Home,ホームに戻る,搜尋頁面返回首頁按鈕
+

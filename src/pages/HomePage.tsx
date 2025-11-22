@@ -6,17 +6,14 @@ import { PlusCircle, Coins, Loader2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { AnnouncementCarousel } from "@/components/AnnouncementCarousel";
 import { SearchBar } from "@/components/SearchBar";
-import { SearchResults } from "@/components/SearchResults";
-import { SearchFilters } from "@/components/SearchFilters";
 import { useTopics } from "@/hooks/useTopics";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
-import { useSearch } from "@/hooks/useSearch";
-import { formatDistanceToNow } from "date-fns";
-import { zhTW } from "date-fns/locale";
-import { AdBanner } from "@/components/AdBanner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
+import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
+import { formatRelativeTime } from "@/lib/relativeTime";
+import { insertAdsIntoList } from "@/lib/adInsertion";
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -24,8 +21,8 @@ const HomePage = () => {
   const { profile } = useProfile();
   const { language } = useLanguage();
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
-  const [currentTab, setCurrentTab] = useState<'hot' | 'latest' | 'joined' | 'search'>('hot');
-  const { results: searchResults, loading: searchLoading, query, applyFilters } = useSearch();
+  const { getConfig, refreshConfigs } = useSystemConfigCache();
+  const [currentTab, setCurrentTab] = useState<'hot' | 'latest' | 'joined'>('hot');
   
   // 根據當前標籤獲取主題
   const { topics: hotTopics, loading: hotLoading } = useTopics({ 
@@ -41,13 +38,63 @@ const HomePage = () => {
     userId: user?.id 
   });
 
+  const promotedLimitConfig = getConfig('home_promoted_limit', 30);
+  const promotedLimit = Number(promotedLimitConfig) || 30;
+
+  const promotedHotTopics = hotTopics
+    .filter((topic) => topic.current_exposure_level)
+    .slice(0, promotedLimit);
+  const promotedHotTopicIds = new Set(promotedHotTopics.map((topic) => topic.id));
+  const hasNonPromotedHotTopics = hotTopics.some(
+    (topic) => !promotedHotTopicIds.has(topic.id)
+  );
+  const shouldShowPromotedSection = promotedHotTopics.length > 0 && hasNonPromotedHotTopics;
+
+  const regularHotTopics = shouldShowPromotedSection
+    ? hotTopics.filter((topic) => !promotedHotTopicIds.has(topic.id))
+    : hotTopics;
+
+  // 廣告配置（從系統配置讀取）
+  // 暫時降低 skipFirst 以便測試（實際使用時應從配置讀取）
+  const adInsertionInterval = Number(getConfig('ad_insertion_interval', 10)) || 10;
+  const adInsertionSkipFirst = Number(getConfig('ad_insertion_skip_first', 3)) || 3; // 暫時改為 3 以便測試
+  const adUnitIdConfig = getConfig('admob_native_ad_unit_id', 'ca-app-pub-3940256099942544/2247696110');
+  const adUnitId = typeof adUnitIdConfig === 'string' ? adUnitIdConfig : String(adUnitIdConfig || '');
+  const adInsertionEnabledValue = getConfig('ad_insertion_enabled', true);
+  const adInsertionEnabled = adInsertionEnabledValue === true || adInsertionEnabledValue === 'true' || String(adInsertionEnabledValue).toLowerCase() === 'true';
+  
+  const adConfig = {
+    interval: adInsertionInterval,
+    skipFirst: adInsertionSkipFirst,
+    adUnitId: adUnitId,
+    enabled: adInsertionEnabled,
+  };
+
+  const hotTabSkipFirst = shouldShowPromotedSection
+    ? Math.max(0, adConfig.skipFirst - promotedHotTopics.length)
+    : adConfig.skipFirst;
+
+  // 調試信息（開發環境）
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('廣告配置:', {
+        enabled: adInsertionEnabled,
+        interval: adInsertionInterval,
+        skipFirst: adInsertionSkipFirst,
+        adUnitId: adUnitId,
+        hotTopicsCount: hotTopics.length,
+        latestTopicsCount: latestTopics.length,
+        joinedTopicsCount: joinedTopics.length,
+      });
+    }
+  }, [adInsertionEnabled, adInsertionInterval, adInsertionSkipFirst, adUnitId, hotTopics.length, latestTopics.length, joinedTopics.length]);
+
   const userTokens = profile?.tokens || 0;
 
-  // 當有搜尋結果時自動切換到搜尋分頁
-  const handleSearchResults = (results: any[]) => {
-    if (results.length > 0 || query) {
-      setCurrentTab('search');
-    }
+  const handleSearchSubmit = (term: string) => {
+    const sanitized = term.trim();
+    if (!sanitized) return;
+    navigate(`/search?q=${encodeURIComponent(sanitized)}`);
   };
 
   if (uiTextsLoading) {
@@ -58,6 +105,8 @@ const HomePage = () => {
     );
   }
 
+  const formatCreatedAt = (dateString: string) => formatRelativeTime(new Date(dateString), getText);
+
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
@@ -66,10 +115,10 @@ const HomePage = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-primary-foreground">
-                {getText('home.header.title', 'VoteChaos')}
+                {getText('home.header.title', 'ChaosRegistry')}
               </h1>
               <p className="text-sm text-primary-foreground/80">
-                {getText('home.header.subtitle', '投票混亂製造機')}
+                {getText('home.header.subtitle', '不理性登記處')}
               </p>
             </div>
             
@@ -92,26 +141,12 @@ const HomePage = () => {
         </div>
 
         {/* Search Bar */}
-        <div className="mb-6 flex gap-2">
-          <div className="flex-1">
-            <SearchBar 
-              onSearchResults={handleSearchResults}
-              showHistory={true}
-            />
-          </div>
-          <SearchFilters 
-            onApplyFilters={applyFilters}
-          />
+        <div className="mb-6">
+          <SearchBar onSubmit={handleSearchSubmit} showHistory={true} />
         </div>
 
-        {/* AdMob Banner 廣告 */}
-        <AdBanner 
-          className="mb-6"
-          placeholderText={getText('home.banner.placeholder', '首頁 Banner 廣告')}
-        />
-
         <Tabs value={currentTab} onValueChange={(v) => setCurrentTab(v as any)} className="w-full">
-          <TabsList className="w-full grid grid-cols-4 mb-6 bg-muted h-12">
+          <TabsList className="w-full grid grid-cols-3 mb-6 bg-muted h-12">
             <TabsTrigger value="hot" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               {getText('home.tab.hot', '🔥 熱門')}
             </TabsTrigger>
@@ -120,9 +155,6 @@ const HomePage = () => {
             </TabsTrigger>
             <TabsTrigger value="joined" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               {getText('home.tab.joined', '✅ 參與過')}
-            </TabsTrigger>
-            <TabsTrigger value="search" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              {getText('home.tab.search', '🔍 搜尋')}
             </TabsTrigger>
           </TabsList>
 
@@ -141,33 +173,62 @@ const HomePage = () => {
                 </Button>
               </div>
             ) : (
-              hotTopics.map((topic, index) => (
-                <div key={topic.id}>
-                  <TopicCard 
-                    id={topic.id}
-                    title={topic.title}
-                    tags={topic.tags}
-                    voteCount={topic.total_votes || 0}
-                    creatorName={topic.creator_name || getText('common.anonymous', '匿名')}
-                    isHot={topic.is_hot}
-                    createdAt={formatDistanceToNow(new Date(topic.created_at), { 
-                      addSuffix: true, 
-                      locale: zhTW 
-                    })}
-                  />
-                  {/* AdMob Section - Between Topics */}
-                  {index === 1 && (
-                    <div className="bg-muted/50 border-2 border-dashed border-muted-foreground/30 rounded-lg p-8 text-center mt-4">
-                      <p className="text-muted-foreground text-sm">
-                        {getText('home.ad.native.placeholder', '📱 AdMob 中間廣告')}
-                      </p>
-                      <p className="text-muted-foreground text-xs">
-                        {getText('home.ad.native.size', 'Native Ad / Medium Rectangle (300x250)')}
-                      </p>
+              <>
+                {/* 推廣主題區（前3個有曝光的主題） */}
+                {shouldShowPromotedSection && (
+                  <div className="mb-6">
+                    <div className="mb-3 px-2">
+                      <h3 className="text-sm font-semibold text-muted-foreground">
+                        {getText('home.hot.promoted', '推廣主題區（付費曝光）')}
+                      </h3>
                     </div>
-                  )}
-                </div>
-              ))
+                    <div className="space-y-4">
+                      {promotedHotTopics.map((topic) => (
+                        <div key={topic.id}>
+                          <TopicCard 
+                            id={topic.id}
+                            title={topic.title}
+                            tags={topic.tags}
+                            voteCount={topic.total_votes || 0}
+                            creatorName={topic.creator_name || getText('common.anonymous', '匿名')}
+                            isHot={topic.is_hot}
+                            createdAt={formatCreatedAt(topic.created_at)}
+                            currentExposureLevel={topic.current_exposure_level || null}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* 一般主題列表 */}
+                {regularHotTopics.length > 0 && (
+                  <div className="space-y-4">
+                    {insertAdsIntoList(
+                      regularHotTopics,
+                      (topic, index) => (
+                        <div key={topic.id}>
+                          <TopicCard 
+                            id={topic.id}
+                            title={topic.title}
+                            tags={topic.tags}
+                            voteCount={topic.total_votes || 0}
+                            creatorName={topic.creator_name || getText('common.anonymous', '匿名')}
+                            isHot={topic.is_hot}
+                            createdAt={formatCreatedAt(topic.created_at)}
+                            currentExposureLevel={topic.current_exposure_level || null}
+                          />
+                        </div>
+                      ),
+                      {
+                        ...adConfig,
+                        adIndex: 0,
+                        skipFirst: hotTabSkipFirst
+                      }
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </TabsContent>
 
@@ -186,33 +247,26 @@ const HomePage = () => {
                 </Button>
               </div>
             ) : (
-              latestTopics.map((topic, index) => (
-                <div key={topic.id}>
-                  <TopicCard 
-                    id={topic.id}
-                    title={topic.title}
-                    tags={topic.tags}
-                    voteCount={topic.total_votes || 0}
-                    creatorName={topic.creator_name || getText('common.anonymous', '匿名')}
-                    isHot={topic.is_hot}
-                    createdAt={formatDistanceToNow(new Date(topic.created_at), { 
-                      addSuffix: true, 
-                      locale: zhTW 
-                    })}
-                  />
-                  {/* AdMob Section - Between Topics */}
-                  {index === 2 && (
-                    <div className="bg-muted/50 border-2 border-dashed border-muted-foreground/30 rounded-lg p-8 text-center mt-4">
-                      <p className="text-muted-foreground text-sm">
-                        {getText('home.ad.native.placeholder', '📱 AdMob 中間廣告')}
-                      </p>
-                      <p className="text-muted-foreground text-xs">
-                        {getText('home.ad.native.size', 'Native Ad / Medium Rectangle (300x250)')}
-                      </p>
+              <div className="space-y-4">
+                {insertAdsIntoList(
+                  latestTopics,
+                  (topic) => (
+                    <div key={topic.id}>
+                      <TopicCard 
+                        id={topic.id}
+                        title={topic.title}
+                        tags={topic.tags}
+                        voteCount={topic.total_votes || 0}
+                        creatorName={topic.creator_name || getText('common.anonymous', '匿名')}
+                        isHot={topic.is_hot}
+                        createdAt={formatCreatedAt(topic.created_at)}
+                        currentExposureLevel={topic.current_exposure_level || null}
+                      />
                     </div>
-                  )}
-                </div>
-              ))
+                  ),
+                  { ...adConfig, adIndex: 100 }
+                )}
+              </div>
             )}
           </TabsContent>
 
@@ -231,32 +285,29 @@ const HomePage = () => {
                 </Button>
               </div>
             ) : (
-              joinedTopics.map((topic) => (
-                <div key={topic.id}>
-                  <TopicCard 
-                    id={topic.id}
-                    title={topic.title}
-                    tags={topic.tags}
-                    voteCount={topic.total_votes || 0}
-                    creatorName={topic.creator_name || getText('common.anonymous', '匿名')}
-                    isHot={topic.is_hot}
-                    createdAt={formatDistanceToNow(new Date(topic.created_at), { 
-                      addSuffix: true, 
-                      locale: zhTW 
-                    })}
-                  />
-                </div>
-              ))
+              <div className="space-y-4">
+                {insertAdsIntoList(
+                  joinedTopics,
+                  (topic) => (
+                    <div key={topic.id}>
+                      <TopicCard 
+                        id={topic.id}
+                        title={topic.title}
+                        tags={topic.tags}
+                        voteCount={topic.total_votes || 0}
+                        creatorName={topic.creator_name || getText('common.anonymous', '匿名')}
+                        isHot={topic.is_hot}
+                        createdAt={formatCreatedAt(topic.created_at)}
+                        currentExposureLevel={topic.current_exposure_level || null}
+                      />
+                    </div>
+                  ),
+                  { ...adConfig, adIndex: 200 }
+                )}
+              </div>
             )}
           </TabsContent>
 
-          <TabsContent value="search" className="space-y-4 mt-0">
-            <SearchResults 
-              results={searchResults}
-              query={query}
-              loading={searchLoading}
-            />
-          </TabsContent>
         </Tabs>
       </div>
 

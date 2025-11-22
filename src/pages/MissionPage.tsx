@@ -9,7 +9,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
@@ -53,6 +53,14 @@ const MISSION_TEMPLATES = [
   },
 ];
 
+interface LoginStreakInfo {
+  current_streak: number;
+  total_login_days: number;
+  last_login_date: string | null;
+  can_claim_today: boolean;
+  streak_reward_available: boolean;
+}
+
 const MissionPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -63,13 +71,15 @@ const MissionPage = () => {
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
   const [isWatchingAd, setIsWatchingAd] = useState(false);
   const [isClaimingLogin, setIsClaimingLogin] = useState(false);
-  const [loginStreakInfo, setLoginStreakInfo] = useState<any>(null);
+  const [loginStreakInfo, setLoginStreakInfo] = useState<LoginStreakInfo | null>(null);
+  const [displayedStreak, setDisplayedStreak] = useState(0);
   const [loadingStreak, setLoadingStreak] = useState(true);
   const [userMissions, setUserMissions] = useState<Record<string, { completed: boolean; completed_at: string | null }>>({});
   const [loadingMissions, setLoadingMissions] = useState(true);
   const [claimingMissionId, setClaimingMissionId] = useState<string | null>(null);
 
   const userTokens = profile?.tokens || 0;
+  const lastStableStreakRef = useRef(0);
 
   const localizedMissions = useMemo(() => {
     return MISSION_TEMPLATES.map((mission) => ({
@@ -101,15 +111,6 @@ const MissionPage = () => {
   const missionClaiming = getText('mission.list.claiming', '領取中...');
   const missionClaimButton = getText('mission.list.claimButton', '領取獎勵');
   const missionClaimed = getText('mission.list.claimed', '已領取');
-  const infoCardTitle = getText('mission.info.title', '💡 儲值說明');
-  const infoCardItems = [
-    getText('mission.info.item1', '• 代幣可用於投票、發起主題等功能'),
-    getText('mission.info.item2', '• 儲值金額越高，贈送代幣越多'),
-    getText('mission.info.item3', '• 完成每日任務也可免費獲得代幣'),
-    getText('mission.info.item4', '• 代幣永久有效，不會過期'),
-  ];
-  const mobileNoteTitle = getText('mission.mobile.title', '📱 關於行動應用內購');
-  const mobileNoteDescription = getText('mission.mobile.description', '如需整合 Google Play 或 App Store 內購功能，需要使用 Capacitor 將應用打包為原生行動應用。目前的網頁版使用模擬購買流程。');
   const missionAlreadyClaimedInfo = getText('mission.toast.alreadyClaimed', '任務獎勵已領取');
   const missionIdMissingError = getText('mission.toast.missionMissing', '任務 ID 不存在');
   const claimSuccessTitle = getText('mission.toast.claimSuccess.title', '獎勵領取成功！');
@@ -188,18 +189,6 @@ const MissionPage = () => {
     const dbMissionId = MISSION_ID_MAP[missionId];
     const isClaimed = dbMissionId ? userMissions[dbMissionId]?.completed === true : false;
 
-    console.log('📊 Mission Progress Calculation:', {
-      missionId,
-      dbMissionId,
-      isClaimed,
-      stats: {
-        totalVotes: stats.totalVotes,
-        uniqueTopicVotes: stats.uniqueTopicVotes,
-        topicsCreated: stats.topicsCreated
-      },
-      userMissions: userMissions
-    });
-
     // 如果已領取，任務視為已完成（即使統計數據為 0）
     if (isClaimed) {
       return { progress: 100, completed: true };
@@ -227,31 +216,62 @@ const MissionPage = () => {
           completed: stats.topicsCreated > 0
         };
       case "4": // 7天登入：連續登入 7 天
+        const streakForDisplay = displayedStreak || 0;
         return {
-          progress: loginStreakInfo ? Math.min((loginStreakInfo.current_streak / 7) * 100, 100) : 0,
-          completed: loginStreakInfo ? loginStreakInfo.current_streak >= 7 : false
+          progress: Math.min((streakForDisplay / 7) * 100, 100),
+          completed: streakForDisplay >= 7
         };
       default:
         return { progress: 0, completed: false };
     }
   };
 
-  // 載入登入連勝資訊
-  useEffect(() => {
-    loadLoginStreak();
+  const applyLoginStreakInfo = useCallback((info: LoginStreakInfo | null) => {
+    setLoginStreakInfo(info);
+
+    if (!info) {
+      lastStableStreakRef.current = 0;
+      setDisplayedStreak(0);
+      return;
+    }
+
+    const nextStreak = info.current_streak ?? 0;
+    if (nextStreak > 0) {
+      lastStableStreakRef.current = nextStreak;
+      setDisplayedStreak(nextStreak);
+      return;
+    }
+
+    if (lastStableStreakRef.current > 0 && info.can_claim_today) {
+      setDisplayedStreak(lastStableStreakRef.current);
+      return;
+    }
+
+    lastStableStreakRef.current = nextStreak;
+    setDisplayedStreak(nextStreak);
   }, []);
 
-  const loadLoginStreak = async () => {
-    setLoadingStreak(true);
+  const loadLoginStreak = useCallback(async (options: { showLoader?: boolean } = {}) => {
+    const { showLoader = true } = options;
+    if (showLoader) {
+      setLoadingStreak(true);
+    }
     try {
       const info = await getLoginStreakInfo();
-      setLoginStreakInfo(info);
+      applyLoginStreakInfo(info);
     } catch (error) {
       console.error('Error loading login streak:', error);
     } finally {
-      setLoadingStreak(false);
+      if (showLoader) {
+        setLoadingStreak(false);
+      }
     }
-  };
+  }, [getLoginStreakInfo, applyLoginStreakInfo]);
+
+  // 載入登入連勝資訊
+  useEffect(() => {
+    loadLoginStreak();
+  }, [loadLoginStreak]);
 
   const handleWatchAd = async () => {
     if (isWatchingAd) return;
@@ -277,11 +297,22 @@ const MissionPage = () => {
     
     setIsClaimingLogin(true);
     try {
-      await claimDailyLogin();
-      // 重新載入連勝資訊
-      await loadLoginStreak();
-      // 刷新代幣顯示
-      await refreshProfile();
+      const loginInfo = await claimDailyLogin();
+      if (loginInfo) {
+        const normalizedInfo: LoginStreakInfo = {
+          current_streak: loginInfo.currentStreak,
+          total_login_days: loginInfo.totalDays,
+          last_login_date: loginInfo.lastLoginDate,
+          can_claim_today: loginInfo.canClaimToday,
+          streak_reward_available: loginInfo.streakRewardAvailable,
+        };
+        applyLoginStreakInfo(normalizedInfo);
+      }
+      // 背景同步資料，避免阻塞 UI
+      void Promise.allSettled([
+        loadLoginStreak({ showLoader: false }),
+        refreshProfile()
+      ]);
     } catch (error) {
       // Error handled in useMissionOperations
     } finally {
@@ -314,12 +345,12 @@ const MissionPage = () => {
         toast.success(claimSuccessTitle, {
           description: claimDesc
         });
-        // 重新載入任務狀態
-        await loadUserMissions();
-        // 刷新代幣顯示
-        await refreshProfile();
-        // 刷新統計數據
-        await refreshStats();
+        // 背景同步最新任務與代幣資訊，避免阻塞 UI
+        void Promise.allSettled([
+          loadUserMissions(),
+          refreshProfile(),
+          refreshStats()
+        ]);
       }
     } catch (error: any) {
       console.error('Claim reward error:', error);
@@ -484,19 +515,6 @@ const MissionPage = () => {
             const isClaimed = isRewardClaimed(mission.id);
             const isClaiming = claimingMissionId === mission.id;
             
-            // 調試日誌
-            console.log(`🎯 Mission ${mission.id} (${mission.name}):`, {
-              progress: progressPercentage,
-              completed: isCompleted,
-              claimed: isClaimed,
-              userMissions: userMissions,
-              stats: {
-                totalVotes: stats.totalVotes,
-                uniqueTopicVotes: stats.uniqueTopicVotes,
-                topicsCreated: stats.topicsCreated
-              }
-            });
-            
             // 如果已領取，顯示已領取狀態
             // 如果未領取但已完成條件，顯示領取按鈕
             // 如果未完成，顯示進度條
@@ -589,25 +607,7 @@ const MissionPage = () => {
           })}
         </div>
 
-        <Card className="bg-muted/50 border-muted">
-          <CardContent className="p-4">
-            <h3 className="font-semibold text-foreground mb-2">{infoCardTitle}</h3>
-            <ul className="space-y-1 text-sm text-muted-foreground">
-              {infoCardItems.map((item, index) => (
-                <li key={index}>{item}</li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
 
-        <Card className="bg-primary/5 border-primary/20">
-          <CardContent className="p-4">
-            <h3 className="font-semibold text-foreground mb-2">{mobileNoteTitle}</h3>
-            <p className="text-sm text-muted-foreground">
-              {mobileNoteDescription}
-            </p>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

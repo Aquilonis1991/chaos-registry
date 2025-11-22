@@ -5,6 +5,16 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { 
   User, 
   Coins, 
@@ -32,6 +42,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useUIText } from "@/hooks/useUIText";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserStats } from "@/hooks/useUserStats";
@@ -49,19 +60,21 @@ const ProfilePage = () => {
   const [notifications, setNotifications] = useState(true);
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempNickname, setTempNickname] = useState("");
-  const [selectedAvatar, setSelectedAvatar] = useState("🔥");
-  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
-  const { language, setLanguage, t } = useLanguage();
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [pendingNickname, setPendingNickname] = useState<string | null>(null);
+  const [pendingReviewKeyword, setPendingReviewKeyword] = useState<string | null>(null);
+  const { language, setLanguage } = useLanguage();
+  const { getText, isLoading: uiTextsLoading } = useUIText(language);
 
   // 獲取未讀通知數量
   useEffect(() => {
     if (user?.id) {
       const fetchUnreadCount = async () => {
         try {
-          const { data, error } = await supabase.rpc('get_unread_notification_count');
-          if (!error && data !== null) {
+          const { data, error } = await (supabase.rpc as any)('get_unread_notification_count');
+          if (!error && typeof data === 'number') {
             setUnreadNotificationCount(data);
           }
         } catch (error) {
@@ -81,12 +94,79 @@ const ProfilePage = () => {
     navigate("/auth");
   };
   
+  const handleNicknameUpdateError = (error: any) => {
+    if (error?.errors) {
+      toast.error(error.errors[0]?.message || getText('profile.error.updateFailed', '更新失敗'));
+    } else {
+      toast.error(getText('profile.error.updateFailed', '更新失敗'));
+    }
+  };
+
+  const finalizeNicknameUpdate = async (nickname: string): Promise<boolean> => {
+    if (!profile) return false;
+
+    const { data: existingNickname, error: checkError } = await supabase
+      .from('profiles')
+      .select('id')
+      .ilike('nickname', nickname)
+      .neq('id', profile.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      throw checkError;
+    }
+
+    if (existingNickname) {
+      toast.error(getText('profile.error.nameDuplicate', '名稱已被其他用戶使用，請選擇不同的名稱'));
+      return false;
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ nickname })
+      .eq('id', profile.id);
+
+    if (error) throw error;
+
+    setTempNickname(nickname);
+    setIsEditingName(false);
+    toast.success(getText('profile.nameUpdated', '名稱已更新'));
+    return true;
+  };
+
+  const handleReviewCancel = () => {
+    setReviewDialogOpen(false);
+    setPendingNickname(null);
+    setPendingReviewKeyword(null);
+  };
+
+  const handleReviewConfirm = async () => {
+    if (!pendingNickname) {
+      handleReviewCancel();
+      return;
+    }
+
+    setReviewDialogOpen(false);
+    setIsUpdatingProfile(true);
+
+    try {
+      await finalizeNicknameUpdate(pendingNickname);
+    } catch (error: any) {
+      handleNicknameUpdateError(error);
+    } finally {
+      setIsUpdatingProfile(false);
+      setPendingNickname(null);
+      setPendingReviewKeyword(null);
+    }
+  };
+  
   const handleSaveName = async () => {
     if (!profile) return;
 
     const trimmedNickname = tempNickname.trim();
     if (!trimmedNickname) {
-      toast.error('名稱不能為空白');
+      toast.error(getText('profile.error.nameEmpty', '名稱不能為空白'));
       return;
     }
 
@@ -96,7 +176,7 @@ const ProfilePage = () => {
       const { checkUserRestriction } = await import("@/lib/userRestrictions");
       const restriction = await checkUserRestriction(profile.id, 'modify_name');
       if (restriction.restricted) {
-        toast.error(restriction.reason || '修改名稱功能已被暫停');
+        toast.error(restriction.reason || getText('profile.error.nameModifyRestricted', '修改名稱功能已被暫停'));
         setIsUpdatingProfile(false);
         return;
       }
@@ -104,59 +184,43 @@ const ProfilePage = () => {
       // Validate with Zod
       profileUpdateSchema.parse({
         nickname: trimmedNickname,
-        avatar: selectedAvatar,
+        avatar: profile.avatar ?? '👤',
         notifications
       });
 
       // 檢查禁字
       const bannedCheck = await validateNickname(trimmedNickname);
       if (bannedCheck.found) {
-        if (bannedCheck.action === 'block') {
+        if (bannedCheck.action === 'block' || bannedCheck.action === 'mask') {
+          const bannedWordFoundTemplate = getText('profile.error.bannedWordFound', '發現禁字：{{keyword}}（級別：{{level}}）');
+          const bannedWordDescription = bannedWordFoundTemplate
+            .replace('{{keyword}}', bannedCheck.keyword || '')
+            .replace('{{level}}', bannedCheck.level || '');
           toast.error(getBannedWordErrorMessage(bannedCheck), {
-            description: `發現禁字：${bannedCheck.keyword}（級別：${bannedCheck.level}）`
+            description: bannedWordDescription
           });
+          setIsUpdatingProfile(false);
           return;
         } else if (bannedCheck.action === 'review') {
-          toast.warning('名稱需要人工審核', {
-            description: `發現敏感字詞：${bannedCheck.keyword}`
+          const reviewTitle = getText('profile.warning.nameReviewTitle', '名稱包含敏感字詞');
+          const reviewDescriptionTemplate = getText('profile.warning.nameReviewDesc', '發現敏感字詞：{{keyword}}');
+          const reviewDescription = reviewDescriptionTemplate.replace('{{keyword}}', bannedCheck.keyword || '');
+
+          toast.warning(reviewTitle, {
+            description: reviewDescription
           });
+
+          setPendingNickname(trimmedNickname);
+          setPendingReviewKeyword(bannedCheck.keyword || '');
+          setReviewDialogOpen(true);
+          setIsUpdatingProfile(false);
+          return;
         }
       }
 
-      // 檢查是否與現有用戶重複（忽略大小寫）
-      const { data: existingNickname, error: checkError } = await supabase
-        .from('profiles')
-        .select('id')
-        .ilike('nickname', trimmedNickname)
-        .neq('id', profile.id)
-        .limit(1)
-        .maybeSingle();
-
-      if (checkError && checkError.code !== 'PGRST116') {
-        throw checkError;
-      }
-
-      if (existingNickname) {
-        toast.error('名稱已被其他用戶使用，請選擇不同的名稱');
-        return;
-      }
-
-      const { error } = await supabase
-        .from('profiles')
-        .update({ nickname: trimmedNickname })
-        .eq('id', profile.id);
-
-      if (error) throw error;
-
-      setTempNickname(trimmedNickname);
-      setIsEditingName(false);
-      toast.success(t("profile.nameUpdated"));
+      await finalizeNicknameUpdate(trimmedNickname);
     } catch (error: any) {
-      if (error.errors) {
-        toast.error(error.errors[0]?.message || "更新失敗");
-      } else {
-        toast.error("更新失敗");
-      }
+      handleNicknameUpdateError(error);
     } finally {
       setIsUpdatingProfile(false);
     }
@@ -169,27 +233,6 @@ const ProfilePage = () => {
     setIsEditingName(false);
   };
 
-  const handleAvatarSelect = async (avatar: string) => {
-    if (!profile) return;
-    
-    setIsUpdatingProfile(true);
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ avatar })
-        .eq('id', profile.id);
-
-      if (error) throw error;
-
-      setSelectedAvatar(avatar);
-      setShowAvatarPicker(false);
-      toast.success(t("profile.avatarUpdated"));
-    } catch (error) {
-      toast.error("更新失敗");
-    } finally {
-      setIsUpdatingProfile(false);
-    }
-  };
 
   const handleNotificationsChange = async (value: boolean) => {
     if (!profile) return;
@@ -203,13 +246,13 @@ const ProfilePage = () => {
       if (error) throw error;
 
       setNotifications(value);
-      toast.success("設定已更新");
+      toast.success(getText("profile.settings.updated", "設定已更新"));
     } catch (error) {
-      toast.error("更新失敗");
+      toast.error(getText("profile.error.updateFailed", "更新失敗"));
     }
   };
 
-  if (profileLoading || !profile) {
+  if (profileLoading || !profile || uiTextsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -224,45 +267,69 @@ const ProfilePage = () => {
     topicsCreated: stats.topicsCreated,
   };
 
-  const avatarOptions = ["🔥", "😎", "🎮", "🎨", "🎵", "⚡", "🌟", "💎", "🚀", "🎯", "🦄", "🐱", "🐶", "🐼", "🦊", "🦁"];
+  // UI 文字定義
+  const tokensLabel = getText('profile.tokens', '代幣');
+  const votesCountLabel = getText('profile.stats.votes', '投票次數');
+  const topicsCreatedLabel = getText('profile.stats.topicsCreated', '發起主題');
+  const freeVotesLabel = getText('profile.stats.freeVotes', '免費票');
+  const historySectionLabel = getText('profile.section.history', '歷史紀錄');
+  const voteHistoryLabel = getText('profile.menu.voteHistory', '投票紀錄');
+  const topicHistoryLabel = getText('profile.menu.topicHistory', '主題發起紀錄');
+  const tokenHistoryLabel = getText('profile.menu.tokenHistory', '代幣使用紀錄');
+  const settingsSectionLabel = getText('profile.section.settings', '設定');
+  const languageLabel = getText('profile.settings.language', '語言與地區');
+  const emailLabel = getText('profile.settings.email', '電子郵件');
+  const emailNotSet = getText('profile.settings.emailNotSet', '未設定');
+  const notificationsLabel = getText('profile.settings.notifications', '通知設定');
+  const termsLabel = getText('profile.menu.terms', '使用者條款');
+  const privacyLabel = getText('profile.menu.privacy', '隱私權政策');
+  const contactLabel = getText('profile.menu.contact', '連絡我們');
+  const notificationsMenuLabel = getText('profile.menu.notifications', '通知與公告');
+  const logoutLabel = getText('profile.button.logout', '登出');
+  const reportIssueLabel = getText('profile.button.reportIssue', '回報問題或建議');
+  const languageOptions = {
+    zh: getText('profile.language.zh', '中文'),
+    en: getText('profile.language.en', 'English'),
+    ja: getText('profile.language.ja', '日本語'),
+  };
+
+  const reviewDialogTitle = getText('profile.confirm.nameReviewTitle', '敏感字確認');
+  const reviewDialogTemplate = getText(
+    'profile.confirm.nameReview',
+    '名稱包含敏感字詞（{{keyword}}），管理員可能會強制更名。仍要使用這個名稱嗎？'
+  );
+  const reviewDialogMessage = reviewDialogTemplate.replace('{{keyword}}', pendingReviewKeyword || '');
+  const reviewDialogCancelText = getText('common.button.cancel', '取消');
+  const reviewDialogConfirmText = getText('common.button.confirm', '確認');
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <>
+      <AlertDialog open={reviewDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          handleReviewCancel();
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{reviewDialogTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{reviewDialogMessage}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleReviewCancel} disabled={isUpdatingProfile}>
+              {reviewDialogCancelText}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleReviewConfirm} disabled={isUpdatingProfile}>
+              {reviewDialogConfirmText}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <div className="min-h-screen bg-background pb-20">
       {/* Header */}
       <header className="bg-gradient-primary shadow-lg">
         <div className="max-w-screen-xl mx-auto px-4 py-8">
           <div className="flex flex-col items-center gap-4">
-            <div className="relative">
-              <button 
-                onClick={() => setShowAvatarPicker(!showAvatarPicker)}
-                className="w-20 h-20 rounded-full bg-gradient-accent flex items-center justify-center text-4xl shadow-glow hover:scale-105 transition-transform cursor-pointer relative"
-              >
-                {selectedAvatar}
-                <div className="absolute bottom-0 right-0 w-6 h-6 bg-primary rounded-full flex items-center justify-center">
-                  <Edit className="w-3 h-3 text-primary-foreground" />
-                </div>
-              </button>
-              
-              {showAvatarPicker && (
-                <Card className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-50 w-64 shadow-glow">
-                  <CardContent className="p-4">
-                    <div className="grid grid-cols-4 gap-2">
-                      {avatarOptions.map((avatar) => (
-                        <button
-                          key={avatar}
-                          onClick={() => handleAvatarSelect(avatar)}
-                          className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl hover:bg-muted transition-colors ${
-                            selectedAvatar === avatar ? 'bg-primary text-primary-foreground' : ''
-                          }`}
-                        >
-                          {avatar}
-                        </button>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
             
             <div className="text-center">
               {isEditingName ? (
@@ -318,7 +385,7 @@ const ProfilePage = () => {
               <span className="font-bold text-primary-foreground text-xl">
                 {userStats.tokens.toLocaleString()}
               </span>
-              <span className="text-primary-foreground/80 text-sm">代幣</span>
+              <span className="text-primary-foreground/80 text-sm">{tokensLabel}</span>
             </button>
           </div>
         </div>
@@ -333,21 +400,21 @@ const ProfilePage = () => {
                 <div className="text-2xl font-bold text-primary mb-1">
                   {userStats.totalVotes}
                 </div>
-                <div className="text-xs text-muted-foreground">投票次數</div>
+                <div className="text-xs text-muted-foreground">{votesCountLabel}</div>
               </div>
               
               <div className="text-center">
                 <div className="text-2xl font-bold text-primary mb-1">
                   {userStats.topicsCreated}
                 </div>
-                <div className="text-xs text-muted-foreground">發起主題</div>
+                <div className="text-xs text-muted-foreground">{topicsCreatedLabel}</div>
               </div>
               
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-600 mb-1">
                   {stats.totalFreeVotes}
                 </div>
-                <div className="text-xs text-muted-foreground">免費票</div>
+                <div className="text-xs text-muted-foreground">{freeVotesLabel}</div>
               </div>
             </div>
           </CardContent>
@@ -360,7 +427,7 @@ const ProfilePage = () => {
         {/* History Section */}
         <div className="space-y-3">
           <h2 className="text-base font-semibold text-muted-foreground px-2">
-            歷史紀錄
+            {historySectionLabel}
           </h2>
           
           <Card>
@@ -369,7 +436,7 @@ const ProfilePage = () => {
                 <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
                   <div className="flex items-center gap-3">
                     <History className="w-5 h-5 text-primary" />
-                    <span className="font-medium">投票紀錄</span>
+                    <span className="font-medium">{voteHistoryLabel}</span>
                   </div>
                   <ChevronRight className="w-5 h-5 text-muted-foreground" />
                 </button>
@@ -381,7 +448,7 @@ const ProfilePage = () => {
                 <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
                   <div className="flex items-center gap-3">
                     <FileText className="w-5 h-5 text-primary" />
-                    <span className="font-medium">主題發起紀錄</span>
+                    <span className="font-medium">{topicHistoryLabel}</span>
                   </div>
                   <ChevronRight className="w-5 h-5 text-muted-foreground" />
                 </button>
@@ -393,7 +460,7 @@ const ProfilePage = () => {
                 <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
                   <div className="flex items-center gap-3">
                     <Coins className="w-5 h-5 text-accent" />
-                    <span className="font-medium">代幣使用紀錄</span>
+                    <span className="font-medium">{tokenHistoryLabel}</span>
                   </div>
                   <ChevronRight className="w-5 h-5 text-muted-foreground" />
                 </button>
@@ -405,7 +472,7 @@ const ProfilePage = () => {
         {/* Settings Section */}
         <div className="space-y-3">
           <h2 className="text-base font-semibold text-muted-foreground px-2">
-            設定
+            {settingsSectionLabel}
           </h2>
           
           <Card>
@@ -414,7 +481,7 @@ const ProfilePage = () => {
                 <div className="flex items-center gap-3">
                   <Globe className="w-5 h-5 text-primary" />
                   <Label htmlFor="language" className="font-medium cursor-pointer">
-                    語言與地區
+                    {languageLabel}
                   </Label>
                 </div>
                 <Select value={language} onValueChange={setLanguage}>
@@ -422,9 +489,9 @@ const ProfilePage = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="zh">中文</SelectItem>
-                    <SelectItem value="en">English</SelectItem>
-                    <SelectItem value="ja">日本語</SelectItem>
+                    <SelectItem value="zh">{languageOptions.zh}</SelectItem>
+                    <SelectItem value="en">{languageOptions.en}</SelectItem>
+                    <SelectItem value="ja">{languageOptions.ja}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -434,10 +501,10 @@ const ProfilePage = () => {
               <div className="px-5 py-4">
                 <div className="flex items-center gap-3 mb-2">
                   <Mail className="w-5 h-5 text-primary" />
-                  <Label className="font-medium">電子郵件</Label>
+                  <Label className="font-medium">{emailLabel}</Label>
                 </div>
                 <div className="text-sm text-muted-foreground ml-8">
-                  {user?.email || '未設定'}
+                  {user?.email || emailNotSet}
                 </div>
               </div>
               
@@ -451,7 +518,7 @@ const ProfilePage = () => {
                 <div className="flex items-center gap-3">
                   <Bell className="w-5 h-5 text-primary" />
                   <Label htmlFor="notifications" className="font-medium cursor-pointer">
-                    通知設定
+                    {notificationsLabel}
                   </Label>
                 </div>
                 <Switch
@@ -467,7 +534,7 @@ const ProfilePage = () => {
                 <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
                   <div className="flex items-center gap-3">
                     <FileText className="w-5 h-5 text-primary" />
-                    <span className="font-medium">使用者條款</span>
+                    <span className="font-medium">{termsLabel}</span>
                   </div>
                   <ChevronRight className="w-5 h-5 text-muted-foreground" />
                 </button>
@@ -479,7 +546,7 @@ const ProfilePage = () => {
                 <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
                   <div className="flex items-center gap-3">
                     <Shield className="w-5 h-5 text-primary" />
-                    <span className="font-medium">隱私權政策</span>
+                    <span className="font-medium">{privacyLabel}</span>
                   </div>
                   <ChevronRight className="w-5 h-5 text-muted-foreground" />
                 </button>
@@ -491,7 +558,7 @@ const ProfilePage = () => {
                 <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
                   <div className="flex items-center gap-3">
                     <Mail className="w-5 h-5 text-primary" />
-                    <span className="font-medium">連絡我們</span>
+                    <span className="font-medium">{contactLabel}</span>
                   </div>
                   <ChevronRight className="w-5 h-5 text-muted-foreground" />
                 </button>
@@ -503,7 +570,7 @@ const ProfilePage = () => {
                 <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
                   <div className="flex items-center gap-3">
                     <Bell className="w-5 h-5 text-primary" />
-                    <span className="font-medium">通知與公告</span>
+                    <span className="font-medium">{notificationsMenuLabel}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     {unreadNotificationCount > 0 && (
@@ -527,20 +594,21 @@ const ProfilePage = () => {
           onClick={handleLogout}
         >
           <LogOut className="w-5 h-5 mr-2" />
-          登出
+          {logoutLabel}
         </Button>
 
         {/* 錯誤回饋 */}
         <div className="flex justify-center mt-4">
-          <ErrorFeedback triggerText="回報問題或建議" triggerVariant="ghost" />
+          <ErrorFeedback triggerText={reportIssueLabel} triggerVariant="ghost" />
         </div>
 
         {/* Version */}
         <div className="text-center text-sm text-muted-foreground py-4">
-          VoteChaos v1.0.0
+          ChaosRegistry v1.0.0
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

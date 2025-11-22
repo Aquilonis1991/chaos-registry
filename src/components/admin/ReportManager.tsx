@@ -35,6 +35,10 @@ import { format } from "date-fns";
 import { zhTW } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
+interface ReportManagerProps {
+  onJumpToTopic?: (topicId: string) => void;
+}
+
 interface Report {
   id: string;
   reporter_id?: string;
@@ -100,7 +104,9 @@ const targetTypeLabels: Record<string, string> = {
   comment: '留言'
 };
 
-const ReportManager = () => {
+const noop = () => {};
+
+const ReportManager = ({ onJumpToTopic = noop }: ReportManagerProps) => {
   const [reports, setReports] = useState<Report[]>([]);
   const [stats, setStats] = useState<ReportStats>({
     total_reports: 0,
@@ -399,6 +405,15 @@ const ReportManager = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
+                            {report.target_type === 'topic' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onJumpToTopic(report.target_id)}
+                              >
+                                前往主題管理
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"

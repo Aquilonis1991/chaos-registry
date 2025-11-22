@@ -73,7 +73,6 @@ ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can view own notifications" ON public.notifications;
 DROP POLICY IF EXISTS "Users can update own notifications" ON public.notifications;
 DROP POLICY IF EXISTS "Admins can create notifications" ON public.notifications;
-DROP POLICY IF EXISTS "Admins can view all notifications" ON public.notifications;
 DROP POLICY IF EXISTS "Admins can update all notifications" ON public.notifications;
 DROP POLICY IF EXISTS "Admins can delete notifications" ON public.notifications;
 
@@ -94,9 +93,6 @@ CREATE POLICY "Admins can create notifications"
   WITH CHECK (public.is_admin(auth.uid()));
 
 -- RLS 政策：管理員可以查看所有通知
-CREATE POLICY "Admins can view all notifications"
-  ON public.notifications FOR SELECT
-  USING (public.is_admin(auth.uid()));
 
 -- RLS 政策：管理員可以更新所有通知
 CREATE POLICY "Admins can update all notifications"

@@ -21,22 +21,15 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { zhTW } from "date-fns/locale";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  AdminNotification,
+  NotificationProfile,
+  mergeAnnouncements
+} from "@/lib/notifications";
 
-interface Notification {
-  id: string;
-  user_id: string | null;
-  type: 'announcement' | 'personal' | 'system';
-  title: string;
-  content: string;
-  is_read: boolean;
-  read_at: string | null;
-  created_at: string;
-  expires_at: string | null;
-  created_by: string | null;
-  profiles?: {
-    nickname: string;
-    avatar: string;
-  };
+interface NotificationProfile {
+  nickname: string | null;
+  avatar: string | null;
 }
 
 const NotificationManager = () => {
@@ -45,7 +38,7 @@ const NotificationManager = () => {
   const [sending, setSending] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [notificationType, setNotificationType] = useState<'announcement' | 'personal'>('announcement');
-  const [viewFilter, setViewFilter] = useState<'all' | 'announcement' | 'personal'>('all');
+  const [viewFilter, setViewFilter] = useState<'all' | 'announcement' | 'personal' | 'contact'>('all');
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -59,18 +52,51 @@ const NotificationManager = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('notifications')
-        .select(`
-          *,
-          profiles:user_id (
-            nickname,
-            avatar
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(100);
 
       if (error) throw error;
-      return data as Notification[];
+
+      const notificationsData = (data || []) as AdminNotification[];
+      const userIds = Array.from(
+        new Set(
+          notificationsData
+            .map((n) => n.user_id)
+            .filter((id): id is string => Boolean(id))
+        )
+      );
+
+      if (userIds.length === 0) {
+        return notificationsData;
+      }
+
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, nickname, avatar')
+        .in('id', userIds);
+
+      if (profilesError) {
+        console.warn('Failed to fetch profiles for notifications:', profilesError);
+        return notificationsData;
+      }
+
+      const profileMap = new Map<string, NotificationProfile>(
+        (profilesData || []).map((profile) => [
+          profile.id,
+          {
+            nickname: profile.nickname ?? null,
+            avatar: profile.avatar ?? null,
+          },
+        ])
+      );
+
+      const merged = notificationsData.map((notification) => ({
+        ...notification,
+        profiles: notification.user_id ? profileMap.get(notification.user_id) : undefined,
+      }));
+
+      return mergeAnnouncements(merged);
     },
   });
 
@@ -79,18 +105,22 @@ const NotificationManager = () => {
     const fetchUsers = async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, nickname, user_email:raw_user_meta_data->>email')
-        .order('created_at', { ascending: false })
+        .select('id, nickname')
+        .order('nickname', { ascending: true })
         .limit(1000);
 
-      if (!error && data) {
-        const mappedUsers = data.map((user) => ({
-          id: user.id,
-          nickname: user.nickname,
-          email: user.user_email || ''
-        }));
-        setUsers(mappedUsers);
+      if (error) {
+        console.error('Fetch profiles for notifications failed:', error);
+        toast.error('載入用戶列表失敗');
+        return;
       }
+
+      const mappedUsers = (data || []).map((user) => ({
+        id: user.id,
+        nickname: user.nickname || '未命名用戶',
+        email: ''
+      }));
+      setUsers(mappedUsers);
     };
     fetchUsers();
   }, []);
@@ -197,16 +227,32 @@ const NotificationManager = () => {
       return n.type === 'announcement';
     } else if (viewFilter === 'personal') {
       return n.type === 'personal';
+    } else if (viewFilter === 'contact') {
+      return n.type === 'contact';
     }
     return true;
   });
+
+  const getNotificationTypeLabel = (type: string) => {
+    switch (type) {
+      case 'announcement':
+        return '公告';
+      case 'contact':
+        return '客服回覆';
+      case 'personal':
+        return '個人通知';
+      case 'system':
+      default:
+        return '系統通知';
+    }
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">通知管理</h2>
-          <p className="text-muted-foreground">管理系統公告和個人通知</p>
+          <p className="text-muted-foreground">管理公告、個人通知與客服回覆</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
@@ -351,6 +397,12 @@ const NotificationManager = () => {
         >
           個人通知
         </Button>
+        <Button
+          variant={viewFilter === 'contact' ? 'default' : 'outline'}
+          onClick={() => setViewFilter('contact')}
+        >
+          客服回覆
+        </Button>
       </div>
 
       {isLoading ? (
@@ -367,20 +419,34 @@ const NotificationManager = () => {
                     <div className="flex items-center gap-2 mb-2">
                       <h3 className="font-semibold">{notification.title}</h3>
                       <Badge variant="outline">
-                        {notification.type === 'announcement' ? '公告' : '個人通知'}
+                        {getNotificationTypeLabel(notification.type)}
                       </Badge>
-                      {notification.is_read ? (
-                        <Badge variant="secondary">已讀</Badge>
-                      ) : (
-                        <Badge variant="default">未讀</Badge>
+                      {notification.type !== 'announcement' && notification.type !== 'contact' && (
+                        notification.is_read ? (
+                          <Badge variant="secondary">已讀</Badge>
+                        ) : (
+                          <Badge variant="default">未讀</Badge>
+                        )
+                      )}
+                      {notification.type === 'contact' && (
+                        <Badge variant="outline" className="text-amber-600 border-amber-600">
+                          客服回覆
+                        </Badge>
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground whitespace-pre-wrap mb-2">
                       {notification.content}
                     </p>
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      {notification.profiles && (
-                        <span>接收者：{notification.profiles.nickname}</span>
+                      <span>
+                        接收者：
+                        {notification.type === 'announcement'
+                          ? '全體會員'
+                          : notification.profiles?.nickname ?? '未知用戶'}
+                      </span>
+
+                      {notification.type === 'announcement' && notification.announcement_recipient_count && (
+                        <span>發送對象數：{notification.announcement_recipient_count}</span>
                       )}
                       <span>
                         {formatDistanceToNow(new Date(notification.created_at), {

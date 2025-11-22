@@ -16,6 +16,9 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useNavigate } from "react-router-dom";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useUIText } from "@/hooks/useUIText";
+import { cn } from "@/lib/utils";
 
 interface DeleteTopicDialogProps {
   topicId: string;
@@ -30,6 +33,7 @@ interface DeleteTopicDialogProps {
    * @default true
    */
   navigateAfterDelete?: boolean;
+  triggerClassName?: string;
 }
 
 const CONFIRM_TEXT = 'delete';
@@ -46,9 +50,12 @@ export const DeleteTopicDialog = ({
   topicId,
   topicTitle,
   onDeleteSuccess,
-  navigateAfterDelete = true
+  navigateAfterDelete = true,
+  triggerClassName
 }: DeleteTopicDialogProps) => {
   const navigate = useNavigate();
+  const { language } = useLanguage();
+  const { getText } = useUIText(language);
   const [open, setOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -57,7 +64,7 @@ export const DeleteTopicDialog = ({
 
   const handleDelete = async () => {
     if (!isConfirmValid) {
-      toast.error(`請輸入 "${CONFIRM_TEXT}" 確認刪除`);
+      toast.error(getText('deleteTopic.error.confirmText', `請輸入 "${CONFIRM_TEXT}" 確認刪除`));
       return;
     }
 
@@ -72,8 +79,8 @@ export const DeleteTopicDialog = ({
 
       if (error) throw error;
 
-      toast.success('主題已刪除', {
-        description: '此操作無法撤銷'
+      toast.success(getText('deleteTopic.success.deleted', '主題已刪除'), {
+        description: getText('deleteTopic.success.irreversible', '此操作無法撤銷')
       });
 
       setOpen(false);
@@ -93,11 +100,11 @@ export const DeleteTopicDialog = ({
       
       // 處理特定錯誤
       if (error.message?.includes('foreign key')) {
-        toast.error('無法刪除', {
-          description: '此主題有相關投票記錄'
+        toast.error(getText('deleteTopic.error.cannotDelete', '無法刪除'), {
+          description: getText('deleteTopic.error.hasVotes', '此主題有相關投票記錄')
         });
       } else {
-        toast.error('刪除主題失敗', {
+        toast.error(getText('deleteTopic.error.deleteFailed', '刪除主題失敗'), {
           description: error.message
         });
       }
@@ -117,19 +124,23 @@ export const DeleteTopicDialog = ({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="destructive" size="sm">
+        <Button
+          variant="destructive"
+          size="sm"
+          className={cn(triggerClassName)}
+        >
           <Trash2 className="w-4 h-4 mr-2" />
-          刪除主題
+          {getText('deleteTopic.button.delete', '刪除主題')}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-destructive">
             <AlertTriangle className="w-5 h-5" />
-            刪除主題
+            {getText('deleteTopic.dialog.title', '刪除主題')}
           </DialogTitle>
           <DialogDescription>
-            此操作無法撤銷，請謹慎操作
+            {getText('deleteTopic.dialog.description', '此操作無法撤銷，請謹慎操作')}
           </DialogDescription>
         </DialogHeader>
 
@@ -137,21 +148,21 @@ export const DeleteTopicDialog = ({
           {/* 警告提示 */}
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>重要提醒</AlertTitle>
+            <AlertTitle>{getText('deleteTopic.dialog.warning.title', '重要提醒')}</AlertTitle>
             <AlertDescription className="mt-2 space-y-2">
-              <p>刪除主題後：</p>
+              <p>{getText('deleteTopic.dialog.warning.afterDelete', '刪除主題後：')}</p>
               <ul className="list-disc list-inside space-y-1 text-sm">
-                <li><strong>無法恢復</strong>主題內容</li>
-                <li><strong>不會歸還</strong>發布時消耗的代幣</li>
-                <li><strong>已投票的用戶</strong>仍可查看投票記錄</li>
-                <li><strong>主題將從首頁</strong>永久移除</li>
+                <li><strong>{getText('deleteTopic.dialog.warning.cannotRestore', '無法恢復')}</strong>{getText('deleteTopic.dialog.warning.cannotRestoreDesc', '主題內容')}</li>
+                <li><strong>{getText('deleteTopic.dialog.warning.noRefund', '不會歸還')}</strong>{getText('deleteTopic.dialog.warning.noRefundDesc', '發布時消耗的代幣')}</li>
+                <li><strong>{getText('deleteTopic.dialog.warning.votesRemain', '已投票的用戶')}</strong>{getText('deleteTopic.dialog.warning.votesRemainDesc', '仍可查看投票記錄')}</li>
+                <li><strong>{getText('deleteTopic.dialog.warning.removed', '主題將從首頁')}</strong>{getText('deleteTopic.dialog.warning.removedDesc', '永久移除')}</li>
               </ul>
             </AlertDescription>
           </Alert>
 
           {/* 主題資訊 */}
           <div className="bg-muted rounded-lg p-4">
-            <p className="text-sm font-medium mb-2">即將刪除：</p>
+            <p className="text-sm font-medium mb-2">{getText('deleteTopic.dialog.targetLabel', '即將刪除：')}</p>
             <p className="text-sm text-foreground font-semibold">
               {topicTitle}
             </p>
@@ -160,18 +171,19 @@ export const DeleteTopicDialog = ({
           {/* 確認輸入 */}
           <div className="space-y-2">
             <Label htmlFor="confirm-delete">
-              請輸入 <code className="bg-muted px-2 py-1 rounded text-destructive font-mono">{CONFIRM_TEXT}</code> 確認刪除
+              {getText('deleteTopic.dialog.confirmLabel', '請輸入 {{confirmText}} 確認刪除')
+                .replace('{{confirmText}}', CONFIRM_TEXT)}
             </Label>
             <Input
               id="confirm-delete"
-              placeholder={`輸入 "${CONFIRM_TEXT}" 確認`}
+              placeholder={getText('deleteTopic.dialog.confirmPlaceholder', `輸入 "${CONFIRM_TEXT}" 確認`)}
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               className={confirmText && !isConfirmValid ? 'border-destructive' : ''}
             />
             {confirmText && !isConfirmValid && (
               <p className="text-xs text-destructive">
-                確認文字不正確
+                {getText('deleteTopic.error.confirmInvalid', '確認文字不正確')}
               </p>
             )}
           </div>
@@ -183,7 +195,7 @@ export const DeleteTopicDialog = ({
             onClick={() => setOpen(false)}
             disabled={submitting}
           >
-            取消
+            {getText('common.button.cancel', '取消')}
           </Button>
           <Button
             variant="destructive"
@@ -193,12 +205,12 @@ export const DeleteTopicDialog = ({
             {submitting ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                刪除中...
+                {getText('deleteTopic.button.deleting', '刪除中...')}
               </>
             ) : (
               <>
                 <Trash2 className="w-4 h-4 mr-2" />
-                確認刪除
+                {getText('deleteTopic.button.confirm', '確認刪除')}
               </>
             )}
           </Button>

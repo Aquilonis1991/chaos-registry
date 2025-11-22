@@ -26,6 +26,7 @@ import TermsPage from "./pages/TermsPage";
 import PrivacyPage from "./pages/PrivacyPage";
 import AuthPage from "./pages/AuthPage";
 import AdminPage from "./pages/AdminPage";
+import SearchPage from "./pages/SearchPage";
 import NotFound from "./pages/NotFound";
 import { ErrorLogger } from "@/lib/errorLogger";
 import { isNative } from "@/lib/capacitor";
@@ -55,6 +56,7 @@ const App = () => (
                 <Route path="/error" element={<ErrorPage />} />
                 <Route path="/network-error" element={<NetworkErrorPage />} />
               <Route path="/home" element={<ProtectedRoute><HomePage /><BottomNav /></ProtectedRoute>} />
+              <Route path="/search" element={<ProtectedRoute><SearchPage /><BottomNav /></ProtectedRoute>} />
               <Route path="/vote/:id" element={<ProtectedRoute><VoteDetailPage /></ProtectedRoute>} />
               <Route path="/create" element={<ProtectedRoute requireAuth><CreateTopicPage /></ProtectedRoute>} />
               <Route path="/recharge" element={<ProtectedRoute requireAuth><RechargePage /><BottomNav /></ProtectedRoute>} />

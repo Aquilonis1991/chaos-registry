@@ -68,7 +68,8 @@ Deno.serve(async (req) => {
       .in('key', [
         'title_min_length', 'title_max_length', 'description_max_length',
         'option_min_count', 'option_max_count', 'tags_max_count',
-        'exposure_costs', 'duration_costs', 'duration_min_days', 'duration_max_days'
+        'exposure_costs', 'duration_costs', 'duration_min_days', 'duration_max_days',
+        'topic_banned_check_levels'
       ]);
 
     const config = (configData || []).reduce((acc, item) => {
@@ -87,6 +88,44 @@ Deno.serve(async (req) => {
     const durationMaxDays = config.duration_max_days || 30;
     const exposureCosts = config.exposure_costs || { normal: 10, medium: 50, high: 200 };
     const durationCosts = config.duration_costs || {};
+    const topicBannedLevels = config.topic_banned_check_levels || ['A', 'B', 'C', 'D', 'E'];
+
+    // Validate against banned words
+    const lightenOptions = (options || []).map((opt: any) => (
+      typeof opt === 'string' ? opt : (opt?.text ?? '')
+    ));
+
+    const { data: validationResult, error: validationError } = await supabaseClient
+      .rpc('validate_topic_content', {
+        p_title: title,
+        p_description: description || null,
+        p_options: JSON.stringify(lightenOptions),
+        p_tags: tags || [],
+        p_category: category || null,
+        p_check_levels: topicBannedLevels
+      });
+
+    if (validationError) {
+      console.error('Banned words validation error:', validationError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to validate content' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const validation = validationResult?.[0];
+    if (validation && validation.is_valid === false) {
+      return new Response(
+        JSON.stringify({
+          error: `Forbidden keyword detected in ${validation.field_name}: ${validation.matched_keyword}`,
+          keyword: validation.matched_keyword,
+          level: validation.matched_level,
+          action: validation.matched_action,
+          field: validation.field_name
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Server-side input validation with dynamic config
     if (!title || typeof title !== 'string' || title.trim().length < titleMinLength || title.trim().length > titleMaxLength) {

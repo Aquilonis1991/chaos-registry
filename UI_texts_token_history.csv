@@ -1,0 +1,27 @@
+key,category,zh,en,ja,description
+tokenHistory.type.createTopic,token_history,建立主題,Create Topic,トピック作成,代幣交易類型：建立主題
+tokenHistory.type.freeCreateTopic,token_history,免費建立主題,Free Create Topic,無料トピック作成,代幣交易類型：免費建立主題
+tokenHistory.type.castVote,token_history,投票,Cast Vote,投票する,代幣交易類型：投票
+tokenHistory.type.freeVote,token_history,免費投票,Free Vote,無料投票,代幣交易類型：免費投票
+tokenHistory.type.completeMission,token_history,完成任務,Complete Mission,ミッション完了,代幣交易類型：完成任務
+tokenHistory.type.watchAd,token_history,觀看廣告,Watch Ad,広告を見る,代幣交易類型：觀看廣告
+tokenHistory.type.adminAdjustment,token_history,系統調整,Admin Adjustment,システム調整,代幣交易類型：系統調整
+tokenHistory.type.purchase,token_history,購買,Purchase,購入,代幣交易類型：購買
+tokenHistory.description.createTopic,token_history,建立主題：{{title}},Create Topic: {{title}},トピック作成：{{title}},代幣交易描述：建立主題
+tokenHistory.description.freeCreateTopic,token_history,免費建立主題：{{title}},Free Create Topic: {{title}},無料トピック作成：{{title}},代幣交易描述：免費建立主題
+tokenHistory.description.createTopicPrefix,token_history,建立主題：,Create Topic: ,トピック作成：,代幣交易描述：建立主題前綴
+tokenHistory.description.freeCreateTopicPrefix,token_history,免費建立主題：,Free Create Topic: ,無料トピック作成：,代幣交易描述：免費建立主題前綴
+tokenHistory.description.castVote,token_history,投票使用 {{amount}} 代幣,Cast Vote using {{amount}} tokens,{{amount}}トークンで投票,代幣交易描述：投票使用代幣
+tokenHistory.description.votePrefix,token_history,投票使用,Vote using,投票使用,代幣交易描述：投票前綴
+tokenHistory.description.tokensUnit,token_history,代幣,tokens,トークン,代幣單位
+tokenHistory.description.dailyLoginReward,token_history,每日登入獎勵,Daily Login Reward,毎日ログイン報酬,代幣交易描述：每日登入獎勵
+tokenHistory.mission.dailyLogin,token_history,每日登入,Daily Login,毎日ログイン,任務名稱：每日登入
+tokenHistory.mission.watchAd,token_history,觀看廣告,Watch Ad,広告を見る,任務名稱：觀看廣告
+tokenHistory.mission.completeMission,token_history,完成任務,Complete Mission,ミッション完了,任務名稱：完成任務
+topicHistory.stats.votes,topic_history,票,votes,票,主題發起紀錄：票數單位
+topicHistory.stats.options,topic_history,選項,options,オプション,主題發起紀錄：選項單位
+topicHistory.status.active,topic_history,進行中,Active,進行中,主題狀態：進行中
+topicHistory.status.ended,topic_history,已結束,Ended,終了,主題狀態：已結束
+voteHistory.status.active,vote_history,進行中,Active,進行中,投票狀態：進行中
+voteHistory.status.closed,vote_history,已結束,Closed,終了,投票狀態：已結束
+

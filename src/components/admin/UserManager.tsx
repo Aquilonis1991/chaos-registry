@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { 
   Loader2, 
@@ -12,7 +13,8 @@ import {
   Ban, 
   MoreVertical, 
   Coins,
-  TrendingUp
+  TrendingUp,
+  Trash2
 } from "lucide-react";
 import {
   Table,
@@ -53,6 +55,9 @@ interface UserProfile {
   created_at: string;
   last_login_date?: string;
   is_admin?: boolean;
+  is_deleted?: boolean;
+  deleted_at?: string | null;
+  deleted_reason?: string | null;
 }
 
 interface UserStats {
@@ -78,6 +83,9 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   const [rewardType, setRewardType] = useState<'tokens' | 'free_create'>('tokens');
   const [rewardAmount, setRewardAmount] = useState("");
   const [rewardReason, setRewardReason] = useState("");
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<UserProfile | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
 
   // 獲取用戶列表
   const { language } = useLanguage();
@@ -126,13 +134,24 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   const tokenAmountMustBePositive = getText('admin.userManager.error.tokenAmountPositive', '代幣數量必須大於 0');
   const rewardFailureDefault = getText('admin.userManager.error.rewardFailure', '派發失敗');
   const invalidTokenAmountText = getText('admin.userManager.error.invalidTokenAmount', '請輸入有效的代幣數量');
+  const dropdownDeleteText = getText('admin.userManager.dropdown.delete', '刪除用戶');
+  const deleteDialogTitle = getText('admin.userManager.delete.title', '刪除用戶');
+  const deleteDialogDescriptionTemplate = getText('admin.userManager.delete.description', '確定要刪除 {{nickname}} 嗎？資料會被保留於後台日誌，使用者可重新註冊。');
+  const deleteReasonLabel = getText('admin.userManager.delete.reasonLabel', '刪除原因（選填）');
+  const deleteReasonPlaceholder = getText('admin.userManager.delete.reasonPlaceholder', '輸入刪除原因...');
+  const deleteConfirmText = getText('admin.userManager.delete.confirm', '確認刪除');
+  const deleteProcessingText = getText('admin.userManager.delete.processing', '刪除中...');
+  const deleteSuccessText = getText('admin.userManager.delete.success', '已刪除用戶並保留紀錄');
+  const deleteErrorPrefix = getText('admin.userManager.delete.errorPrefix', '刪除失敗：');
+  const deletedBadgeText = getText('admin.userManager.badge.deleted', '已刪除');
+  const deletedUserActionError = getText('admin.userManager.error.userDeleted', '此用戶已被刪除，無法執行該操作');
 
   const { data: usersData, isLoading } = useQuery({
     queryKey: ['admin-users', searchQuery, page],
     queryFn: async () => {
       let query = supabase
         .from('profiles')
-        .select('id, nickname, avatar, tokens, created_at, last_login_date')
+        .select('id, nickname, avatar, tokens, created_at, last_login_date, is_deleted, deleted_at, deleted_reason')
         .order('created_at', { ascending: false });
 
       if (searchQuery.trim()) {
@@ -227,11 +246,25 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   };
 
   const handleOpenRewardDialog = (user: UserProfile) => {
+    if (user.is_deleted) {
+      toast.error(deletedUserActionError);
+      return;
+    }
     setSelectedUser(user);
     setShowRewardDialog(true);
     setRewardType('tokens');
     setRewardAmount("");
     setRewardReason("");
+  };
+
+  const handleOpenDeleteDialog = (user: UserProfile) => {
+    if (user.is_deleted) {
+      toast.error(deletedUserActionError);
+      return;
+    }
+    setDeleteTarget(user);
+    setDeleteReason("");
+    setShowDeleteDialog(true);
   };
 
   const handleSubmitReward = () => {
@@ -242,6 +275,32 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
     }
     rewardMutation.mutate();
   };
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (!deleteTarget) throw new Error(noUserSelectedError);
+      const { data, error } = await supabase.rpc('admin_soft_delete_user', {
+        p_target_user_id: deleteTarget.id,
+        p_reason: deleteReason.trim() || null
+      });
+      if (error) throw error;
+      if (!data || !data.success) {
+        throw new Error(data?.error || unknownErrorText);
+      }
+      return data;
+    },
+    onSuccess: () => {
+      toast.success(deleteSuccessText);
+      setShowDeleteDialog(false);
+      setDeleteTarget(null);
+      setDeleteReason("");
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    },
+    onError: (error: any) => {
+      const message = error?.message || unknownErrorText;
+      toast.error(deleteErrorPrefix + message);
+    },
+  });
 
   const totalPages = Math.ceil((usersData?.total || 0) / pageSize);
   const paginationSummary = paginationTemplate
@@ -317,14 +376,19 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                       </TableRow>
                     ) : (
                       usersData?.users.map((user) => (
-                        <TableRow key={user.id}>
+                        <TableRow key={user.id} className={user.is_deleted ? "opacity-60" : ""}>
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm">
                                 {user.avatar || '👤'}
                               </div>
                               <div>
-                                <div className="font-medium">{user.nickname}</div>
+                                <div className="font-medium flex items-center gap-2">
+                                  {user.nickname}
+                                  {user.is_deleted && (
+                                    <span className="text-xs text-destructive font-semibold">{deletedBadgeText}</span>
+                                  )}
+                                </div>
                                 <div className="text-xs text-muted-foreground">
                                   {user.id.substring(0, 8)}...
                                 </div>
@@ -362,7 +426,12 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                                   {dropdownRewardText}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem 
+                                  disabled={user.is_deleted}
                                   onClick={() => {
+                                    if (user.is_deleted) {
+                                      toast.error(deletedUserActionError);
+                                      return;
+                                    }
                                     if (onSetRestriction) {
                                       onSetRestriction(user.id);
                                     } else {
@@ -382,6 +451,15 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                                 >
                                   <TrendingUp className="w-4 h-4 mr-2" />
                                   {dropdownStatsText}
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => handleOpenDeleteDialog(user)}
+                                  className="text-destructive focus:text-destructive"
+                                  disabled={user.is_deleted}
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  {dropdownDeleteText}
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -488,6 +566,61 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                 <>
                   <Gift className="w-4 h-4 mr-2" />
                   {dialogConfirmText}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 刪除用戶對話框 */}
+      <Dialog open={showDeleteDialog} onOpenChange={(open) => {
+        setShowDeleteDialog(open);
+        if (!open) {
+          setDeleteTarget(null);
+          setDeleteReason("");
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{deleteDialogTitle}</DialogTitle>
+            <DialogDescription>
+              {deleteDialogDescriptionTemplate.replace('{{nickname}}', deleteTarget?.nickname || '')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="p-3 bg-muted rounded text-sm">
+              <div className="font-semibold">{deleteTarget?.nickname}</div>
+              <div className="text-muted-foreground text-xs">{deleteTarget?.id}</div>
+            </div>
+            <div>
+              <Label>{deleteReasonLabel}</Label>
+              <Textarea
+                placeholder={deleteReasonPlaceholder}
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                className="mt-2"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              {dialogCancelText}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteMutation.mutate()}
+              disabled={deleteMutation.isPending || !deleteTarget}
+            >
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {deleteProcessingText}
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  {deleteConfirmText}
                 </>
               )}
             </Button>

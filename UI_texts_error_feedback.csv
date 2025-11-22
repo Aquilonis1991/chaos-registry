@@ -1,0 +1,25 @@
+key,category,zh,en,ja,description
+errorFeedback.button.report,error_feedback,回報問題,Report Issue,問題を報告,錯誤回饋入口按鈕
+errorFeedback.error.fillRequired,error_feedback,請填寫標題和描述,Please fill in title and description,タイトルと説明を入力してください,必填欄位提示
+errorFeedback.success.submitted,error_feedback,問題已回報，感謝您的反饋！,Feedback submitted, thank you!,問題を送信しました。ありがとうございます！,提交成功訊息
+errorFeedback.success.description,error_feedback,我們會盡快處理,We will handle it as soon as possible,できるだけ早く対応します,成功訊息描述
+errorFeedback.dialog.title,error_feedback,回報問題,Report an Issue,問題を報告,對話框標題
+errorFeedback.dialog.description,error_feedback,請詳細描述您遇到的問題，我們會盡快處理,Please describe the issue in detail and we will handle it soon,詳細な内容を記載してください。早急に対応します,對話框描述
+errorFeedback.form.titleLabel,error_feedback,問題標題 *,Issue Title *,問題タイトル *,標題欄位標籤
+errorFeedback.form.titlePlaceholder,error_feedback,簡短描述問題，例：無法投票,Briefly describe the issue e.g. unable to vote,問題を簡潔に記載（例：投票できない）,標題 placeholder
+errorFeedback.form.descriptionLabel,error_feedback,問題描述 *,Issue Description *,問題の説明 *,描述欄位標籤
+errorFeedback.form.descriptionPlaceholder,error_feedback,詳細描述發生了什麼問題...,Describe in detail what happened...,発生した内容を詳しく記載してください…,描述 placeholder
+errorFeedback.form.stepsLabel,error_feedback,重現步驟（選填）,Steps to Reproduce (optional),再現手順（任意）,重現步驟標籤
+errorFeedback.form.stepsPlaceholder,error_feedback,如何重現這個問題？例：1. 進入主題詳情頁 2. 點擊投票按鈕 3. ...,How to reproduce the issue? e.g. 1. Go to topic detail 2. Click vote 3. ...,どのように再現できますか？例：1. トピック詳細へ 2. 投票をクリック 3. …,重現步驟 placeholder
+errorFeedback.form.emailLabel,error_feedback,聯繫郵箱（選填）,Contact Email (optional),連絡用メール（任意）,Email 欄位標籤
+errorFeedback.form.emailPlaceholder,error_feedback,如需回覆請提供郵箱,Leave an email if you need a reply,返信が必要な場合はメールをご記入ください,Email placeholder
+errorFeedback.form.errorInfoLabel,error_feedback,錯誤資訊（自動附加）：,Error Info (auto attached):,エラー情報（自動添付）：,錯誤資訊區塊標題
+errorFeedback.button.submitting,error_feedback,提交中...,Submitting...,送信中…,提交按鈕 loading 状態
+errorFeedback.button.submit,error_feedback,提交回報,Submit Feedback,フィードバックを送信,提交按鈕文字
+errorFeedback.section.technicalInfo,error_feedback,技術資訊,Technical Info,技術情報,技術資訊標題
+errorFeedback.button.showDetails,error_feedback,展開,Show Details,詳細を表示,展開按鈕
+errorFeedback.button.hideDetails,error_feedback,收合,Hide Details,詳細を隠す,收合按鈕
+errorFeedback.section.inlineError,error_feedback,當前錯誤,Current Error,現在のエラー,當前錯誤標題
+errorFeedback.section.recentErrors,error_feedback,近期錯誤紀錄,Recent Errors,最近のエラー履歴,近期錯誤標題
+errorFeedback.section.clientInfo,error_feedback,客戶端資訊,Client Info,クライアント情報,客戶端資訊標題
+

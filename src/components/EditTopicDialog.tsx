@@ -16,8 +16,11 @@ import { Edit, Loader2, Plus, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 import { differenceInHours } from "date-fns";
 import { validateTopicContent, getBannedWordErrorMessage } from "@/lib/bannedWords";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useUIText } from "@/hooks/useUIText";
 
 interface EditTopicDialogProps {
   topicId: string;
@@ -26,6 +29,7 @@ interface EditTopicDialogProps {
   currentOptions: string[];
   createdAt: string;
   onEditSuccess?: () => void;
+  triggerClassName?: string;
 }
 
 /**
@@ -42,8 +46,11 @@ export const EditTopicDialog = ({
   currentDescription = '',
   currentOptions,
   createdAt,
-  onEditSuccess
+  onEditSuccess,
+  triggerClassName
 }: EditTopicDialogProps) => {
+  const { language } = useLanguage();
+  const { getText } = useUIText(language);
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(currentTitle);
   const [description, setDescription] = useState(currentDescription);
@@ -70,20 +77,20 @@ export const EditTopicDialog = ({
     const trimmed = newOptionInput.trim();
     
     if (!trimmed) {
-      toast.error('選項不能為空');
+      toast.error(getText('editTopic.error.optionEmpty', '選項不能為空'));
       return;
     }
 
     // 檢查是否與現有選項重複
     const allOptions = [...currentOptions, ...newOptions];
     if (allOptions.includes(trimmed)) {
-      toast.error('選項已存在');
+      toast.error(getText('editTopic.error.optionExists', '選項已存在'));
       return;
     }
 
     // 檢查總選項數（最多 6 個）
     if (currentOptions.length + newOptions.length >= 6) {
-      toast.error('最多只能有 6 個選項');
+      toast.error(getText('editTopic.error.maxOptions', '最多只能有 6 個選項'));
       return;
     }
 
@@ -100,22 +107,22 @@ export const EditTopicDialog = ({
     const trimmedTitle = title.trim();
     
     if (!trimmedTitle) {
-      toast.error('標題不能為空');
+      toast.error(getText('editTopic.error.titleEmpty', '標題不能為空'));
       return;
     }
 
     if (trimmedTitle.length < 5) {
-      toast.error('標題至少需要 5 個字元');
+      toast.error(getText('editTopic.error.titleMinLength', '標題至少需要 5 個字元'));
       return;
     }
 
     if (trimmedTitle.length > 200) {
-      toast.error('標題不能超過 200 個字元');
+      toast.error(getText('editTopic.error.titleMaxLength', '標題不能超過 200 個字元'));
       return;
     }
 
     if (description.length > 150) {
-      toast.error('說明不能超過 150 個字元');
+      toast.error(getText('editTopic.error.descriptionMaxLength', '說明不能超過 150 個字元'));
       return;
     }
 
@@ -130,13 +137,18 @@ export const EditTopicDialog = ({
 
     if (bannedCheck.found) {
       if (bannedCheck.action === 'block') {
+        const bannedWordDesc = getText('editTopic.error.bannedWord', '發現禁字：{{keyword}}（級別：{{level}}）')
+          .replace('{{keyword}}', bannedCheck.keyword || '')
+          .replace('{{level}}', bannedCheck.level || '');
         toast.error(getBannedWordErrorMessage(bannedCheck), {
-          description: `發現禁字：${bannedCheck.keyword}（級別：${bannedCheck.level}）`
+          description: bannedWordDesc
         });
         return;
       } else if (bannedCheck.action === 'review') {
-        toast.warning('內容需要人工審核', {
-          description: `發現敏感字詞：${bannedCheck.keyword}`
+        const reviewDesc = getText('editTopic.warning.review', '發現敏感字詞：{{keyword}}')
+          .replace('{{keyword}}', bannedCheck.keyword || '');
+        toast.warning(getText('editTopic.warning.needsReview', '內容需要人工審核'), {
+          description: reviewDesc
         });
       }
     }
@@ -148,7 +160,7 @@ export const EditTopicDialog = ({
       newOptions.length > 0;
 
     if (!hasChanges) {
-      toast.info('沒有任何變更');
+      toast.info(getText('editTopic.info.noChanges', '沒有任何變更'));
       return;
     }
 
@@ -193,8 +205,11 @@ export const EditTopicDialog = ({
 
       if (error) throw error;
 
-      toast.success('主題已更新', {
-        description: newOptions.length > 0 ? `新增了 ${newOptions.length} 個選項` : undefined
+      const successDesc = newOptions.length > 0 
+        ? getText('editTopic.success.optionsAdded', '新增了 {{count}} 個選項').replace('{{count}}', newOptions.length.toString())
+        : undefined;
+      toast.success(getText('editTopic.success.updated', '主題已更新'), {
+        description: successDesc
       });
 
       setOpen(false);
@@ -204,7 +219,7 @@ export const EditTopicDialog = ({
       }
     } catch (error: any) {
       console.error('Edit topic error:', error);
-      toast.error('更新主題失敗', {
+      toast.error(getText('editTopic.error.updateFailed', '更新主題失敗'), {
         description: error.message
       });
     } finally {
@@ -215,9 +230,14 @@ export const EditTopicDialog = ({
   // 如果超過 1 小時，禁用編輯
   if (!canEdit) {
     return (
-      <Button variant="outline" size="sm" disabled>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled
+        className={cn(triggerClassName)}
+      >
         <Edit className="w-4 h-4 mr-2" />
-        編輯（已超過時限）
+        {getText('editTopic.button.expired', '編輯（已超過時限）')}
       </Button>
     );
   }
@@ -225,16 +245,21 @@ export const EditTopicDialog = ({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn(triggerClassName)}
+        >
           <Edit className="w-4 h-4 mr-2" />
-          編輯主題
+          {getText('editTopic.button.edit', '編輯主題')}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>編輯主題</DialogTitle>
+          <DialogTitle>{getText('editTopic.dialog.title', '編輯主題')}</DialogTitle>
           <DialogDescription>
-            發布後 1 小時內可以編輯（剩餘 {remainingTime} 分鐘）
+            {getText('editTopic.dialog.description', '發布後 1 小時內可以編輯（剩餘 {{minutes}} 分鐘）')
+              .replace('{{minutes}}', remainingTime.toString())}
           </DialogDescription>
         </DialogHeader>
 
@@ -243,21 +268,21 @@ export const EditTopicDialog = ({
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription className="text-sm">
-              <strong>編輯規則：</strong>
+              <strong>{getText('editTopic.dialog.rules.title', '編輯規則：')}</strong>
               <ul className="mt-2 space-y-1 list-disc list-inside">
-                <li>可以修改標題和說明</li>
-                <li>可以新增選項（最多 6 個）</li>
-                <li>不可以修改或刪除現有選項</li>
+                <li>{getText('editTopic.dialog.rules.canEdit', '可以修改標題和說明')}</li>
+                <li>{getText('editTopic.dialog.rules.canAdd', '可以新增選項（最多 6 個）')}</li>
+                <li>{getText('editTopic.dialog.rules.cannotEdit', '不可以修改或刪除現有選項')}</li>
               </ul>
             </AlertDescription>
           </Alert>
 
           {/* 標題 */}
           <div className="space-y-2">
-            <Label htmlFor="edit-title">主題標題 *</Label>
+            <Label htmlFor="edit-title">{getText('editTopic.form.titleLabel', '主題標題 *')}</Label>
             <Input
               id="edit-title"
-              placeholder="輸入主題標題"
+              placeholder={getText('editTopic.form.titlePlaceholder', '輸入主題標題')}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={200}
@@ -269,10 +294,10 @@ export const EditTopicDialog = ({
 
           {/* 說明 */}
           <div className="space-y-2">
-            <Label htmlFor="edit-description">主題說明（選填）</Label>
+            <Label htmlFor="edit-description">{getText('editTopic.form.descriptionLabel', '主題說明（選填）')}</Label>
             <Textarea
               id="edit-description"
-              placeholder="補充說明這個主題..."
+              placeholder={getText('editTopic.form.descriptionPlaceholder', '補充說明這個主題...')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
@@ -285,7 +310,7 @@ export const EditTopicDialog = ({
 
           {/* 現有選項（不可編輯）*/}
           <div className="space-y-2">
-            <Label>現有選項（不可修改）</Label>
+            <Label>{getText('editTopic.form.existingOptionsLabel', '現有選項（不可修改）')}</Label>
             <div className="space-y-2 bg-muted/50 rounded-lg p-3">
               {currentOptions.map((option, index) => (
                 <div key={index} className="flex items-center gap-2 text-sm">
@@ -300,11 +325,14 @@ export const EditTopicDialog = ({
 
           {/* 新增選項 */}
           <div className="space-y-2">
-            <Label htmlFor="new-option">新增選項（最多 {6 - currentOptions.length} 個）</Label>
+            <Label htmlFor="new-option">
+              {getText('editTopic.form.newOptionLabel', '新增選項（最多 {{count}} 個）')
+                .replace('{{count}}', (6 - currentOptions.length).toString())}
+            </Label>
             <div className="flex gap-2">
               <Input
                 id="new-option"
-                placeholder="輸入新選項"
+                placeholder={getText('editTopic.form.newOptionPlaceholder', '輸入新選項')}
                 value={newOptionInput}
                 onChange={(e) => setNewOptionInput(e.target.value)}
                 onKeyPress={(e) => {
@@ -328,7 +356,7 @@ export const EditTopicDialog = ({
             {/* 新增選項列表 */}
             {newOptions.length > 0 && (
               <div className="space-y-2 bg-primary/5 rounded-lg p-3">
-                <p className="text-xs font-medium text-primary">新增的選項：</p>
+                <p className="text-xs font-medium text-primary">{getText('editTopic.form.newOptionsList', '新增的選項：')}</p>
                 {newOptions.map((option, index) => (
                   <div key={index} className="flex items-center justify-between text-sm">
                     <span>
@@ -343,7 +371,7 @@ export const EditTopicDialog = ({
                       size="sm"
                       onClick={() => handleRemoveNewOption(index)}
                     >
-                      移除
+                      {getText('editTopic.button.remove', '移除')}
                     </Button>
                   </div>
                 ))}
@@ -358,7 +386,7 @@ export const EditTopicDialog = ({
             onClick={() => setOpen(false)}
             disabled={submitting}
           >
-            取消
+            {getText('common.button.cancel', '取消')}
           </Button>
           <Button
             onClick={handleSubmit}
@@ -367,10 +395,10 @@ export const EditTopicDialog = ({
             {submitting ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                更新中...
+                {getText('editTopic.button.updating', '更新中...')}
               </>
             ) : (
-              '確認更新'
+              getText('editTopic.button.confirm', '確認更新')
             )}
           </Button>
         </DialogFooter>

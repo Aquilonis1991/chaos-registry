@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Flame, Clock, User } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getTagColor } from "@/lib/tagColors";
+import { cn } from "@/lib/utils";
 
 interface TopicCardProps {
   id: string;
@@ -12,9 +13,10 @@ interface TopicCardProps {
   creatorName: string;
   isHot?: boolean;
   createdAt?: string;
+  currentExposureLevel?: 'normal' | 'medium' | 'high' | null;
 }
 
-export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, createdAt }: TopicCardProps) => {
+export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, createdAt, currentExposureLevel }: TopicCardProps) => {
   return (
     <Link to={`/vote/${id}`}>
       <Card className="bg-gradient-card shadow-card hover:shadow-glow transition-all duration-300 hover:-translate-y-1 cursor-pointer border border-border/50">

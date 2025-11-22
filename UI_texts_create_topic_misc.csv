@@ -1,0 +1,36 @@
+key,category,zh,en,ja,description
+topic.create.headerTitle,create_topic,發起主題,Create Topic,トピック作成,發起主題頁面標題
+topic.title.label,create_topic,主題標題,Topic Title,トピックタイトル,標題欄位標籤
+topic.description.fieldLabel,create_topic,主題詳述,Topic Description,トピック詳細,詳述欄位標籤
+topic.description.optionalHint,create_topic,(選填，最多 {{count}} 字),(Optional, up to {{count}} characters),（任意入力、最大{{count}}文字）,詳述欄位的字數提示（含 {{count}} 變數）
+topic.title.placeholder,create_topic,輸入吸引人的標題...,Enter a catchy title...,魅力的なタイトルを入力...,標題輸入框 placeholder
+topic.description.placeholder,create_topic,詳細描述您的主題內容...,Describe your topic in detail...,トピックの内容を詳しく記入...,詳述輸入框 placeholder
+topic.options.label,create_topic,投票選項 (2-6個),Poll Options (2-6),投票オプション（2〜6件）,選項區段標題
+topic.options.optionPlaceholder,create_topic,選項,Option,選択肢,選項輸入框前綴
+topic.options.add,create_topic,新增,Add,追加,新增選項按鈕
+topic.category.label,create_topic,話題分類,Category,カテゴリ,分類欄位標籤
+topic.category.placeholder,create_topic,選擇分類,Select category,カテゴリを選択,分類下拉選項 placeholder
+topic.tags.label,create_topic,話題標籤,Tags,タグ,標籤區段標題
+topic.tag.customTagPlaceholder,create_topic,自定義標籤（最多10字）,Custom tag (max 10 chars),カスタムタグ（最大10文字）,自訂標籤輸入 placeholder
+topic.tag.add,create_topic,添加,Add,追加,新增標籤按鈕文字
+topic.tag.recommendedTags,create_topic,推薦標籤：,Recommended tags:,おすすめタグ:,推薦標籤區塊標題
+topic.exposure.label,create_topic,曝光方案,Exposure Plan,露出プラン,曝光方案區塊標題
+topic.exposure.normal,create_topic,普通曝光,Normal Exposure,通常露出,普通曝光選項標題
+topic.exposure.normalDesc,create_topic,標準推薦,Standard recommendation,標準おすすめ,普通曝光描述
+topic.exposure.medium,create_topic,中等曝光,Medium Exposure,中程度の露出,中等曝光選項標題
+topic.exposure.mediumDesc,create_topic,優先推薦,Priority recommendation,優先おすすめ,中等曝光描述
+topic.exposure.high,create_topic,高度曝光,High Exposure,ハイレベル露出,高度曝光選項標題
+topic.exposure.highDesc,create_topic,置頂推薦,Top recommendation,トップおすすめ,高度曝光描述
+topic.duration.label,create_topic,投票天數,Duration (days),投票期間（日）,天數區塊標題
+topic.duration.days,create_topic,天,days,日,單位：天
+topic.duration.min,create_topic,1 天,1 day,1日,天數最小值顯示
+topic.duration.max,create_topic,{{maxDays}} 天,{{maxDays}} days,{{maxDays}}日,天數最大值顯示
+topic.costSummary.exposure,create_topic,曝光方案,Exposure,露出,消耗明細-曝光
+topic.costSummary.duration,create_topic,投票天數 ({{days}} 天),Duration ({{days}} days),投票期間（{{days}}日）,消耗明細-天數
+topic.costSummary.totalCost,create_topic,總消耗代幣,Total tokens used,合計消費トークン,消耗總額文字
+topic.costSummary.remainingTokens,create_topic,剩餘代幣,Tokens remaining,残りトークン,剩餘代幣文字
+topic.costSummary.token,create_topic,代幣,Tokens,トークン,代幣字樣
+topic.costSummary.valueWithUnit,create_topic,{{value}} {{unit}},{{value}} {{unit}},{{value}}{{unit}},數值+單位格式
+topic.costSummary.plusValueWithUnit,create_topic,+{{value}} {{unit}},+{{value}} {{unit}},+{{value}}{{unit}},正號+數值+單位格式
+topic.submit.submit,create_topic,送出主題,Submit Topic,トピックを投稿,送出主題按鈕文字
+

@@ -648,12 +648,3 @@ export const UITextManager = () => {
   );
 };
 
-const UI_LANGUAGES: BaseLanguage[] = ['zh', 'en', 'ja'];
-
-const clearUITextCache = () => {
-  if (typeof window === 'undefined') return;
-  UI_LANGUAGES.forEach((lang) => {
-    window.localStorage.removeItem(`ui_texts_version_${lang}`);
-    window.localStorage.removeItem(`ui_texts_cache_${lang}`);
-  });
-};

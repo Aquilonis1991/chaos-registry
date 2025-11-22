@@ -5,10 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useVoteHistory } from "@/hooks/useVoteHistory";
 import { useAuth } from "@/hooks/useAuth";
-import { formatDistanceToNow } from "date-fns";
-import { zhTW } from "date-fns/locale";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
+import { formatRelativeTime } from "@/lib/relativeTime";
 
 const VoteHistoryPage = () => {
   const { user } = useAuth();
@@ -72,62 +71,59 @@ const VoteHistoryPage = () => {
         ) : (
           <div className="space-y-3">
             {history.map((vote) => (
-              <Card key={vote.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <Link to={`/vote/${vote.topic_id}`}>
+              <Link key={vote.id} to={`/vote/${vote.topic_id}`} className="block">
+                <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
                         <h3 className="font-semibold text-foreground hover:text-primary transition-colors mb-2">
                           {vote.topic_title}
                         </h3>
-                      </Link>
-                      <div className="flex flex-wrap gap-2 mb-2">
-                      {vote.topic_tags && vote.topic_tags.map((tag) => (
-                        <Badge key={tag} variant="secondary" className="text-xs">
-                          #{tag}
-                        </Badge>
-                      ))}
+                        <div className="flex flex-wrap gap-2 mb-2">
+                        {vote.topic_tags && vote.topic_tags.map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-xs">
+                            #{tag}
+                          </Badge>
+                        ))}
+                        </div>
+                      </div>
+                      <div className="text-right ml-4">
+                        {vote.is_free_vote ? (
+                          <div className="flex items-center gap-1 text-green-600">
+                            <Gift className="w-4 h-4" />
+                            <span className="text-sm font-semibold">{freeVoteLabel}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 text-primary">
+                            <Coins className="w-4 h-4" />
+                            <span className="text-sm font-semibold">{vote.tokens_used || 0}</span>
+                          </div>
+                        )}
+                        {vote.option_selected && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {optionLabelTemplate.replace('{{option}}', vote.option_selected)}
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <div className="text-right ml-4">
-                      {vote.is_free_vote ? (
-                        <div className="flex items-center gap-1 text-green-600">
-                          <Gift className="w-4 h-4" />
-                          <span className="text-sm font-semibold">{freeVoteLabel}</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 text-primary">
-                          <Coins className="w-4 h-4" />
-                          <span className="text-sm font-semibold">{vote.tokens_used || 0}</span>
-                        </div>
-                      )}
-                      {vote.option_selected && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {optionLabelTemplate.replace('{{option}}', vote.option_selected)}
-                        </div>
-                      )}
+                    
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        <span>
+                          {formatRelativeTime(new Date(vote.voted_at), getText)}
+                        </span>
+                      </div>
+                      <Badge 
+                        variant={vote.topic_status === 'active' ? 'default' : 'secondary'}
+                        className="text-xs"
+                      >
+                        {vote.topic_status === 'active' ? statusActive : statusClosed}
+                      </Badge>
                     </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      <span>
-                        {formatDistanceToNow(new Date(vote.voted_at), { 
-                          addSuffix: true, 
-                          locale: zhTW 
-                        })}
-                      </span>
-                    </div>
-                    <Badge 
-                      variant={vote.topic_status === 'active' ? 'default' : 'secondary'}
-                      className="text-xs"
-                    >
-                      {vote.topic_status === 'active' ? statusActive : statusClosed}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </Link>
             ))}
           </div>
         )}

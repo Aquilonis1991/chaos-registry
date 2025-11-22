@@ -33,7 +33,7 @@ import { Card, CardContent } from "@/components/ui/card";
 interface UserRestriction {
   id: string;
   user_id: string;
-  restriction_type: 'create_topic' | 'vote' | 'complete_mission' | 'modify_name' | 'recharge';
+  restriction_type: 'create_topic' | 'vote' | 'complete_mission' | 'modify_name' | 'recharge' | 'all';
   is_active: boolean;
   reason?: string;
   restricted_by?: string;
@@ -50,7 +50,8 @@ const restrictionLabels: Record<string, string> = {
   vote: '投票',
   complete_mission: '完成任務',
   modify_name: '修改名稱',
-  recharge: '儲值'
+  recharge: '儲值',
+  all: '全部功能'
 };
 
 interface User {
@@ -526,6 +527,7 @@ export const UserRestrictionManager = ({ preselectedUserId, onUserSelected }: Us
                       <SelectItem value="complete_mission">完成任務</SelectItem>
                       <SelectItem value="modify_name">修改名稱</SelectItem>
                       <SelectItem value="recharge">儲值</SelectItem>
+                      <SelectItem value="all">全部功能</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

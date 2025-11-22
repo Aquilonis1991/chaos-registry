@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 
 export interface Topic {
   id: string;
@@ -25,6 +26,9 @@ export interface Topic {
   total_votes?: number;
   is_hot?: boolean;
   time_remaining?: string;
+  // Exposure fields
+  current_exposure_level?: 'normal' | 'medium' | 'high' | null;
+  exposure_expires_at?: string | null;
 }
 
 interface UseTopicsOptions {
@@ -38,62 +42,123 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { getConfig } = useSystemConfigCache();
+  const graceDaysConfig = getConfig('home_expired_topic_grace_days', 3);
+  const expiredGraceDays = Math.max(Number(graceDaysConfig) || 0, 0);
 
   useEffect(() => {
     fetchTopics();
-  }, [filter, limit, userId]);
+  }, [filter, limit, userId, expiredGraceDays]);
 
   const fetchTopics = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      let query = supabase
-        .from('topics')
-        .select(`
-          *,
-          profiles:creator_id (
-            nickname,
-            avatar
-          )
-        `)
-        .eq('status', 'active')
-        .eq('is_hidden', false)  // 只顯示未隱藏的主題
-        .gte('end_at', new Date().toISOString());
+      let data: any[] = [];
+      let fetchError: any = null;
 
-      // 根據篩選條件調整查詢
+      // 根據篩選條件使用不同的 SQL 函數
       switch (filter) {
         case 'hot':
-          // 熱門：按總投票數排序
-          query = query.order('created_at', { ascending: false });
+          // 使用新的熱門排序函數（含曝光排序）
+          const { data: hotData, error: hotError } = await supabase.rpc(
+            'get_hot_topics_with_exposure',
+            {
+              p_limit: limit,
+              p_offset: 0,
+            }
+          );
+          data = hotData || [];
+          fetchError = hotError;
+          
+          // 獲取創建者資訊
+          if (!fetchError && data.length > 0) {
+            const creatorIds = [...new Set(data.map(t => t.creator_id))];
+            const { data: profiles } = await supabase
+              .from('profiles')
+              .select('id, nickname, avatar')
+              .in('id', creatorIds);
+            
+            const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+            data = data.map(topic => ({
+              ...topic,
+              profiles: profileMap.get(topic.creator_id),
+            }));
+          }
           break;
+          
         case 'latest':
-          // 最新：按創建時間排序
-          query = query.order('created_at', { ascending: false });
+          // 使用新的最新排序函數（含曝光插隊）
+          const { data: latestData, error: latestError } = await supabase.rpc(
+            'get_latest_topics_with_exposure',
+            {
+              p_limit: limit,
+              p_offset: 0,
+            }
+          );
+          data = latestData || [];
+          fetchError = latestError;
+          
+          // 獲取創建者資訊
+          if (!fetchError && data.length > 0) {
+            const creatorIds = [...new Set(data.map(t => t.creator_id))];
+            const { data: profiles } = await supabase
+              .from('profiles')
+              .select('id, nickname, avatar')
+              .in('id', creatorIds);
+            
+            const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+            data = data.map(topic => ({
+              ...topic,
+              profiles: profileMap.get(topic.creator_id),
+            }));
+          }
           break;
+          
         case 'joined':
-          // 參與過：需要用戶ID
+          // 參與過：需要用戶ID，使用原有邏輯
           if (!userId) {
             setTopics([]);
             setLoading(false);
             return;
           }
           // 這裡需要額外查詢用戶參與過的主題
-          break;
+          return; // 交給 fetchJoinedTopics 處理
+          
         default:
-          query = query.order('created_at', { ascending: false });
+          // 預設使用熱門排序
+          const { data: defaultData, error: defaultError } = await supabase.rpc(
+            'get_hot_topics_with_exposure',
+            {
+              p_limit: limit,
+              p_offset: 0,
+            }
+          );
+          data = defaultData || [];
+          fetchError = defaultError;
+          
+          if (!fetchError && data.length > 0) {
+            const creatorIds = [...new Set(data.map(t => t.creator_id))];
+            const { data: profiles } = await supabase
+              .from('profiles')
+              .select('id, nickname, avatar')
+              .in('id', creatorIds);
+            
+            const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+            data = data.map(topic => ({
+              ...topic,
+              profiles: profileMap.get(topic.creator_id),
+            }));
+          }
       }
-
-      query = query.limit(limit);
-
-      const { data, error: fetchError } = await query;
 
       if (fetchError) throw fetchError;
 
       // 處理資料並計算額外欄位
       const processedTopics: Topic[] = (data || []).map(topic => {
-        // 計算總投票數
-        const totalVotes = topic.options?.reduce(
+        // 計算總投票數（如果沒有從 SQL 函數返回）
+        const totalVotes = topic.total_votes || topic.options?.reduce(
           (sum: number, opt: any) => sum + (opt.votes || 0), 
           0
         ) || 0;
@@ -113,13 +178,10 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
           total_votes: totalVotes,
           is_hot: isHot,
           time_remaining: timeRemaining,
+          current_exposure_level: topic.current_exposure_level || null,
+          exposure_expires_at: topic.exposure_expires_at || null,
         };
       });
-
-      // 如果是熱門篩選，按投票數排序
-      if (filter === 'hot') {
-        processedTopics.sort((a, b) => (b.total_votes || 0) - (a.total_votes || 0));
-      }
 
       setTopics(processedTopics);
     } catch (err: any) {
@@ -142,23 +204,35 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
       setLoading(true);
       setError(null);
 
-      // 從 votes 欄位中查找包含該用戶的主題
-      // 或者從 free_votes 表查詢
-      const { data: freeVotes, error: freeVotesError } = await supabase
-        .from('free_votes')
-        .select('topic_id')
-        .eq('user_id', userId);
+      // 僅計入使用代幣投票過或自己建立的主題
+      const [{ data: tokenVotes, error: tokenVotesError }, { data: createdTopics, error: createdTopicsError }] = await Promise.all([
+        supabase
+          .from('votes')
+          .select('topic_id')
+          .eq('user_id', userId),
+        supabase
+          .from('topics')
+          .select('id')
+          .eq('creator_id', userId)
+      ]);
 
-      if (freeVotesError) throw freeVotesError;
+      if (tokenVotesError) throw tokenVotesError;
+      if (createdTopicsError) throw createdTopicsError;
 
-      const topicIds = freeVotes?.map(v => v.topic_id) || [];
+      const topicIds = [
+        ...(tokenVotes?.map(v => v.topic_id) || []),
+        ...(createdTopics?.map(t => t.id) || [])
+      ];
 
-      if (topicIds.length === 0) {
+      const uniqueTopicIds = [...new Set(topicIds)];
+
+      if (uniqueTopicIds.length === 0) {
         setTopics([]);
         setLoading(false);
         return;
       }
 
+      const graceCutoffDate = new Date(Date.now() - expiredGraceDays * 24 * 60 * 60 * 1000);
       const { data, error: fetchError } = await supabase
         .from('topics')
         .select(`
@@ -168,8 +242,9 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
             avatar
           )
         `)
-        .in('id', topicIds)
+        .in('id', uniqueTopicIds)
         .eq('status', 'active')
+        .gte('end_at', graceCutoffDate.toISOString())
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
@@ -203,7 +278,7 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
     if (filter === 'joined') {
       fetchJoinedTopics();
     }
-  }, [filter, userId]);
+  }, [filter, userId, expiredGraceDays]);
 
   const refreshTopics = () => {
     fetchTopics();

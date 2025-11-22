@@ -1,0 +1,8 @@
+key,category,zh,en,ja,description
+topicHistory.button.viewDetails,topic_actions,投票詳細,View Vote Details,投票詳細を表示,主題卡片前往投票詳情按鈕
+editTopic.button.edit,topic_actions,編輯,Edit,編集,主題編輯按鈕文字
+editTopic.button.expired,topic_actions,編輯（已超過時限）,Edit (Expired),編集（期限切れ）,超過可編輯時限時的按鈕文字
+deleteTopic.button.delete,topic_actions,刪除主題,Delete Topic,トピックを削除,刪除主題操作按鈕
+vote.detail.report.button,topic_actions,通報,Report Topic,通報する,投票詳情頁的檢舉/通報按鈕
+vote.detail.exposure.upgrade,topic_actions,升級曝光,Upgrade Exposure,露出度をアップ,投票詳情頁升級曝光按鈕
+

@@ -9,14 +9,16 @@ export type RestrictionType =
   | 'vote' 
   | 'complete_mission' 
   | 'modify_name' 
-  | 'recharge';
+  | 'recharge'
+  | 'all';
 
 const restrictionLabels: Record<RestrictionType, string> = {
   create_topic: '發起主題',
   vote: '投票',
   complete_mission: '完成任務',
   modify_name: '修改名稱',
-  recharge: '儲值'
+  recharge: '儲值',
+  all: '全部功能'
 };
 
 /**
@@ -62,15 +64,23 @@ export const checkUserRestriction = async (
       try {
         const { data: restrictionData, error: restrictionError } = await supabase
           .from('user_restrictions')
-          .select('reason')
+          .select('reason, restriction_type')
           .eq('user_id', userId)
-          .eq('restriction_type', restrictionType)
           .eq('is_active', true)
-          .maybeSingle();
+          .in('restriction_type', [restrictionType, 'all'])
+          .order('restriction_type', { ascending: false });
 
         console.log(`[checkUserRestriction] Restriction data:`, restrictionData);
 
-        const reason = restrictionData?.reason || `${restrictionLabels[restrictionType]}功能已被暫停`;
+        const matchedRestriction =
+          restrictionData?.find((r) => r.restriction_type === restrictionType) ||
+          restrictionData?.find((r) => r.restriction_type === 'all');
+
+        const reason =
+          matchedRestriction?.reason ||
+          (matchedRestriction?.restriction_type === 'all'
+            ? '帳號所有功能已被暫停，請聯繫管理員'
+            : `${restrictionLabels[restrictionType]}功能已被暫停`);
         
         console.log(`[checkUserRestriction] Returning restricted=true, reason: ${reason}`);
         
@@ -100,6 +110,9 @@ export const checkUserRestriction = async (
  * 獲取限制訊息
  */
 export const getRestrictionMessage = (restrictionType: RestrictionType): string => {
+  if (restrictionType === 'all') {
+    return '帳號所有功能已被暫停，請聯繫管理員';
+  }
   return `${restrictionLabels[restrictionType]}功能已被暫停，請聯繫管理員`;
 };
 

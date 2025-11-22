@@ -16,26 +16,30 @@ import { Lock, Loader2, AlertCircle, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
-
-// 密碼驗證 schema
-const passwordSchema = z.object({
-  newPassword: z.string()
-    .min(8, "密碼至少需要 8 個字元")
-    .regex(/[A-Z]/, "密碼需要包含至少一個大寫字母")
-    .regex(/[a-z]/, "密碼需要包含至少一個小寫字母")
-    .regex(/[0-9]/, "密碼需要包含至少一個數字"),
-  confirmPassword: z.string()
-}).refine((data) => data.newPassword === data.confirmPassword, {
-  message: "兩次輸入的密碼不一致",
-  path: ["confirmPassword"],
-});
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useUIText } from "@/hooks/useUIText";
 
 export const ChangePasswordDialog = () => {
+  const { language } = useLanguage();
+  const { getText } = useUIText(language);
   const [open, setOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+
+  // 密碼驗證 schema（動態生成，使用 UI 文字）
+  const passwordSchema = z.object({
+    newPassword: z.string()
+      .min(8, getText('changePassword.validation.minLength', '密碼至少需要 8 個字元'))
+      .regex(/[A-Z]/, getText('changePassword.validation.uppercase', '密碼需要包含至少一個大寫字母'))
+      .regex(/[a-z]/, getText('changePassword.validation.lowercase', '密碼需要包含至少一個小寫字母'))
+      .regex(/[0-9]/, getText('changePassword.validation.number', '密碼需要包含至少一個數字')),
+    confirmPassword: z.string()
+  }).refine((data) => data.newPassword === data.confirmPassword, {
+    message: getText('changePassword.validation.mismatch', '兩次輸入的密碼不一致'),
+    path: ["confirmPassword"],
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +49,7 @@ export const ChangePasswordDialog = () => {
     try {
       passwordSchema.parse({ newPassword, confirmPassword });
     } catch (error: any) {
-      const validationErrors = error.errors?.map((err: any) => err.message) || ['驗證失敗'];
+      const validationErrors = error.errors?.map((err: any) => err.message) || [getText('changePassword.error.validationFailed', '驗證失敗')];
       setErrors(validationErrors);
       return;
     }
@@ -60,8 +64,8 @@ export const ChangePasswordDialog = () => {
 
       if (error) throw error;
 
-      toast.success('密碼更新成功', {
-        description: '請使用新密碼登入'
+      toast.success(getText('changePassword.success.updated', '密碼更新成功'), {
+        description: getText('changePassword.success.description', '請使用新密碼登入')
       });
 
       // 重置表單
@@ -70,8 +74,8 @@ export const ChangePasswordDialog = () => {
       setOpen(false);
     } catch (error: any) {
       console.error('Error updating password:', error);
-      toast.error('密碼更新失敗', {
-        description: error.message || '請稍後再試'
+      toast.error(getText('changePassword.error.updateFailed', '密碼更新失敗'), {
+        description: error.message || getText('changePassword.error.tryLater', '請稍後再試')
       });
     } finally {
       setIsUpdating(false);
@@ -95,9 +99,9 @@ export const ChangePasswordDialog = () => {
     if (/[0-9]/.test(password)) strength++;
     if (/[^A-Za-z0-9]/.test(password)) strength++;
     
-    if (strength >= 5) return { label: '強', color: 'text-green-600', width: '100%' };
-    if (strength >= 3) return { label: '中', color: 'text-yellow-600', width: '60%' };
-    return { label: '弱', color: 'text-red-600', width: '30%' };
+    if (strength >= 5) return { label: getText('changePassword.strength.strong', '強'), color: 'text-green-600', width: '100%' };
+    if (strength >= 3) return { label: getText('changePassword.strength.medium', '中'), color: 'text-yellow-600', width: '60%' };
+    return { label: getText('changePassword.strength.weak', '弱'), color: 'text-red-600', width: '30%' };
   };
 
   const passwordStrength = newPassword ? getPasswordStrength(newPassword) : null;
@@ -108,7 +112,7 @@ export const ChangePasswordDialog = () => {
         <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
           <div className="flex items-center gap-3">
             <Lock className="w-5 h-5 text-primary" />
-            <span className="font-medium">修改密碼</span>
+            <span className="font-medium">{getText('changePassword.button.change', '修改密碼')}</span>
           </div>
           <span className="text-muted-foreground">›</span>
         </button>
@@ -117,10 +121,10 @@ export const ChangePasswordDialog = () => {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Lock className="w-5 h-5" />
-            修改密碼
+            {getText('changePassword.dialog.title', '修改密碼')}
           </DialogTitle>
           <DialogDescription>
-            設置一個強密碼來保護您的帳號安全
+            {getText('changePassword.dialog.description', '設置一個強密碼來保護您的帳號安全')}
           </DialogDescription>
         </DialogHeader>
 
@@ -141,13 +145,13 @@ export const ChangePasswordDialog = () => {
 
           {/* 新密碼 */}
           <div className="space-y-2">
-            <Label htmlFor="newPassword">新密碼</Label>
+            <Label htmlFor="newPassword">{getText('changePassword.form.newPasswordLabel', '新密碼')}</Label>
             <Input
               id="newPassword"
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="輸入新密碼"
+              placeholder={getText('changePassword.form.newPasswordPlaceholder', '輸入新密碼')}
               required
               disabled={isUpdating}
             />
@@ -156,7 +160,7 @@ export const ChangePasswordDialog = () => {
             {passwordStrength && (
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">密碼強度</span>
+                  <span className="text-muted-foreground">{getText('changePassword.form.strengthLabel', '密碼強度')}</span>
                   <span className={passwordStrength.color}>{passwordStrength.label}</span>
                 </div>
                 <div className="h-1 bg-muted rounded-full overflow-hidden">
@@ -171,13 +175,13 @@ export const ChangePasswordDialog = () => {
 
           {/* 確認密碼 */}
           <div className="space-y-2">
-            <Label htmlFor="confirmPassword">確認新密碼</Label>
+            <Label htmlFor="confirmPassword">{getText('changePassword.form.confirmPasswordLabel', '確認新密碼')}</Label>
             <Input
               id="confirmPassword"
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="再次輸入新密碼"
+              placeholder={getText('changePassword.form.confirmPasswordPlaceholder', '再次輸入新密碼')}
               required
               disabled={isUpdating}
             />
@@ -186,12 +190,12 @@ export const ChangePasswordDialog = () => {
                 {newPassword === confirmPassword ? (
                   <>
                     <CheckCircle className="w-3 h-3 text-green-600" />
-                    <span className="text-green-600">密碼一致</span>
+                    <span className="text-green-600">{getText('changePassword.form.match', '密碼一致')}</span>
                   </>
                 ) : (
                   <>
                     <AlertCircle className="w-3 h-3 text-red-600" />
-                    <span className="text-red-600">密碼不一致</span>
+                    <span className="text-red-600">{getText('changePassword.form.mismatch', '密碼不一致')}</span>
                   </>
                 )}
               </div>
@@ -202,7 +206,7 @@ export const ChangePasswordDialog = () => {
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription className="text-xs">
-              密碼要求：至少 8 個字元，包含大小寫字母和數字
+              {getText('changePassword.form.requirements', '密碼要求：至少 8 個字元，包含大小寫字母和數字')}
             </AlertDescription>
           </Alert>
 
@@ -214,7 +218,7 @@ export const ChangePasswordDialog = () => {
               disabled={isUpdating}
               className="flex-1"
             >
-              取消
+              {getText('common.button.cancel', '取消')}
             </Button>
             <Button
               type="submit"
@@ -224,10 +228,10 @@ export const ChangePasswordDialog = () => {
               {isUpdating ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  更新中...
+                  {getText('changePassword.button.updating', '更新中...')}
                 </>
               ) : (
-                '確認修改'
+                getText('changePassword.button.confirm', '確認修改')
               )}
             </Button>
           </DialogFooter>

@@ -14,7 +14,7 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 const translations: Record<BaseLanguage, Record<string, string>> = {
   zh: {
     // Header
-    "app.name": "VoteChaos",
+    "app.name": "ChaosRegistry",
     "app.slogan": "投票混亂製造機",
     "tokens": "代幣",
     
@@ -54,7 +54,7 @@ const translations: Record<BaseLanguage, Record<string, string>> = {
   },
   en: {
     // Header
-    "app.name": "VoteChaos",
+    "app.name": "ChaosRegistry",
     "app.slogan": "Chaos Voting Machine",
     "tokens": "Tokens",
     
@@ -94,7 +94,7 @@ const translations: Record<BaseLanguage, Record<string, string>> = {
   },
   ja: {
     // Header
-    "app.name": "VoteChaos",
+    "app.name": "ChaosRegistry",
     "app.slogan": "投票カオスメーカー",
     "tokens": "トークン",
     

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Loader2, Bell, CheckCheck, AlertCircle, MessageSquare, Info } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,7 +20,7 @@ import { useUIText } from "@/hooks/useUIText";
 
 interface Notification {
   id: string;
-  type: 'announcement' | 'personal' | 'system';
+  type: 'announcement' | 'personal' | 'system' | 'contact';
   title: string;
   content: string;
   is_read: boolean;
@@ -29,11 +29,25 @@ interface Notification {
   expires_at: string | null;
 }
 
+interface ContactReply {
+  message_id: string;
+  message_title: string;
+  message_category: string;
+  message_created_at: string;
+  reply_id: string;
+  reply_content: string;
+  reply_created_at: string;
+  responder_id: string;
+  responder_name: string | null;
+}
+
 const NotificationsPage = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [activeTab, setActiveTab] = useState<'all' | 'unread' | 'announcement' | 'personal'>('all');
+  const [contactReplies, setContactReplies] = useState<ContactReply[]>([]);
+  const [contactLoading, setContactLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'all' | 'unread' | 'announcement' | 'personal' | 'contact'>('all');
   const { language } = useLanguage();
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
 
@@ -45,30 +59,27 @@ const NotificationsPage = () => {
   const tabUnreadLabel = getText('notifications.tabs.unread', '未讀');
   const tabAnnouncementLabel = getText('notifications.tabs.announcement', '公告');
   const tabPersonalLabel = getText('notifications.tabs.personal', '個人');
-  const toastLoadError = getText('notifications.toast.loadError', '載入通知失敗');
+  const tabContactLabel = getText('notifications.tabs.contact', '客服回覆');
   const toastMarkError = getText('notifications.toast.markError', '標記失敗');
   const toastMarkAllSuccess = getText('notifications.toast.markAllSuccess', '已標記所有通知為已讀');
   const toastMarkAllError = getText('notifications.toast.markAllError', '標記失敗');
   const emptyUnreadText = getText('notifications.empty.unread', '沒有未讀通知');
   const emptyAllText = getText('notifications.empty.all', '沒有通知');
+  const emptyContactText = getText('notifications.empty.contact', '尚未收到客服回覆');
   const unreadBadgeText = getText('notifications.badge.unread', '未讀');
   const markAsReadButtonText = getText('notifications.list.markAsRead', '標記為已讀');
 
-  if (uiTextsLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  // 使用 useMemo 穩定錯誤訊息，避免無限循環
+  const toastLoadError = useMemo(
+    () => getText('notifications.toast.loadError', '載入通知失敗'),
+    [getText]
+  );
+  const toastContactLoadError = useMemo(
+    () => getText('notifications.toast.contactLoadError', '載入客服回覆失敗'),
+    [getText]
+  );
 
-  useEffect(() => {
-    if (user) {
-      fetchNotifications();
-    }
-  }, [user]);
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -81,10 +92,10 @@ const NotificationsPage = () => {
 
       if (error) throw error;
 
-      // 過濾已過期的通知
+      // 過濾已過期的通知，並排除客服回覆（客服回覆有獨立的獲取方式）
       const now = new Date();
       const validNotifications = (data || []).filter(
-        (n) => !n.expires_at || new Date(n.expires_at) > now
+        (n) => n.type !== 'contact' && (!n.expires_at || new Date(n.expires_at) > now)
       );
 
       setNotifications(validNotifications);
@@ -94,7 +105,45 @@ const NotificationsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id, toastLoadError]);
+
+  const fetchContactReplies = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      setContactLoading(true);
+      const { data, error } = await supabase.rpc('user_list_contact_replies');
+
+      if (error) throw error;
+
+      setContactReplies((data || []) as ContactReply[]);
+    } catch (error: any) {
+      console.error("Fetch contact replies error:", error);
+      toast.error(toastContactLoadError);
+    } finally {
+      setContactLoading(false);
+    }
+  }, [user?.id, toastContactLoadError]);
+
+  useEffect(() => {
+    if (!user) {
+      setNotifications([]);
+      setContactReplies([]);
+      setLoading(false);
+      setContactLoading(false);
+      return;
+    }
+
+    void Promise.allSettled([fetchNotifications(), fetchContactReplies()]);
+  }, [user?.id, fetchNotifications, fetchContactReplies]);
+
+  if (uiTextsLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const markAsRead = async (notificationId: string) => {
     try {
@@ -128,8 +177,13 @@ const NotificationsPage = () => {
 
       if (error) throw error;
 
+      // 只更新非客服回覆的通知（客服回覆有獨立的標籤頁）
       setNotifications((prev) =>
-        prev.map((n) => ({ ...n, is_read: true, read_at: new Date().toISOString() }))
+        prev.map((n) => 
+          n.type !== 'contact' 
+            ? { ...n, is_read: true, read_at: new Date().toISOString() }
+            : n
+        )
       );
       toast.success(toastMarkAllSuccess);
     } catch (error: any) {
@@ -142,6 +196,8 @@ const NotificationsPage = () => {
     switch (type) {
       case 'announcement':
         return <AlertCircle className="w-5 h-5 text-blue-500" />;
+      case 'contact':
+        return <MessageSquare className="w-5 h-5 text-amber-500" />;
       case 'personal':
         return <MessageSquare className="w-5 h-5 text-purple-500" />;
       case 'system':
@@ -155,6 +211,8 @@ const NotificationsPage = () => {
     switch (type) {
       case 'announcement':
         return getText('notifications.type.announcement', '公告');
+      case 'contact':
+        return getText('notifications.type.contact', '客服回覆');
       case 'personal':
         return getText('notifications.type.personal', '個人通知');
       case 'system':
@@ -164,14 +222,188 @@ const NotificationsPage = () => {
     }
   };
 
-  const filteredNotifications = notifications.filter((n) => {
-    if (activeTab === 'unread') return !n.is_read;
-    if (activeTab === 'announcement') return n.type === 'announcement';
-    if (activeTab === 'personal') return n.type === 'personal';
-    return true;
-  });
+  const getContactCategoryLabel = (category: string) => {
+    const labels: Record<string, string> = {
+      bug: getText('contact.category.bug', '錯誤回報'),
+      suggestion: getText('contact.category.suggestion', '建議'),
+      question: getText('contact.category.question', '問題詢問'),
+      complaint: getText('contact.category.complaint', '投訴'),
+      other: getText('contact.category.other', '其他'),
+    };
+    return labels[category] || category;
+  };
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const filterNotifications = (tab: 'all' | 'unread' | 'announcement' | 'personal') => {
+    switch (tab) {
+      case 'unread':
+        return notifications.filter((n) => !n.is_read && n.type !== 'contact');
+      case 'announcement':
+        return notifications.filter((n) => n.type === 'announcement');
+      case 'personal':
+        return notifications.filter((n) => n.type === 'personal');
+      default:
+        // 'all' 標籤中排除 'contact' 類型，因為它們在獨立的「客服回覆」標籤中顯示
+        return notifications.filter((n) => n.type !== 'contact');
+    }
+  };
+
+  const renderNotificationList = (tab: 'all' | 'unread' | 'announcement' | 'personal') => {
+    if (loading) {
+      return (
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      );
+    }
+
+    const list = filterNotifications(tab);
+
+    if (list.length === 0) {
+      const emptyText = tab === 'unread' ? emptyUnreadText : emptyAllText;
+      return (
+        <Card>
+          <CardContent className="p-12">
+            <div className="text-center">
+              <Bell className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground text-lg">{emptyText}</p>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        {list.map((notification) => (
+          <Card
+            key={notification.id}
+            className={`hover:shadow-md transition-shadow ${
+              !notification.is_read ? 'border-primary border-2' : ''
+            }`}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="mt-1">
+                  {getNotificationIcon(notification.type)}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-foreground">
+                          {notification.title}
+                        </h3>
+                        <Badge variant="outline" className="text-xs">
+                          {getNotificationTypeLabel(notification.type)}
+                        </Badge>
+                        {!notification.is_read && (
+                          <Badge variant="default" className="text-xs">
+                            {unreadBadgeText}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                        {notification.content}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-3">
+                    <span className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(new Date(notification.created_at), {
+                        addSuffix: true,
+                        locale: zhTW,
+                      })}
+                    </span>
+                    {!notification.is_read && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => markAsRead(notification.id)}
+                        className="text-xs"
+                      >
+                        {markAsReadButtonText}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  };
+
+  const renderContactReplies = () => {
+    if (contactLoading) {
+      return (
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      );
+    }
+
+    if (contactReplies.length === 0) {
+      return (
+        <Card>
+          <CardContent className="p-12">
+            <div className="text-center">
+              <MessageSquare className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground text-lg">{emptyContactText}</p>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        {contactReplies.map((reply) => (
+          <Card key={reply.reply_id} className="hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-primary" />
+                  <h3 className="font-semibold">{reply.message_title}</h3>
+                  <Badge variant="outline" className="text-xs">
+                    {getContactCategoryLabel(reply.message_category)}
+                  </Badge>
+                </div>
+                <div className="p-3 bg-muted rounded-md">
+                  <p className="text-xs text-muted-foreground mb-1">
+                    來自：{reply.responder_name || '管理員'}
+                  </p>
+                  <p className="text-sm whitespace-pre-wrap">
+                    {reply.reply_content}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>
+                    問題建立：{formatDistanceToNow(new Date(reply.message_created_at), {
+                      addSuffix: true,
+                      locale: zhTW,
+                    })}
+                  </span>
+                  <span>
+                    回覆時間：{formatDistanceToNow(new Date(reply.reply_created_at), {
+                      addSuffix: true,
+                      locale: zhTW,
+                    })}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  };
+
+  // 未讀計數排除客服回覆（客服回覆有獨立的標籤頁）
+  const unreadCount = notifications.filter((n) => !n.is_read && n.type !== 'contact').length;
+  const announcementCount = notifications.filter((n) => n.type === 'announcement').length;
+  const personalCount = notifications.filter((n) => n.type === 'personal').length;
+  const contactCount = contactReplies.length;
   const headerSubtitle = unreadCount > 0
     ? headerSubtitleTemplate.replace('{{count}}', unreadCount.toString())
     : headerSubtitleEmpty;
@@ -213,7 +445,7 @@ const NotificationsPage = () => {
       {/* Content */}
       <div className="max-w-screen-xl mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="all">
               {tabAllLabel}
               {notifications.length > 0 && (
@@ -230,86 +462,46 @@ const NotificationsPage = () => {
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="announcement">{tabAnnouncementLabel}</TabsTrigger>
-            <TabsTrigger value="personal">{tabPersonalLabel}</TabsTrigger>
+            <TabsTrigger value="announcement">
+              {tabAnnouncementLabel}
+              {announcementCount > 0 && (
+                <Badge variant="outline" className="ml-2">
+                  {announcementCount}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="personal">
+              {tabPersonalLabel}
+              {personalCount > 0 && (
+                <Badge variant="outline" className="ml-2">
+                  {personalCount}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="contact">
+              {tabContactLabel}
+              {contactReplies.length > 0 && (
+                <Badge variant="outline" className="ml-2">
+                  {contactReplies.length}
+                </Badge>
+              )}
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value={activeTab} className="mt-4">
-            {loading ? (
-              <div className="flex justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              </div>
-            ) : filteredNotifications.length === 0 ? (
-              <Card>
-                <CardContent className="p-12">
-                  <div className="text-center">
-                    <Bell className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground text-lg">
-                      {activeTab === 'unread' ? emptyUnreadText : emptyAllText}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {filteredNotifications.map((notification) => (
-                  <Card
-                    key={notification.id}
-                    className={`hover:shadow-md transition-shadow ${
-                      !notification.is_read ? 'border-primary border-2' : ''
-                    }`}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="mt-1">
-                          {getNotificationIcon(notification.type)}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-semibold text-foreground">
-                                  {notification.title}
-                                </h3>
-                                <Badge variant="outline" className="text-xs">
-                                  {getNotificationTypeLabel(notification.type)}
-                                </Badge>
-                                {!notification.is_read && (
-                                  <Badge variant="default" className="text-xs">
-                                    {unreadBadgeText}
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                                {notification.content}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between mt-3">
-                            <span className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(notification.created_at), {
-                                addSuffix: true,
-                                locale: zhTW,
-                              })}
-                            </span>
-                            {!notification.is_read && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => markAsRead(notification.id)}
-                                className="text-xs"
-                              >
-                                {markAsReadButtonText}
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
+          <TabsContent value="all" className="mt-6">
+            {renderNotificationList('all')}
+          </TabsContent>
+          <TabsContent value="unread" className="mt-6">
+            {renderNotificationList('unread')}
+          </TabsContent>
+          <TabsContent value="announcement" className="mt-6">
+            {renderNotificationList('announcement')}
+          </TabsContent>
+          <TabsContent value="personal" className="mt-6">
+            {renderNotificationList('personal')}
+          </TabsContent>
+          <TabsContent value="contact" className="mt-6">
+            {renderContactReplies()}
           </TabsContent>
         </Tabs>
       </div>

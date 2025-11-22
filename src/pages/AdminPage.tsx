@@ -7,7 +7,6 @@ import { Loader2 } from "lucide-react";
 import { UITextManager } from "@/components/admin/UITextManager";
 import { TopicManager } from "@/components/admin/TopicManager";
 import SystemConfigManager from "@/components/admin/SystemConfigManager";
-import AnnouncementManager from "@/components/admin/AnnouncementManager";
 import ReportManager from "@/components/admin/ReportManager";
 import SecurityManager from "@/components/admin/SecurityManager";
 import { BannedWordsManager } from "@/components/admin/BannedWordsManager";
@@ -20,7 +19,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 
 const AdminPage = () => {
-  const { isAdmin, isLoading } = useAdmin();
+  const { isAdmin, isLoading, error: adminError } = useAdmin();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("users");
   const [selectedUserIdForRestriction, setSelectedUserIdForRestriction] = useState<string | null>(null);
@@ -31,7 +30,6 @@ const AdminPage = () => {
   const tabUsers = getText('admin.tabs.users', '用戶管理');
   const tabNotifications = getText('admin.tabs.notifications', '通知管理');
   const tabContact = getText('admin.tabs.contact', '聯絡訊息');
-  const tabAnnouncements = getText('admin.tabs.announcements', '公告管理');
   const tabReports = getText('admin.tabs.reports', '檢舉管理');
   const tabTopics = getText('admin.tabs.topics', '主題管理');
   const tabRestrictions = getText('admin.tabs.userRestrictions', '用戶限制');
@@ -52,7 +50,8 @@ const AdminPage = () => {
   useEffect(() => {
     // 只有在網頁版才檢查管理員權限
     if (!isLoading && !isAdmin && !isNative()) {
-      navigate('/');
+      console.log('[AdminPage] Not admin, redirecting to home');
+      navigate('/', { replace: true });
     }
   }, [isAdmin, isLoading, navigate]);
 
@@ -61,15 +60,31 @@ const AdminPage = () => {
     return null;
   }
 
+  // 顯示錯誤訊息（如果有）
+  if (adminError) {
+    console.error('[AdminPage] Admin check error:', adminError);
+  }
+
   if (isLoading || uiTextsLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin" />
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p className="text-sm text-muted-foreground">
+            {isLoading ? getText('admin.loading.checking', '檢查管理員權限中...') : getText('admin.loading.uiTexts', '載入 UI 文字中...')}
+          </p>
+          {adminError && (
+            <p className="text-xs text-destructive mt-2">
+              {getText('admin.error.checking', '錯誤：')}{adminError instanceof Error ? adminError.message : getText('admin.error.unknown', '未知錯誤')}
+            </p>
+          )}
+        </div>
       </div>
     );
   }
 
   if (!isAdmin) {
+    console.log('[AdminPage] User is not admin, returning null');
     return null;
   }
 
@@ -78,11 +93,10 @@ const AdminPage = () => {
       <h1 className="text-3xl font-bold mb-6">{headerTitle}</h1>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-11 mb-6">
+        <TabsList className="grid w-full grid-cols-10 mb-6">
           <TabsTrigger value="users">{tabUsers}</TabsTrigger>
           <TabsTrigger value="notifications">{tabNotifications}</TabsTrigger>
           <TabsTrigger value="contact">{tabContact}</TabsTrigger>
-          <TabsTrigger value="announcements">{tabAnnouncements}</TabsTrigger>
           <TabsTrigger value="reports">{tabReports}</TabsTrigger>
           <TabsTrigger value="topics">{tabTopics}</TabsTrigger>
           <TabsTrigger value="user-restrictions">{tabRestrictions}</TabsTrigger>
@@ -112,12 +126,6 @@ const AdminPage = () => {
         <TabsContent value="contact">
           <Card className="p-6">
             <ContactMessageManager />
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="announcements">
-          <Card className="p-6">
-            <AnnouncementManager />
           </Card>
         </TabsContent>
         

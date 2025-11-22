@@ -170,7 +170,7 @@ const AuthPage = () => {
       <Card className="w-full max-w-md shadow-glow">
         <CardHeader className="space-y-2 pb-4 sm:pb-6">
           <CardTitle className="text-2xl sm:text-3xl font-bold text-center bg-gradient-accent bg-clip-text text-transparent">
-            {getText('auth_app_title', 'VoteChaos')}
+            {getText('auth_app_title', 'ChaosRegistry')}
           </CardTitle>
           <CardDescription className="text-center text-sm sm:text-base">
             {getText('auth_app_subtitle', '加入最有趣的投票社群')}

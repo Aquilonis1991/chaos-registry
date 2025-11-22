@@ -2,9 +2,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useUIText } from "@/hooks/useUIText";
 
 const TermsPage = () => {
   const navigate = useNavigate();
+  const { language } = useLanguage();
+  const { getText } = useUIText(language);
 
   return (
     <div className="min-h-screen bg-background pb-8">
@@ -21,8 +25,12 @@ const TermsPage = () => {
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
-              <h1 className="text-xl font-bold text-primary-foreground">使用者條款</h1>
-              <p className="text-xs text-primary-foreground/80">Terms of Service</p>
+              <h1 className="text-xl font-bold text-primary-foreground">
+                {getText('termsPage.header.title', '使用者條款')}
+              </h1>
+              <p className="text-xs text-primary-foreground/80">
+                {getText('termsPage.header.subtitle', 'Terms of Service')}
+              </p>
             </div>
           </div>
         </div>

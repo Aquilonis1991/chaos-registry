@@ -5,7 +5,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, User, Clock, Coins, Loader2, Gift, Flag } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ArrowLeft, User, Clock, Coins, Loader2, Gift, Flag, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useProfile } from "@/hooks/useProfile";
 import { useVoteOperations } from "@/hooks/useVoteOperations";
@@ -13,13 +23,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { voteSchema } from "@/lib/validationSchemas";
 import { ReportDialog } from "@/components/ReportDialog";
 import { useTopicDetail } from "@/hooks/useTopicDetail";
-import { formatDistanceToNow, format } from "date-fns";
+import { format } from "date-fns";
 import { zhTW } from "date-fns/locale";
 import { EditTopicDialog } from "@/components/EditTopicDialog";
 import { DeleteTopicDialog } from "@/components/DeleteTopicDialog";
+import { ExposureApplyDialog } from "@/components/ExposureApplyDialog";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
+import { formatRelativeTime, formatRemainingTime } from "@/lib/relativeTime";
 
 const VoteDetailPage = () => {
   const { id } = useParams();
@@ -36,6 +48,10 @@ const VoteDetailPage = () => {
   const [freeVoteAvailable, setFreeVoteAvailable] = useState(false);
   const [checkingFreeVote, setCheckingFreeVote] = useState(false);
   const [customAmount, setCustomAmount] = useState<string>("");
+  const [exposureDialogOpen, setExposureDialogOpen] = useState(false);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [pendingVoteAmount, setPendingVoteAmount] = useState<number | null>(null);
+  const [pendingVoteSource, setPendingVoteSource] = useState<'quick' | 'custom' | null>(null);
 
   const selectOptionText = getText('vote.detail.error.selectOption', '請先選擇一個選項');
   const loginRequiredTitle = getText('vote.detail.error.loginRequired.title', '需要註冊才能投票');
@@ -69,6 +85,11 @@ const VoteDetailPage = () => {
   const balanceTemplate = getText('vote.detail.custom.balance', '當前持有：{{amount}} 代幣');
   const deadlineLabel = getText('vote.detail.info.deadline', '投票截止時間');
   const reportButtonText = getText('vote.detail.report.button', '檢舉');
+  const upgradeExposureText = getText('vote.detail.exposure.upgrade', '升級曝光');
+  const confirmDialogTitle = getText('vote.detail.confirm.title', '確認投入代幣');
+  const confirmDialogDescriptionTemplate = getText('vote.detail.confirm.description', '確定要投入 {{amount}} 代幣給此選項？此操作會立即扣除代幣。');
+  const confirmDialogCancelText = getText('vote.detail.confirm.cancel', '取消');
+  const confirmDialogConfirmText = getText('vote.detail.confirm.confirm', '確認投入');
 
   // Check free vote availability when component mounts
   useEffect(() => {
@@ -144,6 +165,35 @@ const VoteDetailPage = () => {
     }
   };
 
+  const openVoteConfirmDialog = (amount: number, source: 'quick' | 'custom') => {
+    if (!selectedOption) {
+      toast.error(selectOptionText);
+      return;
+    }
+    setPendingVoteAmount(amount);
+    setPendingVoteSource(source);
+    setConfirmDialogOpen(true);
+  };
+
+  const handleConfirmVote = async () => {
+    if (!pendingVoteAmount) return;
+    const amount = pendingVoteAmount;
+    const source = pendingVoteSource;
+    setConfirmDialogOpen(false);
+    setPendingVoteAmount(null);
+    setPendingVoteSource(null);
+    if (source === 'custom') {
+      setCustomAmount("");
+    }
+    await handleVote(amount);
+  };
+
+  const handleCancelVote = () => {
+    setConfirmDialogOpen(false);
+    setPendingVoteAmount(null);
+    setPendingVoteSource(null);
+  };
+
   const handleFreeVote = async () => {
     if (!selectedOption) {
       toast.error(selectOptionText);
@@ -202,12 +252,16 @@ const VoteDetailPage = () => {
   }
 
   const totalVotes = topic.total_votes || 0;
+  const createdAtLabel = formatRelativeTime(new Date(topic.created_at), getText);
+  const remainingTimeLabel = formatRemainingTime(new Date(topic.end_at), getText);
+  const isCreator = Boolean(user && topic.creator_id === user.id);
 
   return (
-    <div className="min-h-screen bg-background pb-6">
+    <>
+      <div className="min-h-screen bg-background pb-6">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg">
-        <div className="max-w-screen-xl mx-auto px-4 py-4">
+        <div className="max-w-screen-xl mx-auto px-5 sm:px-6 py-4">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
@@ -233,9 +287,9 @@ const VoteDetailPage = () => {
       </header>
 
       {/* Content */}
-      <div className="max-w-screen-xl mx-auto px-4 py-6">
+      <div className="max-w-screen-xl mx-auto px-5 sm:px-6 py-6">
         {/* Topic Info */}
-        <div className="mb-6">
+        <div className="mb-6 max-w-4xl mx-auto w-full px-4 sm:px-6">
           <h2 className="text-2xl font-bold text-foreground mb-3">
             {topic.title}
           </h2>
@@ -254,61 +308,104 @@ const VoteDetailPage = () => {
             </p>
           )}
           
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
               <div className="flex items-center gap-1">
                 <User className="w-4 h-4" />
                 <span>{topic.creator_name}</span>
               </div>
               <div className="flex items-center gap-1">
                 <Clock className="w-4 h-4" />
-                <span>{formatDistanceToNow(new Date(topic.created_at), { addSuffix: true, locale: zhTW })}</span>
+                <span>{createdAtLabel}</span>
               </div>
               <div className="flex items-center gap-1">
                 <Clock className="w-4 h-4" />
-                <span>{topic.time_remaining}</span>
+                <span>{remainingTimeLabel}</span>
               </div>
             </div>
             
             {/* Action Buttons */}
-            <div className="flex gap-2">
-              {/* 編輯和刪除按鈕（僅創建者可見）*/}
-              {user && topic.creator_id === user.id && (
-                <>
-                  <EditTopicDialog
-                    topicId={id || ''}
-                    currentTitle={topic.title}
-                    currentDescription={topic.description}
-                    currentOptions={topic.options.map(opt => opt.text)}
-                    createdAt={topic.created_at}
-                    onEditSuccess={refreshTopic}
+            <div className="w-full">
+              <div className={`grid gap-3 ${isCreator ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4' : 'grid-cols-2'}`}>
+                {/* 編輯和刪除按鈕（僅創建者可見）*/}
+                {isCreator && (
+                  <>
+                    <div className="w-full">
+                      <EditTopicDialog
+                        topicId={id || ''}
+                        currentTitle={topic.title}
+                        currentDescription={topic.description}
+                        currentOptions={topic.options.map(opt => opt.text)}
+                        createdAt={topic.created_at}
+                        onEditSuccess={refreshTopic}
+                        triggerClassName="w-full"
+                      />
+                    </div>
+                    <div className="w-full">
+                      <DeleteTopicDialog
+                        topicId={id || ''}
+                        topicTitle={topic.title}
+                        navigateAfterDelete={true}
+                        triggerClassName="w-full"
+                      />
+                    </div>
+                    {/* 曝光升級按鈕 */}
+                    {topic.exposure_level !== 'high' && (
+                      <div className="w-full">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setExposureDialogOpen(true)}
+                          className="w-full text-primary hover:text-primary"
+                        >
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          {upgradeExposureText}
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+                
+                {/* Report Button */}
+                <div className="w-full">
+                  <ReportDialog
+                    targetType="topic"
+                    targetId={id || ""}
+                    targetTitle={topic.title}
+                    trigger={
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-muted-foreground hover:text-destructive"
+                      >
+                        <Flag className="w-4 h-4 mr-2" />
+                        {reportButtonText}
+                      </Button>
+                    }
                   />
-                  <DeleteTopicDialog
-                    topicId={id || ''}
-                    topicTitle={topic.title}
-                    navigateAfterDelete={true}
-                  />
-                </>
-              )}
-              
-              {/* Report Button */}
-              <ReportDialog
-                targetType="topic"
-                targetId={id || ""}
-                targetTitle={topic.title}
-                trigger={
-                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive">
-                    <Flag className="w-4 h-4 mr-2" />
-                    {reportButtonText}
-                  </Button>
-                }
-              />
+                </div>
+              </div>
             </div>
+          </div>
+            
+            {/* 曝光升級對話框 */}
+            {user && topic.creator_id === user.id && topic.exposure_level !== 'high' && (
+              <ExposureApplyDialog
+                open={exposureDialogOpen}
+                onOpenChange={setExposureDialogOpen}
+                topicId={id || ''}
+                topicVotes={topic.total_votes || 0}
+                currentLevel={(topic.exposure_level as 'normal' | 'medium' | 'high') || 'normal'}
+                onSuccess={() => {
+                  refreshTopic();
+                }}
+              />
+            )}
           </div>
         </div>
 
         {/* Vote Options */}
-        <div className="space-y-3 mb-6">
+        <div className="space-y-3 mb-6 max-w-3xl mx-auto w-full px-4 sm:px-6">
           <h3 className="text-lg font-semibold text-foreground mb-3">{chooseAnswerTitle}</h3>
           {topic.options && topic.options.length > 0 ? (
             topic.options.map((option, index) => {
@@ -372,7 +469,7 @@ const VoteDetailPage = () => {
         </div>
 
         {/* Vote Actions */}
-        <div className="space-y-3 mb-6">
+        <div className="space-y-3 mb-6 max-w-3xl mx-auto w-full px-4 sm:px-6">
           {isAnonymous ? (
             <Card className="bg-muted/50 border-muted">
               <CardContent className="p-4 text-center">
@@ -423,7 +520,7 @@ const VoteDetailPage = () => {
                 <Button
                   variant="vote"
                   size="lg"
-                  onClick={() => handleVote(1)}
+                  onClick={() => openVoteConfirmDialog(1, 'quick')}
                   className="h-16 text-lg"
                   disabled={isVoting || !selectedOption}
                 >
@@ -437,7 +534,7 @@ const VoteDetailPage = () => {
                 <Button
                   variant="vote"
                   size="lg"
-                  onClick={() => handleVote(10)}
+                  onClick={() => openVoteConfirmDialog(10, 'quick')}
                   className="h-16 text-lg"
                   disabled={isVoting || !selectedOption}
                 >
@@ -451,7 +548,7 @@ const VoteDetailPage = () => {
                 <Button
                   variant="accent"
                   size="lg"
-                  onClick={() => handleVote(100)}
+                  onClick={() => openVoteConfirmDialog(100, 'quick')}
                   className="h-16 text-lg"
                   disabled={isVoting || !selectedOption}
                 >
@@ -493,8 +590,7 @@ const VoteDetailPage = () => {
                         toast.error(customErrorMax);
                         return;
                       }
-                      handleVote(amount);
-                      setCustomAmount("");
+                      openVoteConfirmDialog(amount, 'custom');
                     }}
                     className="h-12 px-6"
                     disabled={isVoting || !selectedOption || !customAmount}
@@ -516,18 +612,44 @@ const VoteDetailPage = () => {
         </div>
 
         {/* Info Card */}
-        <Card className="bg-muted/50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{deadlineLabel}</span>
-              <span className="font-semibold text-foreground">
-                {format(new Date(topic.end_at), "yyyy/MM/dd HH:mm", { locale: zhTW })}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="max-w-3xl mx-auto w-full px-4 sm:px-6">
+          <Card className="bg-muted/50">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">{deadlineLabel}</span>
+                <span className="font-semibold text-foreground">
+                  {format(new Date(topic.end_at), "yyyy/MM/dd HH:mm", { locale: zhTW })}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </div>
+
+      <AlertDialog
+        open={confirmDialogOpen}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            handleCancelVote();
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmDialogTitle}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmDialogDescriptionTemplate.replace('{{amount}}', pendingVoteAmount?.toLocaleString() || '0')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelVote}>{confirmDialogCancelText}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmVote}>
+              {confirmDialogConfirmText}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 

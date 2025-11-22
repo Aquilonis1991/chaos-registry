@@ -34,6 +34,27 @@ Deno.serve(async (req) => {
       return acc;
     }, {} as Record<string, any>);
 
+    const topicBannedConfig = configs.find(c => c.key === 'topic_banned_check_levels');
+    if (!topicBannedConfig) {
+      const defaultLevels = ['A', 'B', 'C', 'D', 'E'];
+      const { data: insertData, error: insertError } = await supabaseClient
+        .from('system_config')
+        .insert({
+          key: 'topic_banned_check_levels',
+          value: defaultLevels,
+          category: 'validation',
+          description: '建立主題與標籤時需要拒絕的禁字級別（JSON 陣列）'
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Error inserting default topic_banned_check_levels:', insertError.message);
+      } else if (insertData) {
+        configMap['topic_banned_check_levels'] = insertData.value;
+      }
+    }
+
     return new Response(
       JSON.stringify({ configs: configMap }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -65,13 +65,29 @@ const SystemConfigManager = () => {
     return acc;
   }, {} as Record<string, typeof configs>);
 
+  const orderedCategories = [
+    'validation',
+    'recharge',
+    'voting',
+    'topic_cost',
+    'home',
+    'mission',
+    'user'
+  ];
+
+  const existingCategories = Object.keys(groupedConfigs);
+  const primaryCategories = orderedCategories.filter(category => existingCategories.includes(category));
+  const remainingCategories = existingCategories.filter(category => !orderedCategories.includes(category));
+  const sortedCategories = [...primaryCategories, ...remainingCategories];
+
   const categoryNames: Record<string, string> = {
     recharge: '儲值配置',
     validation: '驗證限制',
     voting: '投票配置',
     topic_cost: '主題成本',
     mission: '任務獎勵',
-    user: '用戶配置'
+    user: '用戶配置',
+    home: '首頁配置'
   };
 
   if (loading) {
@@ -96,74 +112,87 @@ const SystemConfigManager = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue={Object.keys(groupedConfigs)[0]} className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
-            {Object.keys(groupedConfigs).map(category => (
-              <TabsTrigger key={category} value={category}>
+        <Tabs defaultValue={sortedCategories[0] || ''} className="w-full">
+          <TabsList className="flex flex-wrap gap-2 w-full">
+            {sortedCategories.map(category => (
+              <TabsTrigger
+                key={category}
+                value={category}
+                className="whitespace-nowrap"
+              >
                 {categoryNames[category] || category}
               </TabsTrigger>
             ))}
           </TabsList>
 
-          {Object.entries(groupedConfigs).map(([category, categoryConfigs]) => (
-            <TabsContent key={category} value={category} className="space-y-4">
-              {categoryConfigs.map((config) => {
-                const currentValue = getValue(config.id, config.value);
-                const hasChanged = editedValues[config.id] !== undefined;
-                const isObject = typeof config.value === 'object';
+          {sortedCategories.map(category => {
+            const categoryConfigs = groupedConfigs[category] || [];
+            return (
+              <TabsContent key={category} value={category} className="space-y-4">
+                {categoryConfigs.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">
+                    尚未設定任何項目
+                  </div>
+                ) : (
+                  categoryConfigs.map((config) => {
+                    const currentValue = getValue(config.id, config.value);
+                    const hasChanged = editedValues[config.id] !== undefined;
+                    const isObject = typeof config.value === 'object';
 
-                return (
-                  <div key={config.id} className="space-y-2 border-b pb-4 last:border-0">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <Label htmlFor={config.id} className="font-semibold">
-                          {config.key}
-                        </Label>
-                        {config.description && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {config.description}
-                          </p>
+                    return (
+                      <div key={config.id} className="space-y-2 border-b pb-4 last:border-0">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <Label htmlFor={config.id} className="font-semibold">
+                              {config.key}
+                            </Label>
+                            {config.description && (
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {config.description}
+                              </p>
+                            )}
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => handleSave(config.id, config.key, config.value)}
+                            disabled={!hasChanged || saving === config.id}
+                            variant={hasChanged ? "default" : "outline"}
+                          >
+                            {saving === config.id ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                儲存中
+                              </>
+                            ) : (
+                              <>
+                                <Save className="w-4 h-4 mr-1" />
+                                儲存
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                        {isObject ? (
+                          <textarea
+                            id={config.id}
+                            value={currentValue}
+                            onChange={(e) => handleValueChange(config.id, e.target.value)}
+                            className="w-full min-h-[100px] p-2 border rounded-md font-mono text-sm bg-background"
+                          />
+                        ) : (
+                          <Input
+                            id={config.id}
+                            value={currentValue}
+                            onChange={(e) => handleValueChange(config.id, e.target.value)}
+                            className="font-mono"
+                          />
                         )}
                       </div>
-                      <Button
-                        size="sm"
-                        onClick={() => handleSave(config.id, config.key, config.value)}
-                        disabled={!hasChanged || saving === config.id}
-                        variant={hasChanged ? "default" : "outline"}
-                      >
-                        {saving === config.id ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                            儲存中
-                          </>
-                        ) : (
-                          <>
-                            <Save className="w-4 h-4 mr-1" />
-                            儲存
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                    {isObject ? (
-                      <textarea
-                        id={config.id}
-                        value={currentValue}
-                        onChange={(e) => handleValueChange(config.id, e.target.value)}
-                        className="w-full min-h-[100px] p-2 border rounded-md font-mono text-sm bg-background"
-                      />
-                    ) : (
-                      <Input
-                        id={config.id}
-                        value={currentValue}
-                        onChange={(e) => handleValueChange(config.id, e.target.value)}
-                        className="font-mono"
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </TabsContent>
-          ))}
+                    );
+                  })
+                )}
+              </TabsContent>
+            );
+          })}
         </Tabs>
       </CardContent>
     </Card>

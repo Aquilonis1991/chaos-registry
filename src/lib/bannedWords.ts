@@ -29,7 +29,7 @@ export const checkBannedWords = async (
   }
 
   try {
-    const { data, error } = await supabase.rpc('check_banned_words', {
+    const { data, error } = await (supabase.rpc as any)('check_banned_words', {
       p_text: text,
       p_check_levels: checkLevels
     });
@@ -69,42 +69,48 @@ export const validateTopicContent = async (
   checkLevels: string[] = ['A', 'B', 'C', 'D', 'E', 'F']
 ): Promise<BannedWordCheckResult> => {
   try {
-    // 格式化選項為 JSONB
-    let optionsJsonb: any = null;
+    const textBlocks: Array<{ content: string; type: string }> = [];
+
+    if (title) {
+      textBlocks.push({ content: title, type: 'title' });
+    }
+
+    if (description) {
+      textBlocks.push({ content: description, type: 'description' });
+    }
+
     if (options && options.length > 0) {
-      if (typeof options[0] === 'string') {
-        optionsJsonb = options.map((opt, idx) => ({
-          id: `opt-${idx}`,
-          text: opt,
-          votes: 0
-        }));
-      } else {
-        optionsJsonb = options;
+      const optionTexts = typeof options[0] === 'string'
+        ? options as string[]
+        : (options as Array<{ text: string }>).map(opt => opt.text);
+
+      optionTexts.forEach(opt => {
+        if (opt) {
+          textBlocks.push({ content: opt, type: 'option' });
+        }
+      });
+    }
+
+    if (tags && tags.length > 0) {
+      tags.forEach(tag => {
+        if (tag) {
+          textBlocks.push({ content: tag, type: 'tag' });
+        }
+      });
+    }
+
+    if (category) {
+      textBlocks.push({ content: category, type: 'category' });
+    }
+
+    for (const block of textBlocks) {
+      const result = await checkBannedWords(block.content, checkLevels);
+      if (result.found) {
+        return {
+          ...result,
+          errorMessage: result.errorMessage || `內容包含不當字詞（區塊：${block.type}）`
+        };
       }
-    }
-
-    const { data, error } = await supabase.rpc('validate_topic_content', {
-      p_title: title,
-      p_description: description || null,
-      p_options: optionsJsonb ? JSON.stringify(optionsJsonb) : null,
-      p_tags: tags || null,
-      p_category: category || null,
-      p_check_levels: checkLevels
-    });
-
-    if (error) {
-      console.error('Error validating topic content:', error);
-      return { found: false };
-    }
-
-    if (data && data.length > 0 && !data[0].is_valid) {
-      return {
-        found: true,
-        level: data[0].matched_level,
-        keyword: data[0].matched_keyword,
-        action: data[0].matched_action as 'block' | 'mask' | 'review',
-        errorMessage: data[0].error_message || '內容包含不當字詞'
-      };
     }
 
     return { found: false };
@@ -121,25 +127,43 @@ export const validateNickname = async (
   nickname: string,
   checkLevels: string[] = ['A', 'B', 'C', 'D', 'E', 'F']
 ): Promise<BannedWordCheckResult> => {
+  const trimmedNickname = (nickname || '').trim();
+  if (!trimmedNickname) {
+    return { found: false };
+  }
+
   try {
-    const { data, error } = await supabase.rpc('validate_nickname', {
-      p_nickname: nickname,
-      p_check_levels: checkLevels
-    });
+    const { data, error } = await (supabase.from as any)('banned_words')
+      .select('level, keyword, action, category, is_active')
+      .eq('is_active', true)
+      .in('level', checkLevels);
 
     if (error) {
-      console.error('Error validating nickname:', error);
+      console.error('Error fetching banned words for nickname validation:', error);
       return { found: false };
     }
 
-    if (data && data.length > 0 && !data[0].is_valid) {
-      return {
-        found: true,
-        level: data[0].matched_level,
-        keyword: data[0].matched_keyword,
-        action: data[0].matched_action as 'block' | 'mask' | 'review',
-        errorMessage: data[0].error_message || '名稱包含不當字詞'
-      };
+    if (!data || data.length === 0) {
+      return { found: false };
+    }
+
+    const lowerNickname = trimmedNickname.toLowerCase();
+
+    for (const entry of data) {
+      const keyword = entry.keyword?.trim();
+      if (!keyword) continue;
+
+      const normalizedKeyword = keyword.toLowerCase();
+      if (lowerNickname.includes(normalizedKeyword)) {
+        return {
+          found: true,
+          level: entry.level,
+          keyword,
+          action: entry.action as 'block' | 'mask' | 'review',
+          category: entry.category,
+          errorMessage: `名稱包含禁字：${keyword}`,
+        };
+      }
     }
 
     return { found: false };

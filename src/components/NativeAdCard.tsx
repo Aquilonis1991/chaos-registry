@@ -34,45 +34,23 @@ export const NativeAdCard = ({
   useEffect(() => {
     // 檢查是否在 Capacitor 環境中
     const isCapacitor = typeof window !== 'undefined' && (window as any).Capacitor;
+    const platform = isCapacitor ? (window as any).Capacitor.getPlatform() : 'web';
     
-    if (!isCapacitor || !adUnitId) {
-      // 非 Capacitor 環境或沒有 adUnitId，顯示佔位符
-      setAdLoaded(true);
-      onAdLoaded?.();
-      return;
-    }
-
-    // 在 Capacitor 環境中加載 AdMob 原生廣告
-    const loadAd = async () => {
-      try {
-        const { AdMob } = await import('@capacitor-community/admob');
-        
-        // 準備原生廣告
-        await AdMob.prepare({
-          requestId: Math.random().toString(),
-          adId: adUnitId,
-          adSize: 'MEDIUM_RECTANGLE',
-        });
-
-        // 顯示原生廣告
-        if (adContainerRef.current) {
-          await AdMob.show({
-            adId: adUnitId,
-            adPosition: 'BOTTOM_CENTER',
-            adSize: 'MEDIUM_RECTANGLE',
-          });
-          
-          setAdLoaded(true);
-          onAdLoaded?.();
-        }
-      } catch (error) {
-        console.error('Error loading native ad:', error);
-        setAdLoaded(true);
-        onAdLoaded?.();
-      }
-    };
-
-    loadAd();
+    console.log('[NativeAdCard] 環境檢查:', { 
+      isCapacitor, 
+      platform, 
+      adUnitId,
+      hasContainer: !!adContainerRef.current 
+    });
+    
+    // 目前 @capacitor-community/admob 不支援原生廣告卡片 API
+    // 在 Android/iOS 上顯示佔位符，未來可以整合原生廣告 SDK
+    // 現在先確保卡片能正常顯示
+    setAdLoaded(true);
+    onAdLoaded?.();
+    
+    // 未來可以在此處整合原生廣告 SDK
+    // 例如：使用 AdMob Native Ads API 或第三方原生廣告解決方案
   }, [adUnitId, onAdLoaded]);
 
   const placeholderText = getText('home.ad.native.placeholder', '📱 AdMob 原生廣告');
@@ -98,27 +76,26 @@ export const NativeAdCard = ({
           ref={adContainerRef}
           className="min-h-[220px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-pink-200/70 bg-white/60 p-6 text-center"
         >
-          {!adLoaded ? (
-            <div className="space-y-3">
-              <div className="flex items-center justify-center gap-3 text-pink-600">
-                <span className="text-2xl">🎯</span>
-                <p className="text-base font-semibold">{placeholderText}</p>
-              </div>
-              <p className="text-xs text-muted-foreground">{debugMessage}</p>
-              <div className="flex justify-center gap-2 text-[11px] text-muted-foreground">
-                <span className="rounded-full bg-muted px-3 py-1">AdMob</span>
-                <span className="rounded-full bg-muted px-3 py-1">Native</span>
-                <span className="rounded-full bg-muted px-3 py-1">Preview</span>
-              </div>
+          <div className="space-y-3 w-full">
+            <div className="flex items-center justify-center gap-3 text-pink-600">
+              <span className="text-2xl">🎯</span>
+              <p className="text-base font-semibold">{placeholderText}</p>
             </div>
-          ) : (
-            <div className="w-full">
-              <p className="text-muted-foreground text-sm font-medium">{placeholderText}</p>
-              <p className="text-muted-foreground text-xs mt-1">{debugMessage}</p>
-              {/* AdMob 原生廣告會在這裡渲染 */}
-              <div id={`native-ad-${adUnitId || 'default'}`} className="mt-4"></div>
+            <p className="text-xs text-muted-foreground text-center">{debugMessage}</p>
+            <div className="flex justify-center gap-2 text-[11px] text-muted-foreground">
+              <span className="rounded-full bg-muted px-3 py-1">AdMob</span>
+              <span className="rounded-full bg-muted px-3 py-1">Native</span>
+              <span className="rounded-full bg-muted px-3 py-1">Preview</span>
             </div>
-          )}
+            {/* 未來 AdMob 原生廣告會在這裡渲染 */}
+            <div 
+              ref={adContainerRef}
+              id={`native-ad-${adUnitId || 'default'}`} 
+              className="mt-4 min-h-[100px]"
+            >
+              {/* 原生廣告容器 */}
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>

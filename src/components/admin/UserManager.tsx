@@ -14,7 +14,13 @@ import {
   MoreVertical, 
   Coins,
   TrendingUp,
-  Trash2
+  Trash2,
+  Eye,
+  User as UserIcon,
+  Calendar,
+  Clock,
+  FileText,
+  Vote
 } from "lucide-react";
 import {
   Table,
@@ -86,6 +92,8 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UserProfile | null>(null);
   const [deleteReason, setDeleteReason] = useState("");
+  const [showDetailDialog, setShowDetailDialog] = useState(false);
+  const [detailUser, setDetailUser] = useState<UserProfile | null>(null);
 
   // 獲取用戶列表
   const { language } = useLanguage();
@@ -105,6 +113,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   const dropdownRewardText = getText('admin.userManager.dropdown.reward', '派發獎勵');
   const dropdownRestrictionText = getText('admin.userManager.dropdown.restriction', '設置限制');
   const dropdownStatsText = getText('admin.userManager.dropdown.stats', '查看統計');
+  const dropdownViewDetailText = getText('admin.userManager.dropdown.viewDetail', '查看詳細');
   const restrictionErrorText = getText('admin.userManager.dropdown.restrictionError', '無法切換到限制管理頁面');
   const paginationTemplate = getText('admin.userManager.pagination.summary', '共 {{total}} 位用戶，第 {{page}} / {{totalPages}} 頁');
   const paginationPrevText = getText('admin.userManager.pagination.prev', '上一頁');
@@ -179,6 +188,54 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
       return data?.[0] as UserStats | null;
     },
     enabled: !!selectedUser,
+  });
+
+  // 獲取詳細用戶信息（用於詳細對話框）
+  const { data: detailUserStats, isLoading: detailStatsLoading } = useQuery({
+    queryKey: ['admin-user-detail-stats', detailUser?.id],
+    queryFn: async () => {
+      if (!detailUser) return null;
+      const { data, error } = await supabase.rpc('get_user_stats', {
+        p_user_id: detailUser.id
+      });
+      if (error) throw error;
+      return data?.[0] as UserStats | null;
+    },
+    enabled: !!detailUser,
+  });
+
+  // 獲取用戶代幣交易記錄（最近 20 筆）
+  const { data: tokenTransactions, isLoading: transactionsLoading } = useQuery({
+    queryKey: ['admin-user-token-transactions', detailUser?.id],
+    queryFn: async () => {
+      if (!detailUser) return null;
+      const { data, error } = await supabase
+        .from('token_transactions')
+        .select('id, amount, transaction_type, description, reference_id, created_at')
+        .eq('user_id', detailUser.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!detailUser,
+  });
+
+  // 獲取用戶創建的主題（最近 10 個）
+  const { data: userTopics, isLoading: topicsLoading } = useQuery({
+    queryKey: ['admin-user-topics', detailUser?.id],
+    queryFn: async () => {
+      if (!detailUser) return null;
+      const { data, error } = await supabase
+        .from('topics')
+        .select('id, title, created_at, status, vote_count')
+        .eq('created_by', detailUser.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!detailUser,
   });
 
   // 派發獎勵
@@ -265,6 +322,11 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
     setDeleteTarget(user);
     setDeleteReason("");
     setShowDeleteDialog(true);
+  };
+
+  const handleOpenDetailDialog = (user: UserProfile) => {
+    setDetailUser(user);
+    setShowDetailDialog(true);
   };
 
   const handleSubmitReward = () => {
@@ -441,6 +503,10 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                                 >
                                   <Ban className="w-4 h-4 mr-2" />
                                   {dropdownRestrictionText}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleOpenDetailDialog(user)}>
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  {dropdownViewDetailText}
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem 
@@ -623,6 +689,209 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                   {deleteConfirmText}
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 用戶詳細信息對話框 */}
+      <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{getText('admin.userManager.detail.title', '用戶詳細信息')}</DialogTitle>
+            <DialogDescription>
+              {getText('admin.userManager.detail.description', '查看用戶的完整信息和活動記錄')}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {detailUser && (
+            <div className="space-y-6 py-4">
+              {/* 基本信息 */}
+              <Card>
+                <CardContent className="p-4">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <UserIcon className="w-5 h-5" />
+                    {getText('admin.userManager.detail.basicInfo', '基本信息')}
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-sm text-muted-foreground mb-1">
+                        {getText('admin.userManager.detail.nickname', '暱稱')}
+                      </div>
+                      <div className="font-medium">{detailUser.nickname}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground mb-1">
+                        {getText('admin.userManager.detail.userId', '用戶 ID')}
+                      </div>
+                      <div className="font-mono text-xs break-all">{detailUser.id}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {getText('admin.userManager.detail.registeredAt', '註冊時間')}
+                      </div>
+                      <div className="text-sm">
+                        {format(new Date(detailUser.created_at), 'yyyy/MM/dd HH:mm:ss', { locale: zhTW })}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {getText('admin.userManager.detail.lastLogin', '最後登入')}
+                      </div>
+                      <div className="text-sm">
+                        {detailUser.last_login_date
+                          ? format(new Date(detailUser.last_login_date), 'yyyy/MM/dd HH:mm:ss', { locale: zhTW })
+                          : lastLoginNeverText}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
+                        <Coins className="w-3 h-3" />
+                        {getText('admin.userManager.detail.tokens', '代幣餘額')}
+                      </div>
+                      <div className="font-semibold text-lg">{detailUser.tokens || 0}</div>
+                    </div>
+                    {detailUser.is_deleted && (
+                      <div>
+                        <div className="text-sm text-muted-foreground mb-1">
+                          {getText('admin.userManager.detail.status', '狀態')}
+                        </div>
+                        <div className="text-destructive font-semibold">{deletedBadgeText}</div>
+                        {detailUser.deleted_at && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {getText('admin.userManager.detail.deletedAt', '刪除時間')}: {format(new Date(detailUser.deleted_at), 'yyyy/MM/dd HH:mm:ss', { locale: zhTW })}
+                          </div>
+                        )}
+                        {detailUser.deleted_reason && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {getText('admin.userManager.detail.deleteReason', '刪除原因')}: {detailUser.deleted_reason}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 統計數據 */}
+              {detailStatsLoading ? (
+                <div className="flex justify-center p-8">
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                </div>
+              ) : detailUserStats && (
+                <Card>
+                  <CardContent className="p-4">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5" />
+                      {getText('admin.userManager.detail.statistics', '統計數據')}
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <div className="text-sm text-muted-foreground mb-1">
+                          {getText('admin.userManager.detail.totalTopics', '創建主題')}
+                        </div>
+                        <div className="text-2xl font-bold">{detailUserStats.total_topics || 0}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground mb-1">
+                          {getText('admin.userManager.detail.totalVotes', '投票總數')}
+                        </div>
+                        <div className="text-2xl font-bold">
+                          {(detailUserStats.total_votes || 0) + (detailUserStats.total_free_votes || 0)}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {getText('admin.userManager.detail.tokenVotes', '代幣投票')}: {detailUserStats.total_votes || 0} | {getText('admin.userManager.detail.freeVotes', '免費投票')}: {detailUserStats.total_free_votes || 0}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground mb-1">
+                          {getText('admin.userManager.detail.totalTokens', '累計代幣')}
+                        </div>
+                        <div className="text-2xl font-bold">{detailUserStats.total_tokens || 0}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground mb-1">
+                          {getText('admin.userManager.detail.createdAt', '註冊日期')}
+                        </div>
+                        <div className="text-sm">
+                          {format(new Date(detailUserStats.created_at || detailUser.created_at), 'yyyy/MM/dd', { locale: zhTW })}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* 代幣交易記錄 */}
+              {transactionsLoading ? (
+                <div className="flex justify-center p-4">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                </div>
+              ) : tokenTransactions && tokenTransactions.length > 0 && (
+                <Card>
+                  <CardContent className="p-4">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Coins className="w-5 h-5" />
+                      {getText('admin.userManager.detail.tokenTransactions', '代幣交易記錄')} ({tokenTransactions.length})
+                    </h3>
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {tokenTransactions.map((tx: any) => (
+                        <div key={tx.id} className="flex items-center justify-between p-2 border rounded text-sm">
+                          <div className="flex-1">
+                            <div className="font-medium">{tx.description || tx.transaction_type}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {format(new Date(tx.created_at), 'yyyy/MM/dd HH:mm:ss', { locale: zhTW })}
+                            </div>
+                          </div>
+                          <div className={`font-semibold ${tx.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {tx.amount > 0 ? '+' : ''}{tx.amount}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* 創建的主題 */}
+              {topicsLoading ? (
+                <div className="flex justify-center p-4">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                </div>
+              ) : userTopics && userTopics.length > 0 && (
+                <Card>
+                  <CardContent className="p-4">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <FileText className="w-5 h-5" />
+                      {getText('admin.userManager.detail.createdTopics', '創建的主題')} ({userTopics.length})
+                    </h3>
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {userTopics.map((topic: any) => (
+                        <div key={topic.id} className="flex items-center justify-between p-2 border rounded text-sm">
+                          <div className="flex-1">
+                            <div className="font-medium">{topic.title}</div>
+                            <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
+                              <span>{format(new Date(topic.created_at), 'yyyy/MM/dd HH:mm', { locale: zhTW })}</span>
+                              <span>•</span>
+                              <span>{getText('admin.userManager.detail.votes', '投票')}: {topic.vote_count || 0}</span>
+                              <span>•</span>
+                              <span>{getText('admin.userManager.detail.status', '狀態')}: {topic.status}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDetailDialog(false)}>
+              {dialogCancelText}
             </Button>
           </DialogFooter>
         </DialogContent>

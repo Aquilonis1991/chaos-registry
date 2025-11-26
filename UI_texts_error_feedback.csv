@@ -22,4 +22,7 @@ errorFeedback.button.hideDetails,error_feedback,收合,Hide Details,詳細を隠
 errorFeedback.section.inlineError,error_feedback,當前錯誤,Current Error,現在のエラー,當前錯誤標題
 errorFeedback.section.recentErrors,error_feedback,近期錯誤紀錄,Recent Errors,最近のエラー履歴,近期錯誤標題
 errorFeedback.section.clientInfo,error_feedback,客戶端資訊,Client Info,クライアント情報,客戶端資訊標題
+webAdminOnly.title,error_feedback,網頁版僅限管理員使用,Web Version Admin Only,ウェブ版は管理者のみ,網頁版僅限管理員使用標題
+webAdminOnly.description,error_feedback,此網頁版本僅供管理員使用,This web version is for administrators only,このウェブ版は管理者専用です,網頁版僅限管理員使用描述
+webAdminOnly.message,error_feedback,一般用戶請使用手機 App 版本。如需使用網頁版，請聯繫系統管理員。,Regular users should use the mobile app. To access the web version, please contact the system administrator.,一般ユーザーはモバイルアプリをご利用ください。ウェブ版へのアクセスが必要な場合は、システム管理者にお問い合わせください。,網頁版僅限管理員使用訊息
 

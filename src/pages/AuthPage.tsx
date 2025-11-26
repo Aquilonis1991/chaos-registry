@@ -12,24 +12,112 @@ import { Loader2, Eye, User } from "lucide-react";
 import { useUIText } from "@/hooks/useUIText";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdmin } from "@/hooks/useAdmin";
+import { isNative } from "@/lib/capacitor";
 import { signupSchema, loginSchema } from "@/lib/validationSchemas";
+import { Logo } from "@/components/Logo";
+import WebAdminOnlyPage from "./WebAdminOnlyPage";
 
 const AuthPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const { language } = useLanguage();
   const { getText, isLoading: textsLoading } = useUIText(language);
-  const { user, isAnonymous } = useAuth();
+  const { user, isAnonymous, loading: authLoading } = useAuth();
+  const { isAdmin, isLoading: adminLoading } = useAdmin();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  const envPublicSiteUrl = import.meta.env.VITE_PUBLIC_SITE_URL?.trim();
+  const defaultSiteUrl = "https://chaos-registry.vercel.app";
+  const fallbackSiteUrl = typeof window !== "undefined" ? window.location.origin : defaultSiteUrl;
+  const publicSiteUrl = (envPublicSiteUrl && envPublicSiteUrl.length > 0 ? envPublicSiteUrl : defaultSiteUrl || fallbackSiteUrl).replace(/\/$/, "");
+  const emailRedirectUrl = `${publicSiteUrl}/auth/verify-redirect`;
+
+  // 檢查已登入用戶的管理員權限（僅網頁版）
   useEffect(() => {
-    // Check if user is already logged in (not anonymous)
-    if (user && !isAnonymous) {
-      navigate("/home", { replace: true });
+    console.log('[AuthPage] useEffect triggered:', { 
+      authLoading, 
+      adminLoading, 
+      user: !!user, 
+      isAnonymous, 
+      isAdmin, 
+      isNative: isNative() 
+    });
+
+    // 等待認證和管理員檢查完成
+    if (authLoading || adminLoading) {
+      console.log('[AuthPage] Still loading, waiting...');
+      return;
     }
-  }, [user, isAnonymous, navigate]);
+
+    // 如果沒有用戶，不處理
+    if (!user || isAnonymous) {
+      console.log('[AuthPage] No user or anonymous, skipping');
+      return;
+    }
+
+    // 網頁版管理員檢查
+    if (!isNative()) {
+      console.log('[AuthPage] Web version, checking admin status:', isAdmin);
+      
+      // 如果是網頁版且用戶已登入但不是管理員，顯示限制頁面
+      if (isAdmin === false) {
+        console.log('[AuthPage] Non-admin user on web, should show restriction page');
+        // 不導向，直接顯示限制頁面（由組件返回）
+        return;
+      }
+      
+      // 如果是管理員，導向首頁
+      if (isAdmin === true) {
+        console.log('[AuthPage] Admin user on web, navigating to home');
+        navigate("/home", { replace: true });
+        return;
+      }
+      
+      // isAdmin 為 undefined，還在載入中，不處理
+      console.log('[AuthPage] Admin status still loading (undefined)');
+      return;
+    }
+
+    // 原生 App 用戶，直接導向首頁
+    console.log('[AuthPage] Native app user, navigating to home');
+    navigate("/home", { replace: true });
+  }, [user, isAnonymous, isAdmin, authLoading, adminLoading, navigate]);
+
+  // 如果正在載入，顯示載入畫面
+  if (authLoading || adminLoading || textsLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin" />
+      </div>
+    );
+  }
+
+  // 網頁版管理員檢查
+  if (!isNative() && user && !isAnonymous) {
+    // 如果管理員狀態還在載入中（undefined），繼續等待
+    if (isAdmin === undefined) {
+      console.log('[AuthPage] Admin status still loading, showing loading screen');
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin" />
+        </div>
+      );
+    }
+    
+    // 如果不是管理員，顯示限制頁面
+    if (isAdmin === false) {
+      console.log('[AuthPage] Non-admin user on web, showing restriction page');
+      return <WebAdminOnlyPage />;
+    }
+    
+    // 如果是管理員，繼續顯示登入頁面（useEffect 會處理導向）
+    if (isAdmin === true) {
+      console.log('[AuthPage] Admin user on web, will navigate in useEffect');
+    }
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,8 +140,24 @@ const AuthPage = () => {
 
       if (error) {
         toast.error(error.message);
+        setLoading(false);
       } else {
-        toast.success(getText('auth_login_success', '登入成功！'));
+        console.log('[AuthPage] Login successful, waiting for auth state update...');
+        // 登入成功後，不立即導向
+        // onAuthStateChange 會觸發，然後 useEffect 會檢查管理員權限
+        // 如果是網頁版非管理員，會在 useEffect 中被攔截並顯示限制頁面
+        // 如果是原生 App 或管理員，會在 useEffect 中導向首頁
+        
+        // 顯示成功訊息（但導向由 useEffect 處理）
+        if (isNative()) {
+          toast.success(getText('auth_login_success', '登入成功！'));
+        } else {
+          // 網頁版：等待管理員檢查完成後再決定是否顯示成功訊息
+          // 如果非管理員，不會顯示成功訊息（會直接顯示限制頁面）
+        }
+        
+        // 不設置 loading 為 false，讓 useEffect 處理後續流程
+        // loading 會在 auth state 更新後自動處理
       }
     } catch (error) {
       toast.error(getText('auth_login_error', '登入失敗，請稍後再試'));
@@ -103,7 +207,7 @@ const AuthPage = () => {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/home`,
+          emailRedirectTo: emailRedirectUrl,
         },
       });
 
@@ -116,7 +220,7 @@ const AuthPage = () => {
           toast.error(error.message);
         }
       } else {
-        toast.success(getText('auth_signup_success', '註冊成功！正在登入...'));
+        toast.success(getText('auth_signup_success', '註冊成功！請至信箱完成驗證後再登入'));
       }
     } catch (error) {
       toast.error(getText('auth_signup_error', '註冊失敗，請稍後再試'));
@@ -130,7 +234,7 @@ const AuthPage = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/home`,
+          redirectTo: `${publicSiteUrl}/home`,
         },
       });
 
@@ -143,7 +247,8 @@ const AuthPage = () => {
           'line': 'LINE'
         };
         const providerName = providerNames[provider] || provider;
-        toast.error(getText('auth_social_login_error', `${providerName}登入失敗`));
+        const socialLoginErrorTemplate = getText('auth_social_login_error', '{{provider}}登入失敗');
+        toast.error(socialLoginErrorTemplate.replace('{{provider}}', providerName));
       }
     } catch (error) {
       toast.error(getText('auth_login_error', '登入失敗，請稍後再試'));
@@ -169,6 +274,9 @@ const AuthPage = () => {
     <div className="min-h-screen bg-gradient-primary flex items-center justify-center p-4 sm:p-6">
       <Card className="w-full max-w-md shadow-glow">
         <CardHeader className="space-y-2 pb-4 sm:pb-6">
+          <div className="flex justify-center">
+            <Logo size="xl" className="rounded-2xl" />
+          </div>
           <CardTitle className="text-2xl sm:text-3xl font-bold text-center bg-gradient-accent bg-clip-text text-transparent">
             {getText('auth_app_title', 'ChaosRegistry')}
           </CardTitle>

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+</head>
+<body style="font-family: Arial, 'Microsoft JhengHei', sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <h2 style="color: #667eea;">歡迎加入 ChaosRegistry！</h2>
+  
+  <p>感謝您註冊帳號。為了確保帳號安全，請驗證您的郵件地址。</p>
+  
+  <p style="text-align: center; margin: 30px 0;">
+    <a href="{{ .ConfirmationURL }}" 
+       style="background-color: #667eea; color: white; padding: 12px 24px; 
+              text-decoration: none; border-radius: 6px; display: inline-block;">
+      驗證郵件地址
+    </a>
+  </p>
+  
+  <p style="font-size: 14px; color: #666;">
+    如果按鈕無法點擊，請複製以下連結到瀏覽器：<br>
+    <a href="{{ .ConfirmationURL }}" style="color: #667eea; word-break: break-all;">
+      {{ .ConfirmationURL }}
+    </a>
+  </p>
+  
+  <p style="font-size: 12px; color: #999; margin-top: 30px;">
+    此連結將在 24 小時後過期。<br>
+    如果您沒有註冊此帳號，請忽略此郵件。
+  </p>
+  
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  
+  <p style="font-size: 12px; color: #999; text-align: center;">
+    © 2025 ChaosRegistry. All rights reserved.
+  </p>
+</body>
+</html>
+

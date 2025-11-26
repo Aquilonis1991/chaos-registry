@@ -60,24 +60,31 @@ const AuthPage = () => {
 
     // 網頁版管理員檢查
     if (!isNative()) {
-      console.log('[AuthPage] Web version, checking admin status:', isAdmin);
+      console.log('[AuthPage] Web version, checking admin status:', { isAdmin, adminLoading });
       
-      // 如果是網頁版且用戶已登入但不是管理員，顯示限制頁面
-      if (isAdmin === false) {
+      // 如果管理員狀態還在載入中（undefined），繼續等待
+      if (isAdmin === undefined && adminLoading) {
+        console.log('[AuthPage] Admin status still loading, waiting...');
+        return;
+      }
+      
+      // 重要：如果查詢完成但結果是 undefined，或者明確是 false，都視為非管理員
+      // 這確保了即使查詢失敗，也會阻止非管理員訪問
+      if (isAdmin === false || (isAdmin === undefined && !adminLoading)) {
         console.log('[AuthPage] Non-admin user on web, should show restriction page');
         // 不導向，直接顯示限制頁面（由組件返回）
         return;
       }
       
-      // 如果是管理員，導向首頁
+      // 只有明確是 true 時才允許導向
       if (isAdmin === true) {
         console.log('[AuthPage] Admin user on web, navigating to home');
         navigate("/home", { replace: true });
         return;
       }
       
-      // isAdmin 為 undefined，還在載入中，不處理
-      console.log('[AuthPage] Admin status still loading (undefined)');
+      // 如果還不確定，繼續等待
+      console.log('[AuthPage] Admin status uncertain, waiting...');
       return;
     }
 
@@ -95,10 +102,12 @@ const AuthPage = () => {
     );
   }
 
-  // 網頁版管理員檢查
+  // 網頁版管理員檢查 - 必須明確處理所有情況
   if (!isNative() && user && !isAnonymous) {
+    console.log('[AuthPage] Web version, user logged in, checking admin status:', { isAdmin, adminLoading });
+    
     // 如果管理員狀態還在載入中（undefined），繼續等待
-    if (isAdmin === undefined) {
+    if (isAdmin === undefined && adminLoading) {
       console.log('[AuthPage] Admin status still loading, showing loading screen');
       return (
         <div className="min-h-screen flex items-center justify-center">
@@ -107,16 +116,27 @@ const AuthPage = () => {
       );
     }
     
-    // 如果不是管理員，顯示限制頁面
-    if (isAdmin === false) {
+    // 重要：如果查詢完成但結果是 undefined，或者明確是 false，都視為非管理員
+    // 這確保了即使查詢失敗，也會阻止非管理員訪問
+    if (isAdmin === false || (isAdmin === undefined && !adminLoading)) {
       console.log('[AuthPage] Non-admin user on web, showing restriction page');
       return <WebAdminOnlyPage />;
     }
     
-    // 如果是管理員，繼續顯示登入頁面（useEffect 會處理導向）
-    if (isAdmin === true) {
-      console.log('[AuthPage] Admin user on web, will navigate in useEffect');
+    // 只有明確是 true 時才允許訪問（但應該已經導向首頁了）
+    if (isAdmin !== true) {
+      // 如果還不確定，繼續等待
+      console.log('[AuthPage] Admin status uncertain, waiting...');
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin" />
+        </div>
+      );
     }
+    
+    // 是管理員，應該已經導向首頁了，這裡不返回任何內容
+    console.log('[AuthPage] Admin user on web, should already be redirected');
+    return null;
   }
 
   const handleLogin = async (e: React.FormEvent) => {

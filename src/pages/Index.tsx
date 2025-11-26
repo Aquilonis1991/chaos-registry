@@ -29,8 +29,11 @@ const Index = () => {
 
   // 網頁版管理員檢查 - 必須明確處理所有情況
   if (!isNative() && user && !isAnonymous) {
+    console.log('[Index] Web version, user logged in, checking admin status:', isAdmin);
+    
     // 如果管理員狀態還在載入中（undefined），繼續等待
     if (isAdmin === undefined && adminLoading) {
+      console.log('[Index] Admin status still loading, waiting...');
       return (
         <div className="min-h-screen bg-gradient-primary flex items-center justify-center">
           <div className="text-primary-foreground text-xl">Loading...</div>
@@ -41,12 +44,14 @@ const Index = () => {
     // 重要：如果查詢完成但結果是 undefined，或者明確是 false，都視為非管理員
     // 這確保了即使查詢失敗，也會阻止非管理員訪問
     if (isAdmin === false || (isAdmin === undefined && !adminLoading)) {
+      console.log('[Index] Non-admin user on web, showing restriction page');
       return <WebAdminOnlyPage />;
     }
     
     // 只有明確是 true 時才允許導向
     if (isAdmin !== true) {
       // 如果還不確定，繼續等待
+      console.log('[Index] Admin status uncertain, waiting...');
       return (
         <div className="min-h-screen bg-gradient-primary flex items-center justify-center">
           <div className="text-primary-foreground text-xl">Loading...</div>
@@ -55,6 +60,7 @@ const Index = () => {
     }
     
     // 是管理員，正常導向
+    console.log('[Index] Admin user on web, navigating to home');
     return <Navigate to="/home" replace />;
   }
 

@@ -4,7 +4,9 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NativeAdData } from "@/types/nativeAd";
-import { NativeAd } from "@votechaos/native-ad-plugin";
+import { isNative } from "@/lib/capacitor";
+
+// NativeAd 將在組件內部動態載入（僅原生平台）
 
 interface NativeAdCardProps {
   adUnitId?: string;
@@ -21,6 +23,7 @@ type AdStatus = "idle" | "loading" | "ready" | "error";
 
 /**
  * 原生廣告卡片組件（會根據 AdMob Native Ad 資料渲染）
+ * 注意：網頁版會自動失效，不顯示任何內容
  */
 export const NativeAdCard = ({
   adUnitId,
@@ -28,6 +31,11 @@ export const NativeAdCard = ({
   onAdLoaded,
   enableMock = true,
 }: NativeAdCardProps) => {
+  // 網頁版直接返回 null，不渲染任何內容
+  if (!isNative()) {
+    return null;
+  }
+
   const { language } = useLanguage();
   const { getText } = useUIText(language);
   const [status, setStatus] = useState<AdStatus>("idle");
@@ -74,14 +82,31 @@ export const NativeAdCard = ({
     try {
       let data: NativeAdData | undefined;
 
-      if (NativeAd && typeof NativeAd.loadNativeAd === "function") {
-        const result = await NativeAd.loadNativeAd({ adUnitId });
-        if (result?.data) {
-          data = result.data;
-        } else if (result?.error) {
-          throw new Error(result.error);
+      // 只在原生平台動態載入 NativeAd
+      if (isNative()) {
+        try {
+          const plugin = await import("@votechaos/native-ad-plugin");
+          const NativeAd = plugin.NativeAd;
+          
+          if (NativeAd && typeof NativeAd.loadNativeAd === "function") {
+            const result = await NativeAd.loadNativeAd({ adUnitId });
+            if (result?.data) {
+              data = result.data;
+            } else if (result?.error) {
+              throw new Error(result.error);
+            }
+          }
+        } catch (importError) {
+          console.warn('[NativeAdCard] Failed to import native-ad-plugin:', importError);
+          // 如果載入失敗，回退到 mock 資料
+          if (enableMock) {
+            data = await loadMockNativeAd(mockData);
+          } else {
+            throw new Error("NativeAdPlugin 載入失敗");
+          }
         }
       } else if (enableMock) {
+        // 網頁版使用 mock 資料（但組件應該已經返回 null，這裡不會執行）
         data = await loadMockNativeAd(mockData);
       } else {
         throw new Error("NativeAdPlugin 尚未整合");

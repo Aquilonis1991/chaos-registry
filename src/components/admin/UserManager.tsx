@@ -191,17 +191,21 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   });
 
   // 獲取詳細用戶信息（用於詳細對話框）
-  const { data: detailUserStats, isLoading: detailStatsLoading } = useQuery({
+  const { data: detailUserStats, isLoading: detailStatsLoading, error: detailStatsError } = useQuery({
     queryKey: ['admin-user-detail-stats', detailUser?.id],
     queryFn: async () => {
       if (!detailUser) return null;
       const { data, error } = await supabase.rpc('get_user_stats', {
         p_user_id: detailUser.id
       });
-      if (error) throw error;
+      if (error) {
+        console.error('[UserManager] Error fetching user stats:', error);
+        throw error;
+      }
       return data?.[0] as UserStats | null;
     },
     enabled: !!detailUser,
+    retry: 1,
   });
 
   // 獲取用戶代幣交易記錄（最近 20 筆）
@@ -222,7 +226,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   });
 
   // 獲取用戶創建的主題（最近 10 個）
-  const { data: userTopics, isLoading: topicsLoading } = useQuery({
+  const { data: userTopics, isLoading: topicsLoading, error: topicsError } = useQuery({
     queryKey: ['admin-user-topics', detailUser?.id],
     queryFn: async () => {
       if (!detailUser) return null;
@@ -232,10 +236,14 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
         .eq('created_by', detailUser.id)
         .order('created_at', { ascending: false })
         .limit(10);
-      if (error) throw error;
+      if (error) {
+        console.error('[UserManager] Error fetching user topics:', error);
+        throw error;
+      }
       return data || [];
     },
     enabled: !!detailUser,
+    retry: 1,
   });
 
   // 派發獎勵
@@ -780,7 +788,19 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                 <div className="flex justify-center p-8">
                   <Loader2 className="w-6 h-6 animate-spin" />
                 </div>
-              ) : detailUserStats && (
+              ) : detailStatsError ? (
+                <Card>
+                  <CardContent className="p-4">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5" />
+                      {getText('admin.userManager.detail.statistics', '統計數據')}
+                    </h3>
+                    <div className="text-center text-destructive py-4">
+                      {getText('admin.userManager.detail.statsError', '載入統計數據失敗')}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : detailUserStats ? (
                 <Card>
                   <CardContent className="p-4">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -822,6 +842,18 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                     </div>
                   </CardContent>
                 </Card>
+              ) : (
+                <Card>
+                  <CardContent className="p-4">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5" />
+                      {getText('admin.userManager.detail.statistics', '統計數據')}
+                    </h3>
+                    <div className="text-center text-muted-foreground py-4">
+                      {getText('admin.userManager.detail.noStats', '無法載入統計數據')}
+                    </div>
+                  </CardContent>
+                </Card>
               )}
 
               {/* 代幣交易記錄 */}
@@ -860,7 +892,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                 <div className="flex justify-center p-4">
                   <Loader2 className="w-4 h-4 animate-spin" />
                 </div>
-              ) : userTopics && userTopics.length > 0 && (
+              ) : userTopics && userTopics.length > 0 ? (
                 <Card>
                   <CardContent className="p-4">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -882,6 +914,18 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                           </div>
                         </div>
                       ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardContent className="p-4">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <FileText className="w-5 h-5" />
+                      {getText('admin.userManager.detail.createdTopics', '創建的主題')}
+                    </h3>
+                    <div className="text-center text-muted-foreground py-4">
+                      {getText('admin.userManager.detail.noTopics', '該用戶尚未創建任何主題')}
                     </div>
                   </CardContent>
                 </Card>

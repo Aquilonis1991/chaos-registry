@@ -1,0 +1,36 @@
+{
+  "name": "@votechaos/native-ad-plugin",
+  "version": "0.1.0",
+  "description": "Capacitor Native Ad bridge for ChaosRegistry",
+  "main": "dist/plugin.cjs.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/esm/index.d.ts",
+  "files": [
+    "dist/",
+    "android/",
+    "ios/",
+    "NativeAdPlugin.podspec",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "npm run clean && tsc -p tsconfig.json && rollup -c rollup.config.js",
+    "clean": "rimraf dist",
+    "lint": "eslint \"src/**/*.ts\""
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@capacitor/core": "^6.1.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2",
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-node-resolve": "^15.3.0",
+    "@rollup/plugin-replace": "^5.0.5",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "rollup": "^4.21.3",
+    "rimraf": "^5.0.7",
+    "typescript": "^5.8.3"
+  }
+}
+

@@ -12,6 +12,7 @@ import { DeleteTopicDialog } from "@/components/DeleteTopicDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { formatRelativeTime, formatRemainingTime } from "@/lib/relativeTime";
+import { formatCompactNumber } from "@/lib/numberFormat";
 
 const TopicHistoryPage = () => {
   const { user } = useAuth();
@@ -118,7 +119,7 @@ const TopicHistoryPage = () => {
                       <div className="grid grid-cols-3 gap-4 mb-3 text-sm">
                         <div className="flex items-center gap-1 text-muted-foreground">
                           <Users className="w-4 h-4" />
-                          <span>{topic.total_votes} {votesLabel}</span>
+                          <span>{formatCompactNumber(topic.total_votes)} {votesLabel}</span>
                         </div>
                         <div className="flex items-center gap-1 text-muted-foreground">
                           <TrendingUp className="w-4 h-4" />
@@ -140,7 +141,9 @@ const TopicHistoryPage = () => {
                               <div key={option.id} className="space-y-1">
                                 <div className="flex items-center justify-between text-sm">
                                   <span className="text-muted-foreground">{option.text}</span>
-                                  <span className="text-xs font-semibold">{option.votes || 0} {votesLabel}</span>
+                                  <span className="text-xs font-semibold">
+                                    {formatCompactNumber(option.votes || 0)} {votesLabel}
+                                  </span>
                                 </div>
                                 <Progress value={percentage} className="h-1" />
                               </div>

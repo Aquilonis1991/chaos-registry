@@ -1,0 +1,46 @@
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+def resolveInt(def value, int fallback) {
+    try {
+        return value != null ? value.toString().toInteger() : fallback
+    } catch (Exception ignored) {
+        return fallback
+    }
+}
+
+def safeCompileSdk = resolveInt(rootProject.ext.has("compileSdkVersion") ? rootProject.ext.compileSdkVersion : null, 34)
+def safeMinSdk = resolveInt(rootProject.ext.has("minSdkVersion") ? rootProject.ext.minSdkVersion : null, 23)
+def safeTargetSdk = resolveInt(rootProject.ext.has("targetSdkVersion") ? rootProject.ext.targetSdkVersion : null, safeCompileSdk)
+
+android {
+    namespace "com.votechaos.nativead"
+    compileSdkVersion safeCompileSdk
+
+    defaultConfig {
+        minSdkVersion safeMinSdk
+        targetSdkVersion safeTargetSdk
+        consumerProguardFiles "consumer-rules.pro"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    kotlinOptions {
+        jvmTarget = '11'
+    }
+
+    lintOptions {
+        abortOnError false
+        disable 'MissingPermission'
+    }
+}
+
+dependencies {
+    implementation project(':capacitor-android')
+    implementation "com.google.android.gms:play-services-ads:23.3.0"
+    implementation "androidx.appcompat:appcompat:1.6.1"
+}
+

@@ -11,6 +11,11 @@ const WebAdminOnlyPage = () => {
   const { language } = useLanguage();
   const { getText } = useUIText(language);
 
+  // 強制輸出日誌確認頁面被渲染
+  if (typeof window !== 'undefined') {
+    window.console?.log?.('[WebAdminOnlyPage] Page rendered - Non-admin user blocked');
+  }
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="max-w-lg w-full">

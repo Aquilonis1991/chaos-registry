@@ -110,8 +110,8 @@ const RechargePage = () => {
         description: purchaseSuccessDescTemplate.replace('{{amount}}', totalTokens),
       });
       
-      // 刷新代幣顯示
-      await refreshProfile();
+      // 刷新代幣顯示（異步執行，不阻塞 UI，實時訂閱也會自動更新）
+      void refreshProfile();
     } catch (error) {
       toastHook({
         title: purchaseFailureTitle,

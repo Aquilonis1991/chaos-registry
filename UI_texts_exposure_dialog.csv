@@ -1,0 +1,40 @@
+key,category,zh,en,ja,description
+exposure.dialog.title,exposure_dialog,申請主題曝光,Apply Topic Exposure,トピック露出を申請,曝光對話框標題
+exposure.dialog.description,exposure_dialog,選擇曝光方案以提升主題在熱門列表中的排序,Select an exposure plan to improve your topic's ranking in the hot list,ホットリストでのトピックのランキングを向上させるために露出プランを選択,曝光對話框描述
+exposure.dialog.tokenBalance,exposure_dialog,代幣餘額：,Token Balance: ,トークン残高：,代幣餘額標籤
+exposure.dialog.currentLevel,exposure_dialog,目前等級：,Current Level: ,現在のレベル：,目前等級標籤
+exposure.dialog.levelNotSet,exposure_dialog,未設定,Not Set,未設定,未設定等級
+exposure.dialog.votesInsufficient,exposure_dialog,投票數不足,Insufficient Votes,投票数不足,投票數不足標題
+exposure.dialog.votesInsufficientDesc,exposure_dialog,主題投票數需達到 {{minVotes}} 票才能申請曝光（目前：{{currentVotes}} 票）,Topic needs at least {{minVotes}} votes to apply for exposure (Current: {{currentVotes}} votes),トピックは露出を申請するために少なくとも{{minVotes}}票必要です（現在：{{currentVotes}}票）,投票數不足描述
+exposure.dialog.maxLevelReached,exposure_dialog,已是最高曝光等級，無需再升級。,Already at maximum exposure level, no need to upgrade further.,既に最大露出レベルに達しています。これ以上アップグレードする必要はありません。,已達最高等級提示
+exposure.dialog.level.normal.label,exposure_dialog,普通曝光,Normal Exposure,通常露出,普通曝光等級標籤
+exposure.dialog.level.normal.description,exposure_dialog,基礎曝光方案，適合測試新主題,Basic exposure plan, suitable for testing new topics,新規トピックのテストに適した基本的な露出プラン,普通曝光描述
+exposure.dialog.level.medium.label,exposure_dialog,中等曝光,Medium Exposure,中程度露出,中等曝光等級標籤
+exposure.dialog.level.medium.description,exposure_dialog,提升中等排序權重，適合準熱門主題,Increases medium ranking weight, suitable for semi-popular topics,準人気トピックに適した中程度のランキング重み付けを向上,中等曝光描述
+exposure.dialog.level.high.label,exposure_dialog,高度曝光,High Exposure,高露出,高度曝光等級標籤
+exposure.dialog.level.high.description,exposure_dialog,強力曝光方案，置頂時間長達兩小時,Powerful exposure plan, pinned for up to 2 hours,最大2時間ピン留めされる強力な露出プラン,高度曝光描述
+exposure.dialog.priceDiff,exposure_dialog,差額 {{amount}} 代幣,Price Difference: {{amount}} tokens,差額 {{amount}} トークン,價格差額顯示
+exposure.dialog.sortWeight,exposure_dialog,排序加權：+{{percent}}%,Sort Weight: +{{percent}}%,ランキング重み付け：+{{percent}}%,排序加權顯示
+exposure.dialog.tokensInsufficient,exposure_dialog,代幣不足（需要 {{required}}，目前 {{current}}）,Insufficient tokens (Need: {{required}}, Current: {{current}}),トークン不足（必要：{{required}}、現在：{{current}}）,代幣不足提示
+exposure.dialog.votesInsufficientOption,exposure_dialog,投票數不足（需要 {{required}} 票）,Insufficient votes (Need: {{required}} votes),投票数不足（必要：{{required}}票）,選項投票數不足提示
+exposure.dialog.checking,exposure_dialog,檢查中...,Checking...,確認中...,檢查中狀態
+exposure.dialog.button.cancel,exposure_dialog,取消,Cancel,キャンセル,取消按鈕
+exposure.dialog.button.applying,exposure_dialog,申請中...,Applying...,申請中...,申請中按鈕
+exposure.dialog.button.confirm,exposure_dialog,確認申請,Confirm Application,申請を確認,確認申請按鈕
+exposure.error.loadFailed,exposure_dialog,載入曝光方案失敗,Failed to load exposure plans,露出プランの読み込みに失敗しました,載入失敗錯誤
+exposure.error.notAuthenticated,exposure_dialog,請先登入,Please log in first,まずログインしてください,未登入錯誤
+exposure.error.dailyLimitExceeded,exposure_dialog,今日申請次數已達上限（{{limit}}次）,Daily application limit reached ({{limit}} times),本日の申請回数が上限に達しました（{{limit}}回）,每日限額錯誤
+exposure.error.maxConcurrentExceeded,exposure_dialog,同時最多只能有 {{max}} 個曝光主題,Maximum {{max}} concurrent exposure topics allowed,同時に最大{{max}}個の露出トピックのみ許可,同時曝光上限錯誤
+exposure.error.minVotesNotMet,exposure_dialog,主題投票數需達到 {{required}} 票（目前：{{current}} 票）,Topic needs at least {{required}} votes (Current: {{current}} votes),トピックは少なくとも{{required}}票必要です（現在：{{current}}票）,投票數不足錯誤
+exposure.error.cooldownActive,exposure_dialog,冷卻時間中，請於 {{time}} 後再試,Cooling down, please try again after {{time}},クールダウン中、{{time}}後にもう一度お試しください,冷卻時間錯誤
+exposure.error.globalLimitExceeded,exposure_dialog,今日曝光額滿，請明日再試,Today's exposure quota is full, please try again tomorrow,本日の露出枠が満杯です。明日もう一度お試しください,全局限額錯誤
+exposure.error.penaltyActive,exposure_dialog,因違規行為，曝光功能已暫停至 {{time}},Exposure feature suspended until {{time}} due to violations,違反行為により、{{time}}まで露出機能が一時停止されました,處罰錯誤
+exposure.error.insufficientTokens,exposure_dialog,代幣不足（需要：{{required}}，目前：{{current}}）,Insufficient tokens (Need: {{required}}, Current: {{current}}),トークン不足（必要：{{required}}、現在：{{current}}）,代幣不足錯誤
+exposure.error.alreadyAtOrHigher,exposure_dialog,目前曝光等級已是相同或更高，無需升級,Current exposure level is already the same or higher, no need to upgrade,現在の露出レベルは既に同じかそれ以上です。アップグレードする必要はありません,等級已達標錯誤
+exposure.error.notTopicOwner,exposure_dialog,只有主題建立者可以調整曝光等級,Only topic creators can adjust exposure levels,トピック作成者のみが露出レベルを調整できます,非主題擁有者錯誤
+exposure.error.topicNotFound,exposure_dialog,找不到此主題，請重新整理頁面,Topic not found, please refresh the page,トピックが見つかりません。ページを更新してください,主題不存在錯誤
+exposure.error.cannotApply,exposure_dialog,無法申請曝光,Cannot apply for exposure,露出を申請できません,無法申請錯誤
+exposure.error.checkFailed,exposure_dialog,檢查失敗：{{message}},Check failed: {{message}},確認に失敗しました：{{message}},檢查失敗錯誤
+exposure.success.applied,exposure_dialog,曝光申請成功！,Exposure application successful!,露出申請が成功しました！,申請成功提示
+exposure.error.applyFailed,exposure_dialog,申請失敗：{{message}},Application failed: {{message}},申請に失敗しました：{{message}},申請失敗錯誤
+

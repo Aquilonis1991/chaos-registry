@@ -76,13 +76,13 @@ export const ExposureApplyDialog = ({
       setLimits(data || []);
     } catch (err: any) {
       console.error('Error loading exposure limits:', err);
-      toast.error('載入曝光方案失敗');
+      toast.error(getText('exposure.error.loadFailed', '載入曝光方案失敗'));
     }
   };
 
   const handleCheck = async (level: 'normal' | 'medium' | 'high') => {
     if (!user?.id) {
-      toast.error('請先登入');
+      toast.error(getText('exposure.error.notAuthenticated', '請先登入'));
       return;
     }
 
@@ -103,22 +103,31 @@ export const ExposureApplyDialog = ({
         setSelectedLevel(level);
       } else {
         const reasonMessages: Record<string, string> = {
-          daily_limit_exceeded: `今日申請次數已達上限（${data.daily_limit}次）`,
-          max_concurrent_exceeded: `同時最多只能有 ${data.max_concurrent} 個曝光主題`,
-          min_votes_not_met: `主題投票數需達到 ${data.min_votes_required} 票（目前：${data.current_votes} 票）`,
-          cooldown_active: `冷卻時間中，請於 ${new Date(data.cooldown_until).toLocaleString('zh-TW')} 後再試`,
-          global_limit_exceeded: '今日曝光額滿，請明日再試',
-          penalty_active: `因違規行為，曝光功能已暫停至 ${new Date(data.penalty_until).toLocaleString('zh-TW')}`,
-          insufficient_tokens: `代幣不足（需要：${data.required}，目前：${data.current}）`,
-          already_at_or_higher: '目前曝光等級已是相同或更高，無需升級',
-          not_topic_owner: '只有主題建立者可以調整曝光等級',
-          topic_not_found: '找不到此主題，請重新整理頁面',
+          daily_limit_exceeded: getText('exposure.error.dailyLimitExceeded', '今日申請次數已達上限（{{limit}}次）')
+            .replace('{{limit}}', String(data.daily_limit)),
+          max_concurrent_exceeded: getText('exposure.error.maxConcurrentExceeded', '同時最多只能有 {{max}} 個曝光主題')
+            .replace('{{max}}', String(data.max_concurrent)),
+          min_votes_not_met: getText('exposure.error.minVotesNotMet', '主題投票數需達到 {{required}} 票（目前：{{current}} 票）')
+            .replace('{{required}}', String(data.min_votes_required))
+            .replace('{{current}}', String(data.current_votes)),
+          cooldown_active: getText('exposure.error.cooldownActive', '冷卻時間中，請於 {{time}} 後再試')
+            .replace('{{time}}', new Date(data.cooldown_until).toLocaleString('zh-TW')),
+          global_limit_exceeded: getText('exposure.error.globalLimitExceeded', '今日曝光額滿，請明日再試'),
+          penalty_active: getText('exposure.error.penaltyActive', '因違規行為，曝光功能已暫停至 {{time}}')
+            .replace('{{time}}', new Date(data.penalty_until).toLocaleString('zh-TW')),
+          insufficient_tokens: getText('exposure.error.insufficientTokens', '代幣不足（需要：{{required}}，目前：{{current}}）')
+            .replace('{{required}}', String(data.required))
+            .replace('{{current}}', String(data.current)),
+          already_at_or_higher: getText('exposure.error.alreadyAtOrHigher', '目前曝光等級已是相同或更高，無需升級'),
+          not_topic_owner: getText('exposure.error.notTopicOwner', '只有主題建立者可以調整曝光等級'),
+          topic_not_found: getText('exposure.error.topicNotFound', '找不到此主題，請重新整理頁面'),
         };
-        toast.error(reasonMessages[data.reason] || '無法申請曝光');
+        toast.error(reasonMessages[data.reason] || getText('exposure.error.cannotApply', '無法申請曝光'));
       }
     } catch (err: any) {
       console.error('Error checking exposure:', err);
-      toast.error('檢查失敗：' + err.message);
+      toast.error(getText('exposure.error.checkFailed', '檢查失敗：{{message}}')
+        .replace('{{message}}', err.message));
     } finally {
       setChecking(false);
     }
@@ -138,7 +147,7 @@ export const ExposureApplyDialog = ({
       if (error) throw error;
 
       if (data.success) {
-        toast.success('曝光申請成功！');
+        toast.success(getText('exposure.success.applied', '曝光申請成功！'));
         await refreshProfile();
         onSuccess?.();
         onOpenChange(false);
@@ -146,22 +155,32 @@ export const ExposureApplyDialog = ({
         setCheckResult(null);
       } else {
         const errorMessages: Record<string, string> = {
-          not_authenticated: '請先登入',
-          insufficient_tokens: `代幣不足（需要：${data.details?.required || 0}，目前：${data.details?.current || 0}）`,
-          daily_limit_exceeded: '今日申請次數已達上限',
-          max_concurrent_exceeded: '同時最多只能有 2 個曝光主題',
-          min_votes_not_met: `主題投票數需達到 ${data.details?.min_votes_required || 20} 票`,
-          cooldown_active: '冷卻時間中，請稍後再試',
-          global_limit_exceeded: '今日曝光額滿，請明日再試',
-          penalty_active: '因違規行為，曝光功能已暫停',
-          already_at_or_higher: '目前曝光等級已是相同或更高，無法重複升級',
-          not_topic_owner: '只有主題建立者可以調整曝光等級',
+          not_authenticated: getText('exposure.error.notAuthenticated', '請先登入'),
+          insufficient_tokens: getText('exposure.error.insufficientTokens', '代幣不足（需要：{{required}}，目前：{{current}}）')
+            .replace('{{required}}', String(data.details?.required || 0))
+            .replace('{{current}}', String(data.details?.current || 0)),
+          daily_limit_exceeded: getText('exposure.error.dailyLimitExceeded', '今日申請次數已達上限（{{limit}}次）')
+            .replace('{{limit}}', String(data.details?.daily_limit || '')),
+          max_concurrent_exceeded: getText('exposure.error.maxConcurrentExceeded', '同時最多只能有 {{max}} 個曝光主題')
+            .replace('{{max}}', String(data.details?.max_concurrent || 2)),
+          min_votes_not_met: getText('exposure.error.minVotesNotMet', '主題投票數需達到 {{required}} 票（目前：{{current}} 票）')
+            .replace('{{required}}', String(data.details?.min_votes_required || 20))
+            .replace('{{current}}', String(topicVotes)),
+          cooldown_active: getText('exposure.error.cooldownActive', '冷卻時間中，請於 {{time}} 後再試')
+            .replace('{{time}}', '稍後'),
+          global_limit_exceeded: getText('exposure.error.globalLimitExceeded', '今日曝光額滿，請明日再試'),
+          penalty_active: getText('exposure.error.penaltyActive', '因違規行為，曝光功能已暫停至 {{time}}')
+            .replace('{{time}}', '稍後'),
+          already_at_or_higher: getText('exposure.error.alreadyAtOrHigher', '目前曝光等級已是相同或更高，無需升級'),
+          not_topic_owner: getText('exposure.error.notTopicOwner', '只有主題建立者可以調整曝光等級'),
         };
-        toast.error(errorMessages[data.error] || '申請失敗');
+        toast.error(errorMessages[data.error] || getText('exposure.error.applyFailed', '申請失敗：{{message}}')
+          .replace('{{message}}', ''));
       }
     } catch (err: any) {
       console.error('Error applying exposure:', err);
-      toast.error('申請失敗：' + err.message);
+      toast.error(getText('exposure.error.applyFailed', '申請失敗：{{message}}')
+        .replace('{{message}}', err.message));
     } finally {
       setLoading(false);
     }
@@ -171,21 +190,21 @@ export const ExposureApplyDialog = ({
     switch (level) {
       case 'normal':
         return {
-          label: '普通曝光',
+          label: getText('exposure.dialog.level.normal.label', '普通曝光'),
           color: 'bg-gray-500/20 text-gray-300 border-gray-500/50',
-          description: '基礎曝光方案，適合測試新主題',
+          description: getText('exposure.dialog.level.normal.description', '基礎曝光方案，適合測試新主題'),
         };
       case 'medium':
         return {
-          label: '中等曝光',
+          label: getText('exposure.dialog.level.medium.label', '中等曝光'),
           color: 'bg-silver-500/20 text-silver-300 border-silver-500/50',
-          description: '提升中等排序權重，適合準熱門主題',
+          description: getText('exposure.dialog.level.medium.description', '提升中等排序權重，適合準熱門主題'),
         };
       case 'high':
         return {
-          label: '高度曝光',
+          label: getText('exposure.dialog.level.high.label', '高度曝光'),
           color: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50',
-          description: '強力曝光方案，置頂時間長達兩小時',
+          description: getText('exposure.dialog.level.high.description', '強力曝光方案，置頂時間長達兩小時'),
         };
       default:
         return { label: '', color: '', description: '' };
@@ -226,9 +245,9 @@ export const ExposureApplyDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>申請主題曝光</DialogTitle>
+          <DialogTitle>{getText('exposure.dialog.title', '申請主題曝光')}</DialogTitle>
           <DialogDescription>
-            選擇曝光方案以提升主題在熱門列表中的排序
+            {getText('exposure.dialog.description', '選擇曝光方案以提升主題在熱門列表中的排序')}
           </DialogDescription>
         </DialogHeader>
 
@@ -237,10 +256,10 @@ export const ExposureApplyDialog = ({
           <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
             <div className="flex items-center gap-2">
               <Coins className="w-5 h-5 text-accent" />
-              <span className="font-semibold">代幣餘額：{userTokens.toLocaleString()}</span>
+              <span className="font-semibold">{getText('exposure.dialog.tokenBalance', '代幣餘額：')}{userTokens.toLocaleString()}</span>
             </div>
             <div className="text-sm text-muted-foreground">
-              目前等級：{getLevelInfo(currentLevel).label || '未設定'}
+              {getText('exposure.dialog.currentLevel', '目前等級：')}{getLevelInfo(currentLevel).label || getText('exposure.dialog.levelNotSet', '未設定')}
             </div>
           </div>
 
@@ -249,9 +268,11 @@ export const ExposureApplyDialog = ({
             <div className="flex items-start gap-2 p-3 bg-yellow-500/10 border border-yellow-500/50 rounded-lg">
               <AlertCircle className="w-5 h-5 text-yellow-500 mt-0.5" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-yellow-500">投票數不足</p>
+                <p className="text-sm font-medium text-yellow-500">{getText('exposure.dialog.votesInsufficient', '投票數不足')}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  主題投票數需達到 20 票才能申請曝光（目前：{topicVotes} 票）
+                  {getText('exposure.dialog.votesInsufficientDesc', '主題投票數需達到 {{minVotes}} 票才能申請曝光（目前：{{currentVotes}} 票）')
+                    .replace('{{minVotes}}', '20')
+                    .replace('{{currentVotes}}', String(topicVotes))}
                 </p>
               </div>
             </div>
@@ -260,7 +281,7 @@ export const ExposureApplyDialog = ({
           {/* 曝光方案選擇 */}
           {upgradeOptions.length === 0 ? (
             <div className="p-4 border rounded-lg text-sm text-muted-foreground">
-              已是最高曝光等級，無需再升級。
+              {getText('exposure.dialog.maxLevelReached', '已是最高曝光等級，無需再升級。')}
             </div>
           ) : (
             <RadioGroup
@@ -302,7 +323,8 @@ export const ExposureApplyDialog = ({
                               {info.label}
                             </Badge>
                             <span className="text-sm font-medium">
-                              差額 {priceDiff} 代幣
+                              {getText('exposure.dialog.priceDiff', '差額 {{amount}} 代幣')
+                                .replace('{{amount}}', String(priceDiff))}
                             </span>
                           </div>
                         </div>
@@ -310,16 +332,20 @@ export const ExposureApplyDialog = ({
                           {info.description}
                         </p>
                         <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                          <span>排序加權：+{Math.round((limit.sort_weight_multiplier - 1) * 100)}%</span>
+                          <span>{getText('exposure.dialog.sortWeight', '排序加權：+{{percent}}%')
+                            .replace('{{percent}}', String(Math.round((limit.sort_weight_multiplier - 1) * 100)))}</span>
                         </div>
                         {!canAfford && (
                           <p className="text-xs text-red-500 mt-1">
-                            代幣不足（需要 {priceDiff}，目前 {userTokens}）
+                            {getText('exposure.dialog.tokensInsufficient', '代幣不足（需要 {{required}}，目前 {{current}}）')
+                              .replace('{{required}}', String(priceDiff))
+                              .replace('{{current}}', String(userTokens))}
                           </p>
                         )}
                         {!hasEnoughVotes && (
                           <p className="text-xs text-red-500 mt-1">
-                            投票數不足（需要 {limit.min_votes_required} 票）
+                            {getText('exposure.dialog.votesInsufficientOption', '投票數不足（需要 {{required}} 票）')
+                              .replace('{{required}}', String(limit.min_votes_required))}
                           </p>
                         )}
                       </div>
@@ -333,7 +359,7 @@ export const ExposureApplyDialog = ({
           {checking && (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-5 h-5 animate-spin text-primary" />
-              <span className="ml-2 text-sm text-muted-foreground">檢查中...</span>
+              <span className="ml-2 text-sm text-muted-foreground">{getText('exposure.dialog.checking', '檢查中...')}</span>
             </div>
           )}
         </div>
@@ -348,7 +374,7 @@ export const ExposureApplyDialog = ({
             }}
             disabled={loading}
           >
-            取消
+            {getText('exposure.dialog.button.cancel', '取消')}
           </Button>
           <Button
             onClick={handleApply}
@@ -357,12 +383,12 @@ export const ExposureApplyDialog = ({
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                申請中...
+                {getText('exposure.dialog.button.applying', '申請中...')}
               </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4 mr-2" />
-                確認申請
+                {getText('exposure.dialog.button.confirm', '確認申請')}
               </>
             )}
           </Button>

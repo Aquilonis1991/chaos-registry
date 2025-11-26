@@ -20,10 +20,33 @@ export const TEST_AD_IDS = {
 
 /**
  * 獲取當前平台的廣告 ID
+ * 如果提供了配置值，優先使用配置值；否則使用測試 ID
+ * 支持兩種配置格式：
+ * 1. 字符串：單一 ID（兩個平台共用）
+ * 2. JSON 對象：{ "android": "...", "ios": "..." }（分別配置）
  */
-const getAdId = (type: 'banner' | 'interstitial' | 'rewarded'): string => {
+const getAdId = (type: 'banner' | 'interstitial' | 'rewarded', configValue?: string | any): string => {
   const platform = Capacitor.getPlatform();
   
+  // 如果提供了配置值，優先使用
+  if (configValue) {
+    // 如果是字符串，直接使用（兼容舊配置）
+    if (typeof configValue === 'string' && configValue.trim()) {
+      return configValue.trim();
+    }
+    
+    // 如果是對象，根據平台選擇對應的 ID
+    if (typeof configValue === 'object' && configValue !== null) {
+      if (platform === 'ios' && configValue.ios) {
+        return String(configValue.ios).trim();
+      } else if (platform === 'android' && configValue.android) {
+        return String(configValue.android).trim();
+      }
+      // 如果對象中沒有對應平台的 ID，回退到測試 ID
+    }
+  }
+  
+  // 否則使用測試 ID
   if (platform === 'ios') {
     return TEST_AD_IDS.ios[type];
   } else if (platform === 'android') {
@@ -82,7 +105,7 @@ export const showBannerAd = async (): Promise<boolean> => {
 
   try {
     const options: BannerAdOptions = {
-      adId: getAdId('banner'),
+      adId: getAdId('banner', undefined),
       adSize: BannerAdSize.BANNER,
       position: BannerAdPosition.BOTTOM_CENTER,
       margin: 0,
@@ -136,7 +159,7 @@ export const prepareInterstitialAd = async (): Promise<boolean> => {
 
   try {
     const options: InterstitialAdOptions = {
-      adId: getAdId('interstitial'),
+      adId: getAdId('interstitial', undefined),
     };
 
     await AdMob.prepareInterstitial(options);
@@ -169,8 +192,9 @@ export const showInterstitialAd = async (): Promise<boolean> => {
 
 /**
  * 準備獎勵廣告
+ * @param adUnitId - 廣告單元 ID，可以是字符串（單一 ID）或對象 {android: "...", ios: "..."}
  */
-export const prepareRewardAd = async (): Promise<boolean> => {
+export const prepareRewardAd = async (adUnitId?: string | any): Promise<boolean> => {
   if (!isNativePlatform()) {
     console.log('AdMob: Cannot prepare reward ad on web platform');
     return false;
@@ -178,11 +202,11 @@ export const prepareRewardAd = async (): Promise<boolean> => {
 
   try {
     const options: RewardAdOptions = {
-      adId: getAdId('rewarded'),
+      adId: getAdId('rewarded', adUnitId),
     };
 
     await AdMob.prepareRewardVideoAd(options);
-    console.log('Reward ad prepared');
+    console.log('Reward ad prepared with adUnitId:', options.adId);
     return true;
   } catch (error) {
     console.error('Error preparing reward ad:', error);
@@ -211,31 +235,41 @@ export const showRewardAd = async (
   }
 
   try {
-    // 監聽獎勵事件
-    const rewardListener = await AdMob.addListener('onRewardedVideoAdRewarded', (reward: AdMobRewardItem) => {
-      console.log('User earned reward:', reward);
+    console.log('[showRewardAd] 設置事件監聽器...');
+    
+    // 監聽獎勵事件（注意：事件名稱是 onRewardedVideoAdReward，不是 onRewardedVideoAdRewarded）
+    const rewardEventName = 'onRewardedVideoAdReward';
+    console.log(`[showRewardAd] 準備監聽事件: ${rewardEventName}`);
+    const rewardListener = await AdMob.addListener(rewardEventName, (reward: AdMobRewardItem) => {
+      console.log('[showRewardAd] ✅ 用戶獲得獎勵:', reward);
       if (onReward) {
         onReward(reward);
       }
     });
+    console.log(`[showRewardAd] ✅ 獎勵事件監聽器已設置: ${rewardEventName}`);
 
-    // 監聽關閉事件
-    const dismissListener = await AdMob.addListener('onRewardedVideoAdClosed', () => {
-      console.log('Reward ad closed');
+    // 監聽關閉事件（注意：事件名稱是 onRewardedVideoAdDismissed，不是 onRewardedVideoAdClosed）
+    const dismissEventName = 'onRewardedVideoAdDismissed';
+    console.log(`[showRewardAd] 準備監聽事件: ${dismissEventName}`);
+    const dismissListener = await AdMob.addListener(dismissEventName, () => {
+      console.log('[showRewardAd] 廣告已關閉');
       if (onDismiss) {
         onDismiss();
       }
       // 移除監聽器
       rewardListener.remove();
       dismissListener.remove();
+      console.log('[showRewardAd] 事件監聽器已移除');
     });
+    console.log(`[showRewardAd] ✅ 關閉事件監聽器已設置: ${dismissEventName}`);
 
     // 顯示廣告
+    console.log('[showRewardAd] 顯示獎勵廣告...');
     await AdMob.showRewardVideoAd();
-    console.log('Reward ad shown');
+    console.log('[showRewardAd] ✅ 廣告顯示命令已發送');
     return true;
   } catch (error) {
-    console.error('Error showing reward ad:', error);
+    console.error('[showRewardAd] ❌ 錯誤:', error);
     return false;
   }
 };
@@ -477,7 +511,8 @@ const showWebAdSimulator = (): Promise<void> => {
  */
 export const watchRewardedAd = async (
   onSuccess: () => void,
-  onError?: (error: string) => void
+  onError?: (error: string) => void,
+  adUnitId?: string | any
 ): Promise<void> => {
   // Web 平台顯示測試廣告模擬器
   if (!isNativePlatform()) {
@@ -495,8 +530,8 @@ export const watchRewardedAd = async (
   }
 
   try {
-    // 1. 準備廣告
-    const prepared = await prepareRewardAd();
+    // 1. 準備廣告（使用提供的 adUnitId 或默認測試 ID）
+    const prepared = await prepareRewardAd(adUnitId);
     if (!prepared) {
       throw new Error('Failed to prepare reward ad');
     }

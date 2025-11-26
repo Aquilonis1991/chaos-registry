@@ -1,105 +1,267 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { NativeAdData } from "@/types/nativeAd";
+import { NativeAd } from "@votechaos/native-ad-plugin";
 
 interface NativeAdCardProps {
   adUnitId?: string;
   className?: string;
-  onAdLoaded?: () => void;
+  onAdLoaded?: (ad?: NativeAdData) => void;
+  /**
+   * 在尚未串接原生插件前，是否允許使用 mock 資料。
+   * 預設 true，等 Native Ad Plugin 完成後可以關閉。
+   */
+  enableMock?: boolean;
 }
 
+type AdStatus = "idle" | "loading" | "ready" | "error";
+
 /**
- * 原生廣告卡片組件
- * 與 TopicCard 相同的尺寸和樣式，用於穿插在主題列表中
+ * 原生廣告卡片組件（會根據 AdMob Native Ad 資料渲染）
  */
-export const NativeAdCard = ({ 
+export const NativeAdCard = ({
   adUnitId,
   className = "",
-  onAdLoaded
+  onAdLoaded,
+  enableMock = true,
 }: NativeAdCardProps) => {
   const { language } = useLanguage();
   const { getText } = useUIText(language);
-  const adContainerRef = useRef<HTMLDivElement>(null);
-  const [adLoaded, setAdLoaded] = useState(false);
+  const [status, setStatus] = useState<AdStatus>("idle");
+  const [adData, setAdData] = useState<NativeAdData | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // 調試信息
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('NativeAdCard 渲染:', { adUnitId, adLoaded });
-    }
-  }, [adUnitId, adLoaded]);
+  const placeholderText = getText("home.ad.native.placeholder", "📱 AdMob 原生廣告");
+  const debugMessage = getText("home.ad.native.debugMode", "除錯模式：原生廣告模擬資料");
+  const retryText = getText("common.button.retry", "重新嘗試");
+  const loadingText = getText("common.state.loading", "載入中...");
 
-  useEffect(() => {
-    // 檢查是否在 Capacitor 環境中
-    const isCapacitor = typeof window !== 'undefined' && (window as any).Capacitor;
-    const platform = isCapacitor ? (window as any).Capacitor.getPlatform() : 'web';
-    
-    console.log('[NativeAdCard] 環境檢查:', { 
-      isCapacitor, 
-      platform, 
+  const mockData = useMemo<NativeAdData>(
+    () => ({
+      headline: "ChaosRegistry Fun Poll",
+      body: "立即參與最混亂的話題，投下你的關鍵一票，解鎖更多任務獎勵！",
+      callToAction: "立即參與",
+      advertiser: "AdMob Demo Advertiser",
+      store: "App Store & Play Store",
+      price: "免費",
+      starRating: 4.8,
+      iconUrl: "https://i.imgur.com/xY6G9.png",
+      imageUrl: "https://i.imgur.com/N1JcPTb.png",
+      mediaContent: {
+        type: "image",
+        url: "https://i.imgur.com/N1JcPTb.png",
+        aspectRatio: 1.6,
+      },
       adUnitId,
-      hasContainer: !!adContainerRef.current 
-    });
-    
-    // 目前 @capacitor-community/admob 不支援原生廣告卡片 API
-    // 在 Android/iOS 上顯示佔位符，未來可以整合原生廣告 SDK
-    // 現在先確保卡片能正常顯示
-    setAdLoaded(true);
-    onAdLoaded?.();
-    
-    // 未來可以在此處整合原生廣告 SDK
-    // 例如：使用 AdMob Native Ads API 或第三方原生廣告解決方案
-  }, [adUnitId, onAdLoaded]);
+      adNetworkName: "AdMob (Mock)",
+    }),
+    [adUnitId]
+  );
 
-  const placeholderText = getText('home.ad.native.placeholder', '📱 AdMob 原生廣告');
-  const debugMessage = getText('home.ad.native.debugMode', '除錯模式：廣告功能暫時停用');
-  const testLabel = getText('home.ad.native.testLabel', '測試用廣告卡片');
+  const loadNativeAd = useCallback(async () => {
+    if (!adUnitId) {
+      setStatus("error");
+      setErrorMessage("缺少 adUnitId，無法載入廣告");
+      return;
+    }
+
+    setStatus("loading");
+    setErrorMessage(null);
+
+    try {
+      let data: NativeAdData | undefined;
+
+      if (NativeAd && typeof NativeAd.loadNativeAd === "function") {
+        const result = await NativeAd.loadNativeAd({ adUnitId });
+        if (result?.data) {
+          data = result.data;
+        } else if (result?.error) {
+          throw new Error(result.error);
+        }
+      } else if (enableMock) {
+        data = await loadMockNativeAd(mockData);
+      } else {
+        throw new Error("NativeAdPlugin 尚未整合");
+      }
+
+      if (!data) {
+        throw new Error("未取得原生廣告資料");
+      }
+
+      setAdData(data);
+      setStatus("ready");
+      onAdLoaded?.(data);
+    } catch (error: any) {
+      console.error("[NativeAdCard] 載入原生廣告失敗", error);
+      setStatus("error");
+      setErrorMessage(error?.message || "載入原生廣告失敗");
+      setAdData(null);
+      onAdLoaded?.();
+    }
+  }, [adUnitId, enableMock, mockData, onAdLoaded]);
+
+  useEffect(() => {
+    loadNativeAd();
+  }, [loadNativeAd]);
+
+  const renderMedia = () => {
+    if (!adData?.mediaContent && !adData?.imageUrl && !adData?.imageBase64) {
+      return null;
+    }
+
+    const media = adData.mediaContent;
+    const isVideo = media?.type === "video";
+    const mediaUrl = media?.url || adData.imageUrl || adData.imageBase64;
+
+    if (!mediaUrl) {
+      return null;
+    }
+
+    return (
+      <div className="rounded-2xl overflow-hidden border border-border">
+        {isVideo ? (
+          <div className="relative w-full">
+            <div className="absolute inset-0 flex items-center justify-center bg-black/60 text-white text-xs uppercase tracking-widest">
+              Video Preview
+            </div>
+            <video
+              src={mediaUrl}
+              className="w-full h-48 object-cover"
+              muted
+              playsInline
+              autoPlay
+              loop
+            />
+          </div>
+        ) : (
+          <img
+            src={mediaUrl}
+            alt={adData.headline}
+            className="w-full h-48 object-cover"
+            loading="lazy"
+          />
+        )}
+      </div>
+    );
+  };
+
+  const renderContent = () => {
+    if (status === "loading") {
+      return (
+        <div className="flex flex-col items-center justify-center gap-3 min-h-[220px] text-muted-foreground">
+          <div className="w-10 h-10 border-4 border-muted border-t-primary rounded-full animate-spin" />
+          <p className="text-sm font-medium">{loadingText}</p>
+        </div>
+      );
+    }
+
+    if (status === "error" || !adData) {
+      return (
+        <div className="flex flex-col items-center justify-center gap-3 min-h-[220px] text-center">
+          <p className="text-sm text-muted-foreground">
+            {errorMessage || debugMessage}
+          </p>
+          <Button variant="outline" size="sm" onClick={loadNativeAd}>
+            {retryText}
+          </Button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {renderMedia()}
+
+        <div className="space-y-2">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              {(adData.iconUrl || adData.iconBase64) && (
+                <img
+                  src={adData.iconUrl || adData.iconBase64}
+                  alt={adData.advertiser || "ad"}
+                  className="w-12 h-12 rounded-2xl object-cover border border-border"
+                  loading="lazy"
+                />
+              )}
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground font-semibold mb-1">
+                  {adData.advertiser || "Sponsored"}
+                </p>
+                <h3 className="text-lg font-bold text-foreground">
+                  {adData.headline}
+                </h3>
+              </div>
+            </div>
+            {adData.starRating ? (
+              <div className="flex flex-col items-end">
+                <span className="text-sm font-semibold text-amber-500">
+                  ★ {adData.starRating.toFixed(1)}
+                </span>
+                <span className="text-[10px] text-muted-foreground uppercase">
+                  Rated
+                </span>
+              </div>
+            ) : null}
+          </div>
+
+          {adData.body && (
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              {adData.body}
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+          {adData.store && (
+            <span className="rounded-full bg-muted px-3 py-1">
+              {adData.store}
+            </span>
+          )}
+          {adData.price && (
+            <span className="rounded-full bg-muted px-3 py-1">
+              {adData.price}
+            </span>
+          )}
+        </div>
+
+        <Button
+          className="w-full"
+          onClick={() => {
+            if (adData.clickUrl) {
+              window.open(adData.clickUrl, "_blank", "noopener,noreferrer");
+            }
+          }}
+        >
+          {adData.callToAction || "了解更多"}
+        </Button>
+      </div>
+    );
+  };
 
   return (
     <Card
-      className={`bg-gradient-to-br from-[#fff2f7] via-white to-[#ffe0f0] border-2 border-dashed border-pink-500/70 shadow-[0_8px_30px_rgba(255,105,180,0.25)] ring-2 ring-pink-200/60 ${className}`}
+      className={`bg-gradient-card shadow-card w-full ${className}`}
+      style={{
+        minWidth: "300px",
+        minHeight: "250px",
+        width: "100%",
+        maxWidth: "100%",
+      }}
     >
-      <CardContent className="p-6">
-        {/* 測試標記 */}
-        <div className="flex items-center justify-between mb-4">
-          <Badge variant="destructive" className="text-xs font-bold tracking-wide px-3 py-1">
-            {testLabel}
-          </Badge>
-          <span className="text-[10px] uppercase font-semibold text-pink-600 tracking-[0.2em]">
-            Demo Only
-          </span>
-        </div>
-
-        <div
-          ref={adContainerRef}
-          className="min-h-[220px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-pink-200/70 bg-white/60 p-6 text-center"
-        >
-          <div className="space-y-3 w-full">
-            <div className="flex items-center justify-center gap-3 text-pink-600">
-              <span className="text-2xl">🎯</span>
-              <p className="text-base font-semibold">{placeholderText}</p>
-            </div>
-            <p className="text-xs text-muted-foreground text-center">{debugMessage}</p>
-            <div className="flex justify-center gap-2 text-[11px] text-muted-foreground">
-              <span className="rounded-full bg-muted px-3 py-1">AdMob</span>
-              <span className="rounded-full bg-muted px-3 py-1">Native</span>
-              <span className="rounded-full bg-muted px-3 py-1">Preview</span>
-            </div>
-            {/* 未來 AdMob 原生廣告會在這裡渲染 */}
-            <div 
-              ref={adContainerRef}
-              id={`native-ad-${adUnitId || 'default'}`} 
-              className="mt-4 min-h-[100px]"
-            >
-              {/* 原生廣告容器 */}
-            </div>
-          </div>
-        </div>
+      <CardContent className="p-4 sm:p-6 space-y-4">
+        {renderContent()}
       </CardContent>
     </Card>
   );
+};
+
+const loadMockNativeAd = (mockData: NativeAdData) => {
+  return new Promise<NativeAdData>((resolve) => {
+    setTimeout(() => resolve(mockData), 600);
+  });
 };
 
 export default NativeAdCard;

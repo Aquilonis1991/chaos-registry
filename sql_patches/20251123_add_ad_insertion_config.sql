@@ -9,7 +9,7 @@ VALUES (
   'ad_insertion_interval',
   to_jsonb(10::integer),
   'advertising',
-  '每 N 個主題插入 1 個原生廣告卡片（預設：10）'
+  '每 N 個主題插入 1 個原生廣告卡片（預設：10，可在後台修改）'
 )
 ON CONFLICT (key) DO UPDATE
 SET 
@@ -24,7 +24,7 @@ VALUES (
   'ad_insertion_skip_first',
   to_jsonb(10::integer),
   'advertising',
-  '首屏不顯示廣告的主題數量（預設：10）'
+  '首屏不顯示廣告的主題數量（預設：10，可在後台修改）'
 )
 ON CONFLICT (key) DO UPDATE
 SET 

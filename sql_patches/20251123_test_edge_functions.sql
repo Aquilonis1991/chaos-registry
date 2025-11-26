@@ -4,15 +4,7 @@
 
 -- 方法 1：直接檢查 system_config 資料表（確認 get-system-config 的資料來源）
 -- 如果這個查詢成功，表示資料表存在，Edge Function 應該可以正常讀取
-SELECT 
-  key,
-  value,
-  category,
-  description,
-  updated_at
-FROM system_config
-ORDER BY key
-LIMIT 10;
+Android StudioAndroid Studio
 
 -- 方法 3：測試 http_post（處理 NULL 情況）
 -- 如果 content 是 NULL，至少可以看到 status

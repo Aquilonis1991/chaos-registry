@@ -154,10 +154,10 @@ const VoteDetailPage = () => {
       });
       // 刷新主題資料以顯示最新投票結果
       refreshTopic();
-      // 刷新用戶資料以更新代幣顯示
-      refreshProfile();
       // 刷新任務統計
       refreshStats();
+      // 確保代幣數量立即刷新（實時訂閱會自動更新，但這裡確保立即刷新）
+      void refreshProfile();
     } catch (error) {
       // Error handled in useVoteOperations
     } finally {
@@ -489,31 +489,29 @@ const VoteDetailPage = () => {
           ) : (
             <>
               {/* Free Vote Button */}
-              {freeVoteAvailable && (
-                <div className="mb-4">
-                  <Button
-                    variant="default"
-                    size="lg"
-                    onClick={handleFreeVote}
-                    className="w-full h-16 text-lg bg-gradient-accent"
-                    disabled={isVoting || !selectedOption || checkingFreeVote}
-                  >
-                    {isVoting ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : checkingFreeVote ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <>
-                        <Gift className="w-5 h-5 mr-2" />
-                        {freeVoteButtonText}
-                      </>
-                    )}
-                  </Button>
-                  <p className="text-xs text-muted-foreground text-center mt-2">
-                    {freeVoteNote}
-                  </p>
-                </div>
-              )}
+              <div className="mb-4">
+                <Button
+                  variant="default"
+                  size="lg"
+                  onClick={handleFreeVote}
+                  className="w-full h-16 text-lg bg-gradient-accent"
+                  disabled={isVoting || !selectedOption || checkingFreeVote || !freeVoteAvailable}
+                >
+                  {isVoting ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : checkingFreeVote ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <>
+                      <Gift className="w-5 h-5 mr-2" />
+                      {freeVoteButtonText}
+                    </>
+                  )}
+                </Button>
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  {freeVoteAvailable ? freeVoteNote : getText('vote.detail.freeVote.used', '今日免費票已使用')}
+                </p>
+              </div>
 
               <h3 className="text-lg font-semibold text-foreground mb-3">{tokenSectionTitle}</h3>
               <div className="grid grid-cols-3 gap-3">

@@ -371,7 +371,7 @@ const NotificationsPage = () => {
                 </div>
                 <div className="p-3 bg-muted rounded-md">
                   <p className="text-xs text-muted-foreground mb-1">
-                    來自：{reply.responder_name || '管理員'}
+                    {getText('notifications.contactReply.from', '來自：')}{reply.responder_name || getText('notifications.contactReply.admin', '管理員')}
                   </p>
                   <p className="text-sm whitespace-pre-wrap">
                     {reply.reply_content}
@@ -379,13 +379,13 @@ const NotificationsPage = () => {
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>
-                    問題建立：{formatDistanceToNow(new Date(reply.message_created_at), {
+                    {getText('notifications.contactReply.questionCreated', '問題建立：')}{formatDistanceToNow(new Date(reply.message_created_at), {
                       addSuffix: true,
                       locale: zhTW,
                     })}
                   </span>
                   <span>
-                    回覆時間：{formatDistanceToNow(new Date(reply.reply_created_at), {
+                    {getText('notifications.contactReply.replyTime', '回覆時間：')}{formatDistanceToNow(new Date(reply.reply_created_at), {
                       addSuffix: true,
                       locale: zhTW,
                     })}
@@ -445,47 +445,61 @@ const NotificationsPage = () => {
       {/* Content */}
       <div className="max-w-screen-xl mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="all">
-              {tabAllLabel}
-              {notifications.length > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {notifications.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="unread">
-              {tabUnreadLabel}
-              {unreadCount > 0 && (
-                <Badge variant="destructive" className="ml-2">
-                  {unreadCount}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="announcement">
-              {tabAnnouncementLabel}
-              {announcementCount > 0 && (
-                <Badge variant="outline" className="ml-2">
-                  {announcementCount}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="personal">
-              {tabPersonalLabel}
-              {personalCount > 0 && (
-                <Badge variant="outline" className="ml-2">
-                  {personalCount}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="contact">
-              {tabContactLabel}
-              {contactReplies.length > 0 && (
-                <Badge variant="outline" className="ml-2">
-                  {contactReplies.length}
-                </Badge>
-              )}
-            </TabsTrigger>
+          <TabsList 
+            className="!flex !flex-col !w-full gap-2 !h-auto p-2 !items-stretch"
+            style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              height: 'auto',
+              alignItems: 'stretch'
+            }}
+          >
+            {/* 第一行：重要分類 */}
+            <div className="grid grid-cols-2 gap-2 w-full">
+              <TabsTrigger value="all" className="w-full">
+                {tabAllLabel}
+                {notifications.length > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {notifications.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="unread" className="w-full">
+                {tabUnreadLabel}
+                {unreadCount > 0 && (
+                  <Badge variant="destructive" className="ml-2">
+                    {unreadCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </div>
+            {/* 第二行：其他分類 */}
+            <div className="grid grid-cols-3 gap-2 w-full">
+              <TabsTrigger value="announcement" className="w-full">
+                {tabAnnouncementLabel}
+                {announcementCount > 0 && (
+                  <Badge variant="outline" className="ml-2">
+                    {announcementCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="personal" className="w-full">
+                {tabPersonalLabel}
+                {personalCount > 0 && (
+                  <Badge variant="outline" className="ml-2">
+                    {personalCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="contact" className="w-full">
+                {tabContactLabel}
+                {contactReplies.length > 0 && (
+                  <Badge variant="outline" className="ml-2">
+                    {contactReplies.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </div>
           </TabsList>
 
           <TabsContent value="all" className="mt-6">

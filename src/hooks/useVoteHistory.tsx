@@ -14,6 +14,36 @@ export interface VoteHistory {
   topic_tags: string[];
 }
 
+const resolveOptionText = (topicOptions: any[] | undefined, selectedOption: string | null) => {
+  if (!selectedOption) return '未知選項';
+  if (!Array.isArray(topicOptions)) return selectedOption;
+
+  const normalizedSelected = selectedOption.trim();
+  const matchedOption = topicOptions.find((option) => {
+    // options 以 JSON 儲存，可能包含 id/text；舊資料也可能直接儲存文字
+    if (typeof option === 'string') {
+      return option.trim() === normalizedSelected;
+    }
+    if (option?.id) {
+      return option.id === normalizedSelected;
+    }
+    if (option?.text) {
+      return option.text.trim() === normalizedSelected;
+    }
+    return false;
+  });
+
+  if (!matchedOption) {
+    return normalizedSelected; // 找不到時保留原始值（避免顯示空白）
+  }
+
+  if (typeof matchedOption === 'string') {
+    return matchedOption;
+  }
+
+  return matchedOption.text || normalizedSelected;
+};
+
 export const useVoteHistory = (userId: string | undefined) => {
   const [history, setHistory] = useState<VoteHistory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,7 +118,7 @@ export const useVoteHistory = (userId: string | undefined) => {
           id: vote.id,
           topic_id: vote.topic_id,
           topic_title: (vote.topics as any)?.title || '未知主題',
-          option_selected: vote.option || '未知選項',
+          option_selected: resolveOptionText((vote.topics as any)?.options, vote.option),
           tokens_used: vote.amount || 0,
           is_free_vote: false,
           voted_at: vote.created_at,
@@ -103,7 +133,7 @@ export const useVoteHistory = (userId: string | undefined) => {
           id: vote.id,
           topic_id: vote.topic_id,
           topic_title: (vote.topics as any)?.title || '未知主題',
-          option_selected: vote.option || '免費投票',
+          option_selected: resolveOptionText((vote.topics as any)?.options, vote.option),
           tokens_used: 0,
           is_free_vote: true,
           voted_at: vote.used_at,

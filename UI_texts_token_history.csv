@@ -7,11 +7,21 @@ tokenHistory.type.completeMission,token_history,完成任務,Complete Mission,�
 tokenHistory.type.watchAd,token_history,觀看廣告,Watch Ad,広告を見る,代幣交易類型：觀看廣告
 tokenHistory.type.adminAdjustment,token_history,系統調整,Admin Adjustment,システム調整,代幣交易類型：系統調整
 tokenHistory.type.purchase,token_history,購買,Purchase,購入,代幣交易類型：購買
+tokenHistory.header.title,token_history,代幣使用紀錄,Token History,トークン利用履歴,代幣紀錄頁面標題
+tokenHistory.header.subtitle,token_history,查看你的代幣使用歷史,Review how you spent tokens,トークン利用履歴を確認,代幣紀錄頁面副標
+tokenHistory.empty.text,token_history,還沒有使用紀錄,No history yet,履歴はまだありません,代幣紀錄空狀態文字
+tokenHistory.empty.button,token_history,開始使用,Start now,今すぐ始める,代幣紀錄空狀態按鈕
+tokenHistory.badge.income,token_history,收入,Income,収入,代幣紀錄徽章：收入
+tokenHistory.badge.expense,token_history,支出,Expense,支出,代幣紀錄徽章：支出
 tokenHistory.description.createTopic,token_history,建立主題：{{title}},Create Topic: {{title}},トピック作成：{{title}},代幣交易描述：建立主題
 tokenHistory.description.freeCreateTopic,token_history,免費建立主題：{{title}},Free Create Topic: {{title}},無料トピック作成：{{title}},代幣交易描述：免費建立主題
 tokenHistory.description.createTopicPrefix,token_history,建立主題：,Create Topic: ,トピック作成：,代幣交易描述：建立主題前綴
 tokenHistory.description.freeCreateTopicPrefix,token_history,免費建立主題：,Free Create Topic: ,無料トピック作成：,代幣交易描述：免費建立主題前綴
 tokenHistory.description.castVote,token_history,投票使用 {{amount}} 代幣,Cast Vote using {{amount}} tokens,{{amount}}トークンで投票,代幣交易描述：投票使用代幣
+tokenHistory.description.vote,token_history,投票：{{title}},Vote: {{title}},投票：{{title}},代幣交易描述：投票標題
+tokenHistory.description.voteWithOption,token_history,投票：{{title}}（選項：{{option}}）,Vote: {{title}} (Option: {{option}}),投票：{{title}}（選択肢：{{option}}）,代幣交易描述：投票與選項
+tokenHistory.description.watchAdReward,token_history,觀看廣告獲得 {{amount}} 代幣,Watch ad to earn {{amount}} tokens,広告視聴で{{amount}}トークン獲得,代幣交易描述：觀看廣告獎勵
+tokenHistory.description.completeMission,token_history,完成任務,Completed mission,ミッション完了,代幣交易描述：完成任務
 tokenHistory.description.votePrefix,token_history,投票使用,Vote using,投票使用,代幣交易描述：投票前綴
 tokenHistory.description.tokensUnit,token_history,代幣,tokens,トークン,代幣單位
 tokenHistory.description.dailyLoginReward,token_history,每日登入獎勵,Daily Login Reward,毎日ログイン報酬,代幣交易描述：每日登入獎勵

@@ -6,6 +6,7 @@ import { PlusCircle, Coins, Loader2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { AnnouncementCarousel } from "@/components/AnnouncementCarousel";
 import { SearchBar } from "@/components/SearchBar";
+import { Logo } from "@/components/Logo";
 import { useTopics } from "@/hooks/useTopics";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,8 +22,11 @@ const HomePage = () => {
   const { profile } = useProfile();
   const { language } = useLanguage();
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
-  const { getConfig, refreshConfigs } = useSystemConfigCache();
+  const { getConfig, loading: configLoading, configs } = useSystemConfigCache();
   const [currentTab, setCurrentTab] = useState<'hot' | 'latest' | 'joined'>('hot');
+  
+  // 注意：配置緩存會在首次加載時自動獲取，不需要每次掛載都刷新
+  // 如果需要強制刷新配置，可以在特定場景下手動調用 refreshConfigs()
   
   // 根據當前標籤獲取主題
   const { topics: hotTopics, loading: hotLoading } = useTopics({ 
@@ -54,14 +58,27 @@ const HomePage = () => {
     ? hotTopics.filter((topic) => !promotedHotTopicIds.has(topic.id))
     : hotTopics;
 
-  // 廣告配置（從系統配置讀取）
-  // 暫時降低 skipFirst 以便測試（實際使用時應從配置讀取）
-  const adInsertionInterval = Number(getConfig('ad_insertion_interval', 10)) || 10;
-  const adInsertionSkipFirst = Number(getConfig('ad_insertion_skip_first', 3)) || 3; // 暫時改為 3 以便測試
+  // 廣告配置（從系統配置讀取，完全由後台控制）
+  const adInsertionIntervalRaw = getConfig('ad_insertion_interval', 10);
+  const adInsertionInterval = Number(adInsertionIntervalRaw) || 10;
+  
+  const adInsertionSkipFirstRaw = getConfig('ad_insertion_skip_first', 10);
+  const adInsertionSkipFirst = Number(adInsertionSkipFirstRaw) || 10;
+  
   const adUnitIdConfig = getConfig('admob_native_ad_unit_id', 'ca-app-pub-3940256099942544/2247696110');
   const adUnitId = typeof adUnitIdConfig === 'string' ? adUnitIdConfig : String(adUnitIdConfig || '');
+  
   const adInsertionEnabledValue = getConfig('ad_insertion_enabled', true);
   const adInsertionEnabled = adInsertionEnabledValue === true || adInsertionEnabledValue === 'true' || String(adInsertionEnabledValue).toLowerCase() === 'true';
+  
+  // 調試：輸出實際讀取到的配置值
+  useEffect(() => {
+    console.log('[HomePage] 讀取的配置值:');
+    console.log('  - ad_insertion_interval (原始):', adInsertionIntervalRaw, '→ (解析後):', adInsertionInterval);
+    console.log('  - ad_insertion_skip_first (原始):', adInsertionSkipFirstRaw, '→ (解析後):', adInsertionSkipFirst);
+    console.log('  - ad_insertion_enabled (原始):', adInsertionEnabledValue, '→ (解析後):', adInsertionEnabled);
+    console.log('  - admob_native_ad_unit_id:', adUnitIdConfig ? 'SET' : 'MISSING');
+  }, [adInsertionIntervalRaw, adInsertionSkipFirstRaw, adInsertionEnabledValue, adUnitIdConfig, adInsertionInterval, adInsertionSkipFirst, adInsertionEnabled]);
   
   const adConfig = {
     interval: adInsertionInterval,
@@ -74,20 +91,14 @@ const HomePage = () => {
     ? Math.max(0, adConfig.skipFirst - promotedHotTopics.length)
     : adConfig.skipFirst;
 
-  // 調試信息（開發環境）
+  // 調試信息（只在配置變化時輸出，避免重複日誌）
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('廣告配置:', {
-        enabled: adInsertionEnabled,
-        interval: adInsertionInterval,
-        skipFirst: adInsertionSkipFirst,
-        adUnitId: adUnitId,
-        hotTopicsCount: hotTopics.length,
-        latestTopicsCount: latestTopics.length,
-        joinedTopicsCount: joinedTopics.length,
-      });
+    const configKey = `${adInsertionEnabled}-${adInsertionInterval}-${adInsertionSkipFirst}-${adUnitId ? 'SET' : 'MISSING'}`;
+    if (!(window as any).__homePageAdConfigLogged || (window as any).__homePageAdConfigLogged !== configKey) {
+      console.log(`[HomePage] 廣告配置: enabled=${adInsertionEnabled}, interval=${adInsertionInterval}, skipFirst=${adInsertionSkipFirst}, adUnitId=${adUnitId ? 'SET' : 'MISSING'}`);
+      (window as any).__homePageAdConfigLogged = configKey;
     }
-  }, [adInsertionEnabled, adInsertionInterval, adInsertionSkipFirst, adUnitId, hotTopics.length, latestTopics.length, joinedTopics.length]);
+  }, [adInsertionEnabled, adInsertionInterval, adInsertionSkipFirst, adUnitId]);
 
   const userTokens = profile?.tokens || 0;
 
@@ -113,13 +124,16 @@ const HomePage = () => {
       <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg">
         <div className="max-w-screen-xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-primary-foreground">
-                {getText('home.header.title', 'ChaosRegistry')}
-              </h1>
-              <p className="text-sm text-primary-foreground/80">
-                {getText('home.header.subtitle', '不理性登記處')}
-              </p>
+            <div className="flex items-center gap-3">
+              <Logo size="md" />
+              <div>
+                <h1 className="text-2xl font-bold text-primary-foreground">
+                  {getText('home.header.title', 'ChaosRegistry')}
+                </h1>
+                <p className="text-sm text-primary-foreground/80">
+                  {getText('home.header.subtitle', '不理性登記處')}
+                </p>
+              </div>
             </div>
             
             <button 

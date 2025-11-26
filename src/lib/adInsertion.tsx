@@ -43,15 +43,11 @@ export function insertAdsIntoList<T>(
     return items.map((item, index) => renderItem(item, index));
   }
 
-  // 調試信息
-  if (process.env.NODE_ENV === 'development') {
-    console.log('insertAdsIntoList 配置:', {
-      enabled,
-      interval,
-      skipFirst,
-      adUnitId,
-      itemsCount: items.length,
-    });
+  // 只在首次調用或配置變化時輸出配置信息（避免重複日誌）
+  const logKey = `ad-insertion-${enabled}-${interval}-${skipFirst}-${adUnitId ? 'SET' : 'MISSING'}`;
+  if (!(window as any).__adInsertionConfigLogged || (window as any).__adInsertionConfigLogged !== logKey) {
+    console.log(`[insertAdsIntoList] 配置: enabled=${enabled}, interval=${interval}, skipFirst=${skipFirst}, itemsCount=${items.length}`);
+    (window as any).__adInsertionConfigLogged = logKey;
   }
 
   items.forEach((item, index) => {
@@ -65,25 +61,39 @@ export function insertAdsIntoList<T>(
     // 4. 必須有 adUnitId
     const positionAfterSkip = index + 1 - skipFirst; // 從首屏之後的位置（從 1 開始）
     
+    // 調整邏輯：允許在最後一個項目之前插入（但不在最後一個項目之後）
     const shouldInsertAd = 
       enabled &&
       adUnitId &&
       index + 1 > skipFirst && // 必須在首屏之後
       positionAfterSkip > 0 &&
       positionAfterSkip % interval === 0 && // 每 interval 個主題插入一個廣告
-      index < items.length - 1; // 不是最後一個項目
+      index < items.length - 1; // 不是最後一個項目（允許在倒數第 2 個之後插入）
 
     if (shouldInsertAd) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`插入廣告在位置 ${index + 1} (index ${index}), positionAfterSkip: ${positionAfterSkip}`);
-      }
-      result.push(
-        <NativeAdCard
-          key={`ad-${adCounter}`}
-          adUnitId={adUnitId}
-          className="mt-4"
-        />
+      console.log(`[insertAdsIntoList] ✅ 插入廣告在位置 ${index + 1}, adKey=ad-${adCounter}`);
+      const adElement = (
+        <div 
+          key={`ad-wrapper-${adCounter}`} 
+          className="w-full" 
+          style={{ 
+            display: 'block', 
+            visibility: 'visible',
+            opacity: 1,
+            minHeight: '200px'
+          }}
+        >
+          <NativeAdCard
+            key={`ad-${adCounter}`}
+            adUnitId={adUnitId}
+            className="mt-4"
+            onAdLoaded={() => {
+              console.log(`[insertAdsIntoList] 廣告已載入: ad-${adCounter}`);
+            }}
+          />
+        </div>
       );
+      result.push(adElement);
       adCounter++;
     }
   });

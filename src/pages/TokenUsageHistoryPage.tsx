@@ -15,6 +15,22 @@ const TokenUsageHistoryPage = () => {
   const { language } = useLanguage();
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
 
+  // 調試日誌：檢查傳入的歷史記錄
+  console.log('📊 TokenUsageHistoryPage - history data:', {
+    count: history.length,
+    transactions: history.map(t => ({
+      id: t.id,
+      type: t.transaction_type,
+      amount: t.amount,
+      amountType: typeof t.amount,
+      label: t.type_label,
+      isExpense: t.amount < 0,
+      isIncome: t.amount > 0
+    })),
+    expenseCount: history.filter(t => t.amount < 0).length,
+    incomeCount: history.filter(t => t.amount > 0).length
+  });
+
   const headerTitle = getText('tokenHistory.header.title', '代幣使用紀錄');
   const headerSubtitle = getText('tokenHistory.header.subtitle', '查看你的代幣使用歷史');
   const emptyStateText = getText('tokenHistory.empty.text', '還沒有使用紀錄');
@@ -105,7 +121,7 @@ const TokenUsageHistoryPage = () => {
                             <TrendingDown className="w-5 h-5" />
                           )}
                           <span>
-                            {isIncome ? '+' : ''}{transaction.amount}
+                            {isIncome ? '+' : ''}{typeof transaction.amount === 'number' ? transaction.amount : parseFloat(String(transaction.amount)) || 0}
                           </span>
                         </div>
                         <Badge 

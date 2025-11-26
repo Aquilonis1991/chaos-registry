@@ -1,5 +1,16 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useUIText } from "@/hooks/useUIText";
+
+const stringifyError = (error: any) => {
+  if (!error) return "undefined";
+  try {
+    return JSON.stringify(error, Object.getOwnPropertyNames(error), 2);
+  } catch {
+    return String(error);
+  }
+};
 
 interface CreateTopicData {
   title: string;
@@ -12,6 +23,9 @@ interface CreateTopicData {
 }
 
 export const useTopicOperations = () => {
+  const { language } = useLanguage();
+  const { getText } = useUIText(language);
+  
   const createTopic = async (data: CreateTopicData) => {
     try {
       const endDate = new Date();
@@ -113,20 +127,55 @@ export const useTopicOperations = () => {
 
       console.log('Tokens deducted:', totalCost);
 
-      // 5. 記錄交易（可選，如果表格存在）
+      // 5. 記錄交易（必須成功）
+      const createTopicDescription = getText('tokenHistory.description.createTopic', '建立主題：{{title}}').replace('{{title}}', data.title);
+      console.log('📝 Attempting to log token transaction:', {
+        userId: user.id,
+        amount: -totalCost,
+        type: 'create_topic',
+        topicId: topic.id,
+        description: createTopicDescription
+      });
+      
       try {
-        await supabase
-          .from('token_transactions')
-          .insert({
-            user_id: user.id,
+        const { data: txId, error: txError } = await (supabase.rpc as any)('log_token_transaction', {
+          p_user_id: user.id,
+          p_amount: -totalCost,
+          p_transaction_type: 'create_topic',
+          p_reference_id: topic.id,
+          p_description: createTopicDescription
+        });
+
+        if (txError) {
+          console.error('❌ Token transaction logging failed:');
+          console.error('  Error details:', stringifyError(txError));
+          console.error('  Error message:', txError?.message);
+          console.error('  Error code:', txError?.code);
+          console.error('  Error details:', txError?.details);
+          console.error('  Error hint:', txError?.hint);
+          console.error('  User ID:', user.id);
+          console.error('  Amount:', -totalCost);
+          console.error('  Type:', 'create_topic');
+          console.error('  Topic ID:', topic.id);
+          // 不影響主流程，但記錄錯誤
+        } else {
+          console.log('✅ Token transaction logged successfully:', {
+            transactionId: txId,
             amount: -totalCost,
-            transaction_type: 'create_topic',
-            reference_id: topic.id,
-            description: `建立主題: ${data.title}`
+            type: 'create_topic',
+            topicId: topic.id
           });
-      } catch (txError) {
-        console.warn('Token transaction logging failed (table may not exist):', txError);
-        // 不影響主流程
+        }
+      } catch (txErr: any) {
+        console.error('❌ Token transaction logging exception:');
+        console.error('  Exception details:', stringifyError(txErr));
+        console.error('  Exception message:', txErr?.message);
+        console.error('  Exception stack:', txErr?.stack);
+        console.error('  User ID:', user.id);
+        console.error('  Amount:', -totalCost);
+        console.error('  Type:', 'create_topic');
+        console.error('  Topic ID:', topic.id);
+        // 不影響主流程，但記錄錯誤
       }
 
       return { success: true, topic, cost: totalCost }

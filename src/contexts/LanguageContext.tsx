@@ -139,8 +139,57 @@ export const resolveBaseLanguage = (lang: Language): BaseLanguage => {
   return translations[base] ? base : "zh";
 };
 
+// 語言偏好存儲鍵
+const LANGUAGE_STORAGE_KEY = 'app_language_preference';
+
+// 從 localStorage 讀取保存的語言偏好
+const getStoredLanguage = (): Language => {
+  if (typeof window === 'undefined') return 'zh';
+  
+  try {
+    const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (stored) {
+      // 驗證存儲的語言是否有效
+      const base = stored.split('-')[0] as BaseLanguage;
+      if (translations[base]) {
+        return stored as Language;
+      }
+    }
+  } catch (error) {
+    console.error('Error reading language preference:', error);
+  }
+  
+  // 如果沒有保存的偏好，嘗試從瀏覽器語言檢測
+  if (typeof navigator !== 'undefined' && navigator.language) {
+    const browserLang = navigator.language.toLowerCase();
+    if (browserLang.startsWith('zh')) return 'zh';
+    if (browserLang.startsWith('ja')) return 'ja';
+    if (browserLang.startsWith('en')) return 'en';
+  }
+  
+  return 'zh'; // 默認返回中文
+};
+
+// 保存語言偏好到 localStorage
+const saveLanguagePreference = (lang: Language) => {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+  } catch (error) {
+    console.error('Error saving language preference:', error);
+  }
+};
+
 export const LanguageProvider = ({ children }: { children: ReactNode }) => {
-  const [language, setLanguage] = useState<Language>("zh");
+  // 從 localStorage 讀取保存的語言偏好，如果沒有則使用默認值
+  const [language, setLanguageState] = useState<Language>(() => getStoredLanguage());
+
+  // 包裝 setLanguage 以同時保存到 localStorage
+  const setLanguage = (lang: Language) => {
+    setLanguageState(lang);
+    saveLanguagePreference(lang);
+  };
 
   const t = (key: string): string => {
     const base = resolveBaseLanguage(language);

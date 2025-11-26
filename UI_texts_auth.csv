@@ -1,0 +1,43 @@
+key,category,zh,en,ja,description
+auth_login_success,auth,登入成功！,Login successful!,ログインに成功しました。,登入成功提示
+auth_login_error,auth,登入失敗，請稍後再試,Login failed, please try again later,ログインに失敗しました。しばらくしてから再試行してください。,登入失敗提示
+auth_password_mismatch,auth,密碼不一致,Passwords do not match,パスワードが一致しません。,註冊：密碼不一致錯誤
+auth_password_min_length,auth,密碼至少需要 8 個字元,Password must be at least 8 characters,パスワードは8文字以上で入力してください。,註冊：密碼長度下限
+auth_password_max_length,auth,密碼最多 72 個字元,Password can be up to 72 characters,パスワードは72文字以内で入力してください。,註冊：密碼長度上限
+auth_password_uppercase,auth,密碼需包含至少一個大寫字母,Password must include at least one uppercase letter,パスワードには少なくとも1文字の大文字が必要です。,註冊：密碼需含大寫
+auth_password_lowercase,auth,密碼需包含至少一個小寫字母,Password must include at least one lowercase letter,パスワードには少なくとも1文字の小文字が必要です。,註冊：密碼需含小寫
+auth_password_number,auth,密碼需包含至少一個數字,Password must include at least one number,パスワードには少なくとも1文字の数字が必要です。,註冊：密碼需含數字
+auth_email_exists,auth,此電子郵件已被註冊,This email has already been registered,このメールアドレスは既に登録されています。,註冊：信箱重複錯誤
+auth_password_invalid,auth,密碼不符合安全要求,Password does not meet security requirements,パスワードがセキュリティ要件を満たしていません。,註冊：密碼不符合規範
+auth_signup_success,auth,註冊成功！請至信箱完成驗證後再登入,Sign up successful! Please verify your email before logging in,登録が完了しました。ログイン前にメール認証を行ってください。,註冊成功提示
+auth_signup_error,auth,註冊失敗，請稍後再試,Sign up failed, please try again later,登録に失敗しました。しばらくしてから再試行してください。,註冊失敗提示
+auth_social_login_error,auth,{{provider}} 登入失敗,{{provider}} login failed,{{provider}} でのログインに失敗しました。,第三方登入錯誤訊息
+auth_app_title,auth,ChaosRegistry,ChaosRegistry,ChaosRegistry,登入頁：標題
+auth_app_subtitle,auth,加入最有趣的投票社群,Join the most exciting voting community,最も楽しい投票コミュニティに参加しよう,登入頁：副標
+auth_login_tab,auth,登入,Log In,ログイン,登入頁：登入分頁
+auth_signup_tab,auth,註冊,Sign Up,新規登録,登入頁：註冊分頁
+auth_email_label,auth,電子郵件,Email,メールアドレス,登入頁：信箱標籤
+auth_email_placeholder,auth,your@email.com,your@email.com,your@email.com,登入頁：信箱輸入提示
+auth_password_label,auth,密碼,Password,パスワード,登入頁：密碼標籤
+auth_password_placeholder,auth,••••••••,••••••••,••••••••,登入頁：密碼輸入提示
+auth_login_button,auth,登入,Log In,ログイン,登入頁：登入按鈕
+auth_google_login,auth,使用 Google 登入,Sign in with Google,Google でログイン,第三方登入：Google
+auth_apple_login,auth,使用 Apple 登入,Sign in with Apple,Apple でログイン,第三方登入：Apple
+auth_discord_login,auth,使用 Discord 登入,Sign in with Discord,Discord でログイン,第三方登入：Discord
+auth_facebook_login,auth,使用 Facebook 登入,Sign in with Facebook,Facebook でログイン,第三方登入：Facebook
+auth_line_login,auth,使用 LINE 登入,Sign in with LINE,LINE でログイン,第三方登入：LINE
+auth_password_placeholder_signup,auth,至少 8 個字元，含大小寫字母和數字,At least 8 characters with upper/lowercase letters and numbers,8文字以上で大文字・小文字・数字を含めてください,註冊頁：密碼提示
+auth_password_requirements,auth,密碼需包含: 大寫字母、小寫字母、數字 (8-72 字元),Password must include uppercase + lowercase letters + numbers (8-72 characters),パスワードには大文字・小文字・数字を含める必要があります（8〜72文字）,註冊頁：密碼要求
+auth_confirm_password_label,auth,確認密碼,Confirm Password,パスワードの確認,註冊頁：確認密碼標籤
+auth_confirm_password_placeholder,auth,請再次輸入密碼,Please enter the password again,もう一度パスワードを入力してください,註冊頁：確認密碼提示
+auth_signup_button,auth,註冊,Sign Up,登録,註冊頁：註冊按鈕
+auth_anonymous_browse,auth,匿名瀏覽,Browse anonymously,匿名で閲覧,登入頁：匿名瀏覽按鈕
+auth_anonymous_note,auth,僅可瀏覽內容，需要註冊才能投票,You can only browse. Register to vote.,閲覧のみが可能です。投票するには登録が必要です。,登入頁：匿名瀏覽提醒
+auth_verifyRedirect_title,auth,請回到 App 完成登入,Please return to the app to finish signing in,アプリに戻ってログインを完了してください,驗證跳轉頁：標題
+auth_verifyRedirect_description,auth,我們正在為您打開 ChaosRegistry App，若沒有自動跳轉，請點選下方按鈕。,We are opening the ChaosRegistry app for you. Tap the buttons below if nothing happens.,ChaosRegistryアプリを起動しています。反応がない場合は下のボタンを押してください。,驗證跳轉頁：說明
+auth_verifyRedirect_openApp,auth,立即開啟 App,Open the app,アプリを開く,驗證跳轉頁：開啟 App 按鈕
+auth_verifyRedirect_download,auth,下載或更新 App,Download / Update the app,アプリをダウンロード／アップデート,驗證跳轉頁：下載備援按鈕
+auth_verifyRedirect_footer,auth,若仍無法開啟，請確認 App 已安裝或稍後再試。,If it doesn’t open, ensure the app is installed or try again later.,開かない場合はアプリがインストールされているかご確認ください。,驗證跳轉頁：備註
+auth_verifyRedirect_waiting,auth,正在等待 App 回應...,Waiting for the app...,アプリの応答を待っています…,驗證跳轉頁：等待提示
+
+

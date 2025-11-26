@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
 import com.getcapacitor.BridgeActivity;
+import com.votechaos.nativead.NativeAdPlugin;
 
 public class MainActivity extends BridgeActivity {
     private static final String TAG = "VoteChaos";
@@ -12,6 +13,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         try {
             Log.d(TAG, "MainActivity onCreate start");
+            registerPlugin(NativeAdPlugin.class);
             super.onCreate(savedInstanceState);
             Log.d(TAG, "MainActivity onCreate complete");
         } catch (Exception e) {

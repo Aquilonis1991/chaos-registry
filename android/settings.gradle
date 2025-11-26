@@ -2,4 +2,7 @@ include ':app'
 include ':capacitor-cordova-android-plugins'
 project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
 
+include ':native-ad-plugin'
+project(':native-ad-plugin').projectDir = new File('../node_modules/@votechaos/native-ad-plugin/android')
+
 apply from: 'capacitor.settings.gradle'

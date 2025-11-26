@@ -196,3 +196,21 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* 強制彈窗位置在底部工具列上方 */
+@layer utilities {
+  [data-radix-toast-viewport] {
+    bottom: 88px !important;
+    top: auto !important;
+    position: fixed !important;
+    z-index: 100 !important;
+  }
+  
+  [data-sonner-toaster] {
+    bottom: 88px !important;
+  }
+  
+  [data-radix-dialog-content][data-side="bottom"] {
+    bottom: 88px !important;
+  }
+}

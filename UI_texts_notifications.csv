@@ -1,0 +1,11 @@
+key,category,zh,en,ja,description
+notifications.tabs.all,notifications,全部,All,すべて,全部標籤按鈕
+notifications.tabs.unread,notifications,未讀,Unread,未読,未讀標籤按鈕
+notifications.tabs.announcement,notifications,公告,Announcement,お知らせ,公告標籤按鈕
+notifications.tabs.personal,notifications,個人,Personal,個人,個人標籤按鈕
+notifications.tabs.contact,notifications,客服回覆,Customer Service Reply,カスタマーサービス返信,客服回覆標籤按鈕
+notifications.contactReply.from,notifications,來自：,From: ,送信者：,客服回覆的發送者標籤
+notifications.contactReply.admin,notifications,管理員,Administrator,管理者,管理員名稱
+notifications.contactReply.questionCreated,notifications,問題建立：,Question Created: ,質問作成：,問題建立時間標籤
+notifications.contactReply.replyTime,notifications,回覆時間：,Reply Time: ,返信時間：,回覆時間標籤
+

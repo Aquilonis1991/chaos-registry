@@ -13,6 +13,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
+import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 
 // 任務映射：前端任務 ID -> 數據庫任務 ID
 const MISSION_ID_MAP: Record<string, string> = {
@@ -64,11 +65,12 @@ interface LoginStreakInfo {
 const MissionPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { profile, refreshProfile } = useProfile();
+  const { profile, refreshProfile, updateTokensOptimistically } = useProfile();
   const { stats, loading: statsLoading, refreshStats } = useUserStats(user?.id);
   const { watchAd, claimDailyLogin, getLoginStreakInfo, completeMission } = useMissionOperations();
   const { language } = useLanguage();
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
+  const { getConfig, refreshConfigs } = useSystemConfigCache();
   const [isWatchingAd, setIsWatchingAd] = useState(false);
   const [isClaimingLogin, setIsClaimingLogin] = useState(false);
   const [loginStreakInfo, setLoginStreakInfo] = useState<LoginStreakInfo | null>(null);
@@ -77,6 +79,8 @@ const MissionPage = () => {
   const [userMissions, setUserMissions] = useState<Record<string, { completed: boolean; completed_at: string | null }>>({});
   const [loadingMissions, setLoadingMissions] = useState(true);
   const [claimingMissionId, setClaimingMissionId] = useState<string | null>(null);
+  // 追蹤最近一次顯示的 toast，避免重複顯示
+  const lastToastRef = useRef<{ type: string; timestamp: number } | null>(null);
 
   const userTokens = profile?.tokens || 0;
   const lastStableStreakRef = useRef(0);
@@ -277,17 +281,45 @@ const MissionPage = () => {
     if (isWatchingAd) return;
     
     setIsWatchingAd(true);
+    let optimisticUpdateApplied = false;
     try {
+      const adReward = getConfig('mission_watch_ad_reward', getConfig('ad_reward_amount', 5));
+      const AD_REWARD = typeof adReward === 'number' ? adReward : Number(adReward) || 5;
+      
+      // 先觀看廣告，只有在廣告觀看成功後才進行樂觀更新
+      // 這樣可以避免：如果用戶關閉廣告，代幣不會錯誤增加
       const result = await watchAd();
+      
+      // 廣告觀看成功後，立即樂觀更新代幣數量
+      // 這確保了只有在用戶真正完成廣告觀看後，UI 才會更新
+      updateTokensOptimistically(AD_REWARD);
+      optimisticUpdateApplied = true;
+      
       const adRewardAmount = (result.reward ?? 0).toLocaleString();
-      toast.success(watchAdSuccessTitle, {
-        description: watchAdSuccessDescTemplate.replace('{{amount}}', adRewardAmount)
-      });
-      // 刷新代幣顯示
-      await refreshProfile();
+      
+      // 防止重複顯示 toast（3秒內不重複顯示相同類型的 toast）
+      const now = Date.now();
+      const lastToast = lastToastRef.current;
+      if (!lastToast || lastToast.type !== 'watchAd' || (now - lastToast.timestamp) > 3000) {
+        toast.success(watchAdSuccessTitle, {
+          description: watchAdSuccessDescTemplate.replace('{{amount}}', adRewardAmount)
+        });
+        lastToastRef.current = { type: 'watchAd', timestamp: now };
+      }
+      
+      // 注意：實時訂閱會在數據庫更新時自動同步，可能會覆蓋樂觀更新
+      // 這是正常的，因為實時訂閱的數據是權威來源
+      // 如果實時訂閱沒有及時觸發（網絡延遲），樂觀更新會提供即時反饋
     } catch (error) {
+      // 如果出錯且已經進行了樂觀更新，需要回滾
+      if (optimisticUpdateApplied) {
+        const adReward = getConfig('mission_watch_ad_reward', getConfig('ad_reward_amount', 5));
+        const AD_REWARD = typeof adReward === 'number' ? adReward : Number(adReward) || 5;
+        updateTokensOptimistically(-AD_REWARD);
+      }
       // Error handled in useMissionOperations
     } finally {
+      // 確保按鈕狀態被重置
       setIsWatchingAd(false);
     }
   };
@@ -308,11 +340,8 @@ const MissionPage = () => {
         };
         applyLoginStreakInfo(normalizedInfo);
       }
-      // 背景同步資料，避免阻塞 UI
-      void Promise.allSettled([
-        loadLoginStreak({ showLoader: false }),
-        refreshProfile()
-      ]);
+      // 背景同步資料，避免阻塞 UI（代幣更新由實時訂閱自動處理）
+      void loadLoginStreak({ showLoader: false });
     } catch (error) {
       // Error handled in useMissionOperations
     } finally {
@@ -337,23 +366,49 @@ const MissionPage = () => {
     }
 
     setClaimingMissionId(missionId);
+    let optimisticUpdateApplied = false;
     try {
+      const expectedReward = localizedMissions.find(m => m.id === missionId)?.reward || 0;
+      
+      // 先進行樂觀更新，立即更新 UI
+      updateTokensOptimistically(expectedReward);
+      optimisticUpdateApplied = true;
+      
       const result = await completeMission(dbMissionId);
       if (result?.success) {
-        const rewardAmount = result.reward || localizedMissions.find(m => m.id === missionId)?.reward || 0;
+        const rewardAmount = result.reward || expectedReward;
+        
+        // 如果實際獎勵與預期不同，調整樂觀更新
+        if (rewardAmount !== expectedReward) {
+          updateTokensOptimistically(-expectedReward + rewardAmount);
+        }
+        
         const claimDesc = claimSuccessDescTemplate.replace('{{amount}}', rewardAmount.toLocaleString());
         toast.success(claimSuccessTitle, {
           description: claimDesc
         });
-        // 背景同步最新任務與代幣資訊，避免阻塞 UI
-        void Promise.allSettled([
-          loadUserMissions(),
+        
+        // 立即刷新代幣餘額和任務狀態
+        await Promise.allSettled([
           refreshProfile(),
+          loadUserMissions(),
           refreshStats()
         ]);
+      } else {
+        // 如果失敗，回滾樂觀更新
+        if (optimisticUpdateApplied) {
+          updateTokensOptimistically(-expectedReward);
+        }
       }
     } catch (error: any) {
       console.error('Claim reward error:', error);
+      
+      // 如果出錯且已進行樂觀更新，需要回滾
+      if (optimisticUpdateApplied) {
+        const expectedReward = localizedMissions.find(m => m.id === missionId)?.reward || 0;
+        updateTokensOptimistically(-expectedReward);
+      }
+      
       // 如果錯誤信息中沒有包含特定的錯誤提示，顯示通用錯誤
       if (!error.message?.includes('已完成') && !error.message?.includes('已達上限')) {
         toast.error(claimErrorTitle, {
@@ -419,7 +474,7 @@ const MissionPage = () => {
                 <div className="text-white">
                   <h3 className="font-bold text-lg">{dailyCheckInTitle}</h3>
                   <p className="text-sm opacity-90">
-                    {loadingStreak ? dailyCheckInLoading : 
+                    {loadingStreak ? '' : 
                       loginStreakInfo?.can_claim_today ? dailyCheckInPending : dailyCheckInCompleted}
                   </p>
                 </div>

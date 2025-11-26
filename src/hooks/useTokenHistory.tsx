@@ -18,7 +18,7 @@ export interface TokenHistory {
 
 const transactionTypeIcons: Record<string, string> = {
   create_topic: '📝',
-  free_create_topic: '🎁',
+  free_create_topic: '📝',
   cast_vote: '🗳️',
   cast_free_vote: '🎁',
   free_vote: '🎁',
@@ -26,6 +26,39 @@ const transactionTypeIcons: Record<string, string> = {
   watch_ad: '📺',
   admin_adjustment: '⚙️',
   purchase: '💰',
+};
+
+const normalizeTransactionType = (type: string): string => {
+  if (type === 'free_create_topic') return 'create_topic';
+  if (type === 'cast_free_vote') return 'free_vote';
+  return type;
+};
+
+const parseAmountValue = (amount: number | string | null | undefined): number => {
+  if (typeof amount === 'number') return amount;
+  if (typeof amount === 'string') {
+    const parsed = parseFloat(amount);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+};
+
+const calculateTopicCost = (
+  exposureLevel?: string | null,
+  durationDays?: number | null
+): number => {
+  const exposureCosts: Record<string, number> = { normal: 30, medium: 90, high: 180 };
+  const durationCosts: Record<string, number> = {
+    "1": 0, "2": 0, "3": 0, "4": 1, "5": 2, "6": 3, "7": 4,
+    "8": 6, "9": 8, "10": 10, "11": 12, "12": 14, "13": 16,
+    "14": 18, "15": 21, "16": 24, "17": 27, "18": 30
+  };
+
+  const exposureCost = exposureLevel ? (exposureCosts[exposureLevel] ?? 30) : 30;
+  const durationKey = durationDays != null ? durationDays.toString() : "0";
+  const durationCost = durationCosts[durationKey] ?? 0;
+
+  return exposureCost + durationCost;
 };
 
 const getTransactionTypeLabel = (type: string, getText: (key: string, fallback: string) => string): string => {
@@ -50,44 +83,66 @@ const formatTransactionDescription = (
 ): string | undefined => {
   if (!description) return undefined;
 
-  // 處理常見的完全匹配描述
-  if (description === '每日登入獎勵' || description === 'Daily Login Reward') {
+  const normalize = description.trim();
+
+  if (/每日登入獎勵|Daily Login Reward/i.test(normalize)) {
     return getText('tokenHistory.description.dailyLoginReward', '每日登入獎勵');
   }
 
-  // 處理「建立主題：XXX」格式（中文和英文）
-  const createTopicMatch = description.match(/^(?:建立主題：|Created topic:?\s*)(.+)$/);
+  const createTopicMatch = normalize.match(/^(?:建立主題[：:]|Created topic:?\s*)(.+)$/i);
   if (createTopicMatch) {
     const title = createTopicMatch[1].trim();
     return getText('tokenHistory.description.createTopic', '建立主題：{{title}}').replace('{{title}}', title);
   }
 
-  // 處理「免費建立主題：XXX」格式（中文和英文）
-  const freeCreateTopicMatch = description.match(/^(?:免費建立主題：|Created topic for free:?\s*)(.+)$/);
+  const freeCreateTopicMatch = normalize.match(/^(?:免費建立主題[：:]|Created topic for free:?\s*)(.+)$/i);
   if (freeCreateTopicMatch) {
     const title = freeCreateTopicMatch[1].trim();
     return getText('tokenHistory.description.freeCreateTopic', '免費建立主題：{{title}}').replace('{{title}}', title);
   }
 
-  // 處理「投票使用 XXX 代幣」格式（中文和英文）
-  const voteMatch = description.match(/(?:投票使用|Voted on topic with)\s+(\d+)\s+(?:代幣|tokens?)/i);
-  if (voteMatch) {
-    const amount = voteMatch[1];
-    return getText('tokenHistory.description.castVote', '投票使用 {{amount}} 代幣').replace('{{amount}}', amount);
+  const voteAmountMatch = normalize.match(/(?:投票使用|Voted on topic with)\s+(\d+)\s+(?:代幣|tokens?)/i);
+  if (voteAmountMatch) {
+    const amount = voteAmountMatch[1];
+    return getText('tokenHistory.description.castVote', '投票使用 {{amount}} 代幣')
+      .replace('{{amount}}', amount);
   }
 
-  // 處理任務名稱（每日登入、觀看廣告等）
-  if (description.includes('每日登入') || description.includes('Daily Login')) {
-    return getText('tokenHistory.mission.dailyLogin', '每日登入');
+  const voteDetailMatch = normalize.match(/^(?:投票：|Vote:?)(.+?)(?:[-|–]\s*(?:選項|Option)：?\s*(.+))?$/i);
+  if (voteDetailMatch) {
+    const title = voteDetailMatch[1].trim();
+    const option = voteDetailMatch[2]?.trim();
+    if (option) {
+      return getText('tokenHistory.description.voteWithOption', '投票：{{title}}（選項：{{option}}）')
+        .replace('{{title}}', title)
+        .replace('{{option}}', option);
+    }
+    return getText('tokenHistory.description.vote', '投票：{{title}}').replace('{{title}}', title);
   }
-  if (description.includes('觀看廣告') || description.includes('Watch Ad')) {
+
+  const watchAdMatch = normalize.match(/(?:觀看廣告|Watch Ad).*?(\d+)\s*(?:代幣|tokens?)/i);
+  if (watchAdMatch) {
+    const amount = watchAdMatch[1];
+    return getText('tokenHistory.description.watchAdReward', '觀看廣告獲得 {{amount}} 代幣')
+      .replace('{{amount}}', amount);
+  }
+
+  if (/觀看廣告|Watch Ad/i.test(normalize)) {
     return getText('tokenHistory.mission.watchAd', '觀看廣告');
   }
-  if (description.includes('完成任務') || description.includes('Complete Mission')) {
+
+  if (/每日登入|Daily Login/i.test(normalize)) {
+    return getText('tokenHistory.mission.dailyLogin', '每日登入');
+  }
+
+  if (/完成任務|Complete Mission/i.test(normalize)) {
     return getText('tokenHistory.mission.completeMission', '完成任務');
   }
 
-  // 預設返回原始描述
+  if (transactionType === 'complete_mission') {
+    return getText('tokenHistory.description.completeMission', '完成任務');
+  }
+
   return description;
 };
 
@@ -115,7 +170,6 @@ export const useTokenHistory = (userId: string | undefined) => {
       setLoading(true);
       setError(null);
 
-      // 獲取 token_transactions 記錄
       const { data: transactions, error: transactionsError } = await supabase
         .from('token_transactions')
         .select('*')
@@ -123,87 +177,135 @@ export const useTokenHistory = (userId: string | undefined) => {
         .order('created_at', { ascending: false })
         .limit(200);
 
-      if (transactionsError) throw transactionsError;
+      if (transactionsError) {
+        console.error('❌ Error fetching token_transactions:', transactionsError);
+        throw transactionsError;
+      }
 
-      // 獲取用戶建立的主題（補充可能遺漏的記錄）
-      const { data: createdTopics, error: topicsError } = await supabase
-        .from('topics')
-        .select('id, title, created_at, exposure_level, duration_days')
-        .eq('creator_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(100);
+      console.log('📊 Raw transactions from database:', {
+        count: transactions?.length || 0,
+        transactions: transactions?.map(t => ({
+          id: t.id,
+          type: t.transaction_type,
+          amount: t.amount,
+          amountType: typeof t.amount,
+          description: t.description,
+          created_at: t.created_at
+        }))
+      });
 
-      if (topicsError) console.warn('Error fetching topics:', topicsError);
-
-      // 獲取用戶的投票記錄（補充可能遺漏的記錄）
-      const { data: votes, error: votesError } = await supabase
-        .from('votes')
-        .select('id, topic_id, amount, created_at')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(200);
-
-      if (votesError) console.warn('Error fetching votes:', votesError);
-
-      // 處理 token_transactions 記錄
-      const processedTransactions: TokenHistory[] = (transactions || []).map(transaction => ({
-        ...transaction,
-        type_label: getTransactionTypeLabel(transaction.transaction_type, getText),
-        type_icon: transactionTypeIcons[transaction.transaction_type] || '📊',
-        description: formatTransactionDescription(transaction.description, transaction.transaction_type, getText),
-      }));
-
-      // 檢查並補充建立主題的支出記錄（如果沒有對應的 token_transactions）
-      const topicTransactionIds = new Set(
-        (transactions || [])
-          .filter(t => t.transaction_type === 'create_topic' || t.transaction_type === 'free_create_topic')
-          .map(t => t.reference_id)
-          .filter(Boolean)
+      const topicReferenceIds = Array.from(
+        new Set(
+          (transactions || [])
+            .filter((t) =>
+              (t.transaction_type === 'create_topic' || t.transaction_type === 'free_create_topic') &&
+              typeof t.reference_id === 'string'
+            )
+            .map((t) => t.reference_id as string)
+        )
       );
 
-      const missingTopicTransactions: TokenHistory[] = (createdTopics || [])
-        .filter(topic => !topicTransactionIds.has(topic.id))
-        .map(topic => ({
-          id: `topic_${topic.id}`,
-          amount: 0, // 無法確定歷史成本，標記為免費
-          transaction_type: 'free_create_topic',
-          description: getText('tokenHistory.description.createTopic', '建立主題：{{title}}').replace('{{title}}', topic.title),
-          reference_id: topic.id,
-          created_at: topic.created_at,
-          type_label: getTransactionTypeLabel('free_create_topic', getText),
-          type_icon: transactionTypeIcons['free_create_topic'] || '🎁',
-        }));
+      const topicCostMap = new Map<string, number>();
 
-      // 檢查並補充投票的支出記錄（如果沒有對應的 token_transactions）
-      const voteTransactionIds = new Set(
-        (transactions || [])
-          .filter(t => t.transaction_type === 'cast_vote' || t.transaction_type === 'cast_free_vote')
-          .map(t => t.reference_id)
-          .filter(Boolean)
-      );
+      if (topicReferenceIds.length > 0) {
+        const { data: topicDetails, error: topicError } = await supabase
+          .from('topics')
+          .select('id, exposure_level, duration_days')
+          .in('id', topicReferenceIds);
 
-      const missingVoteTransactions: TokenHistory[] = (votes || [])
-        .filter(vote => !voteTransactionIds.has(vote.topic_id))
-        .map(vote => ({
-          id: `vote_${vote.id}`,
-          amount: -vote.amount, // 負數表示支出
-          transaction_type: 'cast_vote',
-          description: getText('tokenHistory.description.castVote', '投票使用 {{amount}} 代幣').replace('{{amount}}', vote.amount.toString()),
-          reference_id: vote.topic_id,
-          created_at: vote.created_at,
-          type_label: getTransactionTypeLabel('cast_vote', getText),
-          type_icon: transactionTypeIcons['cast_vote'] || '🗳️',
-        }));
+        if (topicError) {
+          console.warn('Error fetching topic costs:', topicError);
+        } else if (topicDetails) {
+          topicDetails.forEach(topic => {
+            const cost = calculateTopicCost(topic.exposure_level, topic.duration_days);
+            topicCostMap.set(topic.id, cost);
+          });
+        }
+      }
 
-      // 合併所有記錄並按時間排序
-      const allHistory = [
-        ...processedTransactions,
-        ...missingTopicTransactions,
-        ...missingVoteTransactions,
-      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 200); // 限制總數
+      const processedTransactions: TokenHistory[] = (transactions || []).map(transaction => {
+        // 先解析 amount，確保正確處理
+        let amountValue = parseAmountValue(transaction.amount);
+        const originalType = transaction.transaction_type;
+        
+        // 調試日誌：記錄原始資料
+        console.log('🔍 Processing transaction:', {
+          id: transaction.id,
+          type: originalType,
+          amount: transaction.amount,
+          amountType: typeof transaction.amount,
+          parsedAmount: amountValue,
+          reference_id: transaction.reference_id
+        });
+        
+        // 決定最終的 transaction_type
+        let normalizedType: string;
+        
+        // 如果原本是 free_create_topic 但 amount 是負數（有實際支出），應該改為 create_topic
+        if (originalType === 'free_create_topic' && amountValue < 0) {
+          normalizedType = 'create_topic';
+        } else if (originalType === 'create_topic' && amountValue === 0) {
+          // 如果原本是 create_topic 但 amount 為 0，嘗試從主題資訊重新計算成本
+          normalizedType = 'create_topic';
+          if (typeof transaction.reference_id === 'string') {
+            const computedCost = topicCostMap.get(transaction.reference_id);
+            if (computedCost && computedCost > 0) {
+              amountValue = -computedCost;
+            }
+          }
+        } else {
+          // 其他情況使用 normalizeTransactionType
+          normalizedType = normalizeTransactionType(originalType);
+          
+          // 對於建立主題的交易，如果 amount 為 0 或 null，嘗試從主題資訊重新計算成本
+          if (
+            normalizedType === 'create_topic' &&
+            (amountValue === 0 || transaction.amount == null) &&
+            typeof transaction.reference_id === 'string'
+          ) {
+            const computedCost = topicCostMap.get(transaction.reference_id);
+            if (computedCost && computedCost > 0) {
+              amountValue = -computedCost;
+            }
+          }
+        }
 
-      setHistory(allHistory);
+        const result = {
+          ...transaction,
+          transaction_type: normalizedType,
+          amount: amountValue,
+          type_label: getTransactionTypeLabel(normalizedType, getText),
+          type_icon: transactionTypeIcons[normalizedType] || '📊',
+          description: formatTransactionDescription(transaction.description, normalizedType, getText),
+        };
+
+        // 調試日誌：記錄處理後的資料
+        console.log('✅ Processed transaction:', {
+          id: result.id,
+          type: result.transaction_type,
+          amount: result.amount,
+          label: result.type_label
+        });
+
+        return result;
+      });
+
+      console.log('📊 Processed transactions:', {
+        count: processedTransactions.length,
+        transactions: processedTransactions.map(t => ({
+          id: t.id,
+          type: t.transaction_type,
+          amount: t.amount,
+          label: t.type_label,
+          isExpense: t.amount < 0,
+          isIncome: t.amount > 0
+        })),
+        expenseCount: processedTransactions.filter(t => t.amount < 0).length,
+        incomeCount: processedTransactions.filter(t => t.amount > 0).length,
+        zeroCount: processedTransactions.filter(t => t.amount === 0).length
+      });
+
+      setHistory(processedTransactions);
     } catch (err: any) {
       console.error('Error fetching token history:', err);
       setError(err.message || '獲取代幣歷史失敗');

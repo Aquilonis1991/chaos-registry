@@ -19,6 +19,7 @@ def capacitor_pods
   pod 'CapacitorStatusBar', :path => '../../node_modules/@capacitor/status-bar'
   pod 'CapacitorToast', :path => '../../node_modules/@capacitor/toast'
   pod 'CapacitorCommunityAdmob', :path => '../../node_modules/@capacitor-community/admob'
+  pod 'NativeAdPlugin', :path => '../../node_modules/@votechaos/native-ad-plugin'
 end
 
 target 'App' do

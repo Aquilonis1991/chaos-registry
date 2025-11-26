@@ -4,6 +4,7 @@ import { Flame, Clock, User } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getTagColor } from "@/lib/tagColors";
 import { cn } from "@/lib/utils";
+import { formatCompactNumber } from "@/lib/numberFormat";
 
 interface TopicCardProps {
   id: string;
@@ -46,7 +47,7 @@ export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, crea
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1 text-primary font-semibold">
               <Flame className="w-4 h-4" />
-              <span>{voteCount}</span>
+              <span>{formatCompactNumber(voteCount)}</span>
             </div>
             
             <div className="flex items-center gap-1 text-muted-foreground">

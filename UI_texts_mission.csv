@@ -1,0 +1,17 @@
+key,category,zh,en,ja,description
+mission.watchAd.limitReached,mission,今日觀看廣告次數已達上限,Daily ad watch limit reached,本日の広告視聴回数が上限に達しました,觀看廣告達到每日上限的錯誤訊息
+mission.watchAd.limitReachedDesc,mission,最多可觀看 {{limit}} 次,Maximum {{limit}} ads per day,1日最大{{limit}}回まで視聴可能,觀看廣告上限的詳細說明
+mission.watchAd.success,mission,獲得 {{amount}} 代幣！,Earned {{amount}} tokens!,{{amount}}トークンを獲得しました！,觀看廣告成功獲得代幣的訊息
+mission.watchAd.successDesc,mission,今日剩餘 {{remaining}} 次觀看機會,{{remaining}} ad watches remaining today,本日あと{{remaining}}回視聴可能,觀看廣告成功後的剩餘次數說明
+mission.watchAd.failed,mission,觀看廣告失敗,Failed to watch ad,広告視聴に失敗しました,觀看廣告失敗的錯誤訊息
+mission.watchAd.notCompleted,mission,廣告未完整觀看,Ad not fully watched,広告が完全に視聴されていません,廣告未完整觀看的錯誤訊息
+mission.watchAd.notLoggedIn,mission,請先登入,Please log in first,まずログインしてください,未登入時觀看廣告的錯誤訊息
+mission.complete.failed,mission,完成任務失敗,Failed to complete mission,ミッション完了に失敗しました,完成任務失敗的錯誤訊息
+mission.complete.alreadyCompleted,mission,任務已完成,Mission already completed,ミッションは既に完了しています,任務已完成的錯誤訊息
+mission.complete.dailyLimitReached,mission,今日任務次數已達上限,Daily mission limit reached,本日のミッション回数が上限に達しました,今日任務次數已達上限的錯誤訊息
+mission.complete.restricted,mission,完成任務功能已被暫停,Complete mission feature is suspended,ミッション完了機能が一時停止されています,完成任務功能被暫停的錯誤訊息
+mission.dailyLogin.success,mission,簽到成功！獲得 {{amount}} 代幣,Login reward! Earned {{amount}} tokens,ログインボーナス！{{amount}}トークンを獲得,每日簽到成功的訊息
+mission.dailyLogin.alreadyClaimed,mission,今日已簽到,Already claimed today,本日は既に受け取り済み,今日已簽到的訊息
+mission.dailyLogin.failed,mission,簽到失敗,Failed to claim login reward,ログインボーナスの受け取りに失敗しました,簽到失敗的錯誤訊息
+mission.dailyLogin.notLoggedIn,mission,請先登入,Please log in first,まずログインしてください,未登入時簽到的錯誤訊息
+

@@ -112,6 +112,19 @@ export const useAdmin = () => {
     // 查詢完成但沒有結果（可能是查詢失敗或沒有執行）
     // 在網頁版，預設為非管理員（更安全）
     result = false;
+    if (typeof window !== 'undefined') {
+      window.console?.warn?.('[useAdmin] Query completed but result is undefined, defaulting to false (non-admin)');
+    }
+  }
+
+  // 強制輸出最終結果
+  if (typeof window !== 'undefined' && user?.id) {
+    window.console?.log?.('[useAdmin] Final result:', { 
+      userId: user.id, 
+      isAdmin: result, 
+      isLoading: finalLoading,
+      queryEnabled: !!user?.id && !authLoading
+    });
   }
 
   return { 

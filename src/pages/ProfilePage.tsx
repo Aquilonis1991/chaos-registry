@@ -51,6 +51,7 @@ import { profileUpdateSchema } from "@/lib/validationSchemas";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { ErrorFeedback } from "@/components/ErrorFeedback";
 import { validateNickname, getBannedWordErrorMessage } from "@/lib/bannedWords";
+import { formatCompactNumber } from "@/lib/numberFormat";
 
 const ProfilePage = () => {
   const { profile, loading: profileLoading } = useProfile();
@@ -398,7 +399,7 @@ const ProfilePage = () => {
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-primary mb-1">
-                  {userStats.totalVotes}
+                  {formatCompactNumber(userStats.totalVotes)}
                 </div>
                 <div className="text-xs text-muted-foreground">{votesCountLabel}</div>
               </div>
@@ -412,7 +413,7 @@ const ProfilePage = () => {
               
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-600 mb-1">
-                  {stats.totalFreeVotes}
+                  {formatCompactNumber(stats.totalFreeVotes)}
                 </div>
                 <div className="text-xs text-muted-foreground">{freeVotesLabel}</div>
               </div>

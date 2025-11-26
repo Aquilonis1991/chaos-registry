@@ -3,8 +3,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.74.0';
 const ALLOWED_ORIGINS = [
   'https://epyykzxxglkjombvozhr.supabase.co',
   'capacitor://localhost',
+  'https://localhost',
+  'http://localhost',
   'http://localhost:5173',
   'http://localhost:8080',
+  'http://localhost:8081',
 ];
 
 const getCorsHeaders = (origin: string | null) => {

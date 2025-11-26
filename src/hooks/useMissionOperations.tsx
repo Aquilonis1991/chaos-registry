@@ -21,64 +21,56 @@ export const useMissionOperations = () => {
   const { getText } = useUIText(language);
   
   const completeMission = async (missionId: string) => {
-    try {
-      // 嘗試使用 Edge Function
-      const { data: result, error } = await supabase.functions.invoke('complete-mission', {
-        body: {
-          mission_id: missionId
-        }
-      });
-
-      if (!error && result?.success) {
-        return result;
-      }
-
-      // 如果 Edge Function 失敗，使用 fallback 機制
-      console.warn('Edge Function failed, using fallback:', error);
-      return await completeMissionFallback(missionId);
-    } catch (error: any) {
-      console.error('Complete mission error:', error);
-      
-      // 如果 Edge Function 拋出錯誤，嘗試 fallback
-      if (error.message?.includes('CORS') || error.message?.includes('Failed to fetch') || error.code === 'PGRST301') {
-        try {
-          return await completeMissionFallback(missionId);
-        } catch (fallbackError) {
-          console.error('Fallback also failed:', fallbackError);
-          throw fallbackError;
-        }
-      }
-      
-      if (error.message?.includes('already completed')) {
-        toast.error(getText('mission.complete.alreadyCompleted', '任務已完成'));
-      } else if (error.message?.includes('Daily mission limit')) {
-        toast.error(getText('mission.complete.dailyLimitReached', '今日任務次數已達上限'));
-      } else {
-        toast.error(getText('mission.complete.failed', '完成任務失敗'));
-      }
-      
-      throw error;
-    }
+    // 直接使用 RPC（更快更可靠，避免 CORS 問題）
+    // Edge Function 在移動端容易出現 CORS 問題，RPC 更穩定
+    return await completeMissionFallback(missionId);
   };
 
   const completeMissionFallback = async (missionId: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('未登入');
 
-    // 檢查用戶是否被限制完成任務
-    const { checkUserRestriction } = await import("@/lib/userRestrictions");
-    const restriction = await checkUserRestriction(user.id, 'complete_mission');
+    // 檢查用戶是否被限制完成任務（異步執行，不阻塞主流程）
+    // 如果限制檢查失敗，RPC 函數內部也會處理
+    const restrictionCheckPromise = import("@/lib/userRestrictions").then(({ checkUserRestriction }) =>
+      checkUserRestriction(user.id, 'complete_mission')
+    ).catch(() => ({ restricted: false }));
+
+    // 使用安全的數據庫函數來完成任務（原子性操作，防止競態條件）
+    // 添加超時處理（10秒）
+    const rpcPromise = supabase.rpc('complete_mission_safe', {
+      p_user_id: user.id,
+      p_mission_id: missionId
+    });
+
+    const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) => 
+      setTimeout(() => reject(new Error('RPC 調用超時（10秒）')), 10000)
+    );
+
+    let rpcResult: { data: any; error: any };
+    try {
+      rpcResult = await Promise.race([
+        rpcPromise,
+        timeoutPromise
+      ]) as { data: any; error: any };
+    } catch (timeoutError: any) {
+      console.error('[completeMission] RPC 調用超時:', timeoutError);
+      throw new Error('完成任務超時，請檢查網絡連接或稍後再試');
+    }
+
+    const { data: result, error: rpcError } = rpcResult;
+
+    // 檢查限制（如果 RPC 還沒完成，等待一下）
+    const restriction = await Promise.race([
+      restrictionCheckPromise,
+      new Promise<{ restricted: boolean }>((resolve) => setTimeout(() => resolve({ restricted: false }), 1000))
+    ]);
+
     if (restriction.restricted) {
       const restrictedMsg = restriction.reason || getText('mission.complete.restricted', '完成任務功能已被暫停');
       toast.error(restrictedMsg);
       throw new Error(restrictedMsg);
     }
-
-    // 使用安全的數據庫函數來完成任務（原子性操作，防止競態條件）
-    const { data: result, error: rpcError } = await supabase.rpc('complete_mission_safe', {
-      p_user_id: user.id,
-      p_mission_id: missionId
-    });
 
     if (rpcError) {
       console.error('Complete mission RPC error:', rpcError);

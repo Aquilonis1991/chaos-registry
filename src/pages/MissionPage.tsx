@@ -388,12 +388,14 @@ const MissionPage = () => {
           description: claimDesc
         });
         
-        // 立即刷新代幣餘額和任務狀態
-        await Promise.allSettled([
+        // 異步刷新代幣餘額和任務狀態（不阻塞 UI）
+        Promise.allSettled([
           refreshProfile(),
           loadUserMissions(),
           refreshStats()
-        ]);
+        ]).catch(() => {
+          // 靜默處理錯誤，不影響用戶體驗
+        });
       } else {
         // 如果失敗，回滾樂觀更新
         if (optimisticUpdateApplied) {

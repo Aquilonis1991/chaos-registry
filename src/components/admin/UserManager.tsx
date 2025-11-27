@@ -234,11 +234,21 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
       console.log('[UserManager] User stats fetched:', data);
       
       if (!data || data.length === 0) {
-        console.warn('[UserManager] No stats data returned');
-        return null;
+        console.warn('[UserManager] No stats data returned, returning default values');
+        // 返回默認值而不是 null，避免 UI 一直顯示載入中
+        return {
+          total_topics: 0,
+          total_votes: 0,
+          total_free_votes: 0,
+          total_tokens: detailUser.tokens || 0,
+          created_at: detailUser.created_at,
+          last_login: detailUser.last_login_date || ''
+        } as UserStats;
       }
       
-      return data[0] as UserStats | null;
+      const stats = data[0] as UserStats;
+      console.log('[UserManager] Parsed stats:', stats);
+      return stats;
     },
     enabled: !!detailUser,
     retry: 1,

@@ -17,6 +17,7 @@ import ContactMessageManager from "@/components/admin/ContactMessageManager";
 import { isNative } from "@/lib/capacitor";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
+import LegalContentManager from "@/components/admin/LegalContentManager";
 
 const AdminPage = () => {
   const { isAdmin, isLoading, error: adminError } = useAdmin();
@@ -37,6 +38,7 @@ const AdminPage = () => {
   const tabUiTexts = getText('admin.tabs.uiTexts', 'UI文字管理');
   const tabConfig = getText('admin.tabs.config', '系統配置');
   const tabBannedWords = getText('admin.tabs.bannedWords', '禁字表');
+  const tabLegal = getText('admin.tabs.legal', '條款管理');
 
   // 方案2：在原生平台（iOS/Android）隱藏後台功能，僅在網頁版提供
   useEffect(() => {
@@ -169,6 +171,7 @@ const AdminPage = () => {
           <TabsTrigger value="ui-texts">{tabUiTexts}</TabsTrigger>
           <TabsTrigger value="config">{tabConfig}</TabsTrigger>
           <TabsTrigger value="banned-words">{tabBannedWords}</TabsTrigger>
+          <TabsTrigger value="legal">{tabLegal}</TabsTrigger>
         </TabsList>
         
         <TabsContent value="users">
@@ -224,6 +227,10 @@ const AdminPage = () => {
         
         <TabsContent value="banned-words">
           <BannedWordsManager />
+        </TabsContent>
+
+        <TabsContent value="legal">
+          <LegalContentManager />
         </TabsContent>
         
         <TabsContent value="user-restrictions">

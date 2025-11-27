@@ -195,34 +195,105 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
     queryKey: ['admin-user-detail-stats', detailUser?.id],
     queryFn: async () => {
       if (!detailUser) return null;
-      const { data, error } = await supabase.rpc('get_user_stats', {
+      
+      console.log('[UserManager] Fetching user stats for:', detailUser.id);
+      
+      // 添加超時處理（15秒）
+      const rpcPromise = supabase.rpc('get_user_stats', {
         p_user_id: detailUser.id
       });
+      
+      const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) => 
+        setTimeout(() => reject(new Error('查詢超時（15秒）')), 15000)
+      );
+      
+      let result: { data: any; error: any };
+      try {
+        result = await Promise.race([
+          rpcPromise,
+          timeoutPromise
+        ]) as { data: any; error: any };
+      } catch (timeoutError: any) {
+        console.error('[UserManager] RPC timeout:', timeoutError);
+        throw new Error('查詢統計數據超時，請稍後再試');
+      }
+      
+      const { data, error } = result;
+      
       if (error) {
-        console.error('[UserManager] Error fetching user stats:', error);
+        console.error('[UserManager] Error fetching user stats:', {
+          error,
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
         throw error;
       }
-      return data?.[0] as UserStats | null;
+      
+      console.log('[UserManager] User stats fetched:', data);
+      
+      if (!data || data.length === 0) {
+        console.warn('[UserManager] No stats data returned');
+        return null;
+      }
+      
+      return data[0] as UserStats | null;
     },
     enabled: !!detailUser,
     retry: 1,
+    staleTime: 30000, // 30秒內不重新查詢
   });
 
   // 獲取用戶代幣交易記錄（最近 20 筆）
-  const { data: tokenTransactions, isLoading: transactionsLoading } = useQuery({
+  const { data: tokenTransactions, isLoading: transactionsLoading, error: transactionsError } = useQuery({
     queryKey: ['admin-user-token-transactions', detailUser?.id],
     queryFn: async () => {
       if (!detailUser) return null;
-      const { data, error } = await supabase
+      
+      console.log('[UserManager] Fetching token transactions for:', detailUser.id);
+      
+      // 添加超時處理（10秒）
+      const queryPromise = supabase
         .from('token_transactions')
         .select('id, amount, transaction_type, description, reference_id, created_at')
         .eq('user_id', detailUser.id)
         .order('created_at', { ascending: false })
         .limit(20);
-      if (error) throw error;
+      
+      const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) => 
+        setTimeout(() => reject(new Error('查詢超時（10秒）')), 10000)
+      );
+      
+      let result: { data: any; error: any };
+      try {
+        result = await Promise.race([
+          queryPromise,
+          timeoutPromise
+        ]) as { data: any; error: any };
+      } catch (timeoutError: any) {
+        console.error('[UserManager] Token transactions query timeout:', timeoutError);
+        throw new Error('查詢交易記錄超時，請稍後再試');
+      }
+      
+      const { data, error } = result;
+      
+      if (error) {
+        console.error('[UserManager] Error fetching token transactions:', {
+          error,
+          code: error.code,
+          message: error.message
+        });
+        throw error;
+      }
+      
+      console.log('[UserManager] Token transactions fetched:', data?.length || 0, 'records');
+      
       return data || [];
     },
     enabled: !!detailUser,
+    retry: 1,
+    staleTime: 30000,
   });
 
   // 獲取用戶創建的主題（最近 10 個）
@@ -230,20 +301,50 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
     queryKey: ['admin-user-topics', detailUser?.id],
     queryFn: async () => {
       if (!detailUser) return null;
-      const { data, error } = await supabase
+      
+      console.log('[UserManager] Fetching user topics for:', detailUser.id);
+      
+      // 添加超時處理（10秒）
+      const queryPromise = supabase
         .from('topics')
         .select('id, title, created_at, status, vote_count')
-        .eq('created_by', detailUser.id)
+        .eq('creator_id', detailUser.id)
         .order('created_at', { ascending: false })
         .limit(10);
+      
+      const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) => 
+        setTimeout(() => reject(new Error('查詢超時（10秒）')), 10000)
+      );
+      
+      let result: { data: any; error: any };
+      try {
+        result = await Promise.race([
+          queryPromise,
+          timeoutPromise
+        ]) as { data: any; error: any };
+      } catch (timeoutError: any) {
+        console.error('[UserManager] User topics query timeout:', timeoutError);
+        throw new Error('查詢主題列表超時，請稍後再試');
+      }
+      
+      const { data, error } = result;
+      
       if (error) {
-        console.error('[UserManager] Error fetching user topics:', error);
+        console.error('[UserManager] Error fetching user topics:', {
+          error,
+          code: error.code,
+          message: error.message
+        });
         throw error;
       }
+      
+      console.log('[UserManager] User topics fetched:', data?.length || 0, 'topics');
+      
       return data || [];
     },
     enabled: !!detailUser,
     retry: 1,
+    staleTime: 30000,
   });
 
   // 派發獎勵
@@ -787,6 +888,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
               {detailStatsLoading ? (
                 <div className="flex justify-center p-8">
                   <Loader2 className="w-6 h-6 animate-spin" />
+                  <span className="ml-2 text-sm text-muted-foreground">載入統計數據中...</span>
                 </div>
               ) : detailStatsError ? (
                 <Card>
@@ -860,8 +962,21 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
               {transactionsLoading ? (
                 <div className="flex justify-center p-4">
                   <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="ml-2 text-sm text-muted-foreground">載入交易記錄中...</span>
                 </div>
-              ) : tokenTransactions && tokenTransactions.length > 0 && (
+              ) : transactionsError ? (
+                <Card>
+                  <CardContent className="p-4">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Coins className="w-5 h-5" />
+                      {getText('admin.userManager.detail.tokenTransactions', '代幣交易記錄')}
+                    </h3>
+                    <div className="text-center text-destructive py-4">
+                      {getText('admin.userManager.detail.transactionsError', '載入交易記錄失敗')}: {transactionsError.message}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : tokenTransactions && tokenTransactions.length > 0 ? (
                 <Card>
                   <CardContent className="p-4">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -885,13 +1000,38 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                     </div>
                   </CardContent>
                 </Card>
+              ) : (
+                <Card>
+                  <CardContent className="p-4">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Coins className="w-5 h-5" />
+                      {getText('admin.userManager.detail.tokenTransactions', '代幣交易記錄')}
+                    </h3>
+                    <div className="text-center text-muted-foreground py-4">
+                      {getText('admin.userManager.detail.noTransactions', '該用戶尚無交易記錄')}
+                    </div>
+                  </CardContent>
+                </Card>
               )}
 
               {/* 創建的主題 */}
               {topicsLoading ? (
                 <div className="flex justify-center p-4">
                   <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="ml-2 text-sm text-muted-foreground">載入主題列表中...</span>
                 </div>
+              ) : topicsError ? (
+                <Card>
+                  <CardContent className="p-4">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <FileText className="w-5 h-5" />
+                      {getText('admin.userManager.detail.createdTopics', '創建的主題')}
+                    </h3>
+                    <div className="text-center text-destructive py-4">
+                      {getText('admin.userManager.detail.topicsError', '載入主題列表失敗')}: {topicsError.message}
+                    </div>
+                  </CardContent>
+                </Card>
               ) : userTopics && userTopics.length > 0 ? (
                 <Card>
                   <CardContent className="p-4">

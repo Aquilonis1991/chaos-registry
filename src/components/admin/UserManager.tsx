@@ -198,13 +198,13 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
       
       console.log('[UserManager] Fetching user stats for:', detailUser.id);
       
-      // 添加超時處理（15秒）
+      // 添加超時處理（30秒，增加時間以處理複雜查詢）
       const rpcPromise = supabase.rpc('get_user_stats', {
         p_user_id: detailUser.id
       });
       
       const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) => 
-        setTimeout(() => reject(new Error('查詢超時（15秒）')), 15000)
+        setTimeout(() => reject(new Error('查詢超時（30秒）')), 30000)
       );
       
       let result: { data: any; error: any };
@@ -263,16 +263,16 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
       
       console.log('[UserManager] Fetching token transactions for:', detailUser.id);
       
-      // 添加超時處理（10秒）
+      // 添加超時處理（30秒，增加時間以處理大量數據）
       const queryPromise = supabase
         .from('token_transactions')
         .select('id, amount, transaction_type, description, reference_id, created_at')
         .eq('user_id', detailUser.id)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(50); // 增加顯示數量到50筆
       
       const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) => 
-        setTimeout(() => reject(new Error('查詢超時（10秒）')), 10000)
+        setTimeout(() => reject(new Error('查詢超時（30秒）')), 30000)
       );
       
       let result: { data: any; error: any };
@@ -314,16 +314,16 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
       
       console.log('[UserManager] Fetching user topics for:', detailUser.id);
       
-      // 添加超時處理（10秒）
+      // 添加超時處理（30秒，增加時間以處理大量數據）
       const queryPromise = supabase
         .from('topics')
         .select('id, title, created_at, status, vote_count')
         .eq('creator_id', detailUser.id)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(20); // 增加顯示數量到20個
       
       const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) => 
-        setTimeout(() => reject(new Error('查詢超時（10秒）')), 10000)
+        setTimeout(() => reject(new Error('查詢超時（30秒）')), 30000)
       );
       
       let result: { data: any; error: any };
@@ -993,20 +993,83 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                       <Coins className="w-5 h-5" />
                       {getText('admin.userManager.detail.tokenTransactions', '代幣交易記錄')} ({tokenTransactions.length})
                     </h3>
+                    
+                    {/* 分類統計 */}
+                    <div className="grid grid-cols-3 gap-2 mb-4">
+                      <div className="p-2 bg-blue-50 rounded text-center">
+                        <div className="text-xs text-muted-foreground">儲值</div>
+                        <div className="font-semibold text-blue-600">
+                          {tokenTransactions.filter((tx: any) => tx.transaction_type === 'deposit' || tx.transaction_type === 'purchase').length}
+                        </div>
+                      </div>
+                      <div className="p-2 bg-green-50 rounded text-center">
+                        <div className="text-xs text-muted-foreground">觀看廣告</div>
+                        <div className="font-semibold text-green-600">
+                          {tokenTransactions.filter((tx: any) => tx.transaction_type === 'watch_ad').length}
+                        </div>
+                      </div>
+                      <div className="p-2 bg-purple-50 rounded text-center">
+                        <div className="text-xs text-muted-foreground">點擊卡片</div>
+                        <div className="font-semibold text-purple-600">
+                          {tokenTransactions.filter((tx: any) => tx.transaction_type === 'click_native_ad').length}
+                        </div>
+                      </div>
+                    </div>
+                    
                     <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {tokenTransactions.map((tx: any) => (
-                        <div key={tx.id} className="flex items-center justify-between p-2 border rounded text-sm">
-                          <div className="flex-1">
-                            <div className="font-medium">{tx.description || tx.transaction_type}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {format(new Date(tx.created_at), 'yyyy/MM/dd HH:mm:ss', { locale: zhTW })}
+                      {tokenTransactions.map((tx: any) => {
+                        // 根據交易類型設置圖標和顏色
+                        let typeIcon = '💰';
+                        let typeColor = 'text-gray-600';
+                        let typeLabel = tx.transaction_type;
+                        
+                        if (tx.transaction_type === 'deposit' || tx.transaction_type === 'purchase') {
+                          typeIcon = '💳';
+                          typeColor = 'text-blue-600';
+                          typeLabel = '儲值';
+                        } else if (tx.transaction_type === 'watch_ad') {
+                          typeIcon = '📺';
+                          typeColor = 'text-green-600';
+                          typeLabel = '觀看廣告';
+                        } else if (tx.transaction_type === 'click_native_ad') {
+                          typeIcon = '🖱️';
+                          typeColor = 'text-purple-600';
+                          typeLabel = '點擊卡片廣告';
+                        } else if (tx.transaction_type === 'create_topic') {
+                          typeIcon = '📝';
+                          typeColor = 'text-orange-600';
+                          typeLabel = '建立主題';
+                        } else if (tx.transaction_type === 'cast_vote') {
+                          typeIcon = '🗳️';
+                          typeColor = 'text-red-600';
+                          typeLabel = '投票';
+                        } else if (tx.transaction_type === 'complete_mission') {
+                          typeIcon = '✅';
+                          typeColor = 'text-teal-600';
+                          typeLabel = '完成任務';
+                        }
+                        
+                        return (
+                          <div key={tx.id} className="flex items-center justify-between p-2 border rounded text-sm">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-base">{typeIcon}</span>
+                                <div>
+                                  <div className={`font-medium ${typeColor}`}>
+                                    {tx.description || typeLabel}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {format(new Date(tx.created_at), 'yyyy/MM/dd HH:mm:ss', { locale: zhTW })}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div className={`font-semibold ${tx.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {tx.amount > 0 ? '+' : ''}{tx.amount}
                             </div>
                           </div>
-                          <div className={`font-semibold ${tx.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {tx.amount > 0 ? '+' : ''}{tx.amount}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </CardContent>
                 </Card>

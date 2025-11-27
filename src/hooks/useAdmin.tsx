@@ -35,10 +35,27 @@ export const useAdmin = () => {
       
       try {
         // 優先使用 RPC 函數（更可靠，繞過 RLS 限制）
+        // 添加超時處理（10秒）
         try {
           console.log('[useAdmin] Attempting RPC call...');
-          const { data: rpcData, error: rpcError } = await supabase
-            .rpc('is_admin', { check_user_id: user.id });
+          
+          const rpcPromise = supabase.rpc('is_admin', { check_user_id: user.id });
+          const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) => 
+            setTimeout(() => reject(new Error('RPC 查詢超時（10秒）')), 10000)
+          );
+          
+          let rpcResult: { data: any; error: any };
+          try {
+            rpcResult = await Promise.race([
+              rpcPromise,
+              timeoutPromise
+            ]) as { data: any; error: any };
+          } catch (timeoutError: any) {
+            console.warn('[useAdmin] RPC timeout, trying direct query:', timeoutError);
+            throw new Error('RPC timeout');
+          }
+          
+          const { data: rpcData, error: rpcError } = rpcResult;
           
           console.log('[useAdmin] RPC response:', { rpcData, rpcError });
           
@@ -56,12 +73,32 @@ export const useAdmin = () => {
         }
 
         // 備用方法：直接查詢 admin_users 表
+        // 添加超時處理（8秒）
         console.log('[useAdmin] Attempting direct query...');
-        const { data, error: queryError } = await supabase
+        
+        const queryPromise = supabase
           .from('admin_users')
           .select('user_id')
           .eq('user_id', user.id)
           .maybeSingle();
+        
+        const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) => 
+          setTimeout(() => reject(new Error('查詢超時（8秒）')), 8000)
+        );
+        
+        let queryResult: { data: any; error: any };
+        try {
+          queryResult = await Promise.race([
+            queryPromise,
+            timeoutPromise
+          ]) as { data: any; error: any };
+        } catch (timeoutError: any) {
+          console.error('[useAdmin] Direct query timeout:', timeoutError);
+          // 查詢超時時，預設為非管理員（更安全）
+          return false;
+        }
+
+        const { data, error: queryError } = queryResult;
 
         console.log('[useAdmin] Direct query response:', { data, queryError });
 
@@ -81,10 +118,11 @@ export const useAdmin = () => {
       }
     },
     enabled: !!user?.id && !authLoading, // 等待 auth 載入完成
-    retry: 3, // 重試三次
-    staleTime: 0, // 不使用快取，每次都重新查詢（確保檢查準確）
-    refetchOnWindowFocus: true, // 視窗聚焦時重新查詢
+    retry: 2, // 減少重試次數（從3次改為2次）
+    staleTime: 60000, // 使用60秒快取，避免頻繁查詢
+    refetchOnWindowFocus: false, // 關閉視窗聚焦時重新查詢（減少不必要的查詢）
     refetchOnMount: true, // 組件掛載時重新查詢
+    gcTime: 300000, // 5分鐘後清除快取
   });
 
   console.log('[useAdmin] Query state:', { 

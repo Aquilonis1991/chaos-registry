@@ -65,6 +65,19 @@ const AdminPage = () => {
     console.error('[AdminPage] Admin check error:', adminError);
   }
 
+  // 如果載入超過30秒，顯示錯誤提示
+  const [loadTimeout, setLoadTimeout] = useState(false);
+  useEffect(() => {
+    if (isLoading || uiTextsLoading) {
+      const timer = setTimeout(() => {
+        setLoadTimeout(true);
+      }, 30000); // 30秒超時
+      return () => clearTimeout(timer);
+    } else {
+      setLoadTimeout(false);
+    }
+  }, [isLoading, uiTextsLoading]);
+
   if (isLoading || uiTextsLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -73,10 +86,37 @@ const AdminPage = () => {
           <p className="text-sm text-muted-foreground">
             {isLoading ? getText('admin.loading.checking', '檢查管理員權限中...') : getText('admin.loading.uiTexts', '載入 UI 文字中...')}
           </p>
+          {loadTimeout && (
+            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg max-w-md mx-auto">
+              <p className="text-sm text-yellow-800 font-semibold mb-2">
+                載入時間過長
+              </p>
+              <p className="text-xs text-yellow-700 mb-3">
+                如果持續無法載入，請：
+              </p>
+              <ul className="text-xs text-yellow-700 text-left space-y-1 list-disc list-inside">
+                <li>檢查網絡連接</li>
+                <li>重新整理頁面</li>
+                <li>清除瀏覽器快取</li>
+                <li>檢查瀏覽器控制台的錯誤訊息</li>
+              </ul>
+            </div>
+          )}
           {adminError && (
-            <p className="text-xs text-destructive mt-2">
-              {getText('admin.error.checking', '錯誤：')}{adminError instanceof Error ? adminError.message : getText('admin.error.unknown', '未知錯誤')}
-            </p>
+            <div className="mt-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg max-w-md mx-auto">
+              <p className="text-xs text-destructive font-semibold mb-1">
+                {getText('admin.error.checking', '錯誤：')}
+              </p>
+              <p className="text-xs text-destructive">
+                {adminError instanceof Error ? adminError.message : getText('admin.error.unknown', '未知錯誤')}
+              </p>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-3 px-4 py-2 bg-destructive text-destructive-foreground rounded text-xs hover:bg-destructive/90"
+              >
+                重新載入頁面
+              </button>
+            </div>
           )}
         </div>
       </div>

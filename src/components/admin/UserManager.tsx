@@ -75,6 +75,17 @@ interface UserStats {
   last_login: string;
 }
 
+interface UserTopicDetail {
+  id: string;
+  title: string;
+  created_at: string;
+  status: string;
+  token_votes: number;
+  free_votes: number;
+  total_votes: number;
+  last_vote_at?: string | null;
+}
+
 interface UserManagerProps {
   onSetRestriction?: (userId: string) => void;
 }
@@ -312,45 +323,20 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
     queryFn: async () => {
       if (!detailUser) return null;
       
-      console.log('[UserManager] Fetching user topics for:', detailUser.id);
+      console.log('[UserManager] Fetching user topics with stats for:', detailUser.id);
       
-      // 添加超時處理（30秒，增加時間以處理大量數據）
-      const queryPromise = supabase
-        .from('topics')
-        .select('id, title, created_at, status, vote_count')
-        .eq('creator_id', detailUser.id)
-        .order('created_at', { ascending: false })
-        .limit(20); // 增加顯示數量到20個
-      
-      const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) => 
-        setTimeout(() => reject(new Error('查詢超時（30秒）')), 30000)
-      );
-      
-      let result: { data: any; error: any };
-      try {
-        result = await Promise.race([
-          queryPromise,
-          timeoutPromise
-        ]) as { data: any; error: any };
-      } catch (timeoutError: any) {
-        console.error('[UserManager] User topics query timeout:', timeoutError);
-        throw new Error('查詢主題列表超時，請稍後再試');
-      }
-      
-      const { data, error } = result;
+      const { data, error } = await supabase.rpc('get_user_topics_with_stats', {
+        p_user_id: detailUser.id,
+        p_limit: 20,
+      });
       
       if (error) {
-        console.error('[UserManager] Error fetching user topics:', {
-          error,
-          code: error.code,
-          message: error.message
-        });
+        console.error('[UserManager] Error fetching user topics via RPC:', error);
         throw error;
       }
       
-      console.log('[UserManager] User topics fetched:', data?.length || 0, 'topics');
-      
-      return data || [];
+      console.log('[UserManager] User topics fetched via RPC:', data?.length || 0, 'topics');
+      return (data || []) as UserTopicDetail[];
     },
     enabled: !!detailUser,
     retry: 1,
@@ -909,6 +895,11 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                     </h3>
                     <div className="text-center text-destructive py-4">
                       {getText('admin.userManager.detail.statsError', '載入統計數據失敗')}
+                      {detailStatsError instanceof Error && (
+                        <p className="text-xs text-muted-foreground mt-2 break-all">
+                          {detailStatsError.message}
+                        </p>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -1113,14 +1104,20 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                       {getText('admin.userManager.detail.createdTopics', '創建的主題')} ({userTopics.length})
                     </h3>
                     <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {userTopics.map((topic: any) => (
+                      {userTopics.map((topic: UserTopicDetail) => (
                         <div key={topic.id} className="flex items-center justify-between p-2 border rounded text-sm">
                           <div className="flex-1">
                             <div className="font-medium">{topic.title}</div>
                             <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
                               <span>{format(new Date(topic.created_at), 'yyyy/MM/dd HH:mm', { locale: zhTW })}</span>
                               <span>•</span>
-                              <span>{getText('admin.userManager.detail.votes', '投票')}: {topic.vote_count || 0}</span>
+                              <span>
+                                {getText('admin.userManager.detail.votes', '投票')}:
+                                {` ${topic.total_votes ?? 0} `}
+                                <span className="text-muted-foreground">
+                                  ({getText('admin.userManager.detail.tokenVotes', '代幣投票')}: {topic.token_votes ?? 0} / {getText('admin.userManager.detail.freeVotes', '免費投票')}: {topic.free_votes ?? 0})
+                                </span>
+                              </span>
                               <span>•</span>
                               <span>{getText('admin.userManager.detail.status', '狀態')}: {topic.status}</span>
                             </div>

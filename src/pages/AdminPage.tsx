@@ -65,26 +65,27 @@ const AdminPage = () => {
     console.error('[AdminPage] Admin check error:', adminError);
   }
 
-  // 如果載入超過30秒，顯示錯誤提示
+  // 如果載入超過10秒，顯示錯誤提示（減少等待時間）
   const [loadTimeout, setLoadTimeout] = useState(false);
   useEffect(() => {
     if (isLoading || uiTextsLoading) {
       const timer = setTimeout(() => {
         setLoadTimeout(true);
-      }, 30000); // 30秒超時
+      }, 10000); // 10秒超時（減少等待時間）
       return () => clearTimeout(timer);
     } else {
       setLoadTimeout(false);
     }
   }, [isLoading, uiTextsLoading]);
 
-  if (isLoading || uiTextsLoading) {
+  // 如果只是 UI 文字載入中，允許先顯示後台（使用默認文字）
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
           <p className="text-sm text-muted-foreground">
-            {isLoading ? getText('admin.loading.checking', '檢查管理員權限中...') : getText('admin.loading.uiTexts', '載入 UI 文字中...')}
+            {getText('admin.loading.checking', '檢查管理員權限中...')}
           </p>
           {loadTimeout && (
             <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg max-w-md mx-auto">
@@ -100,6 +101,18 @@ const AdminPage = () => {
                 <li>清除瀏覽器快取</li>
                 <li>檢查瀏覽器控制台的錯誤訊息</li>
               </ul>
+              <button
+                onClick={() => {
+                  // 清除快取並重新載入
+                  if (typeof window !== 'undefined') {
+                    localStorage.removeItem('admin_status_cache');
+                  }
+                  window.location.reload();
+                }}
+                className="mt-3 px-4 py-2 bg-yellow-600 text-white rounded text-xs hover:bg-yellow-700"
+              >
+                清除快取並重新載入
+              </button>
             </div>
           )}
           {adminError && (
@@ -111,16 +124,28 @@ const AdminPage = () => {
                 {adminError instanceof Error ? adminError.message : getText('admin.error.unknown', '未知錯誤')}
               </p>
               <button
-                onClick={() => window.location.reload()}
+                onClick={() => {
+                  // 清除快取並重新載入
+                  if (typeof window !== 'undefined') {
+                    localStorage.removeItem('admin_status_cache');
+                  }
+                  window.location.reload();
+                }}
                 className="mt-3 px-4 py-2 bg-destructive text-destructive-foreground rounded text-xs hover:bg-destructive/90"
               >
-                重新載入頁面
+                清除快取並重新載入
               </button>
             </div>
           )}
         </div>
       </div>
     );
+  }
+  
+  // UI 文字載入中不阻塞後台顯示（使用默認文字）
+  if (uiTextsLoading && !isLoading) {
+    // 允許顯示後台，但顯示載入提示
+    console.log('[AdminPage] UI texts loading, but allowing access');
   }
 
   if (!isAdmin) {

@@ -78,7 +78,7 @@ interface UserStats {
 interface UserTopicDetail {
   id: string;
   title: string;
-  created_at: string;
+  topic_created_at: string;
   status: string;
   token_votes: number;
   free_votes: number;
@@ -1109,7 +1109,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                           <div className="flex-1">
                             <div className="font-medium">{topic.title}</div>
                             <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
-                              <span>{format(new Date(topic.created_at), 'yyyy/MM/dd HH:mm', { locale: zhTW })}</span>
+                              <span>{format(new Date(topic.topic_created_at), 'yyyy/MM/dd HH:mm', { locale: zhTW })}</span>
                               <span>•</span>
                               <span>
                                 {getText('admin.userManager.detail.votes', '投票')}:

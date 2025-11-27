@@ -11,6 +11,16 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
+const defaultLanguageContext: LanguageContextType = {
+  language: "zh",
+  setLanguage: () => {
+    if (typeof window !== 'undefined') {
+      console.warn('[LanguageContext] LanguageProvider missing, defaulting to zh');
+    }
+  },
+  t: (key: string) => key,
+};
+
 const translations: Record<BaseLanguage, Record<string, string>> = {
   zh: {
     // Header
@@ -206,7 +216,10 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
 export const useLanguage = () => {
   const context = useContext(LanguageContext);
   if (!context) {
-    throw new Error("useLanguage must be used within LanguageProvider");
+    if (typeof window !== 'undefined') {
+      console.warn('[LanguageContext] useLanguage called outside provider, returning default context');
+    }
+    return defaultLanguageContext;
   }
   return context;
 };

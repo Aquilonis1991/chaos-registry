@@ -71,6 +71,9 @@ interface UserStats {
   total_votes: number;
   total_free_votes: number;
   total_tokens: number;
+  total_deposit_amount: number;
+  watch_ad_count: number;
+  click_native_ad_count: number;
   created_at: string;
   last_login: string;
 }
@@ -933,6 +936,30 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                           {getText('admin.userManager.detail.totalTokens', '累計代幣')}
                         </div>
                         <div className="text-2xl font-bold">{detailUserStats.total_tokens || 0}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground mb-1">
+                          {getText('admin.userManager.detail.totalDeposit', '總儲值金額')}
+                        </div>
+                        <div className="text-2xl font-bold">
+                          {(detailUserStats.total_deposit_amount || 0).toLocaleString()}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground mb-1">
+                          {getText('admin.userManager.detail.watchAdCount', '觀看廣告數量')}
+                        </div>
+                        <div className="text-2xl font-bold">
+                          {detailUserStats.watch_ad_count || 0}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground mb-1">
+                          {getText('admin.userManager.detail.clickAdCount', '點擊卡片廣告數量')}
+                        </div>
+                        <div className="text-2xl font-bold">
+                          {detailUserStats.click_native_ad_count || 0}
+                        </div>
                       </div>
                       <div>
                         <div className="text-sm text-muted-foreground mb-1">

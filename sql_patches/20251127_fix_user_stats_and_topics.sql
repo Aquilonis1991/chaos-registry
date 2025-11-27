@@ -9,6 +9,9 @@ RETURNS TABLE (
   total_votes INTEGER,
   total_free_votes INTEGER,
   total_tokens INTEGER,
+  total_deposit_amount NUMERIC,
+  watch_ad_count INTEGER,
+  click_native_ad_count INTEGER,
   created_at TIMESTAMPTZ,
   last_login TIMESTAMPTZ
 )
@@ -23,9 +26,28 @@ BEGIN
     COALESCE((SELECT COUNT(*)::INTEGER FROM public.votes WHERE user_id = p_user_id), 0),
     COALESCE((SELECT COUNT(*)::INTEGER FROM public.free_votes WHERE user_id = p_user_id), 0),
     COALESCE(p.tokens, 0)::INTEGER,
+    COALESCE(deposits.total_deposit, 0)::NUMERIC,
+    COALESCE(ad_stats.watch_ad_count, 0)::INTEGER,
+    COALESCE(ad_stats.click_native_ad_count, 0)::INTEGER,
     p.created_at,
     COALESCE(p.last_login, p.last_login_date::timestamptz)
   FROM public.profiles p
+  LEFT JOIN (
+    SELECT
+      user_id,
+      SUM(amount)::NUMERIC AS total_deposit
+    FROM public.token_transactions
+    WHERE transaction_type IN ('deposit', 'purchase')
+    GROUP BY user_id
+  ) deposits ON deposits.user_id = p.id
+  LEFT JOIN (
+    SELECT
+      user_id,
+      COUNT(*) FILTER (WHERE transaction_type = 'watch_ad')::INT AS watch_ad_count,
+      COUNT(*) FILTER (WHERE transaction_type = 'click_native_ad')::INT AS click_native_ad_count
+    FROM public.token_transactions
+    GROUP BY user_id
+  ) ad_stats ON ad_stats.user_id = p.id
   WHERE p.id = p_user_id;
 END;
 $$;

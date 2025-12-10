@@ -281,10 +281,19 @@ export const useAdmin = () => {
   }, [user?.id, authLoading, isLoading, isAdmin, result]);
 
   // 檢查是否為最高管理者（只有確認是管理員後才檢查）
-  const { data: isSuperAdmin, isLoading: isSuperAdminLoading, status: isSuperAdminStatus, fetchStatus: isSuperAdminFetchStatus } = useQuery({
+  const { 
+    data: isSuperAdminData, 
+    isLoading: isSuperAdminLoading, 
+    status: isSuperAdminStatus, 
+    fetchStatus: isSuperAdminFetchStatus,
+    error: isSuperAdminError
+  } = useQuery({
     queryKey: ['super-admin-status', user?.id],
     queryFn: async () => {
-      if (!user?.id) return false;
+      if (!user?.id) {
+        console.log('[useAdmin] 🔍 No user ID, returning false');
+        return false;
+      }
       
       console.log('[useAdmin] 🔍 Checking super admin status for user:', user.id);
       
@@ -299,7 +308,7 @@ export const useAdmin = () => {
         }
         
         const isSuper = !!data;
-        console.log('[useAdmin] ✅ Super admin status result:', isSuper);
+        console.log('[useAdmin] ✅ Super admin status result:', isSuper, 'Raw data:', data);
         return isSuper;
       } catch (err) {
         console.error('[useAdmin] ❌ Exception checking super admin status:', err);
@@ -312,6 +321,9 @@ export const useAdmin = () => {
     staleTime: 300000,
     refetchOnWindowFocus: false,
   });
+  
+  // 確保 isSuperAdmin 有正確的值
+  const isSuperAdmin = isSuperAdminData ?? false;
 
   // 調試日誌：檢查 isSuperAdmin 查詢狀態
   console.log('[useAdmin] 📊 isSuperAdmin query state:', {
@@ -323,11 +335,13 @@ export const useAdmin = () => {
     result,
     finalIsAdmin,
     finalIsAdminType: typeof finalIsAdmin,
-    isSuperAdmin,
+    isSuperAdminData, // 原始查詢數據
+    isSuperAdmin, // 處理後的值
     isSuperAdminType: typeof isSuperAdmin,
     isSuperAdminStatus, // React Query status: 'pending' | 'error' | 'success'
     isSuperAdminFetchStatus, // React Query fetchStatus: 'fetching' | 'paused' | 'idle'
     isSuperAdminLoading,
+    isSuperAdminError,
     enabled: isSuperAdminQueryEnabled,
     enabledBreakdown: {
       hasUserId: !!user?.id,
@@ -339,7 +353,7 @@ export const useAdmin = () => {
   });
   
   // 如果應該啟用但查詢沒有執行，記錄警告
-  if (isSuperAdminQueryEnabled && isSuperAdmin === undefined && !isSuperAdminLoading && isSuperAdminStatus !== 'pending') {
+  if (isSuperAdminQueryEnabled && isSuperAdminData === undefined && !isSuperAdminLoading && isSuperAdminStatus !== 'pending') {
     console.warn('[useAdmin] ⚠️ isSuperAdmin should be enabled but query not running. Status:', isSuperAdminStatus, 'FetchStatus:', isSuperAdminFetchStatus);
   }
 

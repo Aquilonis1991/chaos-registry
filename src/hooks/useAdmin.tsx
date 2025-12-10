@@ -241,6 +241,122 @@ export const useAdmin = () => {
     }
   }
 
+  // 計算最終的 isAdmin 結果（用於 isSuperAdmin 查詢的 enabled 條件）
+  // 必須在查詢定義之前計算，這樣 enabled 條件才能正確工作
+  const finalIsAdmin = useMemo(() => {
+    // 如果查詢已完成（!isLoading），優先使用查詢結果
+    if (!isLoading) {
+      if (isAdmin === true) {
+        console.log('[useAdmin] finalIsAdmin: query done, isAdmin=true, returning true');
+        return true;
+      } else if (isAdmin === false) {
+        console.log('[useAdmin] finalIsAdmin: query done, isAdmin=false, returning false');
+        return false;
+      } else if (cachedStatus === true) {
+        // 查詢完成但 isAdmin 是 undefined，使用快取
+        console.log('[useAdmin] finalIsAdmin: query done, isAdmin=undefined, using cached=true');
+        return true;
+      } else {
+        console.log('[useAdmin] finalIsAdmin: query done, no result, returning false');
+        return false;
+      }
+    } else {
+      // 查詢還在進行中
+      if (isAdmin === true) {
+        // 查詢進行中但已有結果（可能是快取或 initialData）
+        console.log('[useAdmin] finalIsAdmin: query in progress, isAdmin=true, returning true');
+        return true;
+      } else if (cachedStatus === true) {
+        // 查詢進行中，使用快取
+        console.log('[useAdmin] finalIsAdmin: query in progress, using cached=true');
+        return true;
+      } else {
+        console.log('[useAdmin] finalIsAdmin: query in progress, no result yet, returning undefined');
+        return undefined;
+      }
+    }
+  }, [isLoading, cachedStatus, isAdmin]);
+
+  // 計算 enabled 條件（必須在 useQuery 之前計算，以便 React Query 能正確追蹤依賴）
+  const isSuperAdminQueryEnabled = useMemo(() => {
+    const enabled = !!user?.id && !authLoading && !isLoading && finalIsAdmin === true;
+    console.log('[useAdmin] isSuperAdminQueryEnabled calculation:', {
+      hasUserId: !!user?.id,
+      userId: user?.id,
+      notAuthLoading: !authLoading,
+      authLoading,
+      notIsLoading: !isLoading,
+      isLoading,
+      finalIsAdmin,
+      finalIsAdminType: typeof finalIsAdmin,
+      enabled
+    });
+    return enabled;
+  }, [user?.id, authLoading, isLoading, finalIsAdmin]);
+
+  // 檢查是否為最高管理者（只有確認是管理員後才檢查）
+  const { data: isSuperAdmin, isLoading: isSuperAdminLoading, status: isSuperAdminStatus, fetchStatus: isSuperAdminFetchStatus } = useQuery({
+    queryKey: ['super-admin-status', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return false;
+      
+      console.log('[useAdmin] 🔍 Checking super admin status for user:', user.id);
+      
+      try {
+        const { data, error } = await supabase.rpc('is_super_admin', { 
+          check_user_id: user.id 
+        });
+        
+        if (error) {
+          console.warn('[useAdmin] ❌ Error checking super admin status:', error);
+          return false;
+        }
+        
+        const isSuper = !!data;
+        console.log('[useAdmin] ✅ Super admin status result:', isSuper);
+        return isSuper;
+      } catch (err) {
+        console.error('[useAdmin] ❌ Exception checking super admin status:', err);
+        return false;
+      }
+    },
+    // 使用計算好的 enabled 條件
+    enabled: isSuperAdminQueryEnabled, 
+    retry: 1,
+    staleTime: 300000,
+    refetchOnWindowFocus: false,
+  });
+
+  // 調試日誌：檢查 isSuperAdmin 查詢狀態
+  console.log('[useAdmin] 📊 isSuperAdmin query state:', {
+    userId: user?.id,
+    authLoading,
+    isLoading,
+    isAdmin,
+    cachedStatus,
+    result,
+    finalIsAdmin,
+    finalIsAdminType: typeof finalIsAdmin,
+    isSuperAdmin,
+    isSuperAdminType: typeof isSuperAdmin,
+    isSuperAdminStatus, // React Query status: 'pending' | 'error' | 'success'
+    isSuperAdminFetchStatus, // React Query fetchStatus: 'fetching' | 'paused' | 'idle'
+    isSuperAdminLoading,
+    enabled: isSuperAdminQueryEnabled,
+    enabledBreakdown: {
+      hasUserId: !!user?.id,
+      notAuthLoading: !authLoading,
+      notIsLoading: !isLoading,
+      finalIsAdminTrue: finalIsAdmin === true,
+      finalIsAdminValue: finalIsAdmin
+    }
+  });
+  
+  // 如果應該啟用但查詢沒有執行，記錄警告
+  if (isSuperAdminQueryEnabled && isSuperAdmin === undefined && !isSuperAdminLoading && isSuperAdminStatus !== 'pending') {
+    console.warn('[useAdmin] ⚠️ isSuperAdmin should be enabled but query not running. Status:', isSuperAdminStatus, 'FetchStatus:', isSuperAdminFetchStatus);
+  }
+
   // 強制輸出最終結果
   if (typeof window !== 'undefined' && user?.id) {
     window.console?.log?.('[useAdmin] Final result:', { 
@@ -248,12 +364,14 @@ export const useAdmin = () => {
       isAdmin: result, 
       isLoading: finalLoading,
       queryEnabled: !!user?.id && !authLoading,
-      cachedStatus
+      cachedStatus,
+      isSuperAdmin
     });
   }
 
   return { 
     isAdmin: result,
+    isSuperAdmin: isSuperAdmin || false,
     isLoading: finalLoading,
     error 
   };

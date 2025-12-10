@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,8 @@ import { zhTW } from "date-fns/locale";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
+import { useAdmin } from "@/hooks/useAdmin";
+import { Badge } from "@/components/ui/badge";
 
 interface UserProfile {
   id: string;
@@ -112,6 +114,36 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   // 獲取用戶列表
   const { language } = useLanguage();
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
+  const { isSuperAdmin } = useAdmin();
+  
+  // 獲取管理員列表（只有最高管理者可以看到）
+  const { data: adminList } = useQuery({
+    queryKey: ['admin-list'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_admin_list');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: isSuperAdmin === true, // 只有最高管理者才能查詢
+    staleTime: 60000, // 1分鐘快取
+  });
+  
+  // 創建管理員狀態映射（用於快速查找）
+  const adminMap = useMemo(() => {
+    if (!adminList) return new Map();
+    const map = new Map();
+    adminList.forEach((admin: any) => {
+      map.set(admin.user_id, {
+        isSuperAdmin: admin.is_super_admin,
+        isSuspended: admin.is_suspended,
+      });
+    });
+    return map;
+  }, [adminList]);
+  
+  const [showSuspendDialog, setShowSuspendDialog] = useState(false);
+  const [suspendTarget, setSuspendTarget] = useState<UserProfile | null>(null);
+  const [suspendReason, setSuspendReason] = useState("");
 
   const titleText = getText('admin.userManager.title', '用戶管理');
   const subtitleText = getText('admin.userManager.subtitle', '查看和管理所有用戶，派發獎勵和設置限制');
@@ -553,14 +585,22 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                                 {user.avatar || '👤'}
                               </div>
                               <div>
-                                <div className="font-medium flex items-center gap-2">
+                                <div className="font-medium flex items-center gap-2 flex-wrap">
                                   {user.nickname}
                                   {user.is_deleted && (
                                     <span className="text-xs text-destructive font-semibold">{deletedBadgeText}</span>
                                   )}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {user.id.substring(0, 8)}...
+                                  {(() => {
+                                    const adminInfo = adminMap.get(user.id);
+                                    if (!adminInfo) return null;
+                                    if (adminInfo.isSuperAdmin) {
+                                      return <Badge variant="default" className="text-xs">最高管理者</Badge>;
+                                    } else if (adminInfo.isSuspended) {
+                                      return <Badge variant="secondary" className="text-xs">管理員（已暫停）</Badge>;
+                                    } else {
+                                      return <Badge variant="outline" className="text-xs">管理員</Badge>;
+                                    }
+                                  })()}
                                 </div>
                               </div>
                             </div>
@@ -616,6 +656,31 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                                   <Eye className="w-4 h-4 mr-2" />
                                   {dropdownViewDetailText}
                                 </DropdownMenuItem>
+                                {/* 管理員管理功能（只有最高管理者可以看到） */}
+                                {isSuperAdmin && (() => {
+                                  const adminInfo = adminMap.get(user.id);
+                                  if (!adminInfo || adminInfo.isSuperAdmin) return null; // 不顯示對最高管理者的操作
+                                  return (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      {adminInfo.isSuspended ? (
+                                        <DropdownMenuItem 
+                                          onClick={() => handleUnsuspendAdmin(user.id)}
+                                        >
+                                          <UserIcon className="w-4 h-4 mr-2" />
+                                          恢復管理員權限
+                                        </DropdownMenuItem>
+                                      ) : (
+                                        <DropdownMenuItem 
+                                          onClick={() => handleOpenSuspendDialog(user)}
+                                        >
+                                          <Ban className="w-4 h-4 mr-2" />
+                                          暫停管理員權限
+                                        </DropdownMenuItem>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem 
                                   onClick={() => {
@@ -802,6 +867,55 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
         </DialogContent>
       </Dialog>
 
+      {/* 暫停管理員權限對話框 */}
+      <Dialog open={showSuspendDialog} onOpenChange={setShowSuspendDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>暫停管理員權限</DialogTitle>
+            <DialogDescription>
+              確定要暫停 {suspendTarget?.nickname} 的管理員權限嗎？
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="suspend-reason">暫停原因（選填）</Label>
+              <Textarea
+                id="suspend-reason"
+                placeholder="輸入暫停原因..."
+                value={suspendReason}
+                onChange={(e) => setSuspendReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowSuspendDialog(false);
+                setSuspendTarget(null);
+                setSuspendReason("");
+              }}
+            >
+              取消
+            </Button>
+            <Button
+              onClick={() => suspendAdminMutation.mutate()}
+              disabled={suspendAdminMutation.isPending}
+            >
+              {suspendAdminMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  暫停中...
+                </>
+              ) : (
+                '確認暫停'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* 用戶詳細信息對話框 */}
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -827,12 +941,6 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                         {getText('admin.userManager.detail.nickname', '暱稱')}
                       </div>
                       <div className="font-medium">{detailUser.nickname}</div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-muted-foreground mb-1">
-                        {getText('admin.userManager.detail.userId', '用戶 ID')}
-                      </div>
-                      <div className="font-mono text-xs break-all">{detailUser.id}</div>
                     </div>
                     <div>
                       <div className="text-sm text-muted-foreground mb-1 flex items-center gap-1">

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useEffect, useRef } from "react";
 
 // 本地快取鍵名
 const ADMIN_CACHE_KEY = 'admin_status_cache';
@@ -322,8 +322,19 @@ export const useAdmin = () => {
     refetchOnWindowFocus: false,
   });
   
-  // 確保 isSuperAdmin 有正確的值
-  const isSuperAdmin = isSuperAdminData ?? false;
+  // 使用 ref 來追蹤查詢結果，避免狀態更新延遲問題
+  const isSuperAdminRef = useRef<boolean>(false);
+  
+  // 當查詢數據更新時，更新 ref
+  useEffect(() => {
+    if (isSuperAdminData !== undefined) {
+      console.log('[useAdmin] 🔄 isSuperAdminData updated:', isSuperAdminData);
+      isSuperAdminRef.current = isSuperAdminData;
+    }
+  }, [isSuperAdminData]);
+  
+  // 確保 isSuperAdmin 有正確的值（優先使用查詢數據，如果沒有則使用 ref）
+  const isSuperAdmin = isSuperAdminData ?? isSuperAdminRef.current ?? false;
 
   // 調試日誌：檢查 isSuperAdmin 查詢狀態
   console.log('[useAdmin] 📊 isSuperAdmin query state:', {
@@ -336,6 +347,7 @@ export const useAdmin = () => {
     finalIsAdmin,
     finalIsAdminType: typeof finalIsAdmin,
     isSuperAdminData, // 原始查詢數據
+    isSuperAdminRefCurrent: isSuperAdminRef.current, // Ref 中的值
     isSuperAdmin, // 處理後的值
     isSuperAdminType: typeof isSuperAdmin,
     isSuperAdminStatus, // React Query status: 'pending' | 'error' | 'success'

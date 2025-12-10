@@ -242,57 +242,43 @@ export const useAdmin = () => {
   }
 
   // 計算最終的 isAdmin 結果（用於 isSuperAdmin 查詢的 enabled 條件）
-  // 必須在查詢定義之前計算，這樣 enabled 條件才能正確工作
+  // 簡化邏輯：直接使用 result 和 isAdmin，確保查詢能正確執行
   const finalIsAdmin = useMemo(() => {
-    // 如果查詢已完成（!isLoading），優先使用查詢結果
-    if (!isLoading) {
-      if (isAdmin === true) {
-        console.log('[useAdmin] finalIsAdmin: query done, isAdmin=true, returning true');
-        return true;
-      } else if (isAdmin === false) {
-        console.log('[useAdmin] finalIsAdmin: query done, isAdmin=false, returning false');
-        return false;
-      } else if (cachedStatus === true) {
-        // 查詢完成但 isAdmin 是 undefined，使用快取
-        console.log('[useAdmin] finalIsAdmin: query done, isAdmin=undefined, using cached=true');
-        return true;
-      } else {
-        console.log('[useAdmin] finalIsAdmin: query done, no result, returning false');
-        return false;
-      }
+    // 優先使用查詢結果
+    if (isAdmin === true) {
+      console.log('[useAdmin] finalIsAdmin: isAdmin=true, returning true');
+      return true;
+    } else if (isAdmin === false) {
+      console.log('[useAdmin] finalIsAdmin: isAdmin=false, returning false');
+      return false;
+    } else if (result === true) {
+      // 如果 isAdmin 是 undefined 但 result 是 true（來自快取）
+      console.log('[useAdmin] finalIsAdmin: isAdmin=undefined, result=true, returning true');
+      return true;
     } else {
-      // 查詢還在進行中
-      if (isAdmin === true) {
-        // 查詢進行中但已有結果（可能是快取或 initialData）
-        console.log('[useAdmin] finalIsAdmin: query in progress, isAdmin=true, returning true');
-        return true;
-      } else if (cachedStatus === true) {
-        // 查詢進行中，使用快取
-        console.log('[useAdmin] finalIsAdmin: query in progress, using cached=true');
-        return true;
-      } else {
-        console.log('[useAdmin] finalIsAdmin: query in progress, no result yet, returning undefined');
-        return undefined;
-      }
+      console.log('[useAdmin] finalIsAdmin: no admin status, returning false');
+      return false;
     }
-  }, [isLoading, cachedStatus, isAdmin]);
+  }, [isAdmin, result]);
 
   // 計算 enabled 條件（必須在 useQuery 之前計算，以便 React Query 能正確追蹤依賴）
+  // 簡化邏輯：直接使用 result 和 isAdmin
   const isSuperAdminQueryEnabled = useMemo(() => {
-    const enabled = !!user?.id && !authLoading && !isLoading && finalIsAdmin === true;
-    console.log('[useAdmin] isSuperAdminQueryEnabled calculation:', {
+    // 確保用戶已登入、auth 已載入、isAdmin 查詢已完成且結果為 true
+    const enabled = !!user?.id && !authLoading && !isLoading && (isAdmin === true || result === true);
+    console.log('[useAdmin] 🔧 isSuperAdminQueryEnabled calculation:', {
       hasUserId: !!user?.id,
       userId: user?.id,
       notAuthLoading: !authLoading,
       authLoading,
       notIsLoading: !isLoading,
       isLoading,
-      finalIsAdmin,
-      finalIsAdminType: typeof finalIsAdmin,
+      isAdmin,
+      result,
       enabled
     });
     return enabled;
-  }, [user?.id, authLoading, isLoading, finalIsAdmin]);
+  }, [user?.id, authLoading, isLoading, isAdmin, result]);
 
   // 檢查是否為最高管理者（只有確認是管理員後才檢查）
   const { data: isSuperAdmin, isLoading: isSuperAdminLoading, status: isSuperAdminStatus, fetchStatus: isSuperAdminFetchStatus } = useQuery({

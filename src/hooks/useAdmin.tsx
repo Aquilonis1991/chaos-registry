@@ -320,6 +320,10 @@ export const useAdmin = () => {
     retry: 1,
     staleTime: 300000,
     refetchOnWindowFocus: false,
+    // 保持之前的數據，即使 enabled 變成 false
+    placeholderData: (previousData) => previousData ?? false,
+    // 當查詢被禁用時，保持最後的數據
+    gcTime: Infinity, // 永遠不清理緩存
   });
   
   // 使用 ref 來追蹤查詢結果，避免狀態更新延遲問題

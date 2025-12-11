@@ -126,6 +126,8 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
     },
     enabled: isSuperAdmin === true, // 只有最高管理者才能查詢
     staleTime: 60000, // 1分鐘快取
+    placeholderData: (previousData) => previousData ?? [],
+    gcTime: Infinity, // 永遠不清理緩存
   });
   
   // 創建管理員狀態映射（用於快速查找）

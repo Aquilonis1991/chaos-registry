@@ -96,16 +96,46 @@ const ProfilePage = () => {
   };
   
   const handleNicknameUpdateError = (error: any) => {
-    if (error?.errors) {
+    console.error('[ProfilePage] Nickname update error:', error);
+    console.error('[ProfilePage] Error details:', {
+      message: error?.message,
+      code: error?.code,
+      details: error?.details,
+      hint: error?.hint,
+      errors: error?.errors,
+      fullError: error
+    });
+    
+    if (error?.errors && Array.isArray(error.errors) && error.errors.length > 0) {
       toast.error(error.errors[0]?.message || getText('profile.error.updateFailed', '更新失敗'));
+    } else if (error?.message) {
+      // 顯示具體的錯誤訊息
+      toast.error(getText('profile.error.updateFailed', '更新失敗'), {
+        description: error.message
+      });
+    } else if (error?.code) {
+      // 顯示錯誤代碼
+      toast.error(getText('profile.error.updateFailed', '更新失敗'), {
+        description: `錯誤代碼: ${error.code}`
+      });
     } else {
       toast.error(getText('profile.error.updateFailed', '更新失敗'));
     }
   };
 
   const finalizeNicknameUpdate = async (nickname: string): Promise<boolean> => {
-    if (!profile) return false;
+    if (!profile) {
+      console.error('[ProfilePage] finalizeNicknameUpdate: No profile');
+      return false;
+    }
 
+    console.log('[ProfilePage] finalizeNicknameUpdate: Starting update', {
+      userId: profile.id,
+      newNickname: nickname,
+      currentNickname: profile.nickname
+    });
+
+    // 檢查暱稱是否重複
     const { data: existingNickname, error: checkError } = await supabase
       .from('profiles')
       .select('id')
@@ -115,20 +145,33 @@ const ProfilePage = () => {
       .maybeSingle();
 
     if (checkError && checkError.code !== 'PGRST116') {
+      console.error('[ProfilePage] finalizeNicknameUpdate: Check duplicate error', checkError);
       throw checkError;
     }
 
     if (existingNickname) {
+      console.warn('[ProfilePage] finalizeNicknameUpdate: Nickname already exists', existingNickname);
       toast.error(getText('profile.error.nameDuplicate', '名稱已被其他用戶使用，請選擇不同的名稱'));
       return false;
     }
 
-    const { error } = await supabase
+    // 更新暱稱
+    console.log('[ProfilePage] finalizeNicknameUpdate: Updating nickname in database');
+    const { data, error } = await supabase
       .from('profiles')
       .update({ nickname })
-      .eq('id', profile.id);
+      .eq('id', profile.id)
+      .select();
 
-    if (error) throw error;
+    if (error) {
+      console.error('[ProfilePage] finalizeNicknameUpdate: Update error', error);
+      throw error;
+    }
+
+    console.log('[ProfilePage] finalizeNicknameUpdate: Update successful', data);
+
+    // 刷新 profile 數據
+    await refreshProfile();
 
     setTempNickname(nickname);
     setIsEditingName(false);
@@ -163,11 +206,27 @@ const ProfilePage = () => {
   };
   
   const handleSaveName = async () => {
-    if (!profile) return;
+    if (!profile) {
+      console.error('[ProfilePage] handleSaveName: No profile');
+      return;
+    }
 
     const trimmedNickname = tempNickname.trim();
+    console.log('[ProfilePage] handleSaveName: Starting', {
+      trimmedNickname,
+      currentNickname: profile.nickname,
+      isSame: trimmedNickname === profile.nickname
+    });
+
     if (!trimmedNickname) {
       toast.error(getText('profile.error.nameEmpty', '名稱不能為空白'));
+      return;
+    }
+
+    // 如果暱稱沒有改變，直接返回
+    if (trimmedNickname === profile.nickname) {
+      console.log('[ProfilePage] handleSaveName: Nickname unchanged, canceling edit');
+      setIsEditingName(false);
       return;
     }
 
@@ -176,6 +235,7 @@ const ProfilePage = () => {
       // 檢查用戶是否被限制修改名稱
       const { checkUserRestriction } = await import("@/lib/userRestrictions");
       const restriction = await checkUserRestriction(profile.id, 'modify_name');
+      console.log('[ProfilePage] handleSaveName: Restriction check', restriction);
       if (restriction.restricted) {
         toast.error(restriction.reason || getText('profile.error.nameModifyRestricted', '修改名稱功能已被暫停'));
         setIsUpdatingProfile(false);
@@ -183,14 +243,29 @@ const ProfilePage = () => {
       }
 
       // Validate with Zod
-      profileUpdateSchema.parse({
-        nickname: trimmedNickname,
-        avatar: profile.avatar ?? '👤',
-        notifications
-      });
+      console.log('[ProfilePage] handleSaveName: Validating with Zod');
+      try {
+        profileUpdateSchema.parse({
+          nickname: trimmedNickname,
+          avatar: profile.avatar ?? '👤',
+          notifications
+        });
+        console.log('[ProfilePage] handleSaveName: Zod validation passed');
+      } catch (zodError: any) {
+        console.error('[ProfilePage] handleSaveName: Zod validation failed', zodError);
+        if (zodError.errors && zodError.errors.length > 0) {
+          toast.error(zodError.errors[0].message);
+        } else {
+          toast.error(getText('profile.error.updateFailed', '更新失敗'));
+        }
+        setIsUpdatingProfile(false);
+        return;
+      }
 
       // 檢查禁字
+      console.log('[ProfilePage] handleSaveName: Checking banned words');
       const bannedCheck = await validateNickname(trimmedNickname);
+      console.log('[ProfilePage] handleSaveName: Banned words check result', bannedCheck);
       if (bannedCheck.found) {
         if (bannedCheck.action === 'block' || bannedCheck.action === 'mask') {
           const bannedWordFoundTemplate = getText('profile.error.bannedWordFound', '發現禁字：{{keyword}}（級別：{{level}}）');
@@ -219,8 +294,10 @@ const ProfilePage = () => {
         }
       }
 
+      console.log('[ProfilePage] handleSaveName: All checks passed, calling finalizeNicknameUpdate');
       await finalizeNicknameUpdate(trimmedNickname);
     } catch (error: any) {
+      console.error('[ProfilePage] handleSaveName: Error caught', error);
       handleNicknameUpdateError(error);
     } finally {
       setIsUpdatingProfile(false);

@@ -23,7 +23,7 @@ export const useMissionOperations = () => {
   const completeMission = async (missionId: string) => {
     // 直接使用 RPC（更快更可靠，避免 CORS 問題）
     // Edge Function 在移動端容易出現 CORS 問題，RPC 更穩定
-    return await completeMissionFallback(missionId);
+          return await completeMissionFallback(missionId);
   };
 
   const completeMissionFallback = async (missionId: string) => {
@@ -344,17 +344,30 @@ export const useMissionOperations = () => {
         throw new Error(restrictedMsg);
       }
 
-      const { data: result, error } = await supabase.rpc('record_daily_login', {
+      console.log('[claimDailyLogin] Calling record_daily_login RPC for user:', user.id);
+      const { data: result, error } = await supabase.rpc('record_daily_login' as any, {
         p_user_id: user.id
       });
 
-      if (error) throw error;
+      console.log('[claimDailyLogin] RPC response:', { result, error });
 
-      if (!result || result.length === 0) {
+      if (error) {
+        console.error('[claimDailyLogin] RPC error:', error);
+        throw error;
+      }
+
+      if (!result || !Array.isArray(result) || result.length === 0) {
+        console.error('[claimDailyLogin] No result returned from RPC');
         throw new Error('登入記錄失敗');
       }
 
-      const loginResult = result[0];
+      const loginResult = result[0] as any;
+      console.log('[claimDailyLogin] Login result:', {
+        is_new_login: loginResult.is_new_login,
+        current_streak: loginResult.current_streak,
+        total_days: loginResult.total_days,
+        reward_tokens: loginResult.reward_tokens
+      });
       const today = new Date();
       const todayDate = today.toISOString().split('T')[0];
       
@@ -368,11 +381,11 @@ export const useMissionOperations = () => {
       } else {
         // 如果不是新登入，查詢最新的狀態
         try {
-          const { data: streakResult, error: streakError } = await supabase.rpc('get_login_streak_info', {
+          const { data: streakResult, error: streakError } = await supabase.rpc('get_login_streak_info' as any, {
             p_user_id: user.id
           });
-          if (!streakError && streakResult && streakResult.length > 0) {
-            canClaimToday = streakResult[0].can_claim_today ?? false;
+          if (!streakError && streakResult && Array.isArray(streakResult) && streakResult.length > 0) {
+            canClaimToday = (streakResult[0] as any).can_claim_today ?? false;
           } else {
             console.warn('[claimDailyLogin] Failed to get streak info:', streakError);
             canClaimToday = false;
@@ -396,6 +409,7 @@ export const useMissionOperations = () => {
       };
 
       if (!loginInfo.isNewLogin) {
+        console.log('[claimDailyLogin] Not a new login, user already claimed today');
         toast.info(getText('mission.dailyLogin.alreadyClaimed', '今日已簽到'), {
           description: `當前連續登入 ${loginInfo.currentStreak} 天`
         });
@@ -403,6 +417,7 @@ export const useMissionOperations = () => {
       }
 
       // 新登入獎勵
+      console.log('[claimDailyLogin] New login successful, reward tokens:', loginInfo.rewardTokens);
       const loginSuccessMsg = getText('mission.dailyLogin.success', '簽到成功！獲得 {{amount}} 代幣')
         .replace('{{amount}}', loginInfo.rewardTokens.toLocaleString());
       toast.success(loginSuccessMsg, {
@@ -428,7 +443,7 @@ export const useMissionOperations = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
-      const { data: result, error } = await supabase.rpc('get_login_streak_info', {
+      const { data: result, error } = await supabase.rpc('get_login_streak_info' as any, {
         p_user_id: user.id
       });
 

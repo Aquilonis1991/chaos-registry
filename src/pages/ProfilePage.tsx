@@ -242,19 +242,32 @@ const ProfilePage = () => {
         return;
       }
 
-      // Validate with Zod
+      // Validate with Zod (只驗證 nickname，avatar 會在更新時處理)
       console.log('[ProfilePage] handleSaveName: Validating with Zod');
       try {
+        // 清理 avatar：如果是 URL 或超過 10 個字符，使用默認 emoji
+        let cleanedAvatar = profile.avatar ?? '🔥';
+        if (cleanedAvatar.length > 10 || cleanedAvatar.startsWith('http://') || cleanedAvatar.startsWith('https://')) {
+          cleanedAvatar = '🔥';
+        }
+        
         profileUpdateSchema.parse({
           nickname: trimmedNickname,
-          avatar: profile.avatar ?? '👤',
+          avatar: cleanedAvatar,
           notifications
         });
         console.log('[ProfilePage] handleSaveName: Zod validation passed');
       } catch (zodError: any) {
         console.error('[ProfilePage] handleSaveName: Zod validation failed', zodError);
         if (zodError.errors && zodError.errors.length > 0) {
-          toast.error(zodError.errors[0].message);
+          // 只顯示 nickname 相關的錯誤，忽略 avatar 錯誤（因為我們只更新 nickname）
+          const nicknameError = zodError.errors.find((e: any) => e.path[0] === 'nickname');
+          if (nicknameError) {
+            toast.error(nicknameError.message);
+          } else {
+            // 如果是 avatar 錯誤，忽略它（因為我們只更新 nickname）
+            console.warn('[ProfilePage] handleSaveName: Avatar validation error ignored (only updating nickname)');
+          }
         } else {
           toast.error(getText('profile.error.updateFailed', '更新失敗'));
         }

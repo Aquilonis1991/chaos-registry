@@ -54,7 +54,7 @@ import { validateNickname, getBannedWordErrorMessage } from "@/lib/bannedWords";
 import { formatCompactNumber } from "@/lib/numberFormat";
 
 const ProfilePage = () => {
-  const { profile, loading: profileLoading } = useProfile();
+  const { profile, loading: profileLoading, refreshProfile } = useProfile();
   const { user, signOut } = useAuth();
   const { stats, loading: statsLoading } = useUserStats(user?.id);
   const navigate = useNavigate();

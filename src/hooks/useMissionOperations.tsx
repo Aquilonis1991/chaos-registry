@@ -357,13 +357,41 @@ export const useMissionOperations = () => {
       const loginResult = result[0];
       const today = new Date();
       const todayDate = today.toISOString().split('T')[0];
+      
+      // 從 get_login_streak_info 獲取最新的 can_claim_today 狀態
+      // 如果 record_daily_login 返回 is_new_login = false，表示已經簽到過
+      // 需要重新查詢 get_login_streak_info 來獲取正確的 can_claim_today 狀態
+      let canClaimToday = false;
+      if (loginResult.is_new_login) {
+        // 如果是新登入，簽到後不能再簽到
+        canClaimToday = false;
+      } else {
+        // 如果不是新登入，查詢最新的狀態
+        try {
+          const { data: streakResult, error: streakError } = await supabase.rpc('get_login_streak_info', {
+            p_user_id: user.id
+          });
+          if (!streakError && streakResult && streakResult.length > 0) {
+            canClaimToday = streakResult[0].can_claim_today ?? false;
+          } else {
+            console.warn('[claimDailyLogin] Failed to get streak info:', streakError);
+            canClaimToday = false;
+          }
+        } catch (error) {
+          console.warn('[claimDailyLogin] Failed to get streak info, using default', error);
+          // 如果查詢失敗，根據 last_login_date 判斷
+          // 如果 lastLoginDate 是今天，則不能簽到
+          canClaimToday = false;
+        }
+      }
+      
       const loginInfo: DailyLoginInfo = {
         isNewLogin: loginResult.is_new_login,
         currentStreak: loginResult.current_streak || 0,
         totalDays: loginResult.total_days || 0,
         rewardTokens: loginResult.reward_tokens || 0,
         lastLoginDate: todayDate,
-        canClaimToday: false,
+        canClaimToday: canClaimToday,
         streakRewardAvailable: (loginResult.current_streak || 0) >= 4 && (loginResult.current_streak || 0) < 5,
       };
 

@@ -27,8 +27,11 @@ DECLARE
   v_total_days INTEGER;
   v_is_new_login BOOLEAN := false;
   v_reward_tokens INTEGER := 0;
-  v_today DATE := CURRENT_DATE;
+  v_today DATE;
 BEGIN
+  -- 使用明確的時區獲取今天的日期（使用台灣時區 UTC+8）
+  v_today := (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Taipei')::DATE;
+  
   -- 使用 SELECT FOR UPDATE 鎖定行，防止並發重複執行
   SELECT last_login_date, login_streak, total_login_days
   INTO v_last_login_date, v_current_streak, v_total_days

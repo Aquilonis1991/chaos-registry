@@ -24,8 +24,8 @@ DECLARE
   v_today DATE;
   v_can_claim BOOLEAN;
 BEGIN
-  -- 使用明確的時區獲取今天的日期（使用 UTC 時區，與 Supabase 默認一致）
-  v_today := (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::DATE;
+  -- 使用明確的時區獲取今天的日期（使用台灣時區 UTC+8）
+  v_today := (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Taipei')::DATE;
   
   SELECT last_login_date, login_streak, total_login_days
   INTO v_last_login_date, v_current_streak, v_total_days
@@ -79,8 +79,8 @@ DECLARE
   v_reward_tokens INTEGER := 0;
   v_today DATE;
 BEGIN
-  -- 使用明確的時區獲取今天的日期（使用 UTC 時區，與 Supabase 默認一致）
-  v_today := (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::DATE;
+  -- 使用明確的時區獲取今天的日期（使用台灣時區 UTC+8）
+  v_today := (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Taipei')::DATE;
   
   -- 使用 SELECT FOR UPDATE 鎖定行，防止並發重複執行
   SELECT last_login_date, login_streak, total_login_days
@@ -206,6 +206,6 @@ END;
 $$;
 
 -- 添加註釋
-COMMENT ON FUNCTION public.get_login_streak_info IS '獲取用戶登入連勝資訊，使用明確的時區確保日期判斷準確';
-COMMENT ON FUNCTION public.record_daily_login IS '記錄每日登入，發放代幣獎勵，完成 daily_login 任務，使用明確的時區確保日期判斷準確';
+COMMENT ON FUNCTION public.get_login_streak_info IS '獲取用戶登入連勝資訊，使用台灣時區（UTC+8）確保日期判斷準確';
+COMMENT ON FUNCTION public.record_daily_login IS '記錄每日登入，發放代幣獎勵，完成 daily_login 任務，使用台灣時區（UTC+8）確保日期判斷準確';
 

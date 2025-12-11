@@ -78,18 +78,36 @@ BEGIN
   -- 清理暱稱
   cleaned_nickname := public.clean_nickname(raw_nickname);
   
-  -- 獲取頭像
+  -- 獲取頭像（只接受 emoji，不接受 URL）
+  -- 嘗試從多個可能的字段獲取，但只接受非 URL 的值
   raw_avatar := COALESCE(
-    NEW.raw_user_meta_data->>'avatar',
-    NEW.raw_user_meta_data->>'avatar_url',
-    NEW.raw_user_meta_data->>'picture',
-    NEW.raw_user_meta_data->>'photo_url',
-    '🔥'
+    NULLIF(NEW.raw_user_meta_data->>'avatar', NULL),
+    NULLIF(NEW.raw_user_meta_data->>'avatar_url', NULL),
+    NULLIF(NEW.raw_user_meta_data->>'picture', NULL),
+    NULLIF(NEW.raw_user_meta_data->>'photo_url', NULL)
   );
   
-  -- 限制頭像長度
+  -- 如果頭像是 URL（以 http:// 或 https:// 開頭），則忽略它，使用默認 emoji
+  IF raw_avatar IS NOT NULL AND (raw_avatar LIKE 'http://%' OR raw_avatar LIKE 'https://%') THEN
+    raw_avatar := '🔥';
+  END IF;
+  
+  -- 如果頭像為空或無效，使用默認值
+  IF raw_avatar IS NULL OR trim(raw_avatar) = '' THEN
+    raw_avatar := '🔥';
+  END IF;
+  
+  -- 限制頭像長度為 10 個字符（emoji 通常不超過這個長度）
   IF length(raw_avatar) > 10 THEN
     raw_avatar := substring(raw_avatar FROM 1 FOR 10);
+  END IF;
+  
+  -- 再次 trim
+  raw_avatar := trim(raw_avatar);
+  
+  -- 如果清理後為空，使用默認值
+  IF raw_avatar = '' THEN
+    raw_avatar := '🔥';
   END IF;
   
   INSERT INTO public.profiles (id, nickname, avatar, tokens)

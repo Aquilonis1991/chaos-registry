@@ -506,6 +506,68 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
     },
   });
 
+  // 暫停管理員權限
+  const suspendAdminMutation = useMutation({
+    mutationFn: async () => {
+      if (!suspendTarget) throw new Error('未選擇要暫停的管理員');
+      const { data, error } = await supabase.rpc('suspend_admin', {
+        p_target_user_id: suspendTarget.id,
+        p_reason: suspendReason.trim() || null
+      });
+      if (error) throw error;
+      if (!data || !data.success) {
+        throw new Error(data?.error || '暫停失敗');
+      }
+      return data;
+    },
+    onSuccess: () => {
+      toast.success('已暫停管理員權限');
+      setShowSuspendDialog(false);
+      setSuspendTarget(null);
+      setSuspendReason("");
+      queryClient.invalidateQueries({ queryKey: ['admin-list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    },
+    onError: (error: any) => {
+      const message = error?.message || '暫停失敗';
+      toast.error('暫停失敗：' + message);
+    },
+  });
+
+  // 恢復管理員權限
+  const unsuspendAdminMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await supabase.rpc('unsuspend_admin', {
+        p_target_user_id: userId
+      });
+      if (error) throw error;
+      if (!data || !data.success) {
+        throw new Error(data?.error || '恢復失敗');
+      }
+      return data;
+    },
+    onSuccess: () => {
+      toast.success('已恢復管理員權限');
+      queryClient.invalidateQueries({ queryKey: ['admin-list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    },
+    onError: (error: any) => {
+      const message = error?.message || '恢復失敗';
+      toast.error('恢復失敗：' + message);
+    },
+  });
+
+  // 打開暫停對話框
+  const handleOpenSuspendDialog = (user: UserProfile) => {
+    setSuspendTarget(user);
+    setShowSuspendDialog(true);
+  };
+
+  // 恢復管理員權限
+  const handleUnsuspendAdmin = (userId: string) => {
+    unsuspendAdminMutation.mutate(userId);
+  };
+
   const totalPages = Math.ceil((usersData?.total || 0) / pageSize);
   const paginationSummary = paginationTemplate
     .replace('{{total}}', (usersData?.total || 0).toLocaleString())

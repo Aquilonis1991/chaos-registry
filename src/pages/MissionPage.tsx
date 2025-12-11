@@ -325,25 +325,53 @@ const MissionPage = () => {
   };
 
   const handleDailyLogin = async () => {
-    if (isClaimingLogin) return;
+    // 防止重複點擊
+    if (isClaimingLogin) {
+      console.log('[MissionPage] handleDailyLogin: Already claiming, ignoring');
+      return;
+    }
     
+    // 檢查是否已簽到（前端防護）
+    if (loginStreakInfo && !loginStreakInfo.can_claim_today) {
+      console.log('[MissionPage] handleDailyLogin: Already claimed today, ignoring');
+      toast.info(getText('mission.dailyLogin.alreadyClaimed', '今日已簽到'));
+      return;
+    }
+    
+    console.log('[MissionPage] handleDailyLogin: Starting daily login claim');
     setIsClaimingLogin(true);
+    
     try {
       const loginInfo = await claimDailyLogin();
+      console.log('[MissionPage] handleDailyLogin: Claim result', loginInfo);
+      
       if (loginInfo) {
         const normalizedInfo: LoginStreakInfo = {
           current_streak: loginInfo.currentStreak,
           total_login_days: loginInfo.totalDays,
           last_login_date: loginInfo.lastLoginDate,
-          can_claim_today: loginInfo.canClaimToday,
+          can_claim_today: false, // 簽到後立即設為 false，防止重複點擊
           streak_reward_available: loginInfo.streakRewardAvailable,
         };
         applyLoginStreakInfo(normalizedInfo);
+        
+        // 如果成功簽到，立即更新 UI 狀態
+        if (loginInfo.isNewLogin) {
+          // 樂觀更新代幣（實時訂閱會自動同步）
+          updateTokensOptimistically(loginInfo.rewardTokens || 3);
+          
+          // 刷新任務狀態（確保 daily_login 任務顯示為已完成）
+          void loadUserMissions();
+        }
       }
+      
       // 背景同步資料，避免阻塞 UI（代幣更新由實時訂閱自動處理）
       void loadLoginStreak({ showLoader: false });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[MissionPage] handleDailyLogin: Error', error);
       // Error handled in useMissionOperations
+      // 如果出錯，重新載入狀態以確保 UI 正確
+      void loadLoginStreak({ showLoader: false });
     } finally {
       setIsClaimingLogin(false);
     }

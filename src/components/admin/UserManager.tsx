@@ -510,13 +510,17 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   const suspendAdminMutation = useMutation({
     mutationFn: async () => {
       if (!suspendTarget) throw new Error('未選擇要暫停的管理員');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('未登入');
       const { data, error } = await supabase.rpc('suspend_admin', {
         p_target_user_id: suspendTarget.id,
+        p_suspending_admin_id: user.id,
         p_reason: suspendReason.trim() || null
       });
       if (error) throw error;
-      if (!data || !data.success) {
-        throw new Error(data?.error || '暫停失敗');
+      if (!data || (Array.isArray(data) && data.length > 0 && !data[0].success)) {
+        const errorMessage = Array.isArray(data) && data.length > 0 ? data[0].message : '暫停失敗';
+        throw new Error(errorMessage);
       }
       return data;
     },
@@ -537,12 +541,16 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   // 恢復管理員權限
   const unsuspendAdminMutation = useMutation({
     mutationFn: async (userId: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('未登入');
       const { data, error } = await supabase.rpc('unsuspend_admin', {
-        p_target_user_id: userId
+        p_target_user_id: userId,
+        p_unsuspending_admin_id: user.id
       });
       if (error) throw error;
-      if (!data || !data.success) {
-        throw new Error(data?.error || '恢復失敗');
+      if (!data || (Array.isArray(data) && data.length > 0 && !data[0].success)) {
+        const errorMessage = Array.isArray(data) && data.length > 0 ? data[0].message : '恢復失敗';
+        throw new Error(errorMessage);
       }
       return data;
     },

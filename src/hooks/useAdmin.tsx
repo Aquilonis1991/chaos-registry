@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
-import { useCallback, useMemo, useEffect, useRef } from "react";
+import { useCallback, useMemo, useEffect, useRef, useState } from "react";
 
 // 本地快取鍵名
 const ADMIN_CACHE_KEY = 'admin_status_cache';
@@ -280,6 +280,10 @@ export const useAdmin = () => {
     return enabled;
   }, [user?.id, authLoading, isLoading, isAdmin, result]);
 
+  // 使用 ref 來追蹤查詢結果，避免狀態更新延遲問題
+  const isSuperAdminRef = useRef<boolean>(false);
+  const [isSuperAdminState, setIsSuperAdminState] = useState<boolean>(false);
+  
   // 檢查是否為最高管理者（只有確認是管理員後才檢查）
   const { 
     data: isSuperAdminData, 
@@ -309,6 +313,14 @@ export const useAdmin = () => {
         
         const isSuper = !!data;
         console.log('[useAdmin] ✅ Super admin status result:', isSuper, 'Raw data:', data);
+        
+        // 立即更新 ref 和 state
+        if (isSuper) {
+          isSuperAdminRef.current = true;
+          setIsSuperAdminState(true);
+          console.log('[useAdmin] 🔄 Immediately set isSuperAdmin to true');
+        }
+        
         return isSuper;
       } catch (err) {
         console.error('[useAdmin] ❌ Exception checking super admin status:', err);
@@ -326,24 +338,27 @@ export const useAdmin = () => {
     gcTime: Infinity, // 永遠不清理緩存
   });
   
-  // 使用 ref 來追蹤查詢結果，避免狀態更新延遲問題
-  const isSuperAdminRef = useRef<boolean>(false);
-  
-  // 當查詢數據更新時，更新 ref（只更新為 true 的值，避免 false 覆蓋 true）
+  // 當查詢數據更新時，更新 ref 和 state
   useEffect(() => {
     if (isSuperAdminData === true) {
       console.log('[useAdmin] 🔄 isSuperAdminData updated to true');
       isSuperAdminRef.current = true;
-    } else if (isSuperAdminData === false && isSuperAdminRef.current === false) {
+      setIsSuperAdminState(true);
+    } else if (isSuperAdminData === false) {
       // 只有在 ref 也是 false 時才更新，避免覆蓋之前的 true
-      console.log('[useAdmin] 🔄 isSuperAdminData updated to false (ref was already false)');
+      if (isSuperAdminRef.current === false) {
+        console.log('[useAdmin] 🔄 isSuperAdminData updated to false (ref was already false)');
+        setIsSuperAdminState(false);
+      } else {
+        console.log('[useAdmin] 🔄 isSuperAdminData is false but ref is true, keeping true');
+      }
     }
   }, [isSuperAdminData]);
   
   // 確保 isSuperAdmin 有正確的值
   // 優先使用查詢數據，如果查詢數據是 true，直接返回 true
   // 如果查詢數據是 false，檢查 ref 是否為 true（可能是之前的查詢結果）
-  // 如果查詢數據是 undefined，使用 ref 的值
+  // 如果查詢數據是 undefined，使用 state 或 ref
   const isSuperAdmin = useMemo(() => {
     if (isSuperAdminData === true) {
       return true;
@@ -351,10 +366,10 @@ export const useAdmin = () => {
       // 如果查詢返回 false，但 ref 是 true，可能是查詢被重置了，使用 ref
       return isSuperAdminRef.current || false;
     } else {
-      // 查詢數據是 undefined，使用 ref
-      return isSuperAdminRef.current || false;
+      // 查詢數據是 undefined，使用 state 或 ref
+      return isSuperAdminState || isSuperAdminRef.current || false;
     }
-  }, [isSuperAdminData]);
+  }, [isSuperAdminData, isSuperAdminState]);
 
   // 調試日誌：檢查 isSuperAdmin 查詢狀態
   console.log('[useAdmin] 📊 isSuperAdmin query state:', {

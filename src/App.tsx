@@ -44,16 +44,16 @@ const queryClient = new QueryClient({
 });
 
 const App = () => (
-  <ErrorBoundary
-    onError={(error, errorInfo) => {
-      // 記錄錯誤到日誌系統
-      ErrorLogger.critical(error, {
-        componentStack: errorInfo.componentStack,
-        source: 'ErrorBoundary'
-      });
-    }}
-  >
-    <QueryClientProvider client={queryClient}>
+  <QueryClientProvider client={queryClient}>
+    <ErrorBoundary
+      onError={(error, errorInfo) => {
+        // 記錄錯誤到日誌系統
+        ErrorLogger.critical(error, {
+          componentStack: errorInfo.componentStack,
+          source: 'ErrorBoundary'
+        });
+      }}
+    >
       <AuthProvider>
         <LanguageProvider>
           <TooltipProvider>
@@ -88,8 +88,8 @@ const App = () => (
           </TooltipProvider>
         </LanguageProvider>
       </AuthProvider>
-    </QueryClientProvider>
-  </ErrorBoundary>
+    </ErrorBoundary>
+  </QueryClientProvider>
 );
 
 export default App;

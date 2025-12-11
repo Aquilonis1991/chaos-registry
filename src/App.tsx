@@ -32,7 +32,16 @@ import NotFound from "./pages/NotFound";
 import { ErrorLogger } from "@/lib/errorLogger";
 import { isNative } from "@/lib/capacitor";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      // 確保查詢不會因為 enabled 變化而清除數據
+      keepPreviousData: true,
+    },
+  },
+});
 
 const App = () => (
   <ErrorBoundary

@@ -321,7 +321,7 @@ export const useAdmin = () => {
     staleTime: 300000,
     refetchOnWindowFocus: false,
     // 保持之前的數據，即使 enabled 變成 false
-    placeholderData: (previousData) => previousData ?? false,
+    keepPreviousData: true,
     // 當查詢被禁用時，保持最後的數據
     gcTime: Infinity, // 永遠不清理緩存
   });
@@ -329,16 +329,32 @@ export const useAdmin = () => {
   // 使用 ref 來追蹤查詢結果，避免狀態更新延遲問題
   const isSuperAdminRef = useRef<boolean>(false);
   
-  // 當查詢數據更新時，更新 ref
+  // 當查詢數據更新時，更新 ref（只更新為 true 的值，避免 false 覆蓋 true）
   useEffect(() => {
-    if (isSuperAdminData !== undefined) {
-      console.log('[useAdmin] 🔄 isSuperAdminData updated:', isSuperAdminData);
-      isSuperAdminRef.current = isSuperAdminData;
+    if (isSuperAdminData === true) {
+      console.log('[useAdmin] 🔄 isSuperAdminData updated to true');
+      isSuperAdminRef.current = true;
+    } else if (isSuperAdminData === false && isSuperAdminRef.current === false) {
+      // 只有在 ref 也是 false 時才更新，避免覆蓋之前的 true
+      console.log('[useAdmin] 🔄 isSuperAdminData updated to false (ref was already false)');
     }
   }, [isSuperAdminData]);
   
-  // 確保 isSuperAdmin 有正確的值（優先使用查詢數據，如果沒有則使用 ref）
-  const isSuperAdmin = isSuperAdminData ?? isSuperAdminRef.current ?? false;
+  // 確保 isSuperAdmin 有正確的值
+  // 優先使用查詢數據，如果查詢數據是 true，直接返回 true
+  // 如果查詢數據是 false，檢查 ref 是否為 true（可能是之前的查詢結果）
+  // 如果查詢數據是 undefined，使用 ref 的值
+  const isSuperAdmin = useMemo(() => {
+    if (isSuperAdminData === true) {
+      return true;
+    } else if (isSuperAdminData === false) {
+      // 如果查詢返回 false，但 ref 是 true，可能是查詢被重置了，使用 ref
+      return isSuperAdminRef.current || false;
+    } else {
+      // 查詢數據是 undefined，使用 ref
+      return isSuperAdminRef.current || false;
+    }
+  }, [isSuperAdminData]);
 
   // 調試日誌：檢查 isSuperAdmin 查詢狀態
   console.log('[useAdmin] 📊 isSuperAdmin query state:', {

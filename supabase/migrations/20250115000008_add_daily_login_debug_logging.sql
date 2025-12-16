@@ -23,6 +23,8 @@ DECLARE
   v_reward_tokens INTEGER := 0;
   v_today DATE;
   v_debug_info TEXT;
+  v_new_token_balance INTEGER;
+  v_old_token_balance INTEGER;
 BEGIN
   -- 使用明確的時區獲取今天的日期（使用台灣時區 UTC+8）
   v_today := (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Taipei')::DATE;
@@ -99,8 +101,32 @@ BEGIN
     last_login = now()
   WHERE id = p_user_id;
 
+  -- 獲取發放前的代幣餘額（用於驗證）
+  SELECT tokens INTO v_old_token_balance
+  FROM public.profiles
+  WHERE id = p_user_id;
+  
   -- 發放獎勵代幣（使用原子性操作）
   PERFORM public.add_tokens(p_user_id, v_reward_tokens);
+  
+  -- 驗證代幣是否成功發放
+  SELECT tokens INTO v_new_token_balance
+  FROM public.profiles
+  WHERE id = p_user_id;
+  
+  IF v_new_token_balance IS NULL THEN
+    RAISE EXCEPTION 'Failed to verify token balance after adding tokens';
+  END IF;
+  
+  IF v_new_token_balance != (COALESCE(v_old_token_balance, 0) + v_reward_tokens) THEN
+    RAISE WARNING 'Token balance mismatch! Old: %, Added: %, Expected: %, Actual: %', 
+      v_old_token_balance, v_reward_tokens, 
+      COALESCE(v_old_token_balance, 0) + v_reward_tokens, 
+      v_new_token_balance;
+  ELSE
+    RAISE NOTICE 'Tokens added successfully. Old balance: %, Added: %, New balance: %', 
+      v_old_token_balance, v_reward_tokens, v_new_token_balance;
+  END IF;
 
   -- 記錄交易
   INSERT INTO public.token_transactions (user_id, amount, transaction_type, description)

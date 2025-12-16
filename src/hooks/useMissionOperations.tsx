@@ -424,6 +424,29 @@ export const useMissionOperations = () => {
 
       // 新登入獎勵
       console.log('[claimDailyLogin] New login successful, reward tokens:', loginInfo.rewardTokens);
+      
+      // 驗證代幣是否真的被發放（查詢最新的 profile）
+      try {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('tokens')
+          .eq('id', user.id)
+          .single();
+        
+        if (!profileError && profileData) {
+          console.log('[claimDailyLogin] Current token balance after login:', profileData.tokens);
+          if (loginInfo.rewardTokens > 0 && profileData.tokens !== undefined) {
+            console.log('[claimDailyLogin] Token balance verified');
+          } else {
+            console.warn('[claimDailyLogin] Warning: Reward tokens is 0 or token balance is undefined');
+          }
+        } else {
+          console.warn('[claimDailyLogin] Failed to verify token balance:', profileError);
+        }
+      } catch (verifyError) {
+        console.warn('[claimDailyLogin] Error verifying token balance:', verifyError);
+      }
+      
       const loginSuccessMsg = getText('mission.dailyLogin.success', '簽到成功！獲得 {{amount}} 代幣')
         .replace('{{amount}}', loginInfo.rewardTokens.toLocaleString());
       toast.success(loginSuccessMsg, {

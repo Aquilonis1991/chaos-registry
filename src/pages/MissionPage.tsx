@@ -358,11 +358,23 @@ const MissionPage = () => {
         
         // 如果成功簽到，立即更新 UI 狀態
         if (loginInfo.isNewLogin) {
+          console.log('[MissionPage] handleDailyLogin: New login successful, reward tokens:', loginInfo.rewardTokens);
+          
           // 樂觀更新代幣（實時訂閱會自動同步）
           updateTokensOptimistically(loginInfo.rewardTokens || 3);
+          console.log('[MissionPage] handleDailyLogin: Optimistic token update applied');
+          
+          // 強制刷新 profile 以確保代幣數量正確（實時訂閱可能延遲）
+          setTimeout(async () => {
+            console.log('[MissionPage] handleDailyLogin: Refreshing profile after 1 second');
+            await refreshProfile();
+            console.log('[MissionPage] handleDailyLogin: Profile refreshed');
+          }, 1000);
           
           // 刷新任務狀態（確保 daily_login 任務顯示為已完成）
           void loadUserMissions();
+        } else {
+          console.log('[MissionPage] handleDailyLogin: Not a new login, reward tokens:', loginInfo.rewardTokens);
         }
       }
       

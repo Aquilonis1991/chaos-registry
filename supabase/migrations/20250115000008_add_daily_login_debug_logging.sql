@@ -170,3 +170,4 @@ $$;
 -- 添加註釋
 COMMENT ON FUNCTION public.record_daily_login IS '記錄每日登入，發放代幣獎勵，完成 daily_login 任務，使用台灣時區（UTC+8）確保日期判斷準確，包含詳細的調試日誌';
 
+

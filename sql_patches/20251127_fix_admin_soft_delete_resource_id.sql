@@ -123,3 +123,4 @@ GRANT EXECUTE ON FUNCTION public.admin_soft_delete_user(UUID, TEXT) TO service_r
 -- 刷新 Schema Cache
 NOTIFY pgrst, 'reload schema';
 
+

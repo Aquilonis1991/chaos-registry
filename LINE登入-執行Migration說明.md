@@ -78,3 +78,4 @@ AND column_name = 'line_user_id';
 **執行完成後，可以繼續進行下一步：設定環境變數和部署 Edge Function。**
 
 
+

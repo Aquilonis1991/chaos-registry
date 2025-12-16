@@ -186,3 +186,4 @@ App.addListener('appUrlOpen', (data) => {
 **專案路徑**：`C:\Users\USER\Documents\Mywork\votechaos-main`
 
 
+

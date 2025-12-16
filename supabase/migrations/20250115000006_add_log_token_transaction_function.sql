@@ -66,3 +66,4 @@ $$;
 -- Grant execute permission to authenticated users
 GRANT EXECUTE ON FUNCTION public.log_token_transaction TO authenticated;
 
+

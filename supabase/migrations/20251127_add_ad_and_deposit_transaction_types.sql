@@ -24,3 +24,4 @@ ALTER TABLE public.token_transactions
 -- 刷新 Schema Cache
 NOTIFY pgrst, 'reload schema';
 
+

@@ -331,9 +331,15 @@ export const useMissionOperations = () => {
   };
 
   const claimDailyLogin = async (): Promise<DailyLoginInfo | null> => {
+    console.log('[claimDailyLogin] Function called');
     try {
+      console.log('[claimDailyLogin] Getting user...');
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('未登入');
+      if (!user) {
+        console.error('[claimDailyLogin] No user found');
+        throw new Error('未登入');
+      }
+      console.log('[claimDailyLogin] User found:', user.id);
 
       // 檢查用戶是否被限制完成任務
       const { checkUserRestriction } = await import("@/lib/userRestrictions");
@@ -426,12 +432,21 @@ export const useMissionOperations = () => {
 
       return loginInfo;
     } catch (error: any) {
-      console.error('Daily login error:', error);
+      console.error('[claimDailyLogin] Error caught:', error);
+      console.error('[claimDailyLogin] Error details:', {
+        message: error?.message,
+        stack: error?.stack,
+        name: error?.name,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint
+      });
       
       if (error.message?.includes('未登入')) {
         toast.error(getText('mission.dailyLogin.notLoggedIn', '請先登入'));
       } else {
-        toast.error(getText('mission.dailyLogin.failed', '簽到失敗'));
+        const errorMsg = error?.message || getText('mission.dailyLogin.failed', '簽到失敗');
+        toast.error(errorMsg);
       }
       
       throw error;

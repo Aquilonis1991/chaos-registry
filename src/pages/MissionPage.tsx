@@ -342,6 +342,7 @@ const MissionPage = () => {
     setIsClaimingLogin(true);
     
     try {
+      console.log('[MissionPage] handleDailyLogin: Calling claimDailyLogin...');
       const loginInfo = await claimDailyLogin();
       console.log('[MissionPage] handleDailyLogin: Claim result', loginInfo);
       
@@ -368,11 +369,18 @@ const MissionPage = () => {
       // 背景同步資料，避免阻塞 UI（代幣更新由實時訂閱自動處理）
       void loadLoginStreak({ showLoader: false });
     } catch (error: any) {
-      console.error('[MissionPage] handleDailyLogin: Error', error);
+      console.error('[MissionPage] handleDailyLogin: Error caught', error);
+      console.error('[MissionPage] handleDailyLogin: Error details', {
+        message: error?.message,
+        stack: error?.stack,
+        name: error?.name,
+        code: error?.code
+      });
       // Error handled in useMissionOperations
       // 如果出錯，重新載入狀態以確保 UI 正確
       void loadLoginStreak({ showLoader: false });
     } finally {
+      console.log('[MissionPage] handleDailyLogin: Finally block, resetting isClaimingLogin');
       setIsClaimingLogin(false);
     }
   };

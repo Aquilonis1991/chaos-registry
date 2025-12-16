@@ -41,3 +41,4 @@ auth_verifyRedirect_footer,auth,若仍無法開啟，請確認 App 已安裝或�
 auth_verifyRedirect_waiting,auth,正在等待 App 回應...,Waiting for the app...,アプリの応答を待っています…,驗證跳轉頁：等待提示
 
 
+

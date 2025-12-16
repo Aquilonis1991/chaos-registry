@@ -21,3 +21,4 @@ export const formatCompactNumber = (value: number | null | undefined) => {
   return compactFormatter.format(numericValue);
 };
 
+

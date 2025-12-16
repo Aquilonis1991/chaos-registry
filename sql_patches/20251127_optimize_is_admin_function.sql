@@ -41,3 +41,4 @@ SELECT
     AND p.proname = 'is_admin'
   ) as function_exists;
 
+

@@ -53,3 +53,4 @@ NOTIFY pgrst, 'reload schema';
 -- 6. 測試函數（可選）
 -- SELECT public.is_admin('08fc94c1-bfb3-47ed-9191-b46fa24837f2'::uuid);
 
+

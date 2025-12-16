@@ -14,3 +14,4 @@ WHERE line_user_id IS NOT NULL;
 COMMENT ON COLUMN public.profiles.line_user_id IS 'LINE user ID for LINE login integration';
 
 
+

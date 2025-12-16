@@ -13,3 +13,4 @@ CREATE INDEX IF NOT EXISTS profiles_twitter_user_id_idx ON public.profiles (twit
 --   WITH CHECK (auth.uid() = id);
 
 
+

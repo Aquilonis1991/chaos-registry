@@ -103,7 +103,16 @@ const MissionPage = () => {
   const dailyCheckInButtonClaiming = getText('mission.daily.button.claiming', '簽到中...');
   const dailyCheckInButtonDone = getText('mission.daily.button.done', '今日已簽到');
   const dailyCheckInButtonAction = getText('mission.daily.button.action', '立即簽到');
-  const dailyCheckInReward = getText('mission.daily.reward', '+3');
+  // 依據後台配置與今日是否可領取，顯示正確獎勵（避免「已簽到仍顯示 +3」造成誤解）
+  const dailyLoginRewardConfig = getConfig('daily_login_reward', 3);
+  const dailyLoginRewardAmount =
+    typeof dailyLoginRewardConfig === 'number'
+      ? dailyLoginRewardConfig
+      : Number(dailyLoginRewardConfig) || 3;
+  const dailyCheckInReward =
+    loginStreakInfo && loginStreakInfo.can_claim_today === false
+      ? '+0'
+      : `+${dailyLoginRewardAmount}`;
   const watchAdTitle = getText('mission.ad.title', '觀看廣告');
   const watchAdSubtitle = getText('mission.ad.subtitle', '輕鬆賺取代幣');
   const watchAdReward = getText('mission.ad.reward', '+5');
@@ -334,7 +343,9 @@ const MissionPage = () => {
     // 檢查是否已簽到（前端防護）
     if (loginStreakInfo && !loginStreakInfo.can_claim_today) {
       console.log('[MissionPage] handleDailyLogin: Already claimed today, ignoring');
-      toast.info(getText('mission.dailyLogin.alreadyClaimed', '今日已簽到'));
+      toast.info(getText('mission.dailyLogin.alreadyClaimed', '今日已簽到'), {
+        description: getText('mission.dailyLogin.noMoreReward', '今日已簽到，不再發放代幣')
+      });
       return;
     }
     

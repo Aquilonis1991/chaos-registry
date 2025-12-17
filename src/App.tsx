@@ -31,6 +31,7 @@ import SearchPage from "./pages/SearchPage";
 import NotFound from "./pages/NotFound";
 import { ErrorLogger } from "@/lib/errorLogger";
 import { isNative } from "@/lib/capacitor";
+import { OAuthCallbackHandler } from "@/components/OAuthCallbackHandler";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -60,6 +61,8 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
+              {/* App 版第三方登入 Deep Link 回調處理（votechaos://auth/callback） */}
+              <OAuthCallbackHandler />
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<AuthPage />} />

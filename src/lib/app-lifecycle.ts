@@ -21,11 +21,48 @@ export const initializeAppLifecycle = () => {
   // 監聽深層連結
   App.addListener('appUrlOpen', (data) => {
     console.log('App opened with URL:', data.url);
-    
-    // 處理深層連結（例如：votechaos://vote/123）
-    const slug = data.url.split('.app').pop();
-    if (slug) {
+
+    try {
+      const opened = new URL(data.url);
+      // 例：votechaos://auth/callback#access_token=...&refresh_token=...
+      const scheme = opened.protocol.replace(':', '');
+
+      // 只處理我們的 Deep Link scheme
+      if (scheme !== 'votechaos') {
+        console.log('[app-lifecycle] Ignoring non-votechaos deep link:', scheme);
+        return;
+      }
+
+      const host = opened.hostname; // 例如 auth / vote / home ...
+      const path = opened.pathname || '';
+
+      // OAuth callback：派發事件給 OAuthCallbackHandler 處理（setSession + 導向 /home）
+      if (host === 'auth' && path.startsWith('/callback')) {
+        const params: Record<string, string> = {};
+
+        // query params
+        opened.searchParams.forEach((v, k) => {
+          params[k] = v;
+        });
+
+        // hash params（Supabase magic link / OAuth 回調常用）
+        const hash = opened.hash?.startsWith('#') ? opened.hash.slice(1) : '';
+        if (hash) {
+          const hashParams = new URLSearchParams(hash);
+          hashParams.forEach((v, k) => {
+            params[k] = v;
+          });
+        }
+
+        window.dispatchEvent(new CustomEvent('oauth-callback', { detail: { url: data.url, params } }));
+        return;
+      }
+
+      // 其他 deep link：轉成 app 內路由（例如 votechaos://vote/123 → /vote/123）
+      const slug = `/${host}${path}${opened.search}`;
       window.location.href = slug;
+    } catch (e) {
+      console.warn('[app-lifecycle] Failed to parse deep link URL:', e);
     }
   });
 

@@ -45,6 +45,19 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+
+	<!-- Deep Link：votechaos://auth/callback（第三方登入回調） -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>votechaos</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>votechaos</string>
+			</array>
+		</dict>
+	</array>
 	
 	<!-- AdMob App ID（測試用）-->
 	<key>GADApplicationIdentifier</key>

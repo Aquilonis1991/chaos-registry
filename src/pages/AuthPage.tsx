@@ -34,6 +34,7 @@ const AuthPage = () => {
   const fallbackSiteUrl = typeof window !== "undefined" ? window.location.origin : defaultSiteUrl;
   const publicSiteUrl = (envPublicSiteUrl && envPublicSiteUrl.length > 0 ? envPublicSiteUrl : defaultSiteUrl || fallbackSiteUrl).replace(/\/$/, "");
   const emailRedirectUrl = `${publicSiteUrl}/auth/verify-redirect`;
+  const appDeepLinkCallback = "votechaos://auth/callback";
 
   // 檢查已登入用戶的管理員權限（僅網頁版）
   useEffect(() => {
@@ -249,24 +250,23 @@ const AuthPage = () => {
     }
   };
 
-  const handleSocialLogin = async (provider: 'google' | 'apple' | 'discord' | 'facebook' | 'line') => {
+  const handleSocialLogin = async (provider: 'google' | 'apple' | 'discord') => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          // 回歸原本設定：OAuth 完成後直接回到 /home
-          // 在 Android Studio（Capacitor）會是 https://localhost/home 或 http://localhost/home
-          redirectTo: `${window.location.origin}/home`,
+          // 回歸原本設計：
+          // - App：使用 Deep Link 回調（由 OAuthCallbackHandler 解析 token 並 setSession）
+          // - Web：回到網站 /home（Supabase 會自動在 hash 建立 session）
+          redirectTo: isNative() ? appDeepLinkCallback : `${publicSiteUrl}/home`,
         },
       });
 
       if (error) {
         const providerNames: Record<string, string> = {
-          'google': 'Google',
-          'apple': 'Apple',
-          'discord': 'Discord',
-          'facebook': 'Facebook',
-          'line': 'LINE'
+          google: 'Google',
+          apple: 'Apple',
+          discord: 'Discord',
         };
         const providerName = providerNames[provider] || provider;
         const socialLoginErrorTemplate = getText('auth_social_login_error', '{{provider}}登入失敗');
@@ -274,6 +274,44 @@ const AuthPage = () => {
       }
     } catch (error) {
       toast.error(getText('auth_login_error', '登入失敗，請稍後再試'));
+    }
+  };
+
+  const handleEdgeSocialLogin = async (provider: 'line' | 'twitter') => {
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) {
+        toast.error(getText('auth_login_error', '登入失敗，請稍後再試'), {
+          description: '缺少 VITE_SUPABASE_URL'
+        });
+        return;
+      }
+
+      const platform = isNative() ? 'app' : 'web';
+      const endpoint =
+        provider === 'line'
+          ? `${supabaseUrl}/functions/v1/line-auth/auth?platform=${encodeURIComponent(platform)}`
+          : `${supabaseUrl}/functions/v1/twitter-auth/auth?platform=${encodeURIComponent(platform)}`;
+
+      const res = await fetch(endpoint, { method: 'GET' });
+      const json = await res.json().catch(() => null);
+      const authUrl = json?.authUrl;
+
+      if (!res.ok || !authUrl) {
+        const msg =
+          json?.message ||
+          json?.error ||
+          `Edge Function 回傳異常（${res.status}）`;
+        throw new Error(msg);
+      }
+
+      // 交給 provider 的 OAuth 頁面（LINE/Twitter 會再回到 Edge Function callback，最後回到 Deep Link / Web）
+      window.location.href = authUrl;
+    } catch (err: any) {
+      const providerName = provider === 'line' ? 'LINE' : 'X (Twitter)';
+      toast.error(getText('auth_social_login_error', '{{provider}}登入失敗').replace('{{provider}}', providerName), {
+        description: err?.message || '未知錯誤'
+      });
     }
   };
 
@@ -400,11 +438,12 @@ const AuthPage = () => {
                     variant="outline" 
                     size="icon"
                     className="h-14 w-14 sm:h-12 sm:w-12 rounded-full touch-manipulation"
-                    onClick={() => handleSocialLogin('facebook')}
-                    title={getText('auth_facebook_login', '使用 Facebook 登入')}
+                    onClick={() => handleEdgeSocialLogin('twitter')}
+                    title={getText('auth_twitter_login', '使用 X (Twitter) 登入')}
                   >
-                    <svg className="h-7 w-7 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                    {/* X / Twitter */}
+                    <svg className="h-7 w-7 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M18.244 2H21l-6.52 7.455L22.5 22h-6.58l-5.16-6.94L4.67 22H2l7.05-8.08L1.5 2h6.7l4.66 6.25L18.244 2Zm-1.15 18h1.53L7.04 3.9H5.4l11.694 16.1Z" />
                     </svg>
                   </Button>
                   
@@ -413,7 +452,7 @@ const AuthPage = () => {
                     variant="outline" 
                     size="icon"
                     className="h-14 w-14 sm:h-12 sm:w-12 rounded-full touch-manipulation"
-                    onClick={() => handleSocialLogin('line')}
+                    onClick={() => handleEdgeSocialLogin('line')}
                     title={getText('auth_line_login', '使用 LINE 登入')}
                   >
                     <svg className="h-7 w-7 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="currentColor">

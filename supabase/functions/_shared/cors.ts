@@ -5,13 +5,14 @@
 export const ALLOWED_ORIGINS = [
   'https://epyykzxxglkjombvozhr.supabase.co', // Supabase 託管
   'capacitor://localhost', // Capacitor APP (iOS/Android)
+  'https://localhost', // Capacitor (androidScheme/iosScheme = https)
+  'http://localhost', // Capacitor (androidScheme/iosScheme = http)
   'http://localhost:5173', // Vite 開發環境
   'http://localhost:8080', // Vite 開發環境 (替代 port)
   'http://localhost:8080', // Vite 備用端口
   'http://localhost:3000', // 備用開發端口
   // 生產環境域名（上線後添加）
-  // 'https://votechaos.com',
-  // 'https://www.votechaos.com',
+  'https://chaos-registry.vercel.app',
 ];
 
 /**

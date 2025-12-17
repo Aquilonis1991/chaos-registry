@@ -16,7 +16,7 @@ interface DailyLoginInfo {
 }
 
 export const useMissionOperations = () => {
-  const { getConfig, configCache } = useSystemConfigCache();
+  const { getConfig } = useSystemConfigCache();
   const { language } = useLanguage();
   const { getText } = useUIText(language);
   
@@ -38,7 +38,7 @@ export const useMissionOperations = () => {
 
     // 使用安全的數據庫函數來完成任務（原子性操作，防止競態條件）
     // 添加超時處理（10秒）
-    const rpcPromise = supabase.rpc('complete_mission_safe', {
+    const rpcPromise = supabase.rpc('complete_mission_safe' as any, {
       p_user_id: user.id,
       p_mission_id: missionId
     });
@@ -67,7 +67,9 @@ export const useMissionOperations = () => {
     ]);
 
     if (restriction.restricted) {
-      const restrictedMsg = restriction.reason || getText('mission.complete.restricted', '完成任務功能已被暫停');
+      const restrictionReason =
+        typeof (restriction as any)?.reason === 'string' ? (restriction as any).reason : undefined;
+      const restrictedMsg = restrictionReason || getText('mission.complete.restricted', '完成任務功能已被暫停');
       toast.error(restrictedMsg);
       throw new Error(restrictedMsg);
     }

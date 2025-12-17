@@ -100,30 +100,79 @@ CREATE POLICY "Admins can manage feedback"
 -- ----------------------------
 -- 說明：不重寫函數內容，改用 ALTER FUNCTION 設定 search_path，降低風險。
 
--- core timestamps
-ALTER FUNCTION IF EXISTS public.update_updated_at() SET search_path TO public;
+-- 注意：PostgreSQL 不支援 `ALTER FUNCTION IF EXISTS ...` 語法
+-- 這裡用 to_regprocedure(...) 判斷函數存在才執行 ALTER，避免因缺函數導致 migration 失敗
 
--- announcements
-ALTER FUNCTION IF EXISTS public.get_active_announcements(integer) SET search_path TO public;
+DO $$
+BEGIN
+  -- core timestamps
+  IF to_regprocedure('public.update_updated_at()') IS NOT NULL THEN
+    EXECUTE 'ALTER FUNCTION public.update_updated_at() SET search_path TO public';
+  END IF;
 
--- banned words / validation
-ALTER FUNCTION IF EXISTS public.check_banned_words(text, text[]) SET search_path TO public;
-ALTER FUNCTION IF EXISTS public.validate_topic_content(text, text, jsonb, text[], text, text[]) SET search_path TO public;
+  -- announcements
+  IF to_regprocedure('public.get_active_announcements(integer)') IS NOT NULL THEN
+    EXECUTE 'ALTER FUNCTION public.get_active_announcements(integer) SET search_path TO public';
+  END IF;
 
--- exposure system functions
-ALTER FUNCTION IF EXISTS public.update_exposure_updated_at() SET search_path TO public;
-ALTER FUNCTION IF EXISTS public.expire_old_exposure_applications() SET search_path TO public;
-ALTER FUNCTION IF EXISTS public.get_exposure_weight(text) SET search_path TO public;
-ALTER FUNCTION IF EXISTS public.can_apply_exposure(uuid, text, uuid) SET search_path TO public;
-ALTER FUNCTION IF EXISTS public.apply_exposure(uuid, text) SET search_path TO public;
-ALTER FUNCTION IF EXISTS public.get_topic_exposure_score(uuid) SET search_path TO public;
-ALTER FUNCTION IF EXISTS public.get_hot_topics_with_exposure(integer, integer) SET search_path TO public;
-ALTER FUNCTION IF EXISTS public.get_latest_topics_with_exposure(integer, integer) SET search_path TO public;
-ALTER FUNCTION IF EXISTS public.reset_daily_exposure_stats() SET search_path TO public;
-ALTER FUNCTION IF EXISTS public.check_exposure_violations() SET search_path TO public;
-ALTER FUNCTION IF EXISTS public.get_user_exposure_status(uuid) SET search_path TO public;
+  -- banned words / validation
+  IF to_regprocedure('public.check_banned_words(text, text[])') IS NOT NULL THEN
+    EXECUTE 'ALTER FUNCTION public.check_banned_words(text, text[]) SET search_path TO public';
+  END IF;
 
--- security warn trigger (if exists)
-ALTER FUNCTION IF EXISTS public.warn_direct_options_update() SET search_path TO public;
+  IF to_regprocedure('public.validate_topic_content(text, text, jsonb, text[], text, text[])') IS NOT NULL THEN
+    EXECUTE 'ALTER FUNCTION public.validate_topic_content(text, text, jsonb, text[], text, text[]) SET search_path TO public';
+  END IF;
+
+  -- exposure system functions
+  IF to_regprocedure('public.update_exposure_updated_at()') IS NOT NULL THEN
+    EXECUTE 'ALTER FUNCTION public.update_exposure_updated_at() SET search_path TO public';
+  END IF;
+
+  IF to_regprocedure('public.expire_old_exposure_applications()') IS NOT NULL THEN
+    EXECUTE 'ALTER FUNCTION public.expire_old_exposure_applications() SET search_path TO public';
+  END IF;
+
+  IF to_regprocedure('public.get_exposure_weight(text)') IS NOT NULL THEN
+    EXECUTE 'ALTER FUNCTION public.get_exposure_weight(text) SET search_path TO public';
+  END IF;
+
+  IF to_regprocedure('public.can_apply_exposure(uuid, text, uuid)') IS NOT NULL THEN
+    EXECUTE 'ALTER FUNCTION public.can_apply_exposure(uuid, text, uuid) SET search_path TO public';
+  END IF;
+
+  IF to_regprocedure('public.apply_exposure(uuid, text)') IS NOT NULL THEN
+    EXECUTE 'ALTER FUNCTION public.apply_exposure(uuid, text) SET search_path TO public';
+  END IF;
+
+  IF to_regprocedure('public.get_topic_exposure_score(uuid)') IS NOT NULL THEN
+    EXECUTE 'ALTER FUNCTION public.get_topic_exposure_score(uuid) SET search_path TO public';
+  END IF;
+
+  IF to_regprocedure('public.get_hot_topics_with_exposure(integer, integer)') IS NOT NULL THEN
+    EXECUTE 'ALTER FUNCTION public.get_hot_topics_with_exposure(integer, integer) SET search_path TO public';
+  END IF;
+
+  IF to_regprocedure('public.get_latest_topics_with_exposure(integer, integer)') IS NOT NULL THEN
+    EXECUTE 'ALTER FUNCTION public.get_latest_topics_with_exposure(integer, integer) SET search_path TO public';
+  END IF;
+
+  IF to_regprocedure('public.reset_daily_exposure_stats()') IS NOT NULL THEN
+    EXECUTE 'ALTER FUNCTION public.reset_daily_exposure_stats() SET search_path TO public';
+  END IF;
+
+  IF to_regprocedure('public.check_exposure_violations()') IS NOT NULL THEN
+    EXECUTE 'ALTER FUNCTION public.check_exposure_violations() SET search_path TO public';
+  END IF;
+
+  IF to_regprocedure('public.get_user_exposure_status(uuid)') IS NOT NULL THEN
+    EXECUTE 'ALTER FUNCTION public.get_user_exposure_status(uuid) SET search_path TO public';
+  END IF;
+
+  -- security warn trigger (if exists)
+  IF to_regprocedure('public.warn_direct_options_update()') IS NOT NULL THEN
+    EXECUTE 'ALTER FUNCTION public.warn_direct_options_update() SET search_path TO public';
+  END IF;
+END $$;
 
 

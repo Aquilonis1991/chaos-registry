@@ -34,13 +34,6 @@ const AuthPage = () => {
   const fallbackSiteUrl = typeof window !== "undefined" ? window.location.origin : defaultSiteUrl;
   const publicSiteUrl = (envPublicSiteUrl && envPublicSiteUrl.length > 0 ? envPublicSiteUrl : defaultSiteUrl || fallbackSiteUrl).replace(/\/$/, "");
   const emailRedirectUrl = `${publicSiteUrl}/auth/verify-redirect`;
-  // 第三方登入（OAuth）回調：必須先進到不受 ProtectedRoute 保護的頁面，
-  // 由 Supabase 從 URL hash 建立 session 後，再導向 /home。
-  // 這同時「回復到之前可用的模式」：以 window.location.origin 為基礎（Android Studio 會是 http://localhost）
-  const oauthRedirectUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/auth/callback`
-      : `${publicSiteUrl}/auth/callback`;
 
   // 檢查已登入用戶的管理員權限（僅網頁版）
   useEffect(() => {
@@ -261,7 +254,9 @@ const AuthPage = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: oauthRedirectUrl,
+          // 回歸原本設定：OAuth 完成後直接回到 /home
+          // 在 Android Studio（Capacitor）會是 https://localhost/home 或 http://localhost/home
+          redirectTo: `${window.location.origin}/home`,
         },
       });
 

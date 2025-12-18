@@ -36,11 +36,11 @@ BEGIN
   v_today := (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Taipei')::DATE;
   v_timezone := 'Asia/Taipei (UTC+8)';
   
-  -- 獲取用戶資料
-  SELECT last_login_date, login_streak, total_login_days, tokens
+  -- 獲取用戶資料（使用表別名避免歧義）
+  SELECT p.last_login_date, p.login_streak, p.total_login_days, p.tokens
   INTO v_last_login_date, v_streak, v_total_days, v_tokens
-  FROM public.profiles
-  WHERE id = p_user_id;
+  FROM public.profiles p
+  WHERE p.id = p_user_id;
   
   -- 檢查 daily_logins 表中是否有今天的記錄
   SELECT EXISTS(
@@ -89,10 +89,10 @@ BEGIN
   
   -- 如果 last_login_date 是今天，重置為昨天（但保持其他數據不變）
   -- 注意：這只是為了測試，生產環境應該謹慎使用
-  UPDATE public.profiles
+  UPDATE public.profiles p
   SET last_login_date = v_today - INTERVAL '1 day'
-  WHERE id = p_user_id 
-    AND last_login_date = v_today;
+  WHERE p.id = p_user_id 
+    AND p.last_login_date = v_today;
   
   IF v_deleted_count > 0 THEN
     RETURN QUERY SELECT true, format('已清除 %s 的今日簽到記錄（%s）', p_user_id, v_today);
@@ -132,10 +132,10 @@ BEGIN
   RAISE NOTICE '[record_daily_login] Starting for user: %, Today (Asia/Taipei): %', p_user_id, v_today;
   
   -- 使用 SELECT FOR UPDATE 鎖定行，防止並發重複執行
-  SELECT last_login_date, login_streak, total_login_days
+  SELECT p.last_login_date, p.login_streak, p.total_login_days
   INTO v_last_login_date, v_current_streak, v_total_days
-  FROM public.profiles
-  WHERE id = p_user_id
+  FROM public.profiles p
+  WHERE p.id = p_user_id
   FOR UPDATE; -- 鎖定行，防止並發重複執行
 
   -- 如果 profile 不存在，初始化
@@ -214,9 +214,9 @@ BEGIN
   RAISE NOTICE '[record_daily_login] ✅ Updated profile. %', v_debug_info;
 
   -- 獲取發放前的代幣餘額（用於驗證）
-  SELECT tokens INTO v_old_token_balance
-  FROM public.profiles
-  WHERE id = p_user_id;
+  SELECT p.tokens INTO v_old_token_balance
+  FROM public.profiles p
+  WHERE p.id = p_user_id;
   
   RAISE NOTICE '[record_daily_login] Before adding tokens. Old balance: %', v_old_token_balance;
 
@@ -224,9 +224,9 @@ BEGIN
   PERFORM public.add_tokens(p_user_id, v_reward_tokens);
   
   -- 驗證代幣是否成功發放
-  SELECT tokens INTO v_new_token_balance
-  FROM public.profiles
-  WHERE id = p_user_id;
+  SELECT p.tokens INTO v_new_token_balance
+  FROM public.profiles p
+  WHERE p.id = p_user_id;
   
   IF v_new_token_balance IS NULL THEN
     RAISE EXCEPTION 'Failed to verify token balance after adding tokens';

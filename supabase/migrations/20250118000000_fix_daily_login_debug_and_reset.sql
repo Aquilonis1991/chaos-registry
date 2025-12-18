@@ -42,12 +42,12 @@ BEGIN
   FROM public.profiles p
   WHERE p.id = p_user_id;
   
-  -- 檢查 daily_logins 表中是否有今天的記錄
+  -- 檢查 daily_logins 表中是否有今天的記錄（使用表別名避免歧義）
   SELECT EXISTS(
-    SELECT 1 FROM public.daily_logins
-    WHERE user_id = p_user_id AND login_date = v_today
+    SELECT 1 FROM public.daily_logins dl
+    WHERE dl.user_id = p_user_id AND dl.login_date = v_today
   ), 
-  (SELECT MAX(login_date) FROM public.daily_logins WHERE user_id = p_user_id)
+  (SELECT MAX(dl2.login_date) FROM public.daily_logins dl2 WHERE dl2.user_id = p_user_id)
   INTO v_has_record, v_record_date;
   
   RETURN QUERY SELECT 
@@ -81,9 +81,9 @@ BEGIN
   -- 獲取今天的日期（台灣時區）
   v_today := (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Taipei')::DATE;
   
-  -- 刪除今天的 daily_logins 記錄
-  DELETE FROM public.daily_logins
-  WHERE user_id = p_user_id AND login_date = v_today;
+  -- 刪除今天的 daily_logins 記錄（使用表別名避免歧義）
+  DELETE FROM public.daily_logins dl
+  WHERE dl.user_id = p_user_id AND dl.login_date = v_today;
   
   GET DIAGNOSTICS v_deleted_count = ROW_COUNT;
   
@@ -158,10 +158,10 @@ BEGIN
     RETURN;
   END IF;
 
-  -- 檢查 daily_logins 表中是否已有今天的記錄（雙重檢查）
+  -- 檢查 daily_logins 表中是否已有今天的記錄（雙重檢查，使用表別名避免歧義）
   SELECT EXISTS(
-    SELECT 1 FROM public.daily_logins
-    WHERE user_id = p_user_id AND login_date = v_today
+    SELECT 1 FROM public.daily_logins dl
+    WHERE dl.user_id = p_user_id AND dl.login_date = v_today
   ) INTO v_has_daily_record;
   
   IF v_has_daily_record THEN

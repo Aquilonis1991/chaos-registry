@@ -702,6 +702,38 @@ invalid_client
 
 ---
 
+## 🚀 部署前準備（憑證存放與查閱路徑）
+
+1. **憑證存放路徑（本機，已被 .gitignore 排除，不會上傳）**
+   - 路徑：`secrets/google-oauth-client.json`
+   - 此檔案內含：
+     - client_id / client_secret
+     - redirect_uris / javascript_origins
+   - 如需查閱：請在本機開啟該檔，或使用編輯器檢視（勿上傳到 Git）
+
+2. **Supabase 後台填寫（Authentication > Providers > Google）**
+   - Client ID：從 `secrets/google-oauth-client.json` 中的 `client_id`
+   - Client Secret：從 `secrets/google-oauth-client.json` 中的 `client_secret`
+   - Redirect URL：`https://epyykzxxglkjombvozhr.supabase.co/auth/v1/callback`（必填）
+
+3. **Google Cloud Console 檢查**
+   - 應用程式類型：網頁應用程式
+   - 已授權的 JavaScript 來源：
+     - `https://epyykzxxglkjombvozhr.supabase.co`
+     - `https://chaos-registry.vercel.app`
+     - `http://localhost:8080`
+   - 已授權的重新導向 URI：
+     - `https://epyykzxxglkjombvozhr.supabase.co/auth/v1/callback`（必填）
+     - `https://chaos-registry.vercel.app/home`（可選）
+     - `http://localhost:8080/home`（可選）
+
+4. **前端環境變數（本機 `.env.local`，勿上傳）**
+   - `VITE_SUPABASE_URL=https://epyykzxxglkjombvozhr.supabase.co`
+   - `VITE_SUPABASE_PUBLISHABLE_KEY=<你的 Supabase 公鑰>`
+   - 不需要在前端放 Client Secret；密鑰僅填在 Supabase 後台
+
+---
+
 ## ✅ 完成檢查清單
 
 ### Google 登入

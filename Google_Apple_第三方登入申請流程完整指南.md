@@ -160,8 +160,45 @@
 #### 4.3 選擇應用程式類型
 
 1. 在建立用戶端對話框中，找到「**應用程式類型**」（Application type）下拉選單
-2. 選擇「**網頁應用程式**」（Web application）
-3. ⚠️ **重要**：即使您的應用程式是行動應用，也選擇「網頁應用程式」，因為 Supabase 使用網頁應用程式類型的 OAuth
+2. 您會看到以下選項：
+   - **網頁應用程式**（Web application）
+   - **Android**（Android）
+   - **iOS**（iOS）
+   - **Chrome 應用程式**（Chrome app）
+   - **通用 Windows 平台**（Universal Windows Platform）
+   - **桌面應用程式**（Desktop app）
+
+3. **選擇「網頁應用程式」**（Web application）
+
+4. ⚠️ **重要說明：為什麼選擇「網頁應用程式」而不是「Android」？**
+   
+   **原因 1：Supabase OAuth 流程是基於網頁的**
+   - Supabase 的 OAuth 回調 URL 是網頁格式：`https://epyykzxxglkjombvozhr.supabase.co/auth/v1/callback`
+   - 這個 URL 必須在「網頁應用程式」類型的 OAuth 用戶端中設定
+   - 如果選擇「Android」，您需要設定 Android 套件名稱和 SHA-1 憑證指紋，但 Supabase 的回調 URL 無法在 Android 類型中設定
+   
+   **原因 2：原生 App 的 OAuth 也是透過網頁完成的**
+   - 即使您的應用程式是 Android 或 iOS App，OAuth 流程仍然是透過 WebView 或系統瀏覽器完成的
+   - 用戶點擊「使用 Google 登入」後，會打開瀏覽器進行認證
+   - 認證完成後，瀏覽器會重定向到 Supabase 的回調 URL
+   - 然後透過 Deep Link（`votechaos://auth/callback`）返回 App
+   
+   **原因 3：一個「網頁應用程式」用戶端可以同時支援 Web 和 App**
+   - 選擇「網頁應用程式」後，您可以：
+     - 在「已授權的 JavaScript 來源」中添加 Web 網域
+     - 在「已授權的重新導向 URI」中添加 Supabase 回調 URL
+     - 這個設定可以同時支援 Web 版和 App 版的登入
+   
+   **原因 4：如果選擇「Android」會發生什麼？**
+   - 如果選擇「Android」，您需要：
+     - 設定 Android 套件名稱（例如：`com.votechaos.app`）
+     - 設定 SHA-1 憑證指紋
+     - 但無法設定 Supabase 的回調 URL
+     - 這樣就無法與 Supabase 整合
+   
+   **總結**：
+   - ✅ **選擇「網頁應用程式」**：可以同時支援 Web 和 App，並且可以設定 Supabase 回調 URL
+   - ❌ **選擇「Android」**：只能支援 Android App，但無法與 Supabase 整合
 
 #### 4.4 填寫應用程式資訊
 
@@ -179,6 +216,7 @@
      - 只包含網域和協議，不要包含路徑
      - 不要包含尾隨斜線
      - 格式：`https://example.com` 或 `http://localhost:8080`
+   - 📝 **說明**：這些是允許發起 OAuth 請求的網域，包括 Web 版和 App 版（透過 WebView）
 
 3. **已授權的重新導向 URI**（Authorized redirect URIs）：
    - 點擊「**新增 URI**」（Add URI）按鈕
@@ -189,6 +227,10 @@
    - ⚠️ **重要**：
      - URI 必須完全匹配，包括協議（`https://`）和路徑
      - 第一個 URI（Supabase 回調）是必需的
+   - 📝 **說明**：
+     - 當用戶在 Web 版或 App 版中完成 Google 登入後，Google 會重定向到這些 URI
+     - Supabase 會處理回調並建立用戶會話
+     - 對於 App 版，Supabase 處理完後會透過 Deep Link（`votechaos://auth/callback`）返回 App
 
 4. 檢查所有資訊無誤後，點擊對話框底部的「**建立**」（Create）按鈕
 

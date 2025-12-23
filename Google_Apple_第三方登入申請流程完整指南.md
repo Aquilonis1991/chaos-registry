@@ -53,9 +53,12 @@
 
 #### 3.1 導航到 OAuth 同意畫面
 
-1. 在左側導航欄，點擊「**API 和服務**」
-2. 點擊「**OAuth 同意畫面**」
-3. 如果這是第一次設定，系統會顯示設定頁面
+1. 在 Google Cloud Console 首頁，點擊頂部導航欄的「**選取專案**」
+2. 選擇您的專案（例如：`votechaos`）
+3. 在左側導航欄，找到「**Google Auth Platform**」區塊
+4. 點擊「**總覽**」（Overview）
+5. 在總覽頁面，點擊「**設定 OAuth 同意畫面**」按鈕
+6. 或者，在左側導航欄點擊「**品牌**」（Brand）進入 OAuth 同意畫面設定
 
 #### 3.2 選擇使用者類型
 
@@ -142,57 +145,52 @@
 
 ### 步驟 4：建立 OAuth 2.0 憑證
 
-#### 4.1 導航到憑證頁面
+#### 4.1 導航到用戶端頁面
 
-1. 在左側導航欄，點擊「**API 和服務**」
-2. 點擊「**憑證**」
-3. 您會看到憑證列表（目前應該是空的）
+1. 在 Google Cloud Console 中，確認已選擇正確的專案（例如：`votechaos`）
+2. 在左側導航欄，找到「**Google Auth Platform**」區塊
+3. 點擊「**用戶端**」（Client）
+4. 您會看到「OAuth 2.0 用戶端 ID」區塊，目前顯示「沒有可顯示的 OAuth 用戶端」
 
 #### 4.2 建立 OAuth 用戶端 ID
 
-1. 點擊頂部的「**建立憑證**」按鈕
-2. 從下拉選單中選擇「**OAuth 用戶端 ID**」
-3. 如果這是第一次建立，系統可能會提示您設定 OAuth 同意畫面（已完成步驟 3，直接點擊「**建立**」或「**繼續**」）
+1. 在「OAuth 2.0 用戶端 ID」區塊上方，點擊「**+ 建立用戶端**」（+ Create Client）按鈕
+2. 系統會打開建立用戶端的對話框
 
 #### 4.3 選擇應用程式類型
 
-1. 在「應用程式類型」下拉選單中，選擇「**網頁應用程式**」
-2. ⚠️ **重要**：即使您的應用程式是行動應用，也選擇「網頁應用程式」，因為 Supabase 使用網頁應用程式類型的 OAuth
+1. 在建立用戶端對話框中，找到「**應用程式類型**」（Application type）下拉選單
+2. 選擇「**網頁應用程式**」（Web application）
+3. ⚠️ **重要**：即使您的應用程式是行動應用，也選擇「網頁應用程式」，因為 Supabase 使用網頁應用程式類型的 OAuth
 
 #### 4.4 填寫應用程式資訊
 
-1. **名稱**：
-   - 輸入：`ChaosRegistry Web Client`
+1. **名稱**（Name）：
+   - 在「名稱」欄位中輸入：`ChaosRegistry Web Client`
    - 或您喜歡的名稱
    - 這只是內部識別名稱
 
-2. **已授權的 JavaScript 來源**：
-   - 點擊「**新增 URI**」
-   - 添加以下 URI（每行一個）：
-     ```
-     https://epyykzxxglkjombvozhr.supabase.co
-     https://chaos-registry.vercel.app
-     http://localhost:8080
-     ```
+2. **已授權的 JavaScript 來源**（Authorized JavaScript origins）：
+   - 點擊「**新增 URI**」（Add URI）按鈕
+   - 在輸入框中添加：`https://epyykzxxglkjombvozhr.supabase.co`
+   - 再次點擊「**新增 URI**」，添加：`https://chaos-registry.vercel.app`
+   - （可選）再次點擊「**新增 URI**」，添加：`http://localhost:8080`（本地開發用）
    - ⚠️ **注意**：
      - 只包含網域和協議，不要包含路徑
      - 不要包含尾隨斜線
-     - `localhost:8080` 用於本地開發（可選）
+     - 格式：`https://example.com` 或 `http://localhost:8080`
 
-3. **已授權的重新導向 URI**：
-   - 點擊「**新增 URI**」
-   - 添加以下 URI（每行一個）：
-     ```
-     https://epyykzxxglkjombvozhr.supabase.co/auth/v1/callback
-     https://chaos-registry.vercel.app/home
-     http://localhost:8080/home
-     ```
+3. **已授權的重新導向 URI**（Authorized redirect URIs）：
+   - 點擊「**新增 URI**」（Add URI）按鈕
+   - 在輸入框中添加：`https://epyykzxxglkjombvozhr.supabase.co/auth/v1/callback`
+   - ⚠️ **重要**：這是 Supabase 的標準回調 URL，**必須包含**
+   - （可選）再次點擊「**新增 URI**」，添加：`https://chaos-registry.vercel.app/home`
+   - （可選）再次點擊「**新增 URI**」，添加：`http://localhost:8080/home`（本地開發用）
    - ⚠️ **重要**：
-     - `https://epyykzxxglkjombvozhr.supabase.co/auth/v1/callback` 是 Supabase 的標準回調 URL，**必須包含**
-     - 其他 URI 用於應用程式重定向（可選）
      - URI 必須完全匹配，包括協議（`https://`）和路徑
+     - 第一個 URI（Supabase 回調）是必需的
 
-4. 點擊「**建立**」
+4. 檢查所有資訊無誤後，點擊對話框底部的「**建立**」（Create）按鈕
 
 #### 4.5 複製憑證資訊
 
@@ -209,12 +207,14 @@
 
 #### 4.6 驗證憑證設定
 
-1. 在「憑證」頁面，您應該會看到剛建立的 OAuth 2.0 用戶端 ID
-2. 點擊用戶端 ID 名稱可以查看詳細資訊
-3. 確認「已授權的重新導向 URI」包含：
+1. 建立完成後，您會自動返回「**用戶端**」（Client）頁面
+2. 在「OAuth 2.0 用戶端 ID」表格中，您應該會看到剛建立的用戶端
+3. 點擊用戶端名稱（例如：`ChaosRegistry Web Client`）可以查看詳細資訊
+4. 在詳細資訊頁面，確認「已授權的重新導向 URI」包含：
    ```
    https://epyykzxxglkjombvozhr.supabase.co/auth/v1/callback
    ```
+5. 如果需要修改，可以點擊「**編輯**」（Edit）按鈕進行修改
 
 ---
 
@@ -561,16 +561,19 @@ Error 400: redirect_uri_mismatch
 - Google Cloud Console 中設定的「已授權的重新導向 URI」與實際使用的 URI 不匹配
 
 **解決方案**：
-1. 前往 Google Cloud Console >「API 和服務」>「憑證」
-2. 點擊您的 OAuth 2.0 用戶端 ID
-3. 在「已授權的重新導向 URI」中，確認包含：
+1. 前往 Google Cloud Console，確認已選擇正確的專案
+2. 在左側導航欄，點擊「**Google Auth Platform**」>「**用戶端**」（Client）
+3. 在「OAuth 2.0 用戶端 ID」表格中，點擊您的用戶端名稱
+4. 在詳細資訊頁面，點擊「**編輯**」（Edit）按鈕
+5. 在「已授權的重新導向 URI」區塊中，確認包含：
    ```
    https://epyykzxxglkjombvozhr.supabase.co/auth/v1/callback
    ```
-4. 確保 URI 完全一致（包括 `https://`、沒有尾隨斜線）
-5. 點擊「儲存」
-6. 等待幾分鐘讓變更生效
-7. 重新測試
+6. 如果沒有，點擊「**新增 URI**」添加
+7. 確保 URI 完全一致（包括 `https://`、沒有尾隨斜線）
+8. 點擊「**儲存**」（Save）
+9. 等待幾分鐘讓變更生效
+10. 重新測試
 
 #### 問題 2：`invalid_client` 錯誤
 
@@ -584,13 +587,18 @@ Error 401: invalid_client
 - 憑證已被刪除或停用
 
 **解決方案**：
-1. 前往 Google Cloud Console >「API 和服務」>「憑證」
-2. 確認 OAuth 2.0 用戶端 ID 仍然存在且啟用
-3. 如果已刪除，需要重新建立
-4. 前往 Supabase Dashboard >「Authentication」>「Providers」>「Google」
-5. 重新複製並貼上 Client ID 和 Client Secret
-6. 點擊「Save」
-7. 重新測試
+1. 前往 Google Cloud Console，確認已選擇正確的專案
+2. 在左側導航欄，點擊「**Google Auth Platform**」>「**用戶端**」（Client）
+3. 在「OAuth 2.0 用戶端 ID」表格中，確認用戶端仍然存在
+4. 如果表格是空的或顯示「沒有可顯示的 OAuth 用戶端」，需要重新建立：
+   - 點擊「**+ 建立用戶端**」（+ Create Client）按鈕
+   - 按照步驟 4 重新建立
+5. 如果用戶端存在，點擊用戶端名稱查看詳細資訊
+6. 複製「用戶端 ID」和「用戶端密鑰」
+7. 前往 Supabase Dashboard >「Authentication」>「Providers」>「Google」
+8. 重新貼上 Client ID 和 Client Secret
+9. 點擊「Save」
+10. 重新測試
 
 #### 問題 3：OAuth 同意畫面顯示「未驗證的應用程式」
 

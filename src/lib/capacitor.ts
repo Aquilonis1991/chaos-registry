@@ -49,7 +49,7 @@ export const initializeCapacitor = async () => {
 // 觸覺反饋
 export const hapticImpact = async (style: ImpactStyle = ImpactStyle.Medium) => {
   if (!isNative()) return;
-  
+
   try {
     await Haptics.impact({ style });
   } catch (error) {
@@ -69,7 +69,7 @@ export const hapticHeavy = () => hapticImpact(ImpactStyle.Heavy);
 // 獲取 App 資訊
 export const getAppInfo = async () => {
   if (!isNative()) return null;
-  
+
   try {
     const info = await App.getInfo();
     return info;
@@ -82,7 +82,7 @@ export const getAppInfo = async () => {
 // 退出 App
 export const exitApp = async () => {
   if (!isNative()) return;
-  
+
   try {
     await App.exitApp();
   } catch (error) {
@@ -93,7 +93,7 @@ export const exitApp = async () => {
 // 鍵盤控制
 export const hideKeyboard = async () => {
   if (!isNative()) return;
-  
+
   try {
     await Keyboard.hide();
   } catch (error) {

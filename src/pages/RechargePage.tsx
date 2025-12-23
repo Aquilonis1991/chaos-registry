@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
+import { usePurchase } from "@/hooks/usePurchase";
 
 const tokenPackages = [
   { 
@@ -51,6 +52,7 @@ const RechargePage = () => {
   const { user } = useAuth();
   const { language } = useLanguage();
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
+  const { purchaseTokenPack, isProcessing } = usePurchase();
   const [selectedPackage, setSelectedPackage] = useState<number | null>(null);
 
   const userTokens = profile?.tokens || 0;
@@ -81,45 +83,14 @@ const RechargePage = () => {
   const mobileNoteDescription = getText('recharge.mobile.description', '如需整合 Google Play 或 App Store 內購功能，需要使用 Capacitor 將應用打包為原生行動應用。目前的網頁版使用模擬購買流程。');
 
   const handlePurchase = async (pkg: typeof tokenPackages[0]) => {
-    if (!user) {
-      toast.error(loginRequiredText);
-      return;
-    }
-
-    // 檢查用戶是否被限制儲值
-    try {
-      const { checkUserRestriction } = await import("@/lib/userRestrictions");
-      const restriction = await checkUserRestriction(user.id, 'recharge');
-      if (restriction.restricted) {
-        toast.error(restriction.reason || restrictionFallbackText);
-        return;
-      }
-    } catch (error) {
-      console.error('Error checking recharge restriction:', error);
-      // 如果檢查失敗，繼續流程（不阻擋）
-    }
-
     setSelectedPackage(pkg.id);
     try {
-      // 模擬購買流程（實際應該呼叫支付 API）
-      // 這裡可以直接更新代幣，實際應用中應該在支付成功後才更新
-      
-      const totalTokens = (pkg.tokens + pkg.bonus).toLocaleString();
-      toastHook({
-        title: purchaseSuccessTitle,
-        description: purchaseSuccessDescTemplate.replace('{{amount}}', totalTokens),
-      });
-      
-      // 刷新代幣顯示（異步執行，不阻塞 UI，實時訂閱也會自動更新）
-      void refreshProfile();
+      await purchaseTokenPack(pkg.id);
+      // 購買成功後，usePurchase hook 會自動刷新代幣
     } catch (error) {
-      toastHook({
-        title: purchaseFailureTitle,
-        description: purchaseFailureDesc,
-        variant: "destructive",
-      });
+      // 錯誤已在 usePurchase 中處理
     } finally {
-      setTimeout(() => setSelectedPackage(null), 1000);
+      setTimeout(() => setSelectedPackage(null), 2000);
     }
   };
 
@@ -206,11 +177,11 @@ const RechargePage = () => {
                     
                     <Button
                       onClick={() => handlePurchase(pkg)}
-                      disabled={selectedPackage === pkg.id}
+                      disabled={selectedPackage === pkg.id || isProcessing}
                       className="flex-shrink-0"
                       variant={pkg.popular ? "default" : "outline"}
                     >
-                      {selectedPackage === pkg.id ? processingText : purchaseButtonText}
+                      {selectedPackage === pkg.id || isProcessing ? processingText : purchaseButtonText}
                     </Button>
                   </div>
                 </CardContent>

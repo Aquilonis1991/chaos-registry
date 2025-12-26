@@ -230,10 +230,9 @@ const AuthPage = () => {
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        // Removed emailRedirectTo to fallback to Supabase default Site URL
-        // options: {
-        //   emailRedirectTo: emailRedirectUrl,
-        // },
+        options: {
+          emailRedirectTo: emailRedirectUrl,
+        },
       });
 
       if (error) {

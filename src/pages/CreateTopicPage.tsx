@@ -743,7 +743,7 @@ const CreateTopicPage = () => {
                     </div>
                     <div className="border-t border-accent-foreground/20 pt-2"></div>
                     {dailyDiscountAmount > 0 && (
-                      <div className={cn("flex justify-between", isDailyDiscountEligible ? "text-yellow-400 font-medium" : "text-muted-foreground opacity-90")}>
+                      <div className={cn("flex justify-between", isDailyDiscountEligible ? "text-accent-foreground font-bold" : "text-muted-foreground opacity-90")}>
                         <span>
                           {getText('topic.costSummary.dailyDiscount', '每日首發優惠')}
                           {!isDailyDiscountEligible && <span className="text-xs ml-1">(已使用)</span>}

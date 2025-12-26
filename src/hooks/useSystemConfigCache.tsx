@@ -7,10 +7,28 @@ let cachePromise: Promise<Record<string, any>> | null = null;
 
 const fetchSystemConfig = async (): Promise<Record<string, any>> => {
   try {
-    const { data, error } = await supabase.functions.invoke('get-system-config');
-    
+    // 改為直接從資料庫讀取，與 Admin 後台邏輯保持一致
+    const { data, error } = await supabase
+      .from('system_config')
+      .select('*')
+      .order('category', { ascending: true })
+      .order('key', { ascending: true });
+
     if (error) throw error;
-    return data.configs;
+
+    // Convert to map
+    const configMap = (data || []).reduce((acc, item) => {
+      acc[item.key] = item.value;
+      return acc;
+    }, {} as Record<string, any>);
+
+    console.log('[SystemConfig] Fetched from DB:', {
+      count: Object.keys(configMap).length,
+      keys: Object.keys(configMap),
+      dailyDiscount: configMap.daily_topic_discount_tokens
+    });
+
+    return configMap;
   } catch (error) {
     console.error('Error fetching system config:', error);
     return {};
@@ -77,24 +95,24 @@ export const useSystemConfigCache = () => {
       // ad_reward_amount 和 max_ads_per_day 是備選配置，不需要警告
       return defaultValue;
     }
-    
+
     // 處理 JSONB 格式：如果值是對象且有 value 屬性，提取它
     if (value && typeof value === 'object' && 'value' in value) {
       value = value.value;
     }
-    
+
     // 處理字符串數字：如果是字符串形式的數字，轉換為數字
     if (typeof value === 'string' && !isNaN(Number(value)) && value.trim() !== '') {
       const numValue = Number(value);
       return numValue as T;
     }
-    
+
     // 處理布爾值字符串
     if (typeof value === 'string' && (value.toLowerCase() === 'true' || value.toLowerCase() === 'false')) {
       const boolValue = value.toLowerCase() === 'true';
       return boolValue as T;
     }
-    
+
     return value as T;
   };
 

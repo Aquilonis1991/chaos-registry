@@ -35,12 +35,39 @@ const CreateTopicPage = () => {
   const navigate = useNavigate();
   const { profile, loading: profileLoading } = useProfile();
   const { user } = useAuth();
-  const { createTopic, checkFreeCreateQualification } = useTopicOperations();
+  const { createTopic, checkFreeCreateQualification, checkDailyDiscountEligibility } = useTopicOperations();
   const { getConfig, loading: configLoading } = useSystemConfigCache();
   const { refreshStats } = useUserStats(user?.id);
   const { language } = useLanguage();
   const { getText } = useUIText(language);
   const topicBannedLevels = getConfig('topic_banned_check_levels', ['A', 'B', 'C', 'D', 'E']);
+  const topicDescriptionBannedLevels = getConfig('topic_description_banned_levels', ['A', 'B', 'C', 'D', 'E']);
+  /* Config Limits */
+  const titleMaxLength = getConfig('title_max_length', 200);
+  const titleMinLength = getConfig('title_min_length', 5);
+  const descMaxLength = getConfig('description_max_length', 150);
+  const optionMaxCount = getConfig('option_max_count', 6);
+  const optionMinCount = getConfig('option_min_count', 2);
+  const tagsMaxCount = getConfig('tags_max_count', 5);
+
+  /* Pricing Configs */
+  const exposureCosts = getConfig('exposure_costs', { normal: 30, medium: 90, high: 180 });
+  const durationCosts = getConfig('duration_costs', {
+    "1": 0, "2": 0, "3": 0, "4": 1, "5": 2, "6": 3, "7": 4,
+    "8": 6, "9": 8, "10": 10, "11": 12, "12": 14, "13": 16,
+    "14": 18, "15": 21, "16": 24, "17": 27, "18": 30
+  });
+  const durationMaxDays = getConfig('duration_max_days', 30);
+  const durationMinDays = getConfig('duration_min_days', 1);
+  const dailyDiscountAmount = getConfig('daily_topic_discount_tokens', 0);
+  const baseCost = getConfig('create_topic_base_cost', 0);
+
+  console.log('[CreateTopic] Configs:', {
+    dailyDiscountAmount,
+    baseCost,
+    allConfigsLoaded: !configLoading
+  });
+
   const headerTitle = getText('topic.create.headerTitle', '發起主題');
   const titleFieldLabel = getText('topic.title.label', '主題標題');
   const descriptionFieldLabel = getText('topic.description.fieldLabel', '主題詳述');
@@ -152,17 +179,9 @@ const CreateTopicPage = () => {
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [reviewDialogInfo, setReviewDialogInfo] = useState<{ keyword: string } | null>(null);
   const [pendingSubmission, setPendingSubmission] = useState<{ options: string[]; tags: string[] } | null>(null);
+  const [isDailyDiscountEligible, setIsDailyDiscountEligible] = useState(false);
 
-  // Get config values
-  const descMaxLength = getConfig('description_max_length', 150);
-  const exposureCostsConfig = getConfig('exposure_costs', { normal: 30, medium: 90, high: 180 }) as Record<string, number>;
-  const durationCostsConfig = getConfig('duration_costs', {
-    "1": 0, "2": 0, "3": 0, "4": 1, "5": 2, "6": 3, "7": 4, "8": 6, "9": 8, "10": 10,
-    "11": 12, "12": 14, "13": 16, "14": 18, "15": 21, "16": 24, "17": 27, "18": 30,
-    "19": 30, "20": 30, "21": 30, "22": 30, "23": 30, "24": 30, "25": 30, "26": 30,
-    "27": 30, "28": 30, "29": 30, "30": 30
-  });
-  const durationMaxDays = getConfig('duration_max_days', 30);
+  // Config values are now retrieved at the top of the component
 
   const allAvailableTags = [
     // 生活類
@@ -202,25 +221,35 @@ const CreateTopicPage = () => {
   const MAX_RECOMMENDED_TAGS = 30;
   const availableTags = allAvailableTags.slice(0, MAX_RECOMMENDED_TAGS);
 
-  const getDurationCost = (days: number): number => {
-    return durationCostsConfig[days.toString()] || 0;
-  };
+  /* Cost Logic */
+  const durationCost = (durationCosts as any)[duration[0].toString()] ?? 0;
 
-  const durationCost = getDurationCost(duration[0]);
-  const normalExposureCost = Number(exposureCostsConfig?.normal ?? 30);
-  const mediumExposureCost = Number(exposureCostsConfig?.medium ?? 90);
-  const highExposureCost = Number(exposureCostsConfig?.high ?? 180);
-  const exposureCost = Number(
-    (exposure in exposureCostsConfig ? exposureCostsConfig[exposure as keyof typeof exposureCostsConfig] : undefined) ?? normalExposureCost
-  );
-  const totalCost = hasFreeCreateQualification ? 0 : exposureCost + durationCost;
+  const normalExposureCost = (exposureCosts as any).normal ?? 30;
+  const mediumExposureCost = (exposureCosts as any).medium ?? 90;
+  const highExposureCost = (exposureCosts as any).high ?? 180;
+
+  const exposureCost = (exposureCosts as any)[exposure] ?? 30;
+
+  const dailyDiscount = (dailyDiscountAmount > 0 && isDailyDiscountEligible) ? dailyDiscountAmount : 0;
+
+  const totalCost = hasFreeCreateQualification
+    ? 0
+    : Math.max(0, exposureCost + durationCost + Number(baseCost) - dailyDiscount);
 
   // Check free create qualification
   useEffect(() => {
     if (profile) {
       checkFreeCreateQualification().then(setHasFreeCreateQualification);
+      checkDailyDiscountEligibility().then(eligible => {
+        setIsDailyDiscountEligible(eligible);
+        // FORCE ALERT DEBUG
+        const discount = getConfig('daily_topic_discount_tokens', 0);
+        const base = getConfig('create_topic_base_cost', 0);
+        // alert(`DEBUG: Discount=${discount}, Base=${base}, Eligible=${eligible}`);
+        console.log(`DEBUG ALERT: Discount=${discount}, Base=${base}, Eligible=${eligible}`);
+      });
     }
-  }, [profile, checkFreeCreateQualification]);
+  }, [profile, checkFreeCreateQualification, checkDailyDiscountEligibility]);
 
   const addOption = () => {
     if (options.length < 6) {
@@ -343,7 +372,7 @@ const CreateTopicPage = () => {
     }
 
     const descriptionCheck = description.trim()
-      ? await checkBannedWords(description, topicBannedLevels)
+      ? await checkBannedWords(description, topicDescriptionBannedLevels)
       : { found: false };
 
     if (descriptionCheck.found) {
@@ -415,353 +444,374 @@ const CreateTopicPage = () => {
       </AlertDialog>
 
       <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg">
-        <div className="max-w-screen-xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate(-1)}
-              className="text-primary-foreground hover:bg-primary-foreground/20"
-            >
-              <ArrowLeft className="w-6 h-6" />
-            </Button>
-            
-            <div className="flex-1">
-              <h1 className="text-lg font-bold text-primary-foreground">{headerTitle}</h1>
+        {/* Header */}
+        <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg">
+          <div className="max-w-screen-xl mx-auto px-4 py-4">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(-1)}
+                className="text-primary-foreground hover:bg-primary-foreground/20"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </Button>
+
+              <div className="flex-1">
+                <h1 className="text-lg font-bold text-primary-foreground">{headerTitle}</h1>
+              </div>
+
+              {/* Debug Info - Temporary */}
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+                <strong className="font-bold">Debug Info:</strong>
+                <span className="block sm:inline">
+                  Discount: {dailyDiscountAmount}, Base: {baseCost}, Loading: {configLoading ? 'Yes' : 'No'}
+                  <br />
+                  Eligible: {isDailyDiscountEligible ? 'Yes' : 'No'}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                <Coins className="w-4 h-4 text-accent" />
+                <span className="font-bold text-primary-foreground text-sm">{userTokens}</span>
+              </div>
             </div>
-            
-            <div className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
-              <Coins className="w-4 h-4 text-accent" />
-              <span className="font-bold text-primary-foreground text-sm">{userTokens}</span>
+          </div>
+        </header>
+
+        {/* Content */}
+        <div className="max-w-screen-xl mx-auto px-4 py-6 space-y-6">
+          {/* Title */}
+          <div className="space-y-2">
+            <Label htmlFor="title" className="text-base font-semibold">{titleFieldLabel}</Label>
+            <Input
+              id="title"
+              placeholder={getText('topic.title.placeholder', '輸入吸引人的標題...')}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="h-12 text-base"
+            />
+          </div>
+
+          {/* Description */}
+          <div className="space-y-2">
+            <Label htmlFor="description" className="text-base font-semibold">
+              {descriptionFieldLabel}
+              <span className="text-sm text-muted-foreground ml-2 font-normal">
+                {descriptionOptionalHintTemplate.replace('{{count}}', descMaxLength.toString())}
+              </span>
+            </Label>
+            <Textarea
+              id="description"
+              placeholder={getText('topic.description.placeholder', '詳細描述您的主題內容...')}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="min-h-[120px] text-base resize-none"
+              maxLength={descMaxLength}
+            />
+            <div className="text-xs text-muted-foreground text-right">
+              {description.length} / {descMaxLength}
             </div>
           </div>
-        </div>
-      </header>
 
-      {/* Content */}
-      <div className="max-w-screen-xl mx-auto px-4 py-6 space-y-6">
-        {/* Title */}
-        <div className="space-y-2">
-          <Label htmlFor="title" className="text-base font-semibold">{titleFieldLabel}</Label>
-          <Input
-            id="title"
-            placeholder={getText('topic.title.placeholder', '輸入吸引人的標題...')}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="h-12 text-base"
-          />
-        </div>
+          {/* Options */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-semibold">{getText('topic.options.label', '投票選項 (2-6個)')}</Label>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={addOption}
+                disabled={options.length >= 6}
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                {getText('topic.options.add', '新增')}
+              </Button>
+            </div>
 
-        {/* Description */}
-        <div className="space-y-2">
-          <Label htmlFor="description" className="text-base font-semibold">
-            {descriptionFieldLabel}
-            <span className="text-sm text-muted-foreground ml-2 font-normal">
-              {descriptionOptionalHintTemplate.replace('{{count}}', descMaxLength.toString())}
-            </span>
-          </Label>
-          <Textarea
-            id="description"
-            placeholder={getText('topic.description.placeholder', '詳細描述您的主題內容...')}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="min-h-[120px] text-base resize-none"
-            maxLength={descMaxLength}
-          />
-          <div className="text-xs text-muted-foreground text-right">
-            {description.length} / {descMaxLength}
-          </div>
-        </div>
+            {options.map((option, index) => {
+              // 檢查當前選項是否與其他選項重複
+              const trimmedOption = option.trim();
+              const isDuplicate = trimmedOption !== '' &&
+                options.filter((opt, i) => i !== index && opt.trim() === trimmedOption).length > 0;
 
-        {/* Options */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label className="text-base font-semibold">{getText('topic.options.label', '投票選項 (2-6個)')}</Label>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={addOption}
-              disabled={options.length >= 6}
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              {getText('topic.options.add', '新增')}
-            </Button>
-          </div>
-
-          {options.map((option, index) => {
-            // 檢查當前選項是否與其他選項重複
-            const trimmedOption = option.trim();
-            const isDuplicate = trimmedOption !== '' && 
-              options.filter((opt, i) => i !== index && opt.trim() === trimmedOption).length > 0;
-            
-            return (
-              <div key={index} className="flex gap-2">
-                <div className="flex-1">
-                  <Input
-                    placeholder={`${getText('topic.options.optionPlaceholder', '選項')} ${index + 1}`}
-                    value={option}
-                    onChange={(e) => updateOption(index, e.target.value)}
-                    className={isDuplicate ? "border-red-500" : ""}
-                  />
-                  {isDuplicate && (
-                    <p className="text-xs text-red-500 mt-1">{getText('topic.options.duplicateOption', '此選項與其他選項重複')}</p>
+              return (
+                <div key={index} className="flex gap-2">
+                  <div className="flex-1">
+                    <Input
+                      placeholder={`${getText('topic.options.optionPlaceholder', '選項')} ${index + 1}`}
+                      value={option}
+                      onChange={(e) => updateOption(index, e.target.value)}
+                      className={isDuplicate ? "border-red-500" : ""}
+                    />
+                    {isDuplicate && (
+                      <p className="text-xs text-red-500 mt-1">{getText('topic.options.duplicateOption', '此選項與其他選項重複')}</p>
+                    )}
+                  </div>
+                  {options.length > 2 && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeOption(index)}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
                   )}
                 </div>
-                {options.length > 2 && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeOption(index)}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Tags */}
-        <div className="space-y-3">
-          <Label className="text-base font-semibold">
-            {getText('topic.tags.label', '話題標籤')} {selectedTags.length > 0 && (
-              <span className="text-sm text-muted-foreground ml-2">
-                {getText('topic.tags.selectedCount', '已選 {{count}} 個').replace('{{count}}', selectedTags.length.toString())}
-              </span>
-            )}
-          </Label>
-          
-          {/* Custom Tag Input */}
-          <div className="flex gap-2">
-            <Input
-              placeholder={getText('topic.tag.customTagPlaceholder', '自定義標籤（最多10字）')}
-              value={customTag}
-              onChange={(e) => setCustomTag(e.target.value)}
-              maxLength={10}
-              className="flex-1"
-              onKeyPress={(e) => e.key === 'Enter' && addCustomTag()}
-            />
-            <Button 
-              type="button"
-              variant="outline" 
-              onClick={addCustomTag}
-              disabled={!customTag.trim()}
-            >
-              {getText('topic.tag.add', '添加')}
-            </Button>
+              );
+            })}
           </div>
 
-          {/* Selected Tags */}
-          {selectedTags.length > 0 && (
+          {/* Tags */}
+          <div className="space-y-3">
+            <Label className="text-base font-semibold">
+              {getText('topic.tags.label', '話題標籤')} {selectedTags.length > 0 && (
+                <span className="text-sm text-muted-foreground ml-2">
+                  {getText('topic.tags.selectedCount', '已選 {{count}} 個').replace('{{count}}', selectedTags.length.toString())}
+                </span>
+              )}
+            </Label>
+
+            {/* Custom Tag Input */}
+            <div className="flex gap-2">
+              <Input
+                placeholder={getText('topic.tag.customTagPlaceholder', '自定義標籤（最多10字）')}
+                value={customTag}
+                onChange={(e) => setCustomTag(e.target.value)}
+                maxLength={10}
+                className="flex-1"
+                onKeyPress={(e) => e.key === 'Enter' && addCustomTag()}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addCustomTag}
+                disabled={!customTag.trim()}
+              >
+                {getText('topic.tag.add', '添加')}
+              </Button>
+            </div>
+
+            {/* Selected Tags */}
+            {selectedTags.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-sm text-muted-foreground">{getText('topic.tag.selectedTags', '已選擇的標籤：')}</div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedTags.map((tag) => (
+                    <div
+                      key={tag}
+                      className={cn(
+                        "px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2",
+                        getTagColor(tag),
+                        "ring-2 ring-offset-2 ring-primary"
+                      )}
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => toggleTag(tag)}
+                        className="hover:bg-black/10 rounded-full p-0.5"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Available Tags */}
             <div className="space-y-2">
-              <div className="text-sm text-muted-foreground">{getText('topic.tag.selectedTags', '已選擇的標籤：')}</div>
-              <div className="flex flex-wrap gap-2">
-                {selectedTags.map((tag) => (
-                  <div
-                    key={tag}
-                    className={cn(
-                      "px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2",
-                      getTagColor(tag),
-                      "ring-2 ring-offset-2 ring-primary"
-                    )}
-                  >
-                    {tag}
+              <div className="text-sm text-muted-foreground">{getText('topic.tag.recommendedTags', '推薦標籤：')}</div>
+              <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+                {availableTags
+                  .filter(tag => !selectedTags.includes(tag))
+                  .map((tag) => (
                     <button
+                      key={tag}
                       type="button"
                       onClick={() => toggleTag(tag)}
-                      className="hover:bg-black/10 rounded-full p-0.5"
+                      className={cn(
+                        "px-3 py-1 rounded-full text-sm font-medium transition-all border-0",
+                        "hover:scale-105 active:scale-95",
+                        `${getTagColor(tag)} opacity-60 hover:opacity-100`
+                      )}
                     >
-                      <X className="w-3 h-3" />
+                      {tag}
                     </button>
+                  ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Exposure */}
+          <div className="space-y-3">
+            <Label className="text-base font-semibold">{getText('topic.exposure.label', '曝光方案')}</Label>
+            <RadioGroup value={exposure} onValueChange={setExposure}>
+              <Card className="cursor-pointer hover:shadow-card transition-all">
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-3">
+                    <RadioGroupItem value="normal" id="normal" />
+                    <Label htmlFor="normal" className="flex-1 cursor-pointer">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-semibold">{getText('topic.exposure.normal', '普通曝光')}</div>
+                          <div className="text-sm text-muted-foreground">{getText('topic.exposure.normalDesc', '標準推薦')}</div>
+                        </div>
+                        <div className="flex items-center gap-1 text-primary font-bold">
+                          <Coins className="w-4 h-4" />
+                          <span>{formatTokenAmount(normalExposureCost)}</span>
+                        </div>
+                      </div>
+                    </Label>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                </CardContent>
+              </Card>
 
-          {/* Available Tags */}
-          <div className="space-y-2">
-            <div className="text-sm text-muted-foreground">{getText('topic.tag.recommendedTags', '推薦標籤：')}</div>
-            <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
-              {availableTags
-                .filter(tag => !selectedTags.includes(tag))
-                .map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => toggleTag(tag)}
-                  className={cn(
-                    "px-3 py-1 rounded-full text-sm font-medium transition-all border-0",
-                    "hover:scale-105 active:scale-95",
-                    `${getTagColor(tag)} opacity-60 hover:opacity-100`
-                  )}
-                >
-                  {tag}
-                </button>
-              ))}
+              <Card className="cursor-pointer hover:shadow-card transition-all">
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-3">
+                    <RadioGroupItem value="medium" id="medium" />
+                    <Label htmlFor="medium" className="flex-1 cursor-pointer">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-semibold">{getText('topic.exposure.medium', '中等曝光')}</div>
+                          <div className="text-sm text-muted-foreground">{getText('topic.exposure.mediumDesc', '優先推薦')}</div>
+                        </div>
+                        <div className="flex items-center gap-1 text-primary font-bold">
+                          <Coins className="w-4 h-4" />
+                          <span>{formatTokenAmount(mediumExposureCost)}</span>
+                        </div>
+                      </div>
+                    </Label>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="cursor-pointer hover:shadow-card transition-all">
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-3">
+                    <RadioGroupItem value="high" id="high" />
+                    <Label htmlFor="high" className="flex-1 cursor-pointer">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-semibold">{getText('topic.exposure.high', '高度曝光')}</div>
+                          <div className="text-sm text-muted-foreground">{getText('topic.exposure.highDesc', '置頂推薦')}</div>
+                        </div>
+                        <div className="flex items-center gap-1 text-primary font-bold">
+                          <Coins className="w-4 h-4" />
+                          <span>{formatTokenAmount(highExposureCost)}</span>
+                        </div>
+                      </div>
+                    </Label>
+                  </div>
+                </CardContent>
+              </Card>
+            </RadioGroup>
+          </div>
+
+          {/* Duration */}
+          <div className="space-y-3">
+            <Label className="text-base font-semibold">{getText('topic.duration.label', '投票天數')}: {duration[0]} {getText('topic.duration.days', '天')}</Label>
+            <Slider
+              value={duration}
+              onValueChange={setDuration}
+              min={1}
+              max={durationMaxDays}
+              step={1}
+              className="w-full"
+            />
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>{getText('topic.duration.min', '1 天')}</span>
+              <span>{getText('topic.duration.max', '{{maxDays}} 天').replace('{{maxDays}}', durationMaxDays.toString())}</span>
             </div>
           </div>
-        </div>
 
-        {/* Exposure */}
-        <div className="space-y-3">
-          <Label className="text-base font-semibold">{getText('topic.exposure.label', '曝光方案')}</Label>
-          <RadioGroup value={exposure} onValueChange={setExposure}>
-            <Card className="cursor-pointer hover:shadow-card transition-all">
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-3">
-                  <RadioGroupItem value="normal" id="normal" />
-                  <Label htmlFor="normal" className="flex-1 cursor-pointer">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-semibold">{getText('topic.exposure.normal', '普通曝光')}</div>
-                        <div className="text-sm text-muted-foreground">{getText('topic.exposure.normalDesc', '標準推薦')}</div>
+          {/* Cost Summary */}
+          <Card className={cn(
+            "border-2 transition-all",
+            hasFreeCreateQualification
+              ? "bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/30"
+              : "bg-gradient-accent"
+          )}>
+            <CardContent className="p-4 space-y-3">
+              {hasFreeCreateQualification ? (
+                <div className="text-center space-y-2">
+                  <div className="flex items-center justify-center gap-2 text-green-600">
+                    <Gift className="w-6 h-6" />
+                    <span className="text-lg font-bold">{getText('topic.freeCreate.title', '免費發起資格')}</span>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {getText('topic.freeCreate.description', '您擁有免費發起主題的資格，本次建立不消耗代幣')}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2 text-accent-foreground text-sm">
+                    <div className="flex justify-between opacity-90">
+                      <span>{getText('topic.costSummary.exposure', '曝光方案')}</span>
+                      <span className="font-semibold">{formatTokenAmount(exposureCost)}</span>
+                    </div>
+                    <div className="flex justify-between opacity-90">
+                      <span>{getText('topic.costSummary.duration', '投票天數 ({{days}} 天)').replace('{{days}}', duration[0].toString())}</span>
+                      <span className="font-semibold">{formatTokenAmount(durationCost, { withPlus: true })}</span>
+                    </div>
+                    <div className="border-t border-accent-foreground/20 pt-2"></div>
+                    {dailyDiscountAmount > 0 && (
+                      <div className={cn("flex justify-between opacity-90", isDailyDiscountEligible ? "text-green-500" : "text-muted-foreground")}>
+                        <span>
+                          {getText('topic.costSummary.dailyDiscount', '每日首發優惠')}
+                          {!isDailyDiscountEligible && <span className="text-xs ml-1">(已使用)</span>}
+                        </span>
+                        <span className={cn("font-semibold", !isDailyDiscountEligible && "line-through")}>
+                          -{dailyDiscountAmount} {tokenLabel}
+                        </span>
                       </div>
-                      <div className="flex items-center gap-1 text-primary font-bold">
-                        <Coins className="w-4 h-4" />
-                        <span>{formatTokenAmount(normalExposureCost)}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-accent-foreground">
+                      <div className="text-sm opacity-90">{getText('topic.costSummary.totalCost', '總消耗代幣')}</div>
+                      <div className="text-2xl font-bold flex items-center gap-2">
+                        <Coins className="w-6 h-6" />
+                        {totalCost}
                       </div>
                     </div>
-                  </Label>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="cursor-pointer hover:shadow-card transition-all">
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-3">
-                  <RadioGroupItem value="medium" id="medium" />
-                  <Label htmlFor="medium" className="flex-1 cursor-pointer">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-semibold">{getText('topic.exposure.medium', '中等曝光')}</div>
-                        <div className="text-sm text-muted-foreground">{getText('topic.exposure.mediumDesc', '優先推薦')}</div>
-                      </div>
-                      <div className="flex items-center gap-1 text-primary font-bold">
-                        <Coins className="w-4 h-4" />
-                        <span>{formatTokenAmount(mediumExposureCost)}</span>
-                      </div>
+                    <div className="text-right text-accent-foreground">
+                      <div className="text-sm opacity-90">{getText('topic.costSummary.remainingTokens', '剩餘代幣')}</div>
+                      <div className="text-xl font-bold">{userTokens - totalCost}</div>
                     </div>
-                  </Label>
-                </div>
-              </CardContent>
-            </Card>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
 
-            <Card className="cursor-pointer hover:shadow-card transition-all">
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-3">
-                  <RadioGroupItem value="high" id="high" />
-                  <Label htmlFor="high" className="flex-1 cursor-pointer">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-semibold">{getText('topic.exposure.high', '高度曝光')}</div>
-                        <div className="text-sm text-muted-foreground">{getText('topic.exposure.highDesc', '置頂推薦')}</div>
-                      </div>
-                      <div className="flex items-center gap-1 text-primary font-bold">
-                        <Coins className="w-4 h-4" />
-                        <span>{formatTokenAmount(highExposureCost)}</span>
-                      </div>
-                    </div>
-                  </Label>
-                </div>
-              </CardContent>
-            </Card>
-          </RadioGroup>
-        </div>
-
-        {/* Duration */}
-        <div className="space-y-3">
-          <Label className="text-base font-semibold">{getText('topic.duration.label', '投票天數')}: {duration[0]} {getText('topic.duration.days', '天')}</Label>
-          <Slider
-            value={duration}
-            onValueChange={setDuration}
-            min={1}
-            max={durationMaxDays}
-            step={1}
-            className="w-full"
-          />
-          <div className="flex justify-between text-sm text-muted-foreground">
-            <span>{getText('topic.duration.min', '1 天')}</span>
-            <span>{getText('topic.duration.max', '{{maxDays}} 天').replace('{{maxDays}}', durationMaxDays.toString())}</span>
-          </div>
-        </div>
-
-        {/* Cost Summary */}
-        <Card className={cn(
-          "border-2 transition-all",
-          hasFreeCreateQualification 
-            ? "bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/30" 
-            : "bg-gradient-accent"
-        )}>
-          <CardContent className="p-4 space-y-3">
-            {hasFreeCreateQualification ? (
-              <div className="text-center space-y-2">
-                <div className="flex items-center justify-center gap-2 text-green-600">
-                  <Gift className="w-6 h-6" />
-                  <span className="text-lg font-bold">{getText('topic.freeCreate.title', '免費發起資格')}</span>
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {getText('topic.freeCreate.description', '您擁有免費發起主題的資格，本次建立不消耗代幣')}
-                </div>
-              </div>
-            ) : (
+          {/* Submit Button */}
+          <Button
+            variant="vote"
+            size="lg"
+            className="w-full h-14 text-lg"
+            onClick={handleSubmit}
+            disabled={isSubmitting || (!hasFreeCreateQualification && userTokens < totalCost)}
+          >
+            {isSubmitting ? (
               <>
-                <div className="space-y-2 text-accent-foreground text-sm">
-                  <div className="flex justify-between opacity-90">
-                    <span>{getText('topic.costSummary.exposure', '曝光方案')}</span>
-                    <span className="font-semibold">{formatTokenAmount(exposureCost)}</span>
-                  </div>
-                  <div className="flex justify-between opacity-90">
-                    <span>{getText('topic.costSummary.duration', '投票天數 ({{days}} 天)').replace('{{days}}', duration[0].toString())}</span>
-                    <span className="font-semibold">{formatTokenAmount(durationCost, { withPlus: true })}</span>
-                  </div>
-                  <div className="border-t border-accent-foreground/20 pt-2"></div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="text-accent-foreground">
-                    <div className="text-sm opacity-90">{getText('topic.costSummary.totalCost', '總消耗代幣')}</div>
-                    <div className="text-2xl font-bold flex items-center gap-2">
-                      <Coins className="w-6 h-6" />
-                      {totalCost}
-                    </div>
-                  </div>
-                  <div className="text-right text-accent-foreground">
-                    <div className="text-sm opacity-90">{getText('topic.costSummary.remainingTokens', '剩餘代幣')}</div>
-                    <div className="text-xl font-bold">{userTokens - totalCost}</div>
-                  </div>
-                </div>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                {getText('topic.submit.submitting', '建立中...')}
               </>
+            ) : hasFreeCreateQualification ? (
+              <>
+                <Gift className="w-5 h-5 mr-2" />
+                {getText('topic.submit.freeCreate', '免費建立主題')}
+              </>
+            ) : (
+              getText('topic.submit.submit', '送出主題')
             )}
-          </CardContent>
-        </Card>
-
-        {/* Submit Button */}
-        <Button
-          variant="vote"
-          size="lg"
-          className="w-full h-14 text-lg"
-          onClick={handleSubmit}
-          disabled={isSubmitting || (!hasFreeCreateQualification && userTokens < totalCost)}
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-              {getText('topic.submit.submitting', '建立中...')}
-            </>
-          ) : hasFreeCreateQualification ? (
-            <>
-              <Gift className="w-5 h-5 mr-2" />
-              {getText('topic.submit.freeCreate', '免費建立主題')}
-            </>
-          ) : (
-            getText('topic.submit.submit', '送出主題')
-          )}
-      </Button>
-    </div>
-  </div>
-  </>
+          </Button>
+        </div>
+      </div>
+    </>
   );
 };
 

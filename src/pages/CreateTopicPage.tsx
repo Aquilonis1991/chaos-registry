@@ -240,14 +240,7 @@ const CreateTopicPage = () => {
   useEffect(() => {
     if (profile) {
       checkFreeCreateQualification().then(setHasFreeCreateQualification);
-      checkDailyDiscountEligibility().then(eligible => {
-        setIsDailyDiscountEligible(eligible);
-        // FORCE ALERT DEBUG
-        const discount = getConfig('daily_topic_discount_tokens', 0);
-        const base = getConfig('create_topic_base_cost', 0);
-        // alert(`DEBUG: Discount=${discount}, Base=${base}, Eligible=${eligible}`);
-        console.log(`DEBUG ALERT: Discount=${discount}, Base=${base}, Eligible=${eligible}`);
-      });
+      checkDailyDiscountEligibility().then(setIsDailyDiscountEligible);
     }
   }, [profile, checkFreeCreateQualification, checkDailyDiscountEligibility]);
 
@@ -461,15 +454,7 @@ const CreateTopicPage = () => {
                 <h1 className="text-lg font-bold text-primary-foreground">{headerTitle}</h1>
               </div>
 
-              {/* Debug Info - Temporary */}
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
-                <strong className="font-bold">Debug Info:</strong>
-                <span className="block sm:inline">
-                  Discount: {dailyDiscountAmount}, Base: {baseCost}, Loading: {configLoading ? 'Yes' : 'No'}
-                  <br />
-                  Eligible: {isDailyDiscountEligible ? 'Yes' : 'No'}
-                </span>
-              </div>
+
 
               <div className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
                 <Coins className="w-4 h-4 text-accent" />
@@ -758,7 +743,7 @@ const CreateTopicPage = () => {
                     </div>
                     <div className="border-t border-accent-foreground/20 pt-2"></div>
                     {dailyDiscountAmount > 0 && (
-                      <div className={cn("flex justify-between opacity-90", isDailyDiscountEligible ? "text-green-500" : "text-muted-foreground")}>
+                      <div className={cn("flex justify-between", isDailyDiscountEligible ? "text-yellow-400 font-medium" : "text-muted-foreground opacity-90")}>
                         <span>
                           {getText('topic.costSummary.dailyDiscount', '每日首發優惠')}
                           {!isDailyDiscountEligible && <span className="text-xs ml-1">(已使用)</span>}

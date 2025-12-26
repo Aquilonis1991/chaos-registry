@@ -40,27 +40,13 @@ const AdminPage = () => {
   const tabBannedWords = getText('admin.tabs.bannedWords', '禁字表');
   const tabLegal = getText('admin.tabs.legal', '條款管理');
 
-  // 方案2：在原生平台（iOS/Android）隱藏後台功能，僅在網頁版提供
   useEffect(() => {
-    if (isNative()) {
-      // 如果在原生平台（APP），靜默重定向到首頁
-      navigate('/home', { replace: true });
-      return;
-    }
-  }, [navigate]);
-
-  useEffect(() => {
-    // 只有在網頁版才檢查管理員權限
-    if (!isLoading && !isAdmin && !isNative()) {
+    // 檢查管理員權限
+    if (!isLoading && !isAdmin) {
       console.log('[AdminPage] Not admin, redirecting to home');
       navigate('/', { replace: true });
     }
   }, [isAdmin, isLoading, navigate]);
-
-  // 如果在原生平台，直接返回null（會被上面的useEffect重定向）
-  if (isNative()) {
-    return null;
-  }
 
   // 顯示錯誤訊息（如果有）
   if (adminError) {
@@ -143,7 +129,7 @@ const AdminPage = () => {
       </div>
     );
   }
-  
+
   // UI 文字載入中不阻塞後台顯示（使用默認文字）
   if (uiTextsLoading && !isLoading) {
     // 允許顯示後台，但顯示載入提示
@@ -158,7 +144,7 @@ const AdminPage = () => {
   return (
     <div className="container mx-auto p-6 max-w-7xl">
       <h1 className="text-3xl font-bold mb-6">{headerTitle}</h1>
-      
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-10 mb-6">
           <TabsTrigger value="users">{tabUsers}</TabsTrigger>
@@ -173,10 +159,10 @@ const AdminPage = () => {
           <TabsTrigger value="banned-words">{tabBannedWords}</TabsTrigger>
           <TabsTrigger value="legal">{tabLegal}</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="users">
           <Card className="p-6">
-            <UserManager 
+            <UserManager
               onSetRestriction={(userId) => {
                 setSelectedUserIdForRestriction(userId);
                 setActiveTab("user-restrictions");
@@ -184,47 +170,47 @@ const AdminPage = () => {
             />
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="notifications">
           <Card className="p-6">
             <NotificationManager />
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="contact">
           <Card className="p-6">
             <ContactMessageManager />
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="reports">
           <Card className="p-6">
             <ReportManager />
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="topics">
           <Card className="p-6">
             <TopicManager />
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="security">
           <Card className="p-6">
             <SecurityManager />
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="ui-texts">
           <Card className="p-6">
             <UITextManager />
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="config">
           <SystemConfigManager />
         </TabsContent>
-        
+
         <TabsContent value="banned-words">
           <BannedWordsManager />
         </TabsContent>
@@ -232,10 +218,10 @@ const AdminPage = () => {
         <TabsContent value="legal">
           <LegalContentManager />
         </TabsContent>
-        
+
         <TabsContent value="user-restrictions">
           <Card className="p-6">
-            <UserRestrictionManager 
+            <UserRestrictionManager
               preselectedUserId={selectedUserIdForRestriction}
               onUserSelected={() => setSelectedUserIdForRestriction(null)}
             />

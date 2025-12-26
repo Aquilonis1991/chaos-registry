@@ -9,11 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ReportedTopicsManager } from "./ReportedTopicsManager";
-import { 
-  Flag, 
-  Eye, 
-  Check, 
-  X, 
+import {
+  Flag,
+  Eye,
+  Check,
+  X,
   Clock,
   AlertCircle,
   Loader2,
@@ -104,7 +104,7 @@ const targetTypeLabels: Record<string, string> = {
   comment: '留言'
 };
 
-const noop = () => {};
+const noop = () => { };
 
 const ReportManager = ({ onJumpToTopic = noop }: ReportManagerProps) => {
   const [reports, setReports] = useState<Report[]>([]);
@@ -134,9 +134,9 @@ const ReportManager = ({ onJumpToTopic = noop }: ReportManagerProps) => {
   const fetchReports = async () => {
     try {
       setLoading(true);
-      
+
       const statusFilter = currentTab === 'all' ? null : currentTab;
-      
+
       const { data, error } = await supabase.rpc('get_reports_with_details', {
         p_status: statusFilter,
         p_limit: 100,
@@ -156,7 +156,7 @@ const ReportManager = ({ onJumpToTopic = noop }: ReportManagerProps) => {
   const fetchStats = async () => {
     try {
       const { data, error } = await supabase.rpc('get_report_stats');
-      
+
       if (error) throw error;
       if (data && data.length > 0) {
         setStats(data[0]);
@@ -176,7 +176,7 @@ const ReportManager = ({ onJumpToTopic = noop }: ReportManagerProps) => {
 
   const handleUpdateStatus = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!selectedReport) return;
 
     setIsUpdating(true);
@@ -192,7 +192,7 @@ const ReportManager = ({ onJumpToTopic = noop }: ReportManagerProps) => {
       if (error) throw error;
 
       toast.success('檢舉狀態已更新');
-      
+
       await fetchReports();
       await fetchStats();
       setIsDialogOpen(false);
@@ -216,7 +216,7 @@ const ReportManager = ({ onJumpToTopic = noop }: ReportManagerProps) => {
       if (error) throw error;
 
       toast.success(`檢舉已標記為${statusLabels[status]}`);
-      
+
       await fetchReports();
       await fetchStats();
     } catch (error) {
@@ -285,181 +285,186 @@ const ReportManager = ({ onJumpToTopic = noop }: ReportManagerProps) => {
               </div>
             </div>
 
-      {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">總檢舉數</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total_reports}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">待處理</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{stats.pending_reports}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">審核中</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.reviewing_reports}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">已處理</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.resolved_reports}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">已駁回</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.rejected_reports}</div>
-          </CardContent>
-        </Card>
-      </div>
+            {/* Statistics */}
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">總檢舉數</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.total_reports}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">待處理</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-orange-600">{stats.pending_reports}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">審核中</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-600">{stats.reviewing_reports}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">已處理</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-600">{stats.resolved_reports}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">已駁回</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-red-600">{stats.rejected_reports}</div>
+                </CardContent>
+              </Card>
+            </div>
 
-      {/* Reports Table */}
-      <Card>
-        <CardContent className="p-0">
-          <Tabs value={currentTab} onValueChange={setCurrentTab}>
-            <TabsList className="w-full grid grid-cols-5 rounded-none border-b">
-              <TabsTrigger value="all">全部</TabsTrigger>
-              <TabsTrigger value="pending">待處理</TabsTrigger>
-              <TabsTrigger value="reviewing">審核中</TabsTrigger>
-              <TabsTrigger value="resolved">已處理</TabsTrigger>
-              <TabsTrigger value="rejected">已駁回</TabsTrigger>
-            </TabsList>
+            {/* Reports Table */}
+            <Card>
+              <CardContent className="p-0">
+                <Tabs value={currentTab} onValueChange={setCurrentTab}>
+                  <TabsList className="w-full grid grid-cols-5 rounded-none border-b">
+                    <TabsTrigger value="all">全部</TabsTrigger>
+                    <TabsTrigger value="pending">待處理</TabsTrigger>
+                    <TabsTrigger value="reviewing">審核中</TabsTrigger>
+                    <TabsTrigger value="resolved">已處理</TabsTrigger>
+                    <TabsTrigger value="rejected">已駁回</TabsTrigger>
+                  </TabsList>
 
-            <TabsContent value={currentTab} className="m-0">
-              {reports.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">
-                  暫無檢舉記錄
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>檢舉對象</TableHead>
-                      <TableHead>類型</TableHead>
-                      <TableHead>原因</TableHead>
-                      <TableHead>檢舉人</TableHead>
-                      <TableHead>狀態</TableHead>
-                      <TableHead>時間</TableHead>
-                      <TableHead>操作</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {reports.map((report) => (
-                      <TableRow key={report.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {getTargetIcon(report.target_type)}
-                            <div>
-                              <div className="font-medium">
-                                {targetTypeLabels[report.target_type]}
-                              </div>
-                              {report.target_title && (
-                                <div className="text-sm text-muted-foreground line-clamp-1">
-                                  {report.target_title}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {getReportTypeIcon(report.report_type)}
-                            <span className="text-sm">
-                              {reportTypeLabels[report.report_type]}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="max-w-xs">
-                            <p className="text-sm line-clamp-2">{report.reason}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            {report.reporter_email || '匿名'}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {getStatusBadge(report.status)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm text-muted-foreground">
-                            {format(new Date(report.created_at), 'MM/dd HH:mm', { locale: zhTW })}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {report.target_type === 'topic' && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => onJumpToTopic(report.target_id)}
-                              >
-                                前往主題管理
-                              </Button>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleViewReport(report)}
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            {report.status === 'pending' && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleQuickAction(report.id, 'reviewing')}
-                                  className="text-blue-600 hover:text-blue-700"
-                                >
-                                  <Clock className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleQuickAction(report.id, 'resolved')}
-                                  className="text-green-600 hover:text-green-700"
-                                >
-                                  <Check className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleQuickAction(report.id, 'rejected')}
-                                  className="text-red-600 hover:text-red-700"
-                                >
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+                  <TabsContent value={currentTab} className="m-0">
+                    {reports.length === 0 ? (
+                      <div className="p-8 text-center text-muted-foreground">
+                        暫無檢舉記錄
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>檢舉對象</TableHead>
+                              <TableHead>類型</TableHead>
+                              <TableHead>原因</TableHead>
+                              <TableHead>檢舉人</TableHead>
+                              <TableHead>狀態</TableHead>
+                              <TableHead>時間</TableHead>
+                              <TableHead>操作</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {reports.map((report) => (
+                              <TableRow key={report.id}>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    {getTargetIcon(report.target_type)}
+                                    <div>
+                                      <div className="font-medium whitespace-nowrap">
+                                        {targetTypeLabels[report.target_type]}
+                                      </div>
+                                      {report.target_title && (
+                                        <div className="text-sm text-muted-foreground line-clamp-1 w-32">
+                                          {report.target_title}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2 whitespace-nowrap">
+                                    {getReportTypeIcon(report.report_type)}
+                                    <span className="text-sm">
+                                      {reportTypeLabels[report.report_type]}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="max-w-xs min-w-[200px]">
+                                    <p className="text-sm line-clamp-2">{report.reason}</p>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="text-sm whitespace-nowrap">
+                                    {report.reporter_email || '匿名'}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="whitespace-nowrap">
+                                    {getStatusBadge(report.status)}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="text-sm text-muted-foreground whitespace-nowrap">
+                                    {format(new Date(report.created_at), 'MM/dd HH:mm', { locale: zhTW })}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    {report.target_type === 'topic' && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => onJumpToTopic(report.target_id)}
+                                        className="whitespace-nowrap"
+                                      >
+                                        前往主題管理
+                                      </Button>
+                                    )}
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleViewReport(report)}
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                    </Button>
+                                    {report.status === 'pending' && (
+                                      <>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => handleQuickAction(report.id, 'reviewing')}
+                                          className="text-blue-600 hover:text-blue-700"
+                                        >
+                                          <Clock className="w-4 h-4" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => handleQuickAction(report.id, 'resolved')}
+                                          className="text-green-600 hover:text-green-700"
+                                        >
+                                          <Check className="w-4 h-4" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => handleQuickAction(report.id, 'rejected')}
+                                          className="text-red-600 hover:text-red-700"
+                                        >
+                                          <X className="w-4 h-4" />
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 

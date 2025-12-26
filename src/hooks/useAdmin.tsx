@@ -16,20 +16,20 @@ interface AdminCache {
 // 從 localStorage 讀取快取
 const getCachedAdminStatus = (userId: string | undefined): boolean | null => {
   if (!userId || typeof window === 'undefined') return null;
-  
+
   try {
     const cached = localStorage.getItem(ADMIN_CACHE_KEY);
     if (!cached) return null;
-    
+
     const cache: AdminCache = JSON.parse(cached);
-    
+
     // 檢查是否過期或用戶ID不匹配
     const now = Date.now();
     if (now - cache.timestamp > ADMIN_CACHE_EXPIRY || cache.userId !== userId) {
       localStorage.removeItem(ADMIN_CACHE_KEY);
       return null;
     }
-    
+
     return cache.isAdmin;
   } catch (error) {
     console.warn('[useAdmin] Failed to read cache:', error);
@@ -40,7 +40,7 @@ const getCachedAdminStatus = (userId: string | undefined): boolean | null => {
 // 保存到 localStorage
 const setCachedAdminStatus = (userId: string, isAdmin: boolean): void => {
   if (typeof window === 'undefined') return;
-  
+
   try {
     const cache: AdminCache = {
       userId,
@@ -61,9 +61,9 @@ export const useAdmin = () => {
 
   // 強制輸出日誌（即使被壓縮也會保留）
   if (typeof window !== 'undefined') {
-    window.console?.log?.('[useAdmin] Hook called:', { 
-      hasUser: !!user, 
-      userId: user?.id, 
+    window.console?.log?.('[useAdmin] Hook called:', {
+      hasUser: !!user,
+      userId: user?.id,
       authLoading,
       cachedStatus
     });
@@ -76,7 +76,7 @@ export const useAdmin = () => {
       if (typeof window !== 'undefined') {
         window.console?.log?.('[useAdmin] Query function called for user:', user?.id);
       }
-      
+
       if (!user?.id) {
         if (typeof window !== 'undefined') {
           window.console?.log?.('[useAdmin] No user ID, returning false');
@@ -87,18 +87,18 @@ export const useAdmin = () => {
       if (typeof window !== 'undefined') {
         window.console?.log?.('[useAdmin] Checking admin status for user:', user.id);
       }
-      
+
       // 快速查詢策略：先嘗試 RPC，如果失敗立即使用直接查詢，不等待超時
       try {
         // 方法1：嘗試 RPC 函數（5秒超時，快速失敗）
         try {
           console.log('[useAdmin] Attempting RPC call...');
-          
+
           const rpcPromise = supabase.rpc('is_admin', { check_user_id: user.id });
-          const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) => 
+          const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) =>
             setTimeout(() => reject(new Error('RPC 查詢超時（5秒）')), 5000)
           );
-          
+
           let rpcResult: { data: any; error: any };
           try {
             rpcResult = await Promise.race([
@@ -109,11 +109,11 @@ export const useAdmin = () => {
             console.warn('[useAdmin] RPC timeout, trying direct query:', timeoutError);
             // 不拋出錯誤，繼續嘗試直接查詢
           }
-          
+
           const { data: rpcData, error: rpcError } = rpcResult || { data: null, error: null };
-          
+
           console.log('[useAdmin] RPC response:', { rpcData, rpcError });
-          
+
           if (!rpcError && rpcData !== null && rpcData !== undefined) {
             const result = !!rpcData;
             console.log('[useAdmin] Admin status (via RPC):', result);
@@ -121,7 +121,7 @@ export const useAdmin = () => {
             setCachedAdminStatus(user.id, result);
             return result;
           }
-          
+
           if (rpcError) {
             console.warn('[useAdmin] RPC error, trying direct query:', rpcError);
           }
@@ -131,17 +131,17 @@ export const useAdmin = () => {
 
         // 方法2：直接查詢 admin_users 表（5秒超時，快速失敗）
         console.log('[useAdmin] Attempting direct query...');
-        
+
         const queryPromise = supabase
           .from('admin_users')
           .select('user_id')
           .eq('user_id', user.id)
           .maybeSingle();
-        
-        const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) => 
+
+        const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) =>
           setTimeout(() => reject(new Error('查詢超時（5秒）')), 5000)
         );
-        
+
         let queryResult: { data: any; error: any };
         try {
           queryResult = await Promise.race([
@@ -202,9 +202,9 @@ export const useAdmin = () => {
     placeholderData: cachedStatus !== null ? cachedStatus : undefined,
   });
 
-  console.log('[useAdmin] Query state:', { 
-    isAdmin, 
-    isLoading, 
+  console.log('[useAdmin] Query state:', {
+    isAdmin,
+    isLoading,
     error,
     enabled: !!user?.id && !authLoading,
     hasUser: !!user,
@@ -283,12 +283,12 @@ export const useAdmin = () => {
   // 使用 ref 來追蹤查詢結果，避免狀態更新延遲問題
   const isSuperAdminRef = useRef<boolean>(false);
   const [isSuperAdminState, setIsSuperAdminState] = useState<boolean>(false);
-  
+
   // 檢查是否為最高管理者（只有確認是管理員後才檢查）
-  const { 
-    data: isSuperAdminData, 
-    isLoading: isSuperAdminLoading, 
-    status: isSuperAdminStatus, 
+  const {
+    data: isSuperAdminData,
+    isLoading: isSuperAdminLoading,
+    status: isSuperAdminStatus,
     fetchStatus: isSuperAdminFetchStatus,
     error: isSuperAdminError
   } = useQuery({
@@ -298,29 +298,29 @@ export const useAdmin = () => {
         console.log('[useAdmin] 🔍 No user ID, returning false');
         return false;
       }
-      
+
       console.log('[useAdmin] 🔍 Checking super admin status for user:', user.id);
-      
+
       try {
-        const { data, error } = await supabase.rpc('is_super_admin', { 
-          check_user_id: user.id 
+        const { data, error } = await supabase.rpc('is_super_admin', {
+          check_user_id: user.id
         });
-        
+
         if (error) {
           console.warn('[useAdmin] ❌ Error checking super admin status:', error);
           return false;
         }
-        
+
         const isSuper = !!data;
         console.log('[useAdmin] ✅ Super admin status result:', isSuper, 'Raw data:', data);
-        
+
         // 立即更新 ref 和 state
         if (isSuper) {
           isSuperAdminRef.current = true;
           setIsSuperAdminState(true);
           console.log('[useAdmin] 🔄 Immediately set isSuperAdmin to true');
         }
-        
+
         return isSuper;
       } catch (err) {
         console.error('[useAdmin] ❌ Exception checking super admin status:', err);
@@ -328,7 +328,7 @@ export const useAdmin = () => {
       }
     },
     // 使用計算好的 enabled 條件
-    enabled: isSuperAdminQueryEnabled, 
+    enabled: isSuperAdminQueryEnabled,
     retry: 1,
     staleTime: 300000,
     refetchOnWindowFocus: false,
@@ -337,7 +337,7 @@ export const useAdmin = () => {
     // 當查詢被禁用時，保持最後的數據
     gcTime: Infinity, // 永遠不清理緩存
   });
-  
+
   // 當查詢數據更新時，更新 ref 和 state
   useEffect(() => {
     if (isSuperAdminData === true) {
@@ -354,7 +354,7 @@ export const useAdmin = () => {
       }
     }
   }, [isSuperAdminData]);
-  
+
   // 確保 isSuperAdmin 有正確的值
   // 優先使用查詢數據，如果查詢數據是 true，直接返回 true
   // 如果查詢數據是 false，檢查 ref 是否為 true（可能是之前的查詢結果）
@@ -398,7 +398,7 @@ export const useAdmin = () => {
       finalIsAdminValue: finalIsAdmin
     }
   });
-  
+
   // 如果應該啟用但查詢沒有執行，記錄警告
   if (isSuperAdminQueryEnabled && isSuperAdminData === undefined && !isSuperAdminLoading && isSuperAdminStatus !== 'pending') {
     console.warn('[useAdmin] ⚠️ isSuperAdmin should be enabled but query not running. Status:', isSuperAdminStatus, 'FetchStatus:', isSuperAdminFetchStatus);
@@ -406,9 +406,9 @@ export const useAdmin = () => {
 
   // 強制輸出最終結果
   if (typeof window !== 'undefined' && user?.id) {
-    window.console?.log?.('[useAdmin] Final result:', { 
-      userId: user.id, 
-      isAdmin: result, 
+    window.console?.log?.('[useAdmin] Final result:', {
+      userId: user.id,
+      isAdmin: result,
       isLoading: finalLoading,
       queryEnabled: !!user?.id && !authLoading,
       cachedStatus,
@@ -416,10 +416,10 @@ export const useAdmin = () => {
     });
   }
 
-  return { 
+  return {
     isAdmin: result,
     isSuperAdmin: isSuperAdmin || false,
     isLoading: finalLoading,
-    error 
+    error
   };
 };

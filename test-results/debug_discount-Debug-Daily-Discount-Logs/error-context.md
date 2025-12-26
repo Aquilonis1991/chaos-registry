@@ -1,0 +1,47 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - img "ChaosRegistry Logo" [ref=e8]
+      - heading "ChaosRegistry" [level=3] [ref=e9]
+      - paragraph [ref=e10]: Calmly let go of reason.
+    - generic [ref=e11]:
+      - generic [ref=e12]:
+        - tablist [ref=e13]:
+          - tab "Log In" [selected] [ref=e14] [cursor=pointer]
+          - tab "Sign Up" [ref=e15] [cursor=pointer]
+        - tabpanel "Log In" [ref=e16]:
+          - generic [ref=e17]:
+            - generic [ref=e18]:
+              - text: Email
+              - textbox "Email" [ref=e19]:
+                - /placeholder: your@email.com
+                - text: admin@example.com
+            - generic [ref=e20]:
+              - text: Password
+              - textbox "Password" [active] [ref=e21]:
+                - /placeholder: ••••••••
+                - text: admin123
+            - button "Log In" [ref=e22] [cursor=pointer]
+            - generic [ref=e23]:
+              - button "Sign in with Google" [ref=e24] [cursor=pointer]:
+                - img
+              - button "Sign in with Apple" [ref=e25] [cursor=pointer]:
+                - img
+              - button "Sign in with Discord" [ref=e26] [cursor=pointer]:
+                - img
+              - button "使用 X (Twitter) 登入" [ref=e27] [cursor=pointer]:
+                - img
+              - button "Sign in with LINE" [ref=e28] [cursor=pointer]:
+                - img
+      - generic [ref=e29]:
+        - button "Browse anonymously" [ref=e30] [cursor=pointer]:
+          - img
+          - text: Browse anonymously
+        - paragraph [ref=e31]: You can only browse. Register to vote.
+```

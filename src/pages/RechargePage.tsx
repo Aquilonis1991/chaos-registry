@@ -10,41 +10,8 @@ import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { usePurchase } from "@/hooks/usePurchase";
+import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 
-const tokenPackages = [
-  { 
-    id: 1, 
-    tokens: 100, 
-    price: 30, 
-    icon: Coins,
-    popular: false,
-    bonus: 0
-  },
-  { 
-    id: 2, 
-    tokens: 500, 
-    price: 150, 
-    icon: Zap,
-    popular: true,
-    bonus: 50
-  },
-  { 
-    id: 3, 
-    tokens: 1000, 
-    price: 280, 
-    icon: Star,
-    popular: false,
-    bonus: 150
-  },
-  { 
-    id: 4, 
-    tokens: 3000, 
-    price: 800, 
-    icon: Crown,
-    popular: false,
-    bonus: 500
-  },
-];
 
 const RechargePage = () => {
   const { toast: toastHook } = useToast();
@@ -81,6 +48,23 @@ const RechargePage = () => {
   ];
   const mobileNoteTitle = getText('recharge.mobile.title', '📱 關於行動應用內購');
   const mobileNoteDescription = getText('recharge.mobile.description', '如需整合 Google Play 或 App Store 內購功能，需要使用 Capacitor 將應用打包為原生行動應用。目前的網頁版使用模擬購買流程。');
+
+  /* Configs */
+  const { getConfig } = useSystemConfigCache();
+  const rechargeAmounts = getConfig('recharge_amounts', [
+    { id: 1, tokens: 100, price: 30, icon: 'Coins', popular: false, bonus: 0 },
+    { id: 2, tokens: 500, price: 150, icon: 'Zap', popular: true, bonus: 50 },
+    { id: 3, tokens: 1000, price: 280, icon: 'Star', popular: false, bonus: 150 },
+    { id: 4, tokens: 3000, price: 800, icon: 'Crown', popular: false, bonus: 500 },
+  ]);
+
+  // Map icon strings to components
+  const iconMap: Record<string, any> = { Coins, Zap, Star, Crown };
+
+  const tokenPackages = (Array.isArray(rechargeAmounts) ? rechargeAmounts : []).map((pkg: any) => ({
+    ...pkg,
+    icon: iconMap[pkg.icon] || Coins
+  }));
 
   const handlePurchase = async (pkg: typeof tokenPackages[0]) => {
     setSelectedPackage(pkg.id);
@@ -141,11 +125,10 @@ const RechargePage = () => {
           {tokenPackages.map((pkg) => {
             const Icon = pkg.icon;
             return (
-              <Card 
-                key={pkg.id} 
-                className={`bg-gradient-card shadow-card hover:shadow-glow transition-all relative ${
-                  pkg.popular ? 'ring-2 ring-primary' : ''
-                }`}
+              <Card
+                key={pkg.id}
+                className={`bg-gradient-card shadow-card hover:shadow-glow transition-all relative ${pkg.popular ? 'ring-2 ring-primary' : ''
+                  }`}
               >
                 {pkg.popular && (
                   <Badge className="absolute -top-2 left-4 bg-primary text-primary-foreground">
@@ -157,7 +140,7 @@ const RechargePage = () => {
                     <div className="flex-shrink-0 w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center">
                       <Icon className="w-8 h-8 text-primary-foreground" />
                     </div>
-                    
+
                     <div className="flex-1">
                       <div className="flex items-baseline gap-2 mb-1">
                         <span className="text-2xl font-bold text-foreground">
@@ -174,7 +157,7 @@ const RechargePage = () => {
                         NT$ {pkg.price}
                       </p>
                     </div>
-                    
+
                     <Button
                       onClick={() => handlePurchase(pkg)}
                       disabled={selectedPackage === pkg.id || isProcessing}

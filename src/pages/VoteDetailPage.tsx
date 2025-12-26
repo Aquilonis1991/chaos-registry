@@ -31,6 +31,7 @@ import { ExposureApplyDialog } from "@/components/ExposureApplyDialog";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
+import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 import { formatRelativeTime, formatRemainingTime } from "@/lib/relativeTime";
 
 const VoteDetailPage = () => {
@@ -43,6 +44,9 @@ const VoteDetailPage = () => {
   const { refreshStats } = useUserStats(user?.id);
   const { language } = useLanguage();
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
+  const { getConfig } = useSystemConfigCache();
+  const voteButtonAmounts = getConfig('vote_button_amounts', [1, 10, 100]) as number[];
+
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isVoting, setIsVoting] = useState(false);
   const [freeVoteAvailable, setFreeVoteAvailable] = useState(false);
@@ -107,7 +111,7 @@ const VoteDetailPage = () => {
       setCheckingFreeVote(false);
     }
   }, [user, isAnonymous, id]); // 移除 checkFreeVoteAvailable 避免無限循環
-  
+
   const handleVote = async (tokenAmount: number) => {
     if (!selectedOption) {
       toast.error(selectOptionText);
@@ -127,7 +131,7 @@ const VoteDetailPage = () => {
       toast.error(needLoginText);
       return;
     }
-    
+
     if (profile.tokens < tokenAmount) {
       toast.error(insufficientTokensText);
       return;
@@ -259,135 +263,135 @@ const VoteDetailPage = () => {
   return (
     <>
       <div className="min-h-screen bg-background pb-6">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg">
-        <div className="max-w-screen-xl mx-auto px-5 sm:px-6 py-4">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate(-1)}
-              className="text-primary-foreground hover:bg-primary-foreground/20"
-            >
-              <ArrowLeft className="w-6 h-6" />
-            </Button>
-            
-            <div className="flex-1">
-              <h1 className="text-lg font-bold text-primary-foreground">{headerTitle}</h1>
-            </div>
-            
-            {!isAnonymous && (
-              <div className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                <Coins className="w-4 h-4 text-accent" />
-                <span className="font-bold text-primary-foreground text-sm">{userTokens.toLocaleString()}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+        {/* Header */}
+        <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg">
+          <div className="max-w-screen-xl mx-auto px-5 sm:px-6 py-4">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(-1)}
+                className="text-primary-foreground hover:bg-primary-foreground/20"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </Button>
 
-      {/* Content */}
-      <div className="max-w-screen-xl mx-auto px-5 sm:px-6 py-6">
-        {/* Topic Info */}
-        <div className="mb-6 max-w-4xl mx-auto w-full px-4 sm:px-6">
-          <h2 className="text-2xl font-bold text-foreground mb-3">
-            {topic.title}
-          </h2>
-          
-          <div className="flex flex-wrap gap-2 mb-4">
-            {topic.tags.map((tag) => (
-              <Badge key={tag} variant="secondary">
-                #{tag}
-              </Badge>
-            ))}
-          </div>
-          
-          {topic.description && (
-            <p className="text-muted-foreground mb-4">
-              {topic.description}
-            </p>
-          )}
-          
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <User className="w-4 h-4" />
-                <span>{topic.creator_name}</span>
+              <div className="flex-1">
+                <h1 className="text-lg font-bold text-primary-foreground">{headerTitle}</h1>
               </div>
-              <div className="flex items-center gap-1">
-                <Clock className="w-4 h-4" />
-                <span>{createdAtLabel}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Clock className="w-4 h-4" />
-                <span>{remainingTimeLabel}</span>
-              </div>
+
+              {!isAnonymous && (
+                <div className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                  <Coins className="w-4 h-4 text-accent" />
+                  <span className="font-bold text-primary-foreground text-sm">{userTokens.toLocaleString()}</span>
+                </div>
+              )}
             </div>
-            
-            {/* Action Buttons */}
-            <div className="w-full">
-              <div className={`grid gap-3 ${isCreator ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4' : 'grid-cols-2'}`}>
-                {/* 編輯和刪除按鈕（僅創建者可見）*/}
-                {isCreator && (
-                  <>
-                    <div className="w-full">
-                      <EditTopicDialog
-                        topicId={id || ''}
-                        currentTitle={topic.title}
-                        currentDescription={topic.description}
-                        currentOptions={topic.options.map(opt => opt.text)}
-                        createdAt={topic.created_at}
-                        onEditSuccess={refreshTopic}
-                        triggerClassName="w-full"
-                      />
-                    </div>
-                    <div className="w-full">
-                      <DeleteTopicDialog
-                        topicId={id || ''}
-                        topicTitle={topic.title}
-                        navigateAfterDelete={true}
-                        triggerClassName="w-full"
-                      />
-                    </div>
-                    {/* 曝光升級按鈕 */}
-                    {topic.exposure_level !== 'high' && (
+          </div>
+        </header>
+
+        {/* Content */}
+        <div className="max-w-screen-xl mx-auto px-5 sm:px-6 py-6">
+          {/* Topic Info */}
+          <div className="mb-6 max-w-4xl mx-auto w-full px-4 sm:px-6">
+            <h2 className="text-2xl font-bold text-foreground mb-3">
+              {topic.title}
+            </h2>
+
+            <div className="flex flex-wrap gap-2 mb-4">
+              {topic.tags.map((tag) => (
+                <Badge key={tag} variant="secondary">
+                  #{tag}
+                </Badge>
+              ))}
+            </div>
+
+            {topic.description && (
+              <p className="text-muted-foreground mb-4">
+                {topic.description}
+              </p>
+            )}
+
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <User className="w-4 h-4" />
+                  <span>{topic.creator_name}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Clock className="w-4 h-4" />
+                  <span>{createdAtLabel}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Clock className="w-4 h-4" />
+                  <span>{remainingTimeLabel}</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="w-full">
+                <div className={`grid gap-3 ${isCreator ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4' : 'grid-cols-2'}`}>
+                  {/* 編輯和刪除按鈕（僅創建者可見）*/}
+                  {isCreator && (
+                    <>
                       <div className="w-full">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setExposureDialogOpen(true)}
-                          className="w-full text-primary hover:text-primary"
-                        >
-                          <Sparkles className="w-4 h-4 mr-2" />
-                          {upgradeExposureText}
-                        </Button>
+                        <EditTopicDialog
+                          topicId={id || ''}
+                          currentTitle={topic.title}
+                          currentDescription={topic.description}
+                          currentOptions={topic.options.map(opt => opt.text)}
+                          createdAt={topic.created_at}
+                          onEditSuccess={refreshTopic}
+                          triggerClassName="w-full"
+                        />
                       </div>
-                    )}
-                  </>
-                )}
-                
-                {/* Report Button */}
-                <div className="w-full">
-                  <ReportDialog
-                    targetType="topic"
-                    targetId={id || ""}
-                    targetTitle={topic.title}
-                    trigger={
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full text-muted-foreground hover:text-destructive"
-                      >
-                        <Flag className="w-4 h-4 mr-2" />
-                        {reportButtonText}
-                      </Button>
-                    }
-                  />
+                      <div className="w-full">
+                        <DeleteTopicDialog
+                          topicId={id || ''}
+                          topicTitle={topic.title}
+                          navigateAfterDelete={true}
+                          triggerClassName="w-full"
+                        />
+                      </div>
+                      {/* 曝光升級按鈕 */}
+                      {topic.exposure_level !== 'high' && (
+                        <div className="w-full">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setExposureDialogOpen(true)}
+                            className="w-full text-primary hover:text-primary"
+                          >
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            {upgradeExposureText}
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Report Button */}
+                  <div className="w-full">
+                    <ReportDialog
+                      targetType="topic"
+                      targetId={id || ""}
+                      targetTitle={topic.title}
+                      trigger={
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full text-muted-foreground hover:text-destructive"
+                        >
+                          <Flag className="w-4 h-4 mr-2" />
+                          {reportButtonText}
+                        </Button>
+                      }
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-            
+
             {/* 曝光升級對話框 */}
             {user && topic.creator_id === user.id && topic.exposure_level !== 'high' && (
               <ExposureApplyDialog
@@ -414,7 +418,7 @@ const VoteDetailPage = () => {
               const optionText = option?.text || (typeof option === 'string' ? option : unknownOptionText);
               const percentage = totalVotes > 0 ? ((option?.votes || 0) / totalVotes) * 100 : 0;
               const isSelected = selectedOption === optionId;
-              
+
               return (
                 <Card
                   key={optionId}
@@ -424,18 +428,17 @@ const VoteDetailPage = () => {
                     console.log('Option clicked:', { optionId, option, selectedOption });
                     setSelectedOption(optionId);
                   }}
-                  className={`cursor-pointer transition-all hover:shadow-glow ${
-                    isSelected ? "ring-2 ring-primary shadow-glow bg-primary/5" : "hover:bg-muted/50"
-                  }`}
+                  className={`cursor-pointer transition-all hover:shadow-glow ${isSelected ? "ring-2 ring-primary shadow-glow bg-primary/5" : "hover:bg-muted/50"
+                    }`}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-semibold text-foreground">{optionText}</span>
                       <span className="text-primary font-bold">{(option?.votes || 0).toLocaleString()}</span>
                     </div>
-                    
+
                     <Progress value={percentage} className="h-2 mb-1" />
-                    
+
                     <div className="text-sm text-muted-foreground">
                       {percentage.toFixed(1)}%
                     </div>
@@ -478,7 +481,7 @@ const VoteDetailPage = () => {
                 <p className="text-sm text-muted-foreground mb-3">
                   {anonymousCardDescription}
                 </p>
-                <Button 
+                <Button
                   onClick={() => navigate("/auth")}
                   className="w-full"
                 >
@@ -515,48 +518,23 @@ const VoteDetailPage = () => {
 
               <h3 className="text-lg font-semibold text-foreground mb-3">{tokenSectionTitle}</h3>
               <div className="grid grid-cols-3 gap-3">
-                <Button
-                  variant="vote"
-                  size="lg"
-                  onClick={() => openVoteConfirmDialog(1, 'quick')}
-                  className="h-16 text-lg"
-                  disabled={isVoting || !selectedOption}
-                >
-                  {isVoting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
-                    <>
-                      <Coins className="w-5 h-5 mr-2" />
-                      +1
-                    </>
-                  )}
-                </Button>
-                <Button
-                  variant="vote"
-                  size="lg"
-                  onClick={() => openVoteConfirmDialog(10, 'quick')}
-                  className="h-16 text-lg"
-                  disabled={isVoting || !selectedOption}
-                >
-                  {isVoting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
-                    <>
-                      <Coins className="w-5 h-5 mr-2" />
-                      +10
-                    </>
-                  )}
-                </Button>
-                <Button
-                  variant="accent"
-                  size="lg"
-                  onClick={() => openVoteConfirmDialog(100, 'quick')}
-                  className="h-16 text-lg"
-                  disabled={isVoting || !selectedOption}
-                >
-                  {isVoting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
-                    <>
-                      <Coins className="w-5 h-5 mr-2" />
-                      +100
-                    </>
-                  )}
-                </Button>
+                {voteButtonAmounts.map((amount) => (
+                  <Button
+                    key={amount}
+                    variant={amount >= 100 ? "accent" : "vote"}
+                    size="lg"
+                    onClick={() => openVoteConfirmDialog(amount, 'quick')}
+                    className="h-16 text-lg"
+                    disabled={isVoting || !selectedOption}
+                  >
+                    {isVoting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                      <>
+                        <Coins className="w-5 h-5 mr-2" />
+                        +{amount}
+                      </>
+                    )}
+                  </Button>
+                ))}
               </div>
 
               {/* Custom Amount Input */}

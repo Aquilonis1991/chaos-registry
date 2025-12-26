@@ -61,17 +61,18 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
       // 根據篩選條件使用不同的 SQL 函數
       switch (filter) {
         case 'hot':
-          // 使用新的熱門排序函數（含曝光排序）
+          // 使用新的熱門排序函數（含曝光排序和寬限期）
           const { data: hotData, error: hotError } = await supabase.rpc(
             'get_hot_topics_with_exposure',
             {
               p_limit: limit,
               p_offset: 0,
+              p_grace_days: expiredGraceDays
             }
           );
           data = hotData || [];
           fetchError = hotError;
-          
+
           // 獲取創建者資訊
           if (!fetchError && data.length > 0) {
             const creatorIds = [...new Set(data.map(t => t.creator_id))];
@@ -79,7 +80,7 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
               .from('profiles')
               .select('id, nickname, avatar')
               .in('id', creatorIds);
-            
+
             const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
             data = data.map(topic => ({
               ...topic,
@@ -87,19 +88,20 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
             }));
           }
           break;
-          
+
         case 'latest':
-          // 使用新的最新排序函數（含曝光插隊）
+          // 使用新的最新排序函數（含曝光插隊和寬限期）
           const { data: latestData, error: latestError } = await supabase.rpc(
             'get_latest_topics_with_exposure',
             {
               p_limit: limit,
               p_offset: 0,
+              p_grace_days: expiredGraceDays
             }
           );
           data = latestData || [];
           fetchError = latestError;
-          
+
           // 獲取創建者資訊
           if (!fetchError && data.length > 0) {
             const creatorIds = [...new Set(data.map(t => t.creator_id))];
@@ -107,7 +109,7 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
               .from('profiles')
               .select('id, nickname, avatar')
               .in('id', creatorIds);
-            
+
             const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
             data = data.map(topic => ({
               ...topic,
@@ -115,7 +117,7 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
             }));
           }
           break;
-          
+
         case 'joined':
           // 參與過：需要用戶ID，使用原有邏輯
           if (!userId) {
@@ -125,7 +127,7 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
           }
           // 這裡需要額外查詢用戶參與過的主題
           return; // 交給 fetchJoinedTopics 處理
-          
+
         default:
           // 預設使用熱門排序
           const { data: defaultData, error: defaultError } = await supabase.rpc(
@@ -133,18 +135,19 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
             {
               p_limit: limit,
               p_offset: 0,
+              p_grace_days: expiredGraceDays
             }
           );
           data = defaultData || [];
           fetchError = defaultError;
-          
+
           if (!fetchError && data.length > 0) {
             const creatorIds = [...new Set(data.map(t => t.creator_id))];
             const { data: profiles } = await supabase
               .from('profiles')
               .select('id, nickname, avatar')
               .in('id', creatorIds);
-            
+
             const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
             data = data.map(topic => ({
               ...topic,
@@ -159,7 +162,7 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
       const processedTopics: Topic[] = (data || []).map(topic => {
         // 計算總投票數（如果沒有從 SQL 函數返回）
         const totalVotes = topic.total_votes || topic.options?.reduce(
-          (sum: number, opt: any) => sum + (opt.votes || 0), 
+          (sum: number, opt: any) => sum + (opt.votes || 0),
           0
         ) || 0;
 
@@ -251,7 +254,7 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
 
       const processedTopics: Topic[] = (data || []).map(topic => {
         const totalVotes = topic.options?.reduce(
-          (sum: number, opt: any) => sum + (opt.votes || 0), 
+          (sum: number, opt: any) => sum + (opt.votes || 0),
           0
         ) || 0;
 

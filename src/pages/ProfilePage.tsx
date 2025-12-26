@@ -15,15 +15,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { 
-  User, 
-  Coins, 
-  Trophy, 
-  FileText, 
-  History, 
-  Globe, 
-  Bell, 
-  Shield, 
+import {
+  User,
+  Coins,
+  Trophy,
+  FileText,
+  History,
+  Globe,
+  Bell,
+  Shield,
   Mail,
   ChevronRight,
   Edit,
@@ -52,11 +52,13 @@ import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { ErrorFeedback } from "@/components/ErrorFeedback";
 import { validateNickname, getBannedWordErrorMessage } from "@/lib/bannedWords";
 import { formatCompactNumber } from "@/lib/numberFormat";
+import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 
 const ProfilePage = () => {
   const { profile, loading: profileLoading, refreshProfile } = useProfile();
   const { user, signOut } = useAuth();
   const { stats, loading: statsLoading } = useUserStats(user?.id);
+  const { getConfig } = useSystemConfigCache();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState(true);
   const [isEditingName, setIsEditingName] = useState(false);
@@ -94,7 +96,7 @@ const ProfilePage = () => {
     await signOut();
     navigate("/auth");
   };
-  
+
   const handleNicknameUpdateError = (error: any) => {
     console.error('[ProfilePage] Nickname update error:', error);
     console.error('[ProfilePage] Error details:', {
@@ -105,7 +107,7 @@ const ProfilePage = () => {
       errors: error?.errors,
       fullError: error
     });
-    
+
     if (error?.errors && Array.isArray(error.errors) && error.errors.length > 0) {
       toast.error(error.errors[0]?.message || getText('profile.error.updateFailed', '更新失敗'));
     } else if (error?.message) {
@@ -204,7 +206,7 @@ const ProfilePage = () => {
       setPendingReviewKeyword(null);
     }
   };
-  
+
   const handleSaveName = async () => {
     if (!profile) {
       console.error('[ProfilePage] handleSaveName: No profile');
@@ -250,7 +252,7 @@ const ProfilePage = () => {
         if (cleanedAvatar.length > 10 || cleanedAvatar.startsWith('http://') || cleanedAvatar.startsWith('https://')) {
           cleanedAvatar = '🔥';
         }
-        
+
         profileUpdateSchema.parse({
           nickname: trimmedNickname,
           avatar: cleanedAvatar,
@@ -277,7 +279,8 @@ const ProfilePage = () => {
 
       // 檢查禁字
       console.log('[ProfilePage] handleSaveName: Checking banned words');
-      const bannedCheck = await validateNickname(trimmedNickname);
+      const nicknameBannedLevels = getConfig('nickname_banned_check_levels', ['A', 'B', 'C', 'D', 'E']);
+      const bannedCheck = await validateNickname(trimmedNickname, nicknameBannedLevels);
       console.log('[ProfilePage] handleSaveName: Banned words check result', bannedCheck);
       if (bannedCheck.found) {
         if (bannedCheck.action === 'block' || bannedCheck.action === 'mask') {
@@ -327,7 +330,7 @@ const ProfilePage = () => {
 
   const handleNotificationsChange = async (value: boolean) => {
     if (!profile) return;
-    
+
     try {
       const { error } = await supabase
         .from('profiles')
@@ -417,287 +420,287 @@ const ProfilePage = () => {
       </AlertDialog>
 
       <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
-      <header className="bg-gradient-primary shadow-lg">
-        <div className="max-w-screen-xl mx-auto px-4 py-8">
-          <div className="flex flex-col items-center gap-4">
-            
-            <div className="text-center">
-              {isEditingName ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={tempNickname}
-                    onChange={(e) => setTempNickname(e.target.value)}
-                    className="w-40 h-8 text-center bg-primary-foreground/20 border-primary-foreground/40 text-primary-foreground"
-                    maxLength={20}
-                  />
-                  <Button 
-                    size="icon" 
-                    variant="ghost" 
-                    className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
-                    onClick={handleSaveName}
-                  >
-                    <Check className="w-4 h-4" />
-                  </Button>
-                  <Button 
-                    size="icon" 
-                    variant="ghost" 
-                    className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
-                    onClick={handleCancelEdit}
-                  >
-                    ✕
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <h1 className="text-2xl font-bold text-primary-foreground">
-                    {nickname}
-                  </h1>
-                  <Button 
-                    size="icon" 
-                    variant="ghost" 
-                    className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
-                    onClick={() => {
-                      setIsEditingName(true);
-                      setTempNickname(nickname);
-                    }}
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
-            </div>
+        {/* Header */}
+        <header className="bg-gradient-primary shadow-lg">
+          <div className="max-w-screen-xl mx-auto px-4 py-8">
+            <div className="flex flex-col items-center gap-4">
 
-            <button
-              onClick={() => navigate('/recharge')}
-              className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-6 py-3 rounded-full hover:bg-primary-foreground/30 transition-colors cursor-pointer"
-            >
-              <Coins className="w-6 h-6 text-accent" />
-              <span className="font-bold text-primary-foreground text-xl">
-                {userStats.tokens.toLocaleString()}
-              </span>
-              <span className="text-primary-foreground/80 text-sm">{tokensLabel}</span>
-            </button>
+              <div className="text-center">
+                {isEditingName ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={tempNickname}
+                      onChange={(e) => setTempNickname(e.target.value)}
+                      className="w-40 h-8 text-center bg-primary-foreground/20 border-primary-foreground/40 text-primary-foreground"
+                      maxLength={20}
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
+                      onClick={handleSaveName}
+                    >
+                      <Check className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
+                      onClick={handleCancelEdit}
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-2xl font-bold text-primary-foreground">
+                      {nickname}
+                    </h1>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
+                      onClick={() => {
+                        setIsEditingName(true);
+                        setTempNickname(nickname);
+                      }}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => navigate('/recharge')}
+                className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-6 py-3 rounded-full hover:bg-primary-foreground/30 transition-colors cursor-pointer"
+              >
+                <Coins className="w-6 h-6 text-accent" />
+                <span className="font-bold text-primary-foreground text-xl">
+                  {userStats.tokens.toLocaleString()}
+                </span>
+                <span className="text-primary-foreground/80 text-sm">{tokensLabel}</span>
+              </button>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Stats */}
-      <div className="max-w-screen-xl mx-auto px-4 -mt-4">
-        <Card className="shadow-glow">
-          <CardContent className="p-5">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary mb-1">
-                  {formatCompactNumber(userStats.totalVotes)}
+        {/* Stats */}
+        <div className="max-w-screen-xl mx-auto px-4 -mt-4">
+          <Card className="shadow-glow">
+            <CardContent className="p-5">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-primary mb-1">
+                    {formatCompactNumber(userStats.totalVotes)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">{votesCountLabel}</div>
                 </div>
-                <div className="text-xs text-muted-foreground">{votesCountLabel}</div>
-              </div>
-              
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary mb-1">
-                  {userStats.topicsCreated}
-                </div>
-                <div className="text-xs text-muted-foreground">{topicsCreatedLabel}</div>
-              </div>
-              
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600 mb-1">
-                  {formatCompactNumber(stats.totalFreeVotes)}
-                </div>
-                <div className="text-xs text-muted-foreground">{freeVotesLabel}</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
-      </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-primary mb-1">
+                    {userStats.topicsCreated}
+                  </div>
+                  <div className="text-xs text-muted-foreground">{topicsCreatedLabel}</div>
+                </div>
 
-      {/* Content */}
-      <div className="max-w-screen-xl mx-auto px-4 py-6 space-y-6">
-        {/* History Section */}
-        <div className="space-y-3">
-          <h2 className="text-base font-semibold text-muted-foreground px-2">
-            {historySectionLabel}
-          </h2>
-          
-          <Card>
-            <CardContent className="p-0">
-              <Link to="/history/votes">
-                <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <History className="w-5 h-5 text-primary" />
-                    <span className="font-medium">{voteHistoryLabel}</span>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600 mb-1">
+                    {formatCompactNumber(stats.totalFreeVotes)}
                   </div>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                </button>
-              </Link>
-              
-              <Separator />
-              
-              <Link to="/history/topics">
-                <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <FileText className="w-5 h-5 text-primary" />
-                    <span className="font-medium">{topicHistoryLabel}</span>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                </button>
-              </Link>
-              
-              <Separator />
-              
-              <Link to="/history/token-usage">
-                <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <Coins className="w-5 h-5 text-accent" />
-                    <span className="font-medium">{tokenHistoryLabel}</span>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                </button>
-              </Link>
+                  <div className="text-xs text-muted-foreground">{freeVotesLabel}</div>
+                </div>
+              </div>
             </CardContent>
           </Card>
+
         </div>
 
-        {/* Settings Section */}
-        <div className="space-y-3">
-          <h2 className="text-base font-semibold text-muted-foreground px-2">
-            {settingsSectionLabel}
-          </h2>
-          
-          <Card>
-            <CardContent className="p-0">
-              <div className="px-5 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Globe className="w-5 h-5 text-primary" />
-                  <Label htmlFor="language" className="font-medium cursor-pointer">
-                    {languageLabel}
-                  </Label>
-                </div>
-                <Select value={language} onValueChange={setLanguage}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="zh">{languageOptions.zh}</SelectItem>
-                    <SelectItem value="en">{languageOptions.en}</SelectItem>
-                    <SelectItem value="ja">{languageOptions.ja}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <Separator />
-              
-              <div className="px-5 py-4">
-                <div className="flex items-center gap-3 mb-2">
-                  <Mail className="w-5 h-5 text-primary" />
-                  <Label className="font-medium">{emailLabel}</Label>
-                </div>
-                <div className="text-sm text-muted-foreground ml-8">
-                  {user?.email || emailNotSet}
-                </div>
-              </div>
-              
-              <Separator />
-              
-              <ChangePasswordDialog />
-              
-              <Separator />
-              
-              <div className="px-5 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Bell className="w-5 h-5 text-primary" />
-                  <Label htmlFor="notifications" className="font-medium cursor-pointer">
-                    {notificationsLabel}
-                  </Label>
-                </div>
-                <Switch
-                  id="notifications"
-                  checked={profile.notifications ?? true}
-                  onCheckedChange={handleNotificationsChange}
-                />
-              </div>
-              
-              <Separator />
-              
-              <Link to="/terms">
-                <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+        {/* Content */}
+        <div className="max-w-screen-xl mx-auto px-4 py-6 space-y-6">
+          {/* History Section */}
+          <div className="space-y-3">
+            <h2 className="text-base font-semibold text-muted-foreground px-2">
+              {historySectionLabel}
+            </h2>
+
+            <Card>
+              <CardContent className="p-0">
+                <Link to="/history/votes">
+                  <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <History className="w-5 h-5 text-primary" />
+                      <span className="font-medium">{voteHistoryLabel}</span>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                  </button>
+                </Link>
+
+                <Separator />
+
+                <Link to="/history/topics">
+                  <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-5 h-5 text-primary" />
+                      <span className="font-medium">{topicHistoryLabel}</span>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                  </button>
+                </Link>
+
+                <Separator />
+
+                <Link to="/history/token-usage">
+                  <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <Coins className="w-5 h-5 text-accent" />
+                      <span className="font-medium">{tokenHistoryLabel}</span>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                  </button>
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Settings Section */}
+          <div className="space-y-3">
+            <h2 className="text-base font-semibold text-muted-foreground px-2">
+              {settingsSectionLabel}
+            </h2>
+
+            <Card>
+              <CardContent className="p-0">
+                <div className="px-5 py-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <FileText className="w-5 h-5 text-primary" />
-                    <span className="font-medium">{termsLabel}</span>
+                    <Globe className="w-5 h-5 text-primary" />
+                    <Label htmlFor="language" className="font-medium cursor-pointer">
+                      {languageLabel}
+                    </Label>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                </button>
-              </Link>
-              
-              <Separator />
-              
-              <Link to="/privacy">
-                <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <Shield className="w-5 h-5 text-primary" />
-                    <span className="font-medium">{privacyLabel}</span>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                </button>
-              </Link>
-              
-              <Separator />
-              
-              <Link to="/contact">
-                <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-3">
+                  <Select value={language} onValueChange={setLanguage}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="zh">{languageOptions.zh}</SelectItem>
+                      <SelectItem value="en">{languageOptions.en}</SelectItem>
+                      <SelectItem value="ja">{languageOptions.ja}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Separator />
+
+                <div className="px-5 py-4">
+                  <div className="flex items-center gap-3 mb-2">
                     <Mail className="w-5 h-5 text-primary" />
-                    <span className="font-medium">{contactLabel}</span>
+                    <Label className="font-medium">{emailLabel}</Label>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                </button>
-              </Link>
-              
-              <Separator />
-              
-              <Link to="/notifications">
-                <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                  <div className="text-sm text-muted-foreground ml-8">
+                    {user?.email || emailNotSet}
+                  </div>
+                </div>
+
+                <Separator />
+
+                <ChangePasswordDialog />
+
+                <Separator />
+
+                <div className="px-5 py-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Bell className="w-5 h-5 text-primary" />
-                    <span className="font-medium">{notificationsMenuLabel}</span>
+                    <Label htmlFor="notifications" className="font-medium cursor-pointer">
+                      {notificationsLabel}
+                    </Label>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {unreadNotificationCount > 0 && (
-                      <Badge variant="destructive" className="text-xs">
-                        {unreadNotificationCount}
-                      </Badge>
-                    )}
+                  <Switch
+                    id="notifications"
+                    checked={profile.notifications ?? true}
+                    onCheckedChange={handleNotificationsChange}
+                  />
+                </div>
+
+                <Separator />
+
+                <Link to="/terms">
+                  <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-5 h-5 text-primary" />
+                      <span className="font-medium">{termsLabel}</span>
+                    </div>
                     <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                  </div>
-                </button>
-              </Link>
-            </CardContent>
-          </Card>
-        </div>
+                  </button>
+                </Link>
 
-        {/* Logout Button */}
-        <Button
-          variant="outline"
-          size="lg"
-          className="w-full"
-          onClick={handleLogout}
-        >
-          <LogOut className="w-5 h-5 mr-2" />
-          {logoutLabel}
-        </Button>
+                <Separator />
 
-        {/* 錯誤回饋 */}
-        <div className="flex justify-center mt-4">
-          <ErrorFeedback triggerText={reportIssueLabel} triggerVariant="ghost" />
-        </div>
+                <Link to="/privacy">
+                  <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <Shield className="w-5 h-5 text-primary" />
+                      <span className="font-medium">{privacyLabel}</span>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                  </button>
+                </Link>
 
-        {/* Version */}
-        <div className="text-center text-sm text-muted-foreground py-4">
-          ChaosRegistry v1.0.0
+                <Separator />
+
+                <Link to="/contact">
+                  <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <Mail className="w-5 h-5 text-primary" />
+                      <span className="font-medium">{contactLabel}</span>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                  </button>
+                </Link>
+
+                <Separator />
+
+                <Link to="/notifications">
+                  <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <Bell className="w-5 h-5 text-primary" />
+                      <span className="font-medium">{notificationsMenuLabel}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {unreadNotificationCount > 0 && (
+                        <Badge variant="destructive" className="text-xs">
+                          {unreadNotificationCount}
+                        </Badge>
+                      )}
+                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                  </button>
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Logout Button */}
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full"
+            onClick={handleLogout}
+          >
+            <LogOut className="w-5 h-5 mr-2" />
+            {logoutLabel}
+          </Button>
+
+          {/* 錯誤回饋 */}
+          <div className="flex justify-center mt-4">
+            <ErrorFeedback triggerText={reportIssueLabel} triggerVariant="ghost" />
+          </div>
+
+          {/* Version */}
+          <div className="text-center text-sm text-muted-foreground py-4">
+            ChaosRegistry v1.0.0
+          </div>
         </div>
-      </div>
       </div>
     </>
   );

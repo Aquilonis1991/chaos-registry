@@ -114,7 +114,7 @@ BEGIN
     v_user_id,
     'user_self_delete',
     'user',
-    v_user_id::text,
+    v_user_id,
     jsonb_build_object(
       'reason', p_reason,
       'original_email', v_auth_email

@@ -47,7 +47,7 @@ const TermsPage = () => {
         <Card>
           <CardContent className="p-6 space-y-6 prose prose-sm max-w-none">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-foreground mb-2">📜《全民亂投 App 使用者條款》</h2>
+              <h2 className="text-2xl font-bold text-foreground mb-2">📜《不理性登記處 App 使用者條款》</h2>
               <p className="text-muted-foreground">
                 {hasCustomContent ? getText('termsPage.header.subtitle', 'Terms of Service') : '版本日期：2025 年 10 月'}
               </p>
@@ -68,7 +68,7 @@ const TermsPage = () => {
 const DefaultTermsSections = () => (
   <>
     <p className="text-foreground">
-      感謝您使用《全民亂投》（以下簡稱「本服務」），本應用程式由 OOO 有限公司（以下簡稱「本公司」）所營運。
+      感謝您使用《不理性登記處》（以下簡稱「本服務」），本應用程式由 OOO 有限公司（以下簡稱「本公司」）所營運。
     </p>
     <p className="text-foreground">
       在使用本服務前，請您仔細閱讀以下條款。
@@ -80,7 +80,7 @@ const DefaultTermsSections = () => (
     <section>
       <h3 className="text-xl font-bold text-foreground mb-3">一、服務宗旨</h3>
       <p className="text-foreground">
-        《全民亂投》是一款以「搞笑、反串、娛樂」為主軸的全民投票平台。所有投票主題、內容與結果皆屬虛構創作，僅供使用者娛樂、討論與社群互動之用，不代表真實立場、政治意圖或任何事實陳述。
+        《不理性登記處》是一款以「搞笑、反串、娛樂」為主軸的全民投票平台。所有投票主題、內容與結果皆屬虛構創作，僅供使用者娛樂、討論與社群互動之用，不代表真實立場、政治意圖或任何事實陳述。
       </p>
     </section>
 
@@ -114,7 +114,7 @@ const DefaultTermsSections = () => (
     <section>
       <h3 className="text-xl font-bold text-foreground mb-3">四、使用規範</h3>
       <p className="text-foreground mb-3">使用本服務時，請遵守以下原則：</p>
-      
+
       <h4 className="text-lg font-semibold text-foreground mb-2">1. 禁止行為</h4>
       <ul className="list-disc list-inside space-y-2 text-foreground mb-4">
         <li>上傳或發佈違反法律、公序良俗、仇恨或歧視言論之內容。</li>
@@ -156,7 +156,7 @@ const DefaultTermsSections = () => (
     <section>
       <h3 className="text-xl font-bold text-foreground mb-3">七、個資與隱私</h3>
       <ol className="list-decimal list-inside space-y-2 text-foreground">
-        <li>本公司將依據《全民亂投隱私權政策》保護使用者資料。</li>
+        <li>本公司將依據《不理性登記處隱私權政策》保護使用者資料。</li>
         <li>主要收集項目包含：登入識別資訊（UUID、Email）、使用紀錄、代幣消耗與行為統計。</li>
         <li>未經您的同意，本公司不會將個人資料提供給第三方，除非依法律規定或執法單位要求。</li>
       </ol>

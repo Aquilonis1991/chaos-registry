@@ -47,7 +47,7 @@ const PrivacyPage = () => {
         <Card>
           <CardContent className="p-6 space-y-6 prose prose-sm max-w-none">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-foreground mb-2">🔒《全民亂投 隱私權政策》</h2>
+              <h2 className="text-2xl font-bold text-foreground mb-2">🔒《不理性登記處 隱私權政策》</h2>
               <p className="text-muted-foreground">
                 {hasCustomContent ? getText('privacyPage.header.subtitle', 'Privacy Policy') : '版本日期：2025 年 10 月'}
               </p>
@@ -68,7 +68,7 @@ const PrivacyPage = () => {
 const DefaultPrivacySections = () => (
   <>
     <p className="text-foreground">
-      感謝您使用《全民亂投》（以下簡稱「本服務」或「本 App」）。本隱私權政策說明本公司（OOO 有限公司）如何收集、使用、儲存及保護您的個人資料。
+      感謝您使用《不理性登記處》（以下簡稱「本服務」或「本 App」）。本隱私權政策說明本公司（OOO 有限公司）如何收集、使用、儲存及保護您的個人資料。
     </p>
     <p className="text-foreground font-semibold">
       當您使用本服務時，即表示您已閱讀並同意本政策的所有內容。
@@ -77,14 +77,14 @@ const DefaultPrivacySections = () => (
     <section>
       <h3 className="text-xl font-bold text-foreground mb-3">一、資料收集範圍</h3>
       <p className="text-foreground mb-3">為提供完整服務體驗，本 App 可能收集以下資訊：</p>
-      
+
       <h4 className="text-lg font-semibold text-foreground mb-2">1. 帳號資訊</h4>
       <ul className="list-disc list-inside space-y-2 text-foreground mb-4">
         <li>第三方登入資訊（Google、Apple ID 等授權資料）</li>
         <li>使用者暱稱、電子郵件（如有提供）</li>
         <li>裝置識別碼（UUID）</li>
       </ul>
-      
+
       <h4 className="text-lg font-semibold text-foreground mb-2">2. 使用行為資料</h4>
       <ul className="list-disc list-inside space-y-2 text-foreground mb-4">
         <li>投票紀錄、建立主題內容</li>
@@ -92,7 +92,7 @@ const DefaultPrivacySections = () => (
         <li>瀏覽紀錄、點擊行為、停留時間</li>
         <li>裝置資訊（作業系統、App 版本、語言設定）</li>
       </ul>
-      
+
       <h4 className="text-lg font-semibold text-foreground mb-2">3. 其他資訊</h4>
       <ul className="list-disc list-inside space-y-2 text-foreground">
         <li>IP 位址、地理位置（僅用於防詐騙與優化服務）</li>
@@ -116,7 +116,7 @@ const DefaultPrivacySections = () => (
     <section>
       <h3 className="text-xl font-bold text-foreground mb-3">三、資料分享與揭露</h3>
       <p className="text-foreground mb-3">本公司不會將您的個人資料出售或出租給第三方。但在以下情況下，可能與第三方分享資料：</p>
-      
+
       <h4 className="text-lg font-semibold text-foreground mb-2">1. 服務供應商</h4>
       <ul className="list-disc list-inside space-y-2 text-foreground mb-4">
         <li>雲端儲存與資料庫服務（如 Supabase、AWS）</li>
@@ -208,7 +208,7 @@ const DefaultPrivacySections = () => (
       <p className="text-muted-foreground text-sm">
         最後更新日期：2025 年 10 月
         <br />
-        感謝您信任《全民亂投》，我們致力於保護您的隱私安全！🔒
+        感謝您信任《不理性登記處》，我們致力於保護您的隱私安全！🔒
       </p>
     </div>
   </>

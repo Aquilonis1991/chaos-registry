@@ -10,7 +10,7 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Trash2, Loader2, AlertTriangle, AlertCircle } from "lucide-react";
+import { Trash2, Loader2, AlertTriangle, AlertCircle, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -36,15 +36,15 @@ export const DeleteAccountDialog = () => {
 
         try {
             // 呼叫 RPC
-            const { data, error } = await supabase.rpc('user_self_delete', {
+            const { data, error } = await (supabase.rpc as any)('user_self_delete', {
                 p_reason: 'user_requested_via_app'
             });
 
             if (error) throw error;
 
             // 檢查回傳結果
-            if (data && data.success === false) {
-                throw new Error(data.error || 'Unknown error');
+            if (data && (data as any).success === false) {
+                throw new Error((data as any).error || 'Unknown error');
             }
 
             toast.success(getText('deleteAccount.success', '帳號已成功刪除'));
@@ -77,7 +77,7 @@ export const DeleteAccountDialog = () => {
                         <Trash2 className="w-5 h-5 text-destructive group-hover:text-destructive" />
                         <span className="font-medium text-destructive">{getText('deleteAccount.button', '刪除帳號')}</span>
                     </div>
-                    <span className="text-muted-foreground group-hover:text-destructive">›</span>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-destructive" />
                 </button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md border-destructive/20">

@@ -25,14 +25,14 @@ const translations: Record<BaseLanguage, Record<string, string>> = {
   zh: {
     // Header
     "app.name": "ChaosRegistry",
-    "app.slogan": "投票混亂製造機",
+    "app.slogan": "不理性登記處",
     "tokens": "代幣",
-    
+
     // Tabs
     "tab.hot": "🔥 熱門",
     "tab.latest": "⚡ 最新",
     "tab.joined": "✅ 參與過",
-    
+
     // Profile
     "profile.votes": "投票次數",
     "profile.topics": "發起主題",
@@ -48,13 +48,13 @@ const translations: Record<BaseLanguage, Record<string, string>> = {
     "profile.contact": "連絡我們",
     "profile.nameUpdated": "名稱已更新",
     "profile.avatarUpdated": "頭像已更新",
-    
+
     // Empty states
     "empty.noVotes": "還沒有參與過的投票",
     "empty.noTopics": "還沒有發起過的主題",
     "empty.noTokenHistory": "還沒有使用紀錄",
     "empty.startVoting": "開始投票",
-    
+
     // Missions
     "mission.title": "每日任務",
     "mission.login7days": "7天登入",
@@ -67,12 +67,12 @@ const translations: Record<BaseLanguage, Record<string, string>> = {
     "app.name": "ChaosRegistry",
     "app.slogan": "Chaos Voting Machine",
     "tokens": "Tokens",
-    
+
     // Tabs
     "tab.hot": "🔥 Hot",
     "tab.latest": "⚡ Latest",
     "tab.joined": "✅ Joined",
-    
+
     // Profile
     "profile.votes": "Total Votes",
     "profile.topics": "Topics Created",
@@ -88,13 +88,13 @@ const translations: Record<BaseLanguage, Record<string, string>> = {
     "profile.contact": "Contact Us",
     "profile.nameUpdated": "Name updated",
     "profile.avatarUpdated": "Avatar updated",
-    
+
     // Empty states
     "empty.noVotes": "No votes yet",
     "empty.noTopics": "No topics created yet",
     "empty.noTokenHistory": "No usage history",
     "empty.startVoting": "Start Voting",
-    
+
     // Missions
     "mission.title": "Daily Missions",
     "mission.login7days": "7-Day Login",
@@ -107,12 +107,12 @@ const translations: Record<BaseLanguage, Record<string, string>> = {
     "app.name": "ChaosRegistry",
     "app.slogan": "投票カオスメーカー",
     "tokens": "トークン",
-    
+
     // Tabs
     "tab.hot": "🔥 人気",
     "tab.latest": "⚡ 最新",
     "tab.joined": "✅ 参加済み",
-    
+
     // Profile
     "profile.votes": "投票回数",
     "profile.topics": "作成したトピック",
@@ -128,13 +128,13 @@ const translations: Record<BaseLanguage, Record<string, string>> = {
     "profile.contact": "お問い合わせ",
     "profile.nameUpdated": "名前を更新しました",
     "profile.avatarUpdated": "アバターを更新しました",
-    
+
     // Empty states
     "empty.noVotes": "まだ投票がありません",
     "empty.noTopics": "まだトピックを作成していません",
     "empty.noTokenHistory": "使用履歴がありません",
     "empty.startVoting": "投票を始める",
-    
+
     // Missions
     "mission.title": "デイリーミッション",
     "mission.login7days": "7日間ログイン",
@@ -155,7 +155,7 @@ const LANGUAGE_STORAGE_KEY = 'app_language_preference';
 // 從 localStorage 讀取保存的語言偏好
 const getStoredLanguage = (): Language => {
   if (typeof window === 'undefined') return 'zh';
-  
+
   try {
     const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
     if (stored) {
@@ -168,7 +168,7 @@ const getStoredLanguage = (): Language => {
   } catch (error) {
     console.error('Error reading language preference:', error);
   }
-  
+
   // 如果沒有保存的偏好，嘗試從瀏覽器語言檢測
   if (typeof navigator !== 'undefined' && navigator.language) {
     const browserLang = navigator.language.toLowerCase();
@@ -176,14 +176,14 @@ const getStoredLanguage = (): Language => {
     if (browserLang.startsWith('ja')) return 'ja';
     if (browserLang.startsWith('en')) return 'en';
   }
-  
+
   return 'zh'; // 默認返回中文
 };
 
 // 保存語言偏好到 localStorage
 const saveLanguagePreference = (lang: Language) => {
   if (typeof window === 'undefined') return;
-  
+
   try {
     localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
   } catch (error) {

@@ -49,6 +49,7 @@ import { useUserStats } from "@/hooks/useUserStats";
 import { supabase } from "@/integrations/supabase/client";
 import { profileUpdateSchema } from "@/lib/validationSchemas";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
+import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { ErrorFeedback } from "@/components/ErrorFeedback";
 import { validateNickname, getBannedWordErrorMessage } from "@/lib/bannedWords";
 import { formatCompactNumber } from "@/lib/numberFormat";
@@ -676,6 +677,10 @@ const ProfilePage = () => {
                     </div>
                   </button>
                 </Link>
+
+                <Separator />
+
+                <DeleteAccountDialog />
               </CardContent>
             </Card>
           </div>

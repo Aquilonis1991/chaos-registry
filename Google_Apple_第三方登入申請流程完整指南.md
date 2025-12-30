@@ -2,11 +2,79 @@
 
 ## 📋 目錄
 
-1. [Google 第三方登入申請流程](#google-第三方登入申請流程)
-2. [Apple 第三方登入申請流程](#apple-第三方登入申請流程)
-3. [Supabase 整合設定](#supabase-整合設定)
-4. [測試與驗證](#測試與驗證)
-5. [常見問題與解決方案](#常見問題與解決方案)
+1. [企業驗證所需網頁網址（快速參考）](#企業驗證所需網頁網址快速參考)
+2. [Google 第三方登入申請流程](#google-第三方登入申請流程)
+3. [Apple 第三方登入申請流程](#apple-第三方登入申請流程)
+4. [Supabase 整合設定](#supabase-整合設定)
+5. [測試與驗證](#測試與驗證)
+6. [常見問題與解決方案](#常見問題與解決方案)
+
+---
+
+## 🔗 企業驗證所需網頁網址（快速參考）
+
+### 應用程式網址
+
+以下網址需要在 **Google OAuth 同意畫面**中設定：
+
+1. **應用程式首頁連結**：
+   ```
+   https://chaos-registry.vercel.app
+   ```
+   - 📍 **路由**：`/`（首頁）
+   - 📁 **檔案位置**：`src/pages/Index.tsx` 或 `src/pages/HomePage.tsx`
+
+2. **應用程式隱私權政策連結**：
+   ```
+   https://chaos-registry.vercel.app/privacy
+   ```
+   - 📍 **路由**：`/privacy`
+   - 📁 **檔案位置**：`src/pages/PrivacyPage.tsx`
+   - ⚠️ **重要**：如果應用程式是公開的，這是必需的
+
+3. **應用程式服務條款連結**：
+   ```
+   https://chaos-registry.vercel.app/terms
+   ```
+   - 📍 **路由**：`/terms`
+   - 📁 **檔案位置**：`src/pages/TermsPage.tsx`
+   - ⚠️ **重要**：如果應用程式是公開的，這是必需的
+
+4. **關於我們/介紹頁面**（可選但建議）：
+   ```
+   https://chaos-registry.vercel.app/about
+   ```
+   - 📍 **路由**：`/about`（需確認是否已在 `App.tsx` 中設定路由）
+   - 📁 **檔案位置**：`src/pages/AboutPage.tsx`
+   - 💡 **說明**：這是企業驗證時可以使用的介紹頁面，包含商家資訊、服務內容、聯絡資訊等
+   - 📝 **內容包含**：
+     - 商家介紹（ChaosRegistry / 全民亂投）
+     - 核心功能說明
+     - 服務內容
+     - 商家資訊
+     - 聯絡資訊
+
+5. **登陸頁面/介紹頁面**（可選）：
+   ```
+   https://chaos-registry.vercel.app/landing
+   ```
+   - 📍 **路由**：`/landing`（需確認是否已在 `App.tsx` 中設定路由）
+   - 📁 **檔案位置**：`src/pages/LandingPage.tsx`
+   - 💡 **說明**：這是完整的介紹頁面，包含 Hero Section、功能介紹、關於我們、聯絡我們等區塊
+
+### 已授權的網域
+
+在 Google OAuth 同意畫面中，需要添加以下網域：
+```
+chaos-registry.vercel.app
+```
+（只輸入網域，不要包含 `https://` 或路徑）
+
+### 📝 查閱路徑
+
+- **關於我們頁面**：`src/pages/AboutPage.tsx`
+- **登陸頁面**：`src/pages/LandingPage.tsx`
+- **路由設定**：`src/App.tsx`（需確認 `/about` 和 `/landing` 路由是否已設定）
 
 ---
 
@@ -91,17 +159,27 @@
 
 4. **應用程式首頁連結**：
    - 輸入：`https://chaos-registry.vercel.app`
-   - 或您的應用程式首頁 URL
+   - 📍 **路由**：`/`（首頁）
+   - 📁 **檔案位置**：`src/pages/Index.tsx` 或 `src/pages/HomePage.tsx`
+   - 💡 **備選**：如果使用介紹頁面，可以使用 `https://chaos-registry.vercel.app/landing`（需確認路由是否已設定）
 
 5. **應用程式隱私權政策連結**：
    - 輸入：`https://chaos-registry.vercel.app/privacy`
-   - 或您的隱私權政策 URL
+   - 📍 **路由**：`/privacy`
+   - 📁 **檔案位置**：`src/pages/PrivacyPage.tsx`
    - ⚠️ **重要**：如果應用程式是公開的，這是必需的
 
 6. **應用程式服務條款連結**：
    - 輸入：`https://chaos-registry.vercel.app/terms`
-   - 或您的服務條款 URL
+   - 📍 **路由**：`/terms`
+   - 📁 **檔案位置**：`src/pages/TermsPage.tsx`
    - ⚠️ **重要**：如果應用程式是公開的，這是必需的
+
+7. **關於我們/介紹頁面**（可選但建議）：
+   - 輸入：`https://chaos-registry.vercel.app/about`
+   - 📍 **路由**：`/about`（需確認是否已在 `App.tsx` 中設定路由）
+   - 📁 **檔案位置**：`src/pages/AboutPage.tsx`
+   - 💡 **說明**：這是企業驗證時可以使用的介紹頁面，包含商家資訊、服務內容等
 
 7. **已授權的網域**：
    - 點擊「**新增網域**」

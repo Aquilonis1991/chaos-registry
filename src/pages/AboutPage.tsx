@@ -42,7 +42,7 @@ const AboutPage = () => {
           <CardContent className="p-6 space-y-8">
             {/* 商家介紹 */}
             <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-foreground mb-3">關於 ChaosRegistry</h2>
+              <h2 className="text-3xl font-bold text-foreground mb-3">關於 不理性登記處</h2>
               <p className="text-lg text-muted-foreground">
                 {getText('aboutPage.company.tagline', '以虛構、趣味話題為核心的娛樂性投票平台')}
               </p>
@@ -53,7 +53,7 @@ const AboutPage = () => {
               <h3 className="text-2xl font-bold text-foreground mb-4">📱 關於我們</h3>
               <div className="space-y-4 text-foreground">
                 <p>
-                  <strong>ChaosRegistry</strong>（中文名稱：全民亂投）是一款以虛構、趣味話題為核心的娛樂性投票平台。
+                  <strong>不理性登記處</strong>是一款以虛構、趣味話題為核心的娛樂性投票平台。
                 </p>
                 <p>
                   我們致力於提供一個輕鬆、有趣的投票體驗，讓使用者可以：
@@ -121,7 +121,7 @@ const AboutPage = () => {
               <h3 className="text-2xl font-bold text-foreground mb-4">🎯 服務內容</h3>
               <div className="space-y-3 text-foreground">
                 <p>
-                  ChaosRegistry 提供以下服務：
+                  不理性登記處 提供以下服務：
                 </p>
                 <ol className="list-decimal list-inside space-y-2 ml-4">
                   <li><strong>投票平台服務</strong>：提供用戶瀏覽、參與和創建投票主題的平台</li>
@@ -138,7 +138,7 @@ const AboutPage = () => {
               <div className="space-y-4 text-foreground">
                 <div>
                   <p className="font-semibold text-lg mb-2">商家名稱</p>
-                  <p className="text-muted-foreground">ChaosRegistry（全民亂投）</p>
+                  <p className="text-muted-foreground">不理性登記處</p>
                 </div>
                 
                 <div>
@@ -149,7 +149,7 @@ const AboutPage = () => {
                 <div>
                   <p className="font-semibold text-lg mb-2">服務描述</p>
                   <p className="text-muted-foreground">
-                    ChaosRegistry 是一款以虛構、趣味話題為核心的娛樂性投票平台。
+                    不理性登記處 是一款以虛構、趣味話題為核心的娛樂性投票平台。
                     使用者可瀏覽主題、以代幣投票、發起投票，或使用代幣提高主題曝光度。
                     平台具備內容治理與舉報機制，禁止真實政治人物、仇恨言論或敏感政治內容。
                     本服務僅供娛樂用途，不反映任何真實政治行為或公共政策。
@@ -227,7 +227,7 @@ const AboutPage = () => {
             {/* 版權資訊 */}
             <div className="border-t pt-6 mt-8 text-center">
               <p className="text-muted-foreground text-sm">
-                © 2025 ChaosRegistry. All rights reserved.
+                © 2025 不理性登記處. All rights reserved.
                 <br />
                 {getText('aboutPage.footer.tagline', '讓投票變得更有趣！')}
               </p>

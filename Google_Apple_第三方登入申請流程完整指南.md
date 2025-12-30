@@ -49,7 +49,7 @@
    - 📁 **路由設定**：`src/App.tsx`（已設定）
    - 💡 **說明**：這是企業驗證時可以使用的介紹頁面，包含商家資訊、服務內容、聯絡資訊等
    - 📝 **內容包含**：
-     - 商家介紹（ChaosRegistry / 全民亂投）
+     - 商家介紹（不理性登記處）
      - 核心功能說明
      - 服務內容
      - 商家資訊
@@ -105,7 +105,7 @@ chaos-registry.vercel.app
 1. 點擊頂部導航欄的「**選取專案**」下拉選單
 2. 點擊「**新增專案**」
 3. 填寫專案資訊：
-   - **專案名稱**：輸入 `ChaosRegistry`（或您喜歡的名稱）
+   - **專案名稱**：輸入 `不理性登記處`（或您喜歡的名稱）
    - **組織**：選擇您的組織（如果有）
    - **位置**：選擇專案位置
 4. 點擊「**建立**」
@@ -144,7 +144,7 @@ chaos-registry.vercel.app
 #### 3.3 填寫應用程式資訊
 
 1. **應用程式名稱**：
-   - 輸入：`ChaosRegistry`
+   - 輸入：`不理性登記處`
    - 這會顯示在 OAuth 同意畫面中
    - 最多 100 個字元
 
@@ -283,7 +283,7 @@ chaos-registry.vercel.app
 #### 4.4 填寫應用程式資訊
 
 1. **名稱**（Name）：
-   - 在「名稱」欄位中輸入：`ChaosRegistry Web Client`
+   - 在「名稱」欄位中輸入：`不理性登記處 Web Client`
    - 或您喜歡的名稱
    - 這只是內部識別名稱
 
@@ -331,7 +331,7 @@ chaos-registry.vercel.app
 
 1. 建立完成後，您會自動返回「**用戶端**」（Client）頁面
 2. 在「OAuth 2.0 用戶端 ID」表格中，您應該會看到剛建立的用戶端
-3. 點擊用戶端名稱（例如：`ChaosRegistry Web Client`）可以查看詳細資訊
+3. 點擊用戶端名稱（例如：`不理性登記處 Web Client`）可以查看詳細資訊
 4. 在詳細資訊頁面，確認「已授權的重新導向 URI」包含：
    ```
    https://epyykzxxglkjombvozhr.supabase.co/auth/v1/callback
@@ -396,7 +396,7 @@ chaos-registry.vercel.app
 #### 2.3 填寫 App ID 資訊
 
 1. **描述**：
-   - 輸入：`ChaosRegistry App ID`
+   - 輸入：`不理性登記處 App ID`
    - 這只是內部識別名稱
 
 2. **Bundle ID**：
@@ -429,7 +429,7 @@ chaos-registry.vercel.app
 #### 3.2 填寫 Services ID 資訊
 
 1. **描述**：
-   - 輸入：`ChaosRegistry Web Services`
+   - 輸入：`不理性登記處 Web Services`
    - 這只是內部識別名稱
 
 2. **Identifier**：

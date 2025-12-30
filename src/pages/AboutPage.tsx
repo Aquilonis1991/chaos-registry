@@ -53,7 +53,7 @@ const AboutPage = () => {
               <h3 className="text-2xl font-bold text-foreground mb-4">📱 關於我們</h3>
               <div className="space-y-4 text-foreground">
                 <p>
-                  <strong>ChaosRegistry</strong>（中文名稱：全民亂投）是一款以虛構、趣味話題為核心的娛樂性投票平台。
+                  <strong>ChaosRegistry</strong>（中文名稱：不理性登記處）是一款以虛構、趣味話題為核心的娛樂性投票平台。
                 </p>
                 <p>
                   我們致力於提供一個輕鬆、有趣的投票體驗，讓使用者可以：
@@ -138,9 +138,9 @@ const AboutPage = () => {
               <div className="space-y-4 text-foreground">
                 <div>
                   <p className="font-semibold text-lg mb-2">商家名稱</p>
-                  <p className="text-muted-foreground">ChaosRegistry（全民亂投）</p>
+                  <p className="text-muted-foreground">ChaosRegistry（不理性登記處）</p>
                 </div>
-                
+
                 <div>
                   <p className="font-semibold text-lg mb-2">服務類型</p>
                   <p className="text-muted-foreground">應用程式開發 / 軟體服務</p>
@@ -176,9 +176,9 @@ const AboutPage = () => {
                   <div>
                     <p className="font-semibold">官方網站</p>
                     <p className="text-sm text-muted-foreground">
-                      <a 
-                        href="https://chaos-registry.vercel.app" 
-                        target="_blank" 
+                      <a
+                        href="https://chaos-registry.vercel.app"
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="text-primary hover:underline"
                       >
@@ -194,8 +194,8 @@ const AboutPage = () => {
             <section>
               <h3 className="text-2xl font-bold text-foreground mb-4">🔗 相關連結</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Link 
-                  to="/privacy" 
+                <Link
+                  to="/privacy"
                   className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center gap-2">
@@ -203,8 +203,8 @@ const AboutPage = () => {
                     <span className="font-medium text-foreground">隱私權政策</span>
                   </div>
                 </Link>
-                <Link 
-                  to="/terms" 
+                <Link
+                  to="/terms"
                   className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center gap-2">
@@ -212,8 +212,8 @@ const AboutPage = () => {
                     <span className="font-medium text-foreground">服務條款</span>
                   </div>
                 </Link>
-                <Link 
-                  to="/contact" 
+                <Link
+                  to="/contact"
                   className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center gap-2">

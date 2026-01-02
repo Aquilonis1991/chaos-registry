@@ -18,6 +18,7 @@ import { isNative } from "@/lib/capacitor";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import LegalContentManager from "@/components/admin/LegalContentManager";
+import { DataExportManager } from "@/components/admin/DataExportManager";
 
 const AdminPage = () => {
   const { isAdmin, isLoading, error: adminError } = useAdmin();
@@ -39,6 +40,7 @@ const AdminPage = () => {
   const tabConfig = getText('admin.tabs.config', '系統配置');
   const tabBannedWords = getText('admin.tabs.bannedWords', '禁字表');
   const tabLegal = getText('admin.tabs.legal', '條款管理');
+  const tabExport = getText('admin.tabs.export', '數據匯出');
 
   useEffect(() => {
     // 檢查管理員權限
@@ -146,12 +148,13 @@ const AdminPage = () => {
       <h1 className="text-3xl font-bold mb-6">{headerTitle}</h1>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-10 mb-6">
+        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-6 xl:grid-cols-12 mb-6 h-auto gap-2">
           <TabsTrigger value="users">{tabUsers}</TabsTrigger>
           <TabsTrigger value="notifications">{tabNotifications}</TabsTrigger>
           <TabsTrigger value="contact">{tabContact}</TabsTrigger>
           <TabsTrigger value="reports">{tabReports}</TabsTrigger>
           <TabsTrigger value="topics">{tabTopics}</TabsTrigger>
+          <TabsTrigger value="export">{tabExport}</TabsTrigger>
           <TabsTrigger value="user-restrictions">{tabRestrictions}</TabsTrigger>
           <TabsTrigger value="security">{tabSecurity}</TabsTrigger>
           <TabsTrigger value="ui-texts">{tabUiTexts}</TabsTrigger>
@@ -195,6 +198,12 @@ const AdminPage = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="export">
+          <Card className="p-6">
+            <DataExportManager />
+          </Card>
+        </TabsContent>
+
         <TabsContent value="security">
           <Card className="p-6">
             <SecurityManager />
@@ -204,6 +213,12 @@ const AdminPage = () => {
         <TabsContent value="ui-texts">
           <Card className="p-6">
             <UITextManager />
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="export">
+          <Card className="p-6">
+            <DataExportManager />
           </Card>
         </TabsContent>
 

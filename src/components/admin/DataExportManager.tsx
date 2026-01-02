@@ -25,7 +25,7 @@ export const DataExportManager = () => {
             setLoading("users");
             const { start, end } = calculateDateRange();
 
-            const { data, error } = await supabase.rpc('admin_export_users', {
+            const { data, error } = await supabase.rpc('admin_export_users_v2', {
                 p_start_date: start,
                 p_end_date: end
             });
@@ -60,7 +60,7 @@ export const DataExportManager = () => {
             setLoading("topics");
             const { start, end } = calculateDateRange();
 
-            const { data, error } = await supabase.rpc('admin_export_topic_stats', {
+            const { data, error } = await supabase.rpc('admin_export_topic_stats_v2', {
                 p_start_date: start,
                 p_end_date: end
             });
@@ -98,7 +98,7 @@ export const DataExportManager = () => {
             setLoading("transactions");
             const { start, end } = calculateDateRange();
 
-            const { data, error } = await supabase.rpc('admin_export_transactions', {
+            const { data, error } = await supabase.rpc('admin_export_transactions_v2', {
                 p_start_date: start,
                 p_end_date: end
             });

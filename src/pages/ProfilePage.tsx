@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { LoadingBubble } from "@/components/ui/LoadingBubble";
 import { toast } from "sonner";
 import {
   Select,
@@ -421,6 +422,11 @@ const ProfilePage = () => {
       </AlertDialog>
 
       <div className="min-h-screen bg-background pb-20">
+        <LoadingBubble
+          isLoading={isUpdatingProfile}
+          textKey="loading.profile_update"
+          defaultText="正在更新個人資料..."
+        />
         {/* Header */}
         <header className="bg-gradient-primary shadow-lg">
           <div className="max-w-screen-xl mx-auto px-4 py-8">

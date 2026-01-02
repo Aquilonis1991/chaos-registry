@@ -1,4 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
+import { LoadingBubble } from "@/components/ui/LoadingBubble";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -288,24 +289,24 @@ const MissionPage = () => {
 
   const handleWatchAd = async () => {
     if (isWatchingAd) return;
-    
+
     setIsWatchingAd(true);
     let optimisticUpdateApplied = false;
     try {
       const adReward = getConfig('mission_watch_ad_reward', getConfig('ad_reward_amount', 5));
       const AD_REWARD = typeof adReward === 'number' ? adReward : Number(adReward) || 5;
-      
+
       // 先觀看廣告，只有在廣告觀看成功後才進行樂觀更新
       // 這樣可以避免：如果用戶關閉廣告，代幣不會錯誤增加
       const result = await watchAd();
-      
+
       // 廣告觀看成功後，立即樂觀更新代幣數量
       // 這確保了只有在用戶真正完成廣告觀看後，UI 才會更新
       updateTokensOptimistically(AD_REWARD);
       optimisticUpdateApplied = true;
-      
+
       const adRewardAmount = (result.reward ?? 0).toLocaleString();
-      
+
       // 防止重複顯示 toast（3秒內不重複顯示相同類型的 toast）
       const now = Date.now();
       const lastToast = lastToastRef.current;
@@ -315,7 +316,7 @@ const MissionPage = () => {
         });
         lastToastRef.current = { type: 'watchAd', timestamp: now };
       }
-      
+
       // 注意：實時訂閱會在數據庫更新時自動同步，可能會覆蓋樂觀更新
       // 這是正常的，因為實時訂閱的數據是權威來源
       // 如果實時訂閱沒有及時觸發（網絡延遲），樂觀更新會提供即時反饋
@@ -339,7 +340,7 @@ const MissionPage = () => {
       console.log('[MissionPage] handleDailyLogin: Already claiming, ignoring');
       return;
     }
-    
+
     // 檢查是否已簽到（前端防護）
     if (loginStreakInfo && !loginStreakInfo.can_claim_today) {
       console.log('[MissionPage] handleDailyLogin: Already claimed today, ignoring');
@@ -348,15 +349,15 @@ const MissionPage = () => {
       });
       return;
     }
-    
+
     console.log('[MissionPage] handleDailyLogin: Starting daily login claim');
     setIsClaimingLogin(true);
-    
+
     try {
       console.log('[MissionPage] handleDailyLogin: Calling claimDailyLogin...');
       const loginInfo = await claimDailyLogin();
       console.log('[MissionPage] handleDailyLogin: Claim result', loginInfo);
-      
+
       if (loginInfo) {
         const normalizedInfo: LoginStreakInfo = {
           current_streak: loginInfo.currentStreak,
@@ -366,29 +367,29 @@ const MissionPage = () => {
           streak_reward_available: loginInfo.streakRewardAvailable,
         };
         applyLoginStreakInfo(normalizedInfo);
-        
+
         // 如果成功簽到，立即更新 UI 狀態
         if (loginInfo.isNewLogin) {
           console.log('[MissionPage] handleDailyLogin: New login successful, reward tokens:', loginInfo.rewardTokens);
-          
+
           // 樂觀更新代幣（實時訂閱會自動同步）
           updateTokensOptimistically(loginInfo.rewardTokens || 3);
           console.log('[MissionPage] handleDailyLogin: Optimistic token update applied');
-          
+
           // 強制刷新 profile 以確保代幣數量正確（實時訂閱可能延遲）
           setTimeout(async () => {
             console.log('[MissionPage] handleDailyLogin: Refreshing profile after 1 second');
             await refreshProfile();
             console.log('[MissionPage] handleDailyLogin: Profile refreshed');
           }, 1000);
-          
+
           // 刷新任務狀態（確保 daily_login 任務顯示為已完成）
           void loadUserMissions();
         } else {
           console.log('[MissionPage] handleDailyLogin: Not a new login, reward tokens:', loginInfo.rewardTokens);
         }
       }
-      
+
       // 背景同步資料，避免阻塞 UI（代幣更新由實時訂閱自動處理）
       void loadLoginStreak({ showLoader: false });
     } catch (error: any) {
@@ -417,7 +418,7 @@ const MissionPage = () => {
 
     // 防止重複點擊（前端防護）
     if (claimingMissionId === missionId) return;
-    
+
     // 檢查是否已領取（額外的前端檢查）
     if (isRewardClaimed(missionId)) {
       toast.info(missionAlreadyClaimedInfo);
@@ -428,25 +429,25 @@ const MissionPage = () => {
     let optimisticUpdateApplied = false;
     try {
       const expectedReward = localizedMissions.find(m => m.id === missionId)?.reward || 0;
-      
+
       // 先進行樂觀更新，立即更新 UI
       updateTokensOptimistically(expectedReward);
       optimisticUpdateApplied = true;
-      
+
       const result = await completeMission(dbMissionId);
       if (result?.success) {
         const rewardAmount = result.reward || expectedReward;
-        
+
         // 如果實際獎勵與預期不同，調整樂觀更新
         if (rewardAmount !== expectedReward) {
           updateTokensOptimistically(-expectedReward + rewardAmount);
         }
-        
+
         const claimDesc = claimSuccessDescTemplate.replace('{{amount}}', rewardAmount.toLocaleString());
         toast.success(claimSuccessTitle, {
           description: claimDesc
         });
-        
+
         // 異步刷新代幣餘額和任務狀態（不阻塞 UI）
         Promise.allSettled([
           refreshProfile(),
@@ -463,13 +464,13 @@ const MissionPage = () => {
       }
     } catch (error: any) {
       console.error('Claim reward error:', error);
-      
+
       // 如果出錯且已進行樂觀更新，需要回滾
       if (optimisticUpdateApplied) {
         const expectedReward = localizedMissions.find(m => m.id === missionId)?.reward || 0;
         updateTokensOptimistically(-expectedReward);
       }
-      
+
       // 如果錯誤信息中沒有包含特定的錯誤提示，顯示通用錯誤
       if (!error.message?.includes('已完成') && !error.message?.includes('已達上限')) {
         toast.error(claimErrorTitle, {
@@ -500,6 +501,7 @@ const MissionPage = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
+      <LoadingBubble isLoading={isWatchingAd} />
       {/* Header */}
       <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg">
         <div className="max-w-screen-xl mx-auto px-4 py-4">
@@ -511,7 +513,7 @@ const MissionPage = () => {
                 <p className="text-sm text-primary-foreground/80">{headerSubtitle}</p>
               </div>
             </div>
-            <button 
+            <button
               onClick={() => navigate('/recharge')}
               className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-4 py-2 rounded-full hover:bg-primary-foreground/30 transition-colors cursor-pointer"
             >
@@ -535,7 +537,7 @@ const MissionPage = () => {
                 <div className="text-white">
                   <h3 className="font-bold text-lg">{dailyCheckInTitle}</h3>
                   <p className="text-sm opacity-90">
-                    {loadingStreak ? '' : 
+                    {loadingStreak ? '' :
                       loginStreakInfo?.can_claim_today ? dailyCheckInPending : dailyCheckInCompleted}
                   </p>
                 </div>
@@ -630,17 +632,16 @@ const MissionPage = () => {
             const isCompleted = missionProgress.completed;
             const isClaimed = isRewardClaimed(mission.id);
             const isClaiming = claimingMissionId === mission.id;
-            
+
             // 如果已領取，顯示已領取狀態
             // 如果未領取但已完成條件，顯示領取按鈕
             // 如果未完成，顯示進度條
-            
+
             return (
               <Card
                 key={mission.id}
-                className={`shadow-card hover:shadow-glow transition-all ${
-                  isClaimed ? "opacity-75" : ""
-                }`}
+                className={`shadow-card hover:shadow-glow transition-all ${isClaimed ? "opacity-75" : ""
+                  }`}
               >
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between mb-3">
@@ -658,7 +659,7 @@ const MissionPage = () => {
                         {mission.condition}
                       </Badge>
                     </div>
-                    
+
                     <div className="flex flex-col items-end gap-1 ml-4">
                       <div className="flex items-center gap-1 text-accent font-bold text-lg">
                         <Coins className="w-5 h-5" />
@@ -686,9 +687,9 @@ const MissionPage = () => {
                   {/* 已完成但未領取：顯示領取按鈕 */}
                   {isCompleted && !isClaimed && (
                     <div className="mt-3">
-                      <Button 
-                        variant="default" 
-                        size="sm" 
+                      <Button
+                        variant="default"
+                        size="sm"
                         className="w-full"
                         onClick={() => handleClaimReward(mission.id)}
                         disabled={isClaiming || loadingMissions}

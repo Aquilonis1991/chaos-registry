@@ -85,7 +85,8 @@ export const useVoteOperations = () => {
         throw error;
       }
 
-      // 獲取主題標題和選項用於記錄
+      // 獲取主題標題用於記錄
+      // 獲取主題標題與選項用於記錄
       const { data: topic } = await supabase
         .from('topics')
         .select('title, options')
@@ -254,7 +255,7 @@ export const useVoteOperations = () => {
         throw functionErr;
       }
 
-      // 獲取主題標題和選項用於記錄
+      // 獲取主題標題用於記錄 (修正: 也要獲取 options 以解析選項名稱)
       const { data: topic } = await supabase
         .from('topics')
         .select('title, options')

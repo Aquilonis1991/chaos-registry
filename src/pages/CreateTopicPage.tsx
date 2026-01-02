@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { LoadingBubble } from "@/components/ui/LoadingBubble";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -437,6 +438,11 @@ const CreateTopicPage = () => {
       </AlertDialog>
 
       <div className="min-h-screen bg-background pb-20">
+        <LoadingBubble
+          isLoading={isSubmitting}
+          textKey="loading.create_topic"
+          defaultText="正在建立主題..."
+        />
         {/* Header */}
         <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg">
           <div className="max-w-screen-xl mx-auto px-4 py-4">

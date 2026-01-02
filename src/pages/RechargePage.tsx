@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { LoadingBubble } from "@/components/ui/LoadingBubble";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -87,6 +88,11 @@ const RechargePage = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
+      <LoadingBubble
+        isLoading={isProcessing}
+        textKey="loading.purchase_processing"
+        defaultText="正在安全處理您的交易..."
+      />
       {/* Header */}
       <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg">
         <div className="max-w-screen-xl mx-auto px-4 py-4">

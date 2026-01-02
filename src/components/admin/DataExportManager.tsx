@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { LoadingBubble } from "@/components/ui/LoadingBubble";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, Calendar } from "lucide-react";
@@ -130,6 +131,11 @@ export const DataExportManager = () => {
 
     return (
         <div className="space-y-6">
+            <LoadingBubble
+                isLoading={loading !== null}
+                textKey="loading.exporting_data"
+                defaultText="正在匯出數據，請稍候..."
+            />
             <div className="flex items-center space-x-4 mb-6 p-4 bg-muted/50 rounded-lg">
                 <div className="flex items-center space-x-2">
                     <Calendar className="w-5 h-5 text-muted-foreground" />

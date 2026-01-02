@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { LoadingBubble } from "@/components/ui/LoadingBubble";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -337,6 +338,11 @@ const AuthPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-primary flex items-center justify-center p-4 sm:p-6">
+      <LoadingBubble
+        isLoading={loading}
+        textKey="loading.auth_processing"
+        defaultText="正在處理身分驗證..."
+      />
       <Card className="w-full max-w-md shadow-glow">
         <CardHeader className="space-y-2 pb-4 sm:pb-6">
           <div className="flex justify-center">

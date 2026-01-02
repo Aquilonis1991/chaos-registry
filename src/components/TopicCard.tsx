@@ -20,7 +20,12 @@ interface TopicCardProps {
 export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, createdAt, currentExposureLevel }: TopicCardProps) => {
   return (
     <Link to={`/vote/${id}`}>
-      <Card className="bg-gradient-card shadow-card hover:shadow-glow transition-all duration-300 hover:-translate-y-1 cursor-pointer border border-border/50">
+      <Card className={cn(
+        "bg-gradient-card shadow-card hover:shadow-glow transition-all duration-300 hover:-translate-y-1 cursor-pointer border",
+        currentExposureLevel === 'medium' && "border-yellow-500/30 bg-gradient-to-br from-yellow-500/5 to-transparent",
+        currentExposureLevel === 'high' && "border-amber-500/60 bg-gradient-to-br from-amber-500/15 via-purple-500/5 to-transparent shadow-lg shadow-amber-500/10",
+        !currentExposureLevel && "border-border/50"
+      )}>
         <CardContent className="p-5">
           <div className="flex items-start justify-between mb-3">
             <h3 className="text-lg font-bold text-foreground flex-1 line-clamp-2">
@@ -30,11 +35,11 @@ export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, crea
               <Flame className="w-5 h-5 text-accent ml-2 flex-shrink-0" />
             )}
           </div>
-          
+
           <div className="flex flex-wrap gap-2 mb-3">
             {tags.map((tag) => (
-              <Badge 
-                key={tag} 
+              <Badge
+                key={tag}
                 className={`text-xs font-medium border-0 ${getTagColor(tag)}`}
               >
                 #{tag}
@@ -42,20 +47,20 @@ export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, crea
             ))}
           </div>
         </CardContent>
-        
+
         <CardFooter className="px-5 py-3 bg-muted/30 flex items-center justify-between text-sm">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1 text-primary font-semibold">
               <Flame className="w-4 h-4" />
               <span>{formatCompactNumber(voteCount)}</span>
             </div>
-            
+
             <div className="flex items-center gap-1 text-muted-foreground">
               <User className="w-4 h-4" />
               <span>{creatorName}</span>
             </div>
           </div>
-          
+
           {createdAt && (
             <div className="flex items-center gap-1 text-muted-foreground">
               <Clock className="w-4 h-4" />

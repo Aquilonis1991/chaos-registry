@@ -64,7 +64,7 @@ export const useVoteOperations = () => {
           }
           throw functionErr;
         }
-        
+
         // 扣代幣（已通過 RLS 驗證，只能更新自己的）
         const { error: updateTokensErr } = await supabase
           .from('profiles')
@@ -75,7 +75,7 @@ export const useVoteOperations = () => {
           updateTokensOptimistically(amount);
           throw updateTokensErr;
         }
-        
+
         // 後台刷新以確保數據一致性（實時訂閱也會自動更新）
         void refreshProfile();
       } catch (error) {
@@ -85,12 +85,23 @@ export const useVoteOperations = () => {
         throw error;
       }
 
-      // 獲取主題標題用於記錄
+      // 獲取主題標題和選項用於記錄
       const { data: topic } = await supabase
         .from('topics')
-        .select('title')
+        .select('title, options')
         .eq('id', topicId)
         .single();
+
+      // 解析選項文字
+      let optionLabel = option;
+      if (topic?.options && Array.isArray(topic.options)) {
+        const foundOption = topic.options.find((opt: any) =>
+          (opt.id === option) || (opt.id === undefined && opt === option)
+        );
+        if (foundOption) {
+          optionLabel = typeof foundOption === 'string' ? foundOption : (foundOption.text || foundOption.label || option);
+        }
+      }
 
       // 寫入投票紀錄（使用 upsert 處理重複投票的情況）
       try {
@@ -104,7 +115,7 @@ export const useVoteOperations = () => {
           }, {
             onConflict: 'user_id,topic_id'
           });
-        
+
         if (voteError) {
           console.warn('寫入 votes 紀錄失敗：', voteError);
         }
@@ -118,18 +129,18 @@ export const useVoteOperations = () => {
         amount: -amount,
         type: 'cast_vote',
         topicId: topicId,
-        description: `投票：${topic?.title || '未知主題'} - 選項：${option}`
+        description: `投票：${topic?.title || '未知主題'} - 選項：${optionLabel}`
       });
-      
+
       try {
         const { data: txId, error: transError } = await (supabase.rpc as any)('log_token_transaction', {
           p_user_id: user.id,
           p_amount: -amount,
           p_transaction_type: 'cast_vote',
           p_reference_id: topicId,
-          p_description: `投票：${topic?.title || '未知主題'} - 選項：${option}`
+          p_description: `投票：${topic?.title || '未知主題'} - 選項：${optionLabel}`
         });
-        
+
         if (transError) {
           console.error('❌ Token transaction logging failed for vote:');
           console.error('  Error details:', stringifyError(transError));
@@ -185,7 +196,7 @@ export const useVoteOperations = () => {
       return { success: true } as any;
     } catch (error: any) {
       console.error('Cast vote error:', error);
-      
+
       // 檢查是否因為被限制投票
       if (error.message?.includes('已被暫停') || error.message?.includes('投票功能已被暫停') || error.message?.includes('被禁止')) {
         toast.error('投票失敗', {
@@ -243,12 +254,23 @@ export const useVoteOperations = () => {
         throw functionErr;
       }
 
-      // 獲取主題標題用於記錄
+      // 獲取主題標題和選項用於記錄
       const { data: topic } = await supabase
         .from('topics')
-        .select('title')
+        .select('title, options')
         .eq('id', topicId)
         .single();
+
+      // 解析選項文字
+      let optionLabel = option;
+      if (topic?.options && Array.isArray(topic.options)) {
+        const foundOption = topic.options.find((opt: any) =>
+          (opt.id === option) || (opt.id === undefined && opt === option)
+        );
+        if (foundOption) {
+          optionLabel = typeof foundOption === 'string' ? foundOption : (foundOption.text || foundOption.label || option);
+        }
+      }
 
       // 確保免費投票記錄到 token_transactions（如果函數沒有記錄）
       try {
@@ -257,9 +279,9 @@ export const useVoteOperations = () => {
           p_amount: 0,
           p_transaction_type: 'free_vote',
           p_reference_id: topicId,
-          p_description: `免費投票：${topic?.title || '未知主題'} - 選項：${option}`
+          p_description: `免費投票：${topic?.title || '未知主題'} - 選項：${optionLabel}`
         });
-        
+
         if (transError && !transError.message?.includes('duplicate')) {
           console.warn('寫入免費投票 token_transactions 紀錄失敗：');
           console.warn('  Error details:', stringifyError(transError));
@@ -286,7 +308,7 @@ export const useVoteOperations = () => {
       return { success: true } as any;
     } catch (error: any) {
       console.error('Cast free vote error:', error);
-      
+
       // 檢查是否因為被限制投票
       if (error.message?.includes('已被暫停') || error.message?.includes('投票功能已被暫停') || error.message?.includes('被禁止')) {
         toast.error('投票失敗', {
@@ -315,7 +337,7 @@ export const useVoteOperations = () => {
       // 檢查今日是否已使用免費票
       const today = new Date();
       const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-      
+
       const { data, error } = await supabase
         .from('free_votes')
         .select('id')

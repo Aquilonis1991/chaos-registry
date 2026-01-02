@@ -216,11 +216,7 @@ const AdminPage = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="export">
-          <Card className="p-6">
-            <DataExportManager />
-          </Card>
-        </TabsContent>
+
 
         <TabsContent value="config">
           <SystemConfigManager />

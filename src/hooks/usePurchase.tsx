@@ -87,52 +87,49 @@ export const usePurchase = () => {
 
       const store = Store;
 
-      // 1. 初始化商店
-      // 注意：實際應用中，最好在 App 啟動時進行初始化，這裡為了簡化放在購買流程中
-      // 但為了避免重複註冊，最好檢查是否已經註冊過
+      // 1. 決定商店類型
+      const storePlatform = platform === 'ios' ? Platform.APPLE_APPSTORE : Platform.GOOGLE_PLAY;
 
+      // 2. 初始化商店
+      // 注意：實際應用中，最好在 App 啟動時進行初始化，這裡為了簡化放在購買流程中
       if (!store.get(productId)) {
         store.register({
           id: productId,
           type: ProductType.CONSUMABLE,
-          platform: Platform.GOOGLE_PLAY,
+          platform: storePlatform,
         });
       }
 
-      // 2. 設置事件監聽 (放在這裡只是示例，理想情況是全域監聽)
-      // 注意：CdvPurchase 的事件監聽應該是全域的，避免重複綁定
-
+      // 3. 設置事件監聽
       // 監聽購買已批准 (User has purchased the product)
       const approvedListener = store.when()
         .product(productId)
         .approved(async (transaction: any) => {
           try {
-            // 3. 驗證購買 (呼叫後端 Supabase Edge Function)
+            // 4. 驗證購買 (呼叫後端 Supabase Edge Function)
             const verifyFunction = platform === 'android'
               ? 'verify-google-play-purchase'
               : 'verify-app-store-purchase';
 
-            // Google Play 的收據通常在 transaction.products[0].token 或 transaction.receipt
-            // CdvPurchase v13+ 的結構可能有所不同，這裡假設是 transaction.verify()
+            console.log(`Verifying purchase on ${platform} via ${verifyFunction}...`);
 
-            // 由於 CdvPurchase v13 推薦使用 transaction.verify() 讓插件處理驗證（如果配置了驗證器）
-            // 但我們自定義後端，所以我們手動獲取收據數據
-
-            // 簡易處理：先通知後端驗證
             const { data, error } = await supabase.functions.invoke(verifyFunction, {
               body: {
-                purchaseToken: transaction.purchaseToken || transaction.receipt, // 根據實際 payload 調整
+                purchaseToken: transaction.purchaseToken || transaction.receipt,
+                // iOS 的 receipt 通常比較長，或是需要 transactionId
+                transactionId: transaction.transactionId,
                 productId: productId,
-                packageName: 'com.votechaos.app', // 替換為實際包名
+                packageName: 'com.votechaos.app',
+                platform: platform // 傳遞平台資訊給後端
               },
             });
 
             if (error) throw error;
 
-            // 4. 完成交易
+            // 5. 完成交易
             await transaction.finish();
 
-            // 5. 顯示成功與刷新
+            // 6. 顯示成功與刷新
             const productInfo = PRODUCT_ID_MAP[packageId];
             const totalTokens = (productInfo.tokens + productInfo.bonus).toLocaleString();
 
@@ -146,17 +143,17 @@ export const usePurchase = () => {
 
             await refreshProfile();
 
-            // 移除監聽器以避免內存洩漏 (如果不是全域管理的)
+            // 移除監聽器
             approvedListener.remove();
 
           } catch (err: any) {
             console.error('Verification failed:', err);
-            toast.error('驗證失敗: ' + err.message);
+            toast.error('驗證失敗: ' + (err.message || 'Unknown error'));
           }
         });
 
-      // 3. 刷新商店以獲取最新產品資訊 (如果是首次)
-      await store.initialize([Platform.GOOGLE_PLAY]);
+      // 7. 刷新商店以獲取最新產品資訊
+      await store.initialize([storePlatform]);
       await store.update();
 
       // 4. 發起購買

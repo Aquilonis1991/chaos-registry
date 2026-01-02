@@ -127,14 +127,8 @@ const RechargePage = () => {
             return (
               <Card
                 key={pkg.id}
-                className={`bg-gradient-card shadow-card hover:shadow-glow transition-all relative ${pkg.popular ? 'ring-2 ring-primary' : ''
-                  }`}
+                className="bg-gradient-card shadow-card hover:shadow-glow transition-all relative"
               >
-                {pkg.popular && (
-                  <Badge className="absolute -top-2 left-4 bg-primary text-primary-foreground">
-                    {bestValueBadgeText}
-                  </Badge>
-                )}
                 <CardContent className="p-4">
                   <div className="flex items-center gap-4">
                     <div className="flex-shrink-0 w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center">
@@ -162,7 +156,7 @@ const RechargePage = () => {
                       onClick={() => handlePurchase(pkg)}
                       disabled={selectedPackage === pkg.id || isProcessing}
                       className="flex-shrink-0"
-                      variant={pkg.popular ? "default" : "outline"}
+                      variant="outline"
                     >
                       {selectedPackage === pkg.id || isProcessing ? processingText : purchaseButtonText}
                     </Button>

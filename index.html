@@ -15,18 +15,102 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
+  <!-- Open Graph / Facebook -->
   <meta property="og:title" content="ChaosRegistry - 不理性登記處" />
   <meta property="og:description" content="最好玩的投票平台，用代幣投票，創造話題，贏取獎勵！" />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
 
+  <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:site" content="@lovable_dev" />
   <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+
+  <!-- Critical CSS for Loading Skeleton -->
+  <style>
+    body {
+      margin: 0;
+      background-color: #000;
+      color: #fff;
+      font-family: sans-serif;
+    }
+
+    #app-skeleton {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      width: 100vw;
+      align-items: center;
+      justify-content: center;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 9999;
+      transition: opacity 0.5s ease-out;
+    }
+
+    .skeleton-logo {
+      width: 80px;
+      height: 80px;
+      border-radius: 20px;
+      background: linear-gradient(45deg, #333, #444);
+      margin-bottom: 20px;
+      animation: pulse 1.5s infinite;
+    }
+
+    .skeleton-bar {
+      width: 200px;
+      height: 6px;
+      border-radius: 3px;
+      background: #333;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .skeleton-bar::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 50%;
+      background: #666;
+      animation: slide 1s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0% {
+        opacity: 0.6;
+      }
+
+      50% {
+        opacity: 1;
+      }
+
+      100% {
+        opacity: 0.6;
+      }
+    }
+
+    @keyframes slide {
+      0% {
+        left: -50%;
+      }
+
+      100% {
+        left: 100%;
+      }
+    }
+  </style>
 </head>
 
 <body>
-  <div id="root"></div>
+  <div id="root">
+    <div id="app-skeleton">
+      <div class="skeleton-logo"></div>
+      <div class="skeleton-bar"></div>
+    </div>
+  </div>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 

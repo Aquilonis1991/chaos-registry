@@ -46,8 +46,7 @@ const RechargePage = () => {
     getText('recharge.info.item3', '• 完成每日任務也可免費獲得代幣'),
     getText('recharge.info.item4', '• 代幣永久有效，不會過期'),
   ];
-  const mobileNoteTitle = getText('recharge.mobile.title', '📱 關於行動應用內購');
-  const mobileNoteDescription = getText('recharge.mobile.description', '如需整合 Google Play 或 App Store 內購功能，需要使用 Capacitor 將應用打包為原生行動應用。目前的網頁版使用模擬購買流程。');
+
 
   /* Configs */
   const { getConfig } = useSystemConfigCache();
@@ -127,14 +126,8 @@ const RechargePage = () => {
             return (
               <Card
                 key={pkg.id}
-                className={`bg-gradient-card shadow-card hover:shadow-glow transition-all relative ${pkg.popular ? 'ring-2 ring-primary' : ''
-                  }`}
+                className="bg-gradient-card shadow-card hover:shadow-glow transition-all relative"
               >
-                {pkg.popular && (
-                  <Badge className="absolute -top-2 left-4 bg-primary text-primary-foreground">
-                    {bestValueBadgeText}
-                  </Badge>
-                )}
                 <CardContent className="p-4">
                   <div className="flex items-center gap-4">
                     <div className="flex-shrink-0 w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center">
@@ -162,7 +155,7 @@ const RechargePage = () => {
                       onClick={() => handlePurchase(pkg)}
                       disabled={selectedPackage === pkg.id || isProcessing}
                       className="flex-shrink-0"
-                      variant={pkg.popular ? "default" : "outline"}
+                      variant="outline"
                     >
                       {selectedPackage === pkg.id || isProcessing ? processingText : purchaseButtonText}
                     </Button>
@@ -185,15 +178,7 @@ const RechargePage = () => {
           </CardContent>
         </Card>
 
-        {/* Mobile App In-App Purchase Note */}
-        <Card className="bg-primary/5 border-primary/20">
-          <CardContent className="p-4">
-            <h3 className="font-semibold text-foreground mb-2">{mobileNoteTitle}</h3>
-            <p className="text-sm text-muted-foreground">
-              {mobileNoteDescription}
-            </p>
-          </CardContent>
-        </Card>
+
       </div>
     </div>
   );

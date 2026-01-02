@@ -24,6 +24,7 @@ import ContactPage from "./pages/ContactPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import TermsPage from "./pages/TermsPage";
 import PrivacyPage from "./pages/PrivacyPage";
+import AboutPage from "./pages/AboutPage";
 import AuthPage from "./pages/AuthPage";
 import VerifyRedirectPage from "./pages/VerifyRedirectPage";
 import AdminPage from "./pages/AdminPage";
@@ -83,6 +84,7 @@ const App = () => (
                 <Route path="/notifications" element={<ProtectedRoute requireAuth><NotificationsPage /></ProtectedRoute>} />
                 <Route path="/terms" element={<TermsPage />} />
                 <Route path="/privacy" element={<PrivacyPage />} />
+                <Route path="/about" element={<AboutPage />} />
                 <Route path="/admin" element={<ProtectedRoute requireAuth><AdminPage /></ProtectedRoute>} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />

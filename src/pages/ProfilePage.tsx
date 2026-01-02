@@ -49,6 +49,7 @@ import { useUserStats } from "@/hooks/useUserStats";
 import { supabase } from "@/integrations/supabase/client";
 import { profileUpdateSchema } from "@/lib/validationSchemas";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
+import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { ErrorFeedback } from "@/components/ErrorFeedback";
 import { validateNickname, getBannedWordErrorMessage } from "@/lib/bannedWords";
 import { formatCompactNumber } from "@/lib/numberFormat";
@@ -90,7 +91,7 @@ const ProfilePage = () => {
       const interval = setInterval(fetchUnreadCount, 30000);
       return () => clearInterval(interval);
     }
-  }, [user?.id]);
+  }, [user?.id, notifications]);
 
   const handleLogout = async () => {
     await signOut();
@@ -676,6 +677,10 @@ const ProfilePage = () => {
                     </div>
                   </button>
                 </Link>
+
+                <Separator />
+
+                <DeleteAccountDialog />
               </CardContent>
             </Card>
           </div>

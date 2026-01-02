@@ -155,7 +155,7 @@ const DefaultPrivacySections = () => (
         <li><strong>資料可攜性</strong>：您可要求匯出您的個人資料（需透過客服申請）。</li>
       </ol>
       <p className="text-foreground mt-3">
-        如欲行使上述權利，請透過 <strong>support@votechaos.com</strong> 聯繫我們。
+        如欲行使上述權利，請透過 <strong>chaosregistry@gmail.com</strong> 聯繫我們。
       </p>
     </section>
 
@@ -196,7 +196,7 @@ const DefaultPrivacySections = () => (
       <h3 className="text-xl font-bold text-foreground mb-3">十、聯絡我們</h3>
       <p className="text-foreground">
         若對本隱私權政策有任何疑問或需要協助，請聯繫：<br />
-        📧 Email: <strong>support@votechaos.com</strong>
+        📧 Email: <strong>chaosregistry@gmail.com</strong>
         <br />
         📍 公司地址：台灣台北市
         <br />

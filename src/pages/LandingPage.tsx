@@ -14,10 +14,10 @@ const LandingPage = () => {
             <Logo className="mx-auto" />
           </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-4">
-            ChaosRegistry
+            不理性登記處
           </h1>
           <p className="text-xl md:text-2xl mb-2 opacity-90">
-            全民亂投 - 以虛構、趣味話題為核心的娛樂性投票平台
+            以虛構、趣味話題為核心的娛樂性投票平台
           </p>
           <p className="text-lg mb-8 opacity-80 max-w-2xl mx-auto">
             提供輕鬆、有趣的投票體驗，讓使用者可以瀏覽主題、參與投票、發起話題，並使用代幣提高主題曝光度
@@ -91,9 +91,9 @@ const LandingPage = () => {
         <div className="max-w-screen-xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
             <div>
-              <h2 className="text-3xl font-bold mb-4">關於 ChaosRegistry</h2>
+              <h2 className="text-3xl font-bold mb-4">關於 不理性登記處</h2>
               <p className="text-lg text-muted-foreground mb-4">
-                ChaosRegistry（全民亂投）是一款以虛構、趣味話題為核心的娛樂性投票平台。
+                不理性登記處 是一款以虛構、趣味話題為核心的娛樂性投票平台。
               </p>
               <p className="text-muted-foreground mb-4">
                 我們致力於提供一個輕鬆、有趣的投票體驗，讓使用者可以瀏覽主題、參與投票、發起話題，並使用代幣提高主題曝光度。
@@ -177,7 +177,7 @@ const LandingPage = () => {
       <footer className="bg-muted py-8 px-4">
         <div className="max-w-screen-xl mx-auto text-center text-sm text-muted-foreground">
           <p className="mb-2">
-            © 2025 ChaosRegistry. All rights reserved.
+            © 2025 不理性登記處. All rights reserved.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link to="/about" className="hover:text-primary">關於我們</Link>

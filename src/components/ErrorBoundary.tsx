@@ -20,14 +20,14 @@ interface State {
 /**
  * 錯誤 UI 組件（使用 hooks）
  */
-const ErrorUI = ({ 
-  error, 
-  errorInfo, 
-  onReset, 
-  onReload, 
-  onGoHome 
-}: { 
-  error: Error | null; 
+const ErrorUI = ({
+  error,
+  errorInfo,
+  onReset,
+  onReload,
+  onGoHome
+}: {
+  error: Error | null;
   errorInfo: ErrorInfo | null;
   onReset: () => void;
   onReload: () => void;
@@ -75,7 +75,7 @@ const ErrorUI = ({
               <RefreshCcw className="w-4 h-4 mr-2" />
               {getText('errorBoundary.button.retry', '重試')}
             </Button>
-            
+
             <Button onClick={onReload} variant="outline" className="w-full">
               <RefreshCcw className="w-4 h-4 mr-2" />
               {getText('errorBoundary.button.reload', '重新載入頁面')}
@@ -92,7 +92,7 @@ const ErrorUI = ({
               {getText('errorBoundary.contactSupport', '如果問題持續發生，請聯繫客服')}
             </p>
             <Button variant="link" size="sm" asChild>
-              <a href="mailto:support@votechaos.com">
+              <a href="mailto:chaosregistry@gmail.com">
                 <Bug className="w-4 h-4 mr-2" />
                 {getText('errorBoundary.button.report', '回報問題')}
               </a>
@@ -133,7 +133,7 @@ class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // 記錄錯誤到錯誤報告服務
     console.error('ErrorBoundary caught an error:', error, errorInfo);
-    
+
     this.setState({
       error,
       errorInfo,

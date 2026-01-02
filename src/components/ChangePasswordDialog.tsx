@@ -12,7 +12,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Lock, Loader2, AlertCircle, CheckCircle } from "lucide-react";
+import { Lock, Loader2, AlertCircle, CheckCircle, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
@@ -98,7 +98,7 @@ export const ChangePasswordDialog = () => {
     if (/[a-z]/.test(password)) strength++;
     if (/[0-9]/.test(password)) strength++;
     if (/[^A-Za-z0-9]/.test(password)) strength++;
-    
+
     if (strength >= 5) return { label: getText('changePassword.strength.strong', '強'), color: 'text-green-600', width: '100%' };
     if (strength >= 3) return { label: getText('changePassword.strength.medium', '中'), color: 'text-yellow-600', width: '60%' };
     return { label: getText('changePassword.strength.weak', '弱'), color: 'text-red-600', width: '30%' };
@@ -114,7 +114,7 @@ export const ChangePasswordDialog = () => {
             <Lock className="w-5 h-5 text-primary" />
             <span className="font-medium">{getText('changePassword.button.change', '修改密碼')}</span>
           </div>
-          <span className="text-muted-foreground">›</span>
+          <ChevronRight className="w-5 h-5 text-muted-foreground" />
         </button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
@@ -155,7 +155,7 @@ export const ChangePasswordDialog = () => {
               required
               disabled={isUpdating}
             />
-            
+
             {/* 密碼強度指示 */}
             {passwordStrength && (
               <div className="space-y-1">
@@ -164,7 +164,7 @@ export const ChangePasswordDialog = () => {
                   <span className={passwordStrength.color}>{passwordStrength.label}</span>
                 </div>
                 <div className="h-1 bg-muted rounded-full overflow-hidden">
-                  <div 
+                  <div
                     className={`h-full ${passwordStrength.color.replace('text-', 'bg-')} transition-all`}
                     style={{ width: passwordStrength.width }}
                   />

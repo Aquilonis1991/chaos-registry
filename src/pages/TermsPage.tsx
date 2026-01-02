@@ -190,7 +190,7 @@ const DefaultTermsSections = () => (
       <h3 className="text-xl font-bold text-foreground mb-3">十一、聯絡我們</h3>
       <p className="text-foreground">
         若對本條款有任何疑問，請透過以下方式聯繫：<br />
-        📧 Email: support@votechaos.com<br />
+        📧 Email: chaosregistry@gmail.com<br />
         📍 公司地址：台灣台北市
       </p>
     </section>

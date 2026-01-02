@@ -2,12 +2,11 @@
 
 ## 📋 目錄
 
-1. [企業驗證所需網頁網址（快速參考）](#企業驗證所需網頁網址快速參考)
-2. [Google 第三方登入申請流程](#google-第三方登入申請流程)
-3. [Apple 第三方登入申請流程](#apple-第三方登入申請流程)
-4. [Supabase 整合設定](#supabase-整合設定)
-5. [測試與驗證](#測試與驗證)
-6. [常見問題與解決方案](#常見問題與解決方案)
+1. [Google 第三方登入申請流程](#google-第三方登入申請流程)
+2. [Apple 第三方登入申請流程](#apple-第三方登入申請流程)
+3. [Supabase 整合設定](#supabase-整合設定)
+4. [測試與驗證](#測試與驗證)
+5. [常見問題與解決方案](#常見問題與解決方案)
 
 ---
 
@@ -15,53 +14,26 @@
 
 ### 應用程式網址
 
-以下網址需要在 **Google OAuth 同意畫面**中設定：
+以下網址需要在 Google OAuth 同意畫面中設定：
 
 1. **應用程式首頁連結**：
    ```
    https://chaos-registry.vercel.app
    ```
-   - 📍 **路由**：`/`（首頁）
-   - 📁 **檔案位置**：`src/pages/Index.tsx` 或 `src/pages/HomePage.tsx`
 
 2. **應用程式隱私權政策連結**：
    ```
    https://chaos-registry.vercel.app/privacy
    ```
-   - 📍 **路由**：`/privacy`
-   - 📁 **檔案位置**：`src/pages/PrivacyPage.tsx`
-   - ⚠️ **重要**：如果應用程式是公開的，這是必需的
+   - 路由：`/privacy`
+   - 檔案位置：`src/pages/PrivacyPage.tsx`
 
 3. **應用程式服務條款連結**：
    ```
    https://chaos-registry.vercel.app/terms
    ```
-   - 📍 **路由**：`/terms`
-   - 📁 **檔案位置**：`src/pages/TermsPage.tsx`
-   - ⚠️ **重要**：如果應用程式是公開的，這是必需的
-
-4. **關於我們/介紹頁面**（可選但建議）：
-   ```
-   https://chaos-registry.vercel.app/about
-   ```
-   - 📍 **路由**：`/about`
-   - 📁 **檔案位置**：`src/pages/AboutPage.tsx`
-   - 📁 **路由設定**：`src/App.tsx`（已設定）
-   - 💡 **說明**：這是企業驗證時可以使用的介紹頁面，包含商家資訊、服務內容、聯絡資訊等
-   - 📝 **內容包含**：
-     - 商家介紹（不理性登記處）
-     - 核心功能說明
-     - 服務內容
-     - 商家資訊
-     - 聯絡資訊
-
-5. **登陸頁面/介紹頁面**（可選）：
-   ```
-   https://chaos-registry.vercel.app/landing
-   ```
-   - 📍 **路由**：`/landing`（需確認是否已在 `App.tsx` 中設定路由）
-   - 📁 **檔案位置**：`src/pages/LandingPage.tsx`
-   - 💡 **說明**：這是完整的介紹頁面，包含 Hero Section、功能介紹、關於我們、聯絡我們等區塊
+   - 路由：`/terms`
+   - 檔案位置：`src/pages/TermsPage.tsx`
 
 ### 已授權的網域
 
@@ -71,11 +43,7 @@ chaos-registry.vercel.app
 ```
 （只輸入網域，不要包含 `https://` 或路徑）
 
-### 📝 查閱路徑
-
-- **關於我們頁面**：`src/pages/AboutPage.tsx`
-- **路由設定**：`src/App.tsx`（`/about` 路由已設定）
-- **登陸頁面**：`src/pages/LandingPage.tsx`（檔案存在，但路由未設定，如需使用請在 `App.tsx` 中添加 `/landing` 路由）
+---
 
 ---
 
@@ -105,7 +73,7 @@ chaos-registry.vercel.app
 1. 點擊頂部導航欄的「**選取專案**」下拉選單
 2. 點擊「**新增專案**」
 3. 填寫專案資訊：
-   - **專案名稱**：輸入 `不理性登記處`（或您喜歡的名稱）
+   - **專案名稱**：輸入 `ChaosRegistry`（或您喜歡的名稱）
    - **組織**：選擇您的組織（如果有）
    - **位置**：選擇專案位置
 4. 點擊「**建立**」
@@ -144,7 +112,7 @@ chaos-registry.vercel.app
 #### 3.3 填寫應用程式資訊
 
 1. **應用程式名稱**：
-   - 輸入：`不理性登記處`
+   - 輸入：`ChaosRegistry`
    - 這會顯示在 OAuth 同意畫面中
    - 最多 100 個字元
 
@@ -162,7 +130,6 @@ chaos-registry.vercel.app
    - 輸入：`https://chaos-registry.vercel.app`
    - 📍 **路由**：`/`（首頁）
    - 📁 **檔案位置**：`src/pages/Index.tsx` 或 `src/pages/HomePage.tsx`
-   - 💡 **備選**：如果使用介紹頁面，可以使用 `https://chaos-registry.vercel.app/landing`（需確認路由是否已設定）
 
 5. **應用程式隱私權政策連結**：
    - 輸入：`https://chaos-registry.vercel.app/privacy`
@@ -175,13 +142,6 @@ chaos-registry.vercel.app
    - 📍 **路由**：`/terms`
    - 📁 **檔案位置**：`src/pages/TermsPage.tsx`
    - ⚠️ **重要**：如果應用程式是公開的，這是必需的
-
-7. **關於我們/介紹頁面**（可選但建議）：
-   - 輸入：`https://chaos-registry.vercel.app/about`
-   - 📍 **路由**：`/about`
-   - 📁 **檔案位置**：`src/pages/AboutPage.tsx`
-   - 📁 **路由設定**：`src/App.tsx`（已設定）
-   - 💡 **說明**：這是企業驗證時可以使用的介紹頁面，包含商家資訊、服務內容等
 
 7. **已授權的網域**：
    - 點擊「**新增網域**」
@@ -283,7 +243,7 @@ chaos-registry.vercel.app
 #### 4.4 填寫應用程式資訊
 
 1. **名稱**（Name）：
-   - 在「名稱」欄位中輸入：`不理性登記處 Web Client`
+   - 在「名稱」欄位中輸入：`ChaosRegistry Web Client`
    - 或您喜歡的名稱
    - 這只是內部識別名稱
 
@@ -331,7 +291,7 @@ chaos-registry.vercel.app
 
 1. 建立完成後，您會自動返回「**用戶端**」（Client）頁面
 2. 在「OAuth 2.0 用戶端 ID」表格中，您應該會看到剛建立的用戶端
-3. 點擊用戶端名稱（例如：`不理性登記處 Web Client`）可以查看詳細資訊
+3. 點擊用戶端名稱（例如：`ChaosRegistry Web Client`）可以查看詳細資訊
 4. 在詳細資訊頁面，確認「已授權的重新導向 URI」包含：
    ```
    https://epyykzxxglkjombvozhr.supabase.co/auth/v1/callback
@@ -396,7 +356,7 @@ chaos-registry.vercel.app
 #### 2.3 填寫 App ID 資訊
 
 1. **描述**：
-   - 輸入：`不理性登記處 App ID`
+   - 輸入：`ChaosRegistry App ID`
    - 這只是內部識別名稱
 
 2. **Bundle ID**：
@@ -429,7 +389,7 @@ chaos-registry.vercel.app
 #### 3.2 填寫 Services ID 資訊
 
 1. **描述**：
-   - 輸入：`不理性登記處 Web Services`
+   - 輸入：`ChaosRegistry Web Services`
    - 這只是內部識別名稱
 
 2. **Identifier**：

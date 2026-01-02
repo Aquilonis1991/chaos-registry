@@ -104,12 +104,12 @@ export const DeleteAccountDialog = () => {
                         className="border-destructive/50 focus-visible:ring-destructive"
                     />
 
-                    <Alert variant="destructive" className="py-2">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription className="text-xs">
+                    <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-md text-destructive">
+                        <AlertCircle className="h-4 w-4 shrink-0" />
+                        <span className="text-xs font-medium">
                             {getText('deleteAccount.alert', '帳號刪除後將無法取回任何資料。')}
-                        </AlertDescription>
-                    </Alert>
+                        </span>
+                    </div>
                 </div>
 
                 <DialogFooter className="flex-row gap-2">

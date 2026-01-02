@@ -42,7 +42,7 @@ const AboutPage = () => {
           <CardContent className="p-6 space-y-8">
             {/* 商家介紹 */}
             <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-foreground mb-3">關於 不理性登記處</h2>
+              <h2 className="text-3xl font-bold text-foreground mb-3">關於 ChaosRegistry</h2>
               <p className="text-lg text-muted-foreground">
                 {getText('aboutPage.company.tagline', '以虛構、趣味話題為核心的娛樂性投票平台')}
               </p>
@@ -53,7 +53,7 @@ const AboutPage = () => {
               <h3 className="text-2xl font-bold text-foreground mb-4">📱 關於我們</h3>
               <div className="space-y-4 text-foreground">
                 <p>
-                  <strong>不理性登記處</strong>是一款以虛構、趣味話題為核心的娛樂性投票平台。
+                  <strong>ChaosRegistry</strong>（中文名稱：不理性登記處）是一款以虛構、趣味話題為核心的娛樂性投票平台。
                 </p>
                 <p>
                   我們致力於提供一個輕鬆、有趣的投票體驗，讓使用者可以：
@@ -121,7 +121,7 @@ const AboutPage = () => {
               <h3 className="text-2xl font-bold text-foreground mb-4">🎯 服務內容</h3>
               <div className="space-y-3 text-foreground">
                 <p>
-                  不理性登記處 提供以下服務：
+                  ChaosRegistry 提供以下服務：
                 </p>
                 <ol className="list-decimal list-inside space-y-2 ml-4">
                   <li><strong>投票平台服務</strong>：提供用戶瀏覽、參與和創建投票主題的平台</li>
@@ -138,9 +138,9 @@ const AboutPage = () => {
               <div className="space-y-4 text-foreground">
                 <div>
                   <p className="font-semibold text-lg mb-2">商家名稱</p>
-                  <p className="text-muted-foreground">不理性登記處</p>
+                  <p className="text-muted-foreground">ChaosRegistry（不理性登記處）</p>
                 </div>
-                
+
                 <div>
                   <p className="font-semibold text-lg mb-2">服務類型</p>
                   <p className="text-muted-foreground">應用程式開發 / 軟體服務</p>
@@ -149,7 +149,7 @@ const AboutPage = () => {
                 <div>
                   <p className="font-semibold text-lg mb-2">服務描述</p>
                   <p className="text-muted-foreground">
-                    不理性登記處 是一款以虛構、趣味話題為核心的娛樂性投票平台。
+                    ChaosRegistry 是一款以虛構、趣味話題為核心的娛樂性投票平台。
                     使用者可瀏覽主題、以代幣投票、發起投票，或使用代幣提高主題曝光度。
                     平台具備內容治理與舉報機制，禁止真實政治人物、仇恨言論或敏感政治內容。
                     本服務僅供娛樂用途，不反映任何真實政治行為或公共政策。
@@ -176,9 +176,9 @@ const AboutPage = () => {
                   <div>
                     <p className="font-semibold">官方網站</p>
                     <p className="text-sm text-muted-foreground">
-                      <a 
-                        href="https://chaos-registry.vercel.app" 
-                        target="_blank" 
+                      <a
+                        href="https://chaos-registry.vercel.app"
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="text-primary hover:underline"
                       >
@@ -194,8 +194,8 @@ const AboutPage = () => {
             <section>
               <h3 className="text-2xl font-bold text-foreground mb-4">🔗 相關連結</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Link 
-                  to="/privacy" 
+                <Link
+                  to="/privacy"
                   className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center gap-2">
@@ -203,8 +203,8 @@ const AboutPage = () => {
                     <span className="font-medium text-foreground">隱私權政策</span>
                   </div>
                 </Link>
-                <Link 
-                  to="/terms" 
+                <Link
+                  to="/terms"
                   className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center gap-2">
@@ -212,8 +212,8 @@ const AboutPage = () => {
                     <span className="font-medium text-foreground">服務條款</span>
                   </div>
                 </Link>
-                <Link 
-                  to="/contact" 
+                <Link
+                  to="/contact"
                   className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center gap-2">
@@ -227,7 +227,7 @@ const AboutPage = () => {
             {/* 版權資訊 */}
             <div className="border-t pt-6 mt-8 text-center">
               <p className="text-muted-foreground text-sm">
-                © 2025 不理性登記處. All rights reserved.
+                © 2025 ChaosRegistry. All rights reserved.
                 <br />
                 {getText('aboutPage.footer.tagline', '讓投票變得更有趣！')}
               </p>

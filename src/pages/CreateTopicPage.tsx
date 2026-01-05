@@ -18,7 +18,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Coins, X, Plus, Loader2, Gift } from "lucide-react";
+import { ArrowLeft, Coins, X, Plus, Loader2, Gift, Sparkles } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { getTagColor } from "@/lib/tagColors";
@@ -181,6 +182,93 @@ const CreateTopicPage = () => {
   const [reviewDialogInfo, setReviewDialogInfo] = useState<{ keyword: string } | null>(null);
   const [pendingSubmission, setPendingSubmission] = useState<{ options: string[]; tags: string[] } | null>(null);
   const [isDailyDiscountEligible, setIsDailyDiscountEligible] = useState(false);
+
+  /* Unstable Rewrite State */
+  const [isRewriting, setIsRewriting] = useState(false);
+  const [rewriteConfirmOpen, setRewriteConfirmOpen] = useState(false);
+  const [rewriteResult, setRewriteResult] = useState<{ title: string; description: string; options: string[] } | null>(null);
+  const [rewriteUsage, setRewriteUsage] = useState<{ isFree: boolean; cost: number; count: number } | null>(null);
+  const [dailyRewriteCount, setDailyRewriteCount] = useState(0);
+
+  // Check daily rewrite usage on mount
+  useEffect(() => {
+    if (user?.id) {
+      const checkDailyUsage = async () => {
+        const today = new Date().toISOString().split('T')[0];
+        const { data } = await supabase
+          .from('user_daily_actions')
+          .select('count')
+          .eq('user_id', user.id)
+          .eq('action_type', 'ai_chaos_rewrite')
+          .eq('action_date', today)
+          .maybeSingle();
+
+        setDailyRewriteCount(data?.count || 0);
+      };
+      checkDailyUsage();
+    }
+  }, [user?.id]);
+
+  const handleUnstableRewrite = async () => {
+    if (!title.trim()) {
+      toast.error(getText('topic.title.required', '請先輸入主題標題'));
+      return;
+    }
+
+    if (!user) {
+      toast.error(getText('topic.login.error', '請先登入'));
+      return;
+    }
+
+    // Check if user has enough tokens (if not free)
+    // Assuming cost is 5, but logic is handled in Edge Function too. 
+    // We strictly rely on backend error if insufficient.
+
+    setIsRewriting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-chaos-rewrite', {
+        body: {
+          title: title,
+          description: description,
+          options: options.filter(o => o.trim() !== "")
+        }
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      setRewriteResult(data.data);
+      setRewriteUsage(data.usage);
+      setDailyRewriteCount(data.usage.count);
+      setRewriteConfirmOpen(true);
+      refreshStats(); // Update token count immediately
+    } catch (error: any) {
+      console.error('Rewrite error:', error);
+      toast.error(getText('topic.rewrite.error', '改寫失敗，請稍後再試'), {
+        description: error.message
+      });
+    } finally {
+      setIsRewriting(false);
+    }
+  };
+
+  const applyRewrite = () => {
+    if (rewriteResult) {
+      setTitle(rewriteResult.title);
+      setDescription(rewriteResult.description);
+
+      // Ensure we have at least 2 options
+      let newOptions = rewriteResult.options || [];
+      if (newOptions.length < 2) {
+        newOptions = [...newOptions, "", ""].slice(0, 2);
+      }
+      setOptions(newOptions);
+
+      setRewriteConfirmOpen(false);
+      setRewriteResult(null);
+      toast.success(getText('topic.rewrite.applied', '已套用改寫內容'));
+    }
+  };
 
   // Config values are now retrieved at the top of the component
 
@@ -437,7 +525,75 @@ const CreateTopicPage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+
+
+      {/* Unstable Rewrite Confirmation Dialog */}
+      < AlertDialog open={rewriteConfirmOpen} onOpenChange={setRewriteConfirmOpen} >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-500" />
+              {getText('topic.unstable_rewrite.confirm_title', '不穩定改寫確認')}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-4 pt-2">
+              <p>{getText('topic.unstable_rewrite.confirm_message', '我們把你的內容改成了這個樣子，確定要用嗎？')}</p>
+
+              {rewriteResult && (
+                <div className="bg-muted/50 p-3 rounded-md space-y-2 text-sm">
+                  <div>
+                    <span className="font-semibold">標題：</span>
+                    <span className="text-foreground">{rewriteResult.title}</span>
+                  </div>
+                  {rewriteResult.description && (
+                    <div>
+                      <span className="font-semibold">詳述：</span>
+                      <p className="text-foreground line-clamp-3">{rewriteResult.description}</p>
+                    </div>
+                  )}
+                  <div>
+                    <span className="font-semibold">選項：</span>
+                    <ul className="list-disc list-inside text-foreground">
+                      {rewriteResult.options.map((opt, i) => (
+                        <li key={i}>{opt}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {rewriteUsage && (
+                <div className="flex items-center gap-2 text-sm justify-end">
+                  {rewriteUsage.isFree ? (
+                    <span className="text-green-500 font-bold flex items-center gap-1">
+                      <Gift className="w-4 h-4" />
+                      {getText('topic.unstable_rewrite.daily_free', '每日首次免費')}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground flex items-center gap-1">
+                      {getText('topic.unstable_rewrite.daily_used', '今日已用 ({{amount}} 代幣)').replace('{{amount}}', String(rewriteUsage.cost))}
+                    </span>
+                  )}
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setRewriteConfirmOpen(false)}>
+              {getText('topic.unstable_rewrite.cancel', '保留原樣')}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={applyRewrite} className="bg-purple-600 hover:bg-purple-700">
+              {getText('topic.unstable_rewrite.apply', '套用改寫')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog >
+
       <div className="min-h-screen bg-background pb-20">
+        <LoadingBubble
+          isLoading={isRewriting}
+          textKey="topic.unstable_rewrite.loading"
+          defaultText="正在進行混亂改寫..."
+        />
         <LoadingBubble
           isLoading={isSubmitting}
           textKey="loading.create_topic"
@@ -482,6 +638,24 @@ const CreateTopicPage = () => {
               onChange={(e) => setTitle(e.target.value)}
               className="h-12 text-base"
             />
+
+            {/* Unstable Rewrite Button */}
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleUnstableRewrite}
+                disabled={isRewriting}
+                className="text-purple-500 hover:text-purple-600 hover:bg-purple-100/50 -mt-1"
+              >
+                <Sparkles className="w-4 h-4 mr-1.5" />
+                {getText('topic.unstable_rewrite.button', '不穩定改寫')}
+                {dailyRewriteCount === 0 && (
+                  <span className="ml-1.5 text-[10px] bg-green-500 text-white px-1 py-0.5 rounded-full">Free</span>
+                )}
+              </Button>
+            </div>
           </div>
 
           {/* Description */}

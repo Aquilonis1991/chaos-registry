@@ -62,7 +62,7 @@ const ProfilePage = () => {
   const { stats, loading: statsLoading } = useUserStats(user?.id);
   const { getConfig } = useSystemConfigCache();
   const navigate = useNavigate();
-  const [notifications, setNotifications] = useState(true);
+
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempNickname, setTempNickname] = useState("");
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
@@ -92,7 +92,7 @@ const ProfilePage = () => {
       const interval = setInterval(fetchUnreadCount, 30000);
       return () => clearInterval(interval);
     }
-  }, [user?.id, notifications]);
+  }, [user?.id]);
 
   const handleLogout = async () => {
     await signOut();
@@ -257,8 +257,7 @@ const ProfilePage = () => {
 
         profileUpdateSchema.parse({
           nickname: trimmedNickname,
-          avatar: cleanedAvatar,
-          notifications
+          avatar: cleanedAvatar
         });
         console.log('[ProfilePage] handleSaveName: Zod validation passed');
       } catch (zodError: any) {
@@ -330,23 +329,7 @@ const ProfilePage = () => {
   };
 
 
-  const handleNotificationsChange = async (value: boolean) => {
-    if (!profile) return;
 
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ notifications: value })
-        .eq('id', profile.id);
-
-      if (error) throw error;
-
-      setNotifications(value);
-      toast.success(getText("profile.settings.updated", "設定已更新"));
-    } catch (error) {
-      toast.error(getText("profile.error.updateFailed", "更新失敗"));
-    }
-  };
 
   if (profileLoading || !profile || uiTextsLoading) {
     return (
@@ -376,7 +359,7 @@ const ProfilePage = () => {
   const languageLabel = getText('profile.settings.language', '語言與地區');
   const emailLabel = getText('profile.settings.email', '電子郵件');
   const emailNotSet = getText('profile.settings.emailNotSet', '未設定');
-  const notificationsLabel = getText('profile.settings.notifications', '通知設定');
+
   const termsLabel = getText('profile.menu.terms', '使用者條款');
   const privacyLabel = getText('profile.menu.privacy', '隱私權政策');
   const contactLabel = getText('profile.menu.contact', '連絡我們');
@@ -613,23 +596,7 @@ const ProfilePage = () => {
 
                 <ChangePasswordDialog />
 
-                <Separator />
 
-                <div className="px-5 py-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Bell className="w-5 h-5 text-primary" />
-                    <Label htmlFor="notifications" className="font-medium cursor-pointer">
-                      {notificationsLabel}
-                    </Label>
-                  </div>
-                  <Switch
-                    id="notifications"
-                    checked={profile.notifications ?? true}
-                    onCheckedChange={handleNotificationsChange}
-                  />
-                </div>
-
-                <Separator />
 
                 <Link to="/terms">
                   <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">

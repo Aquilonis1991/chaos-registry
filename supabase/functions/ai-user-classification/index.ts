@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
                 error: "Weekly limit reached",
                 message: "您本週已完成鑑定，請下週再來！" // "You have completed the assessment this week, come back next week!"
             }), {
-                status: 403,
+                status: 200, // Return 200 so client can read the error message
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
         }
@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
     } catch (error: any) {
         console.error("Error:", error);
         return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
+            status: 200,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
     }

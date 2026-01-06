@@ -18,7 +18,7 @@ profile.assessment.title,不理性鑑定,Irrationality Assessment,非合理性�
 profile.assessment.cooldown,本週已完成一次鑑定,Assessment completed this week,今週の診断は完了しました
 profile.assessment.start_prompt,看看我們眼中的你是什麼樣子？,See what you look like in our eyes?,私たちの目にあなたがどう映るか見てみませんか？
 profile.assessment.button_free,本週免費鑑定,Free Assessment This Week,今週の無料診断
-profile.assessment.disclaimer,娛樂用途，非心理分析,For entertainment purposes only, not psychoanalysis,エンターテイメント目的であり、精神分析ではありません
+profile.assessment.disclaimer,本結果僅供娛樂用途，非心理分析。,For entertainment purposes only. Not a psychological analysis.,本結果は娯楽目的のみであり、心理分析ではありません。
 profile.assessment.button_paid,再次鑑定 ({{amount}} 代幣),Re-assess ({{amount}} Tokens),再診断 ({{amount}} トークン)
 profile.assessment.payment_title,確認進行鑑定？,Confirm Assessment?,診断を確認しますか？
 profile.assessment.payment_message,本次鑑定將消耗 {{amount}} 代幣。,This assessment will cost {{amount}} tokens.,この診断には {{amount}} トークンが必要です。

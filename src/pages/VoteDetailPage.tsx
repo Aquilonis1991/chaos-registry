@@ -33,6 +33,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 import { formatRelativeTime, formatRemainingTime } from "@/lib/relativeTime";
+import { OfficialSummaryCard } from "@/components/OfficialSummaryCard";
+import { useOfficialSummary } from "@/hooks/useOfficialSummary";
 
 const VoteDetailPage = () => {
   const { id } = useParams();
@@ -46,6 +48,10 @@ const VoteDetailPage = () => {
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
   const { getConfig } = useSystemConfigCache();
   const voteButtonAmounts = getConfig('vote_button_amounts', [1, 10, 100]) as number[];
+
+  // Official Summary Hook
+  const { summary, isLoading: summaryLoading } = useOfficialSummary(topic);
+  const isTopicEnded = topic?.status === 'ended';
 
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isVoting, setIsVoting] = useState(false);
@@ -471,9 +477,15 @@ const VoteDetailPage = () => {
           })()}
         </div>
 
-        {/* Vote Actions */}
+        {/* Vote Actions or Official Summary */}
         <div className="space-y-3 mb-6 max-w-3xl mx-auto w-full px-4 sm:px-6">
-          {isAnonymous ? (
+          {isTopicEnded ? (
+            <OfficialSummaryCard
+              summary={summary}
+              isLoading={summaryLoading}
+              language={language}
+            />
+          ) : isAnonymous ? (
             <Card className="bg-muted/50 border-muted">
               <CardContent className="p-4 text-center">
                 <User className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />

@@ -29,7 +29,8 @@ import {
   Edit,
   Check,
   Loader2,
-  LogOut
+  LogOut,
+  Brain
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -56,12 +57,18 @@ import { validateNickname, getBannedWordErrorMessage } from "@/lib/bannedWords";
 import { formatCompactNumber } from "@/lib/numberFormat";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 
+// Brain icon already imported from lucide-react below or we merge imports
+// import { Brain } from "lucide-react";
+
 const ProfilePage = () => {
   const { profile, loading: profileLoading, refreshProfile } = useProfile();
   const { user, signOut } = useAuth();
   const { stats, loading: statsLoading } = useUserStats(user?.id);
   const { getConfig } = useSystemConfigCache();
   const navigate = useNavigate();
+  const { language, setLanguage } = useLanguage();
+  const { getText, isLoading: uiTextsLoading } = useUIText(language);
+  const { getText: getAssessText } = useUIText(language); // Re-declare or just use getText if keys are loaded
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempNickname, setTempNickname] = useState("");
@@ -70,8 +77,10 @@ const ProfilePage = () => {
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [pendingNickname, setPendingNickname] = useState<string | null>(null);
   const [pendingReviewKeyword, setPendingReviewKeyword] = useState<string | null>(null);
-  const { language, setLanguage } = useLanguage();
-  const { getText, isLoading: uiTextsLoading } = useUIText(language);
+  const [assessmentLoading, setAssessmentLoading] = useState(false);
+  const [assessmentResult, setAssessmentResult] = useState<{ title: string; description: string } | null>(null);
+  const [isAssessmentDialogOpen, setIsAssessmentDialogOpen] = useState(false);
+  const [weeklyAssessmentDone, setWeeklyAssessmentDone] = useState(false);
 
   // 獲取未讀通知數量
   useEffect(() => {
@@ -91,6 +100,32 @@ const ProfilePage = () => {
       // 每30秒更新一次
       const interval = setInterval(fetchUnreadCount, 30000);
       return () => clearInterval(interval);
+    }
+  }, [user?.id]);
+
+  // Fetch assessment status
+  useEffect(() => {
+    if (user?.id) {
+      const fetchAssessment = async () => {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        const { data, error } = await supabase
+          .from('user_assessments')
+          .select('title, description, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (data) {
+          setAssessmentResult({ title: data.title, description: data.description });
+          if (new Date(data.created_at) > sevenDaysAgo) {
+            setWeeklyAssessmentDone(true);
+          }
+        }
+      };
+      fetchAssessment();
     }
   }, [user?.id]);
 
@@ -321,6 +356,32 @@ const ProfilePage = () => {
     }
   };
 
+  const handleAssessment = async () => {
+    if (weeklyAssessmentDone) {
+      toast.info(getAssessText('profile.assessment.cooldown', '本週已完成一次鑑定'));
+      return;
+    }
+
+    setAssessmentLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-user-classification', {
+        body: { language: language }
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.message || data.error);
+
+      setAssessmentResult(data.data);
+      setWeeklyAssessmentDone(true);
+      toast.success('鑑定完成！');
+    } catch (error: any) {
+      console.error('Assessment failed:', error);
+      toast.error(error.message || getText('profile.error.updateFailed', '鑑定失敗'));
+    } finally {
+      setAssessmentLoading(false);
+    }
+  };
+
   const handleCancelEdit = () => {
     if (profile) {
       setTempNickname(profile.nickname);
@@ -410,55 +471,77 @@ const ProfilePage = () => {
           textKey="loading.profile_update"
           defaultText="正在更新個人資料..."
         />
+        <LoadingBubble
+          isLoading={assessmentLoading}
+          textKey="profile.assessment.loading"
+          defaultText="正在分析您的行為模式..."
+        />
         {/* Header */}
         <header className="bg-gradient-primary shadow-lg">
           <div className="max-w-screen-xl mx-auto px-4 py-8">
             <div className="flex flex-col items-center gap-4">
+              <div className="pt-8 pb-6 px-4">
+                <div className="flex flex-col items-center space-y-3">
+                  <div className="relative">
+                    <div className="w-20 h-20 rounded-full border-4 border-background/20 overflow-hidden bg-background/10 backdrop-blur-sm flex items-center justify-center text-4xl shadow-inner">
+                      {profile.avatar ?? "🔥"}
+                    </div>
+                    {/* 稱號顯示於頭像上方 (如有) */}
+                    {assessmentResult?.title && (
+                      <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-0.5 rounded-full shadow-md whitespace-nowrap z-10 border-2 border-yellow-200">
+                        {assessmentResult.title}
+                      </span>
+                    )}
+                    {/* Edit Button */}
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      className="absolute bottom-0 right-0 w-7 h-7 rounded-full shadow-lg border border-background/50 hover:scale-105 transition-transform"
+                      onClick={() => setIsEditingName(true)}
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
 
-              <div className="text-center">
-                {isEditingName ? (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={tempNickname}
-                      onChange={(e) => setTempNickname(e.target.value)}
-                      className="w-40 h-8 text-center bg-primary-foreground/20 border-primary-foreground/40 text-primary-foreground"
-                      maxLength={20}
-                    />
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
-                      onClick={handleSaveName}
-                    >
-                      <Check className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
-                      onClick={handleCancelEdit}
-                    >
-                      ✕
-                    </Button>
+                  <div className="text-center space-y-1">
+                    {isEditingName ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={tempNickname}
+                          onChange={(e) => setTempNickname(e.target.value)}
+                          className="w-40 h-8 text-center bg-primary-foreground/20 border-primary-foreground/40 text-primary-foreground"
+                          maxLength={20}
+                        />
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
+                          onClick={handleSaveName}
+                        >
+                          <Check className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
+                          onClick={handleCancelEdit}
+                        >
+                          ✕
+                        </Button>
+                      </div>
+                    ) : (
+                      <h1 className="text-2xl font-bold text-primary-foreground drop-shadow-md">
+                        {profile.nickname}
+                      </h1>
+                    )}
+                    {/* 側寫顯示於暱稱下方 (如有) */}
+                    {assessmentResult?.description && (
+                      <p className="text-xs text-primary-foreground/80 max-w-[200px] mx-auto bg-black/10 px-2 py-1 rounded backdrop-blur-sm">
+                        {assessmentResult.description}
+                      </p>
+                    )}
                   </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-2xl font-bold text-primary-foreground">
-                      {nickname}
-                    </h1>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
-                      onClick={() => {
-                        setIsEditingName(true);
-                        setTempNickname(nickname);
-                      }}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                  </div>
-                )}
+                </div>
               </div>
 
               <button
@@ -506,8 +589,50 @@ const ProfilePage = () => {
 
         </div>
 
-        {/* Content */}
+        {/* Irrationality Assessment Section */}
         <div className="max-w-screen-xl mx-auto px-4 py-6 space-y-6">
+          <div className="mb-6">
+            <Card className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 border-violet-500/20 overflow-hidden">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-violet-100 dark:bg-violet-900/30 rounded-full">
+                    <Brain className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-foreground">
+                      {getAssessText('profile.assessment.title', '不理性鑑定')}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      {weeklyAssessmentDone
+                        ? getAssessText('profile.assessment.cooldown', '本週已完成一次鑑定')
+                        : getAssessText('profile.assessment.start_prompt', '看看 AI 眼中的你是什麼樣子？')
+                      }
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-violet-200 hover:bg-violet-50 hover:text-violet-700 dark:border-violet-800 dark:hover:bg-violet-900/50"
+                  onClick={() => handleAssessment()}
+                  disabled={weeklyAssessmentDone || assessmentLoading}
+                >
+                  {weeklyAssessmentDone ? (
+                    <span className="flex items-center gap-1 text-green-600">
+                      <Check className="w-3 h-3" />
+                      Okay
+                    </span>
+                  ) : (
+                    getAssessText('profile.assessment.button', '開始鑑定')
+                  )}
+                </Button>
+              </CardContent>
+              <div className="px-4 pb-2 text-[10px] text-muted-foreground/50 text-center">
+                {getAssessText('profile.assessment.disclaimer', '娛樂用途，非心理分析')}
+              </div>
+            </Card>
+          </div>
+
           {/* History Section */}
           <div className="space-y-3">
             <h2 className="text-base font-semibold text-muted-foreground px-2">

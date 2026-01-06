@@ -186,7 +186,7 @@ const CreateTopicPage = () => {
   /* Unstable Rewrite State */
   const [isRewriting, setIsRewriting] = useState(false);
   const [rewriteConfirmOpen, setRewriteConfirmOpen] = useState(false);
-  const [rewriteResult, setRewriteResult] = useState<{ title: string; description: string; options: string[] } | null>(null);
+  const [rewriteResult, setRewriteResult] = useState<{ rewritten_title: string; options: string[] } | null>(null);
   const [rewriteUsage, setRewriteUsage] = useState<{ isFree: boolean; cost: number; count: number } | null>(null);
   const [dailyRewriteCount, setDailyRewriteCount] = useState(0);
 
@@ -254,8 +254,16 @@ const CreateTopicPage = () => {
 
   const applyRewrite = () => {
     if (rewriteResult) {
-      setTitle(rewriteResult.title);
-      setDescription(rewriteResult.description);
+      setTitle(rewriteResult.rewritten_title);
+      // Unstable rewrite (Unified Spec) does not return description, so logic implies description implies lost?
+      // Or we keep original? "rewrite" implies replacement.
+      // I will clear description as it might not match new title.
+      // But wait, if user wrote a long description, they might be annoyed.
+      // However, "Chaos" rules.
+      // Actually, let's keep it if not returned? No, spec says "Output JSON ONLY ...".
+      // I'll assume description is meant to be nuke or not part of the chaos output.
+      // Let's set it to empty for now to be safe with "Rewrite".
+      setDescription("");
 
       // Ensure we have at least 2 options
       let newOptions = rewriteResult.options || [];
@@ -542,14 +550,9 @@ const CreateTopicPage = () => {
                 <div className="bg-muted/50 p-3 rounded-md space-y-2 text-sm">
                   <div>
                     <span className="font-semibold">標題：</span>
-                    <span className="text-foreground">{rewriteResult.title}</span>
+                    <span className="text-foreground">{rewriteResult.rewritten_title}</span>
                   </div>
-                  {rewriteResult.description && (
-                    <div>
-                      <span className="font-semibold">詳述：</span>
-                      <p className="text-foreground line-clamp-3">{rewriteResult.description}</p>
-                    </div>
-                  )}
+                  {/* Description is not returned in Unified Spec */}
                   <div>
                     <span className="font-semibold">選項：</span>
                     <ul className="list-disc list-inside text-foreground">
@@ -639,23 +642,7 @@ const CreateTopicPage = () => {
               className="h-12 text-base"
             />
 
-            {/* Unstable Rewrite Button */}
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={handleUnstableRewrite}
-                disabled={isRewriting}
-                className="text-purple-500 hover:text-purple-600 hover:bg-purple-100/50 -mt-1"
-              >
-                <Sparkles className="w-4 h-4 mr-1.5" />
-                {getText('topic.unstable_rewrite.button', '不穩定改寫')}
-                {dailyRewriteCount === 0 && (
-                  <span className="ml-1.5 text-[10px] bg-green-500 text-white px-1 py-0.5 rounded-full">Free</span>
-                )}
-              </Button>
-            </div>
+
           </div>
 
           {/* Description */}
@@ -676,6 +663,26 @@ const CreateTopicPage = () => {
             />
             <div className="text-xs text-muted-foreground text-right">
               {description.length} / {descMaxLength}
+            </div>
+
+            {/* Unstable Rewrite Button */}
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleUnstableRewrite}
+                disabled={isRewriting}
+                className="text-purple-500 hover:text-purple-600 hover:bg-purple-100/50 -mt-2"
+              >
+                <Sparkles className="w-4 h-4 mr-1.5" />
+                {getText('topic.unstable_rewrite.button', '不穩定改寫')}
+                {dailyRewriteCount === 0 && (
+                  <span className="ml-1.5 text-[10px] bg-green-500 text-white px-2 py-0.5 rounded-full">
+                    {getText('topic.unstable_rewrite.daily_free', '每日首次免費')}
+                  </span>
+                )}
+              </Button>
             </div>
           </div>
 

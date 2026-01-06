@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 4. Call OpenAI for Rewrite (GPT-5-Nano)
+    // 4. Call OpenAI (Stable v1/chat/completions)
     const openAiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openAiKey) throw new Error("OpenAI API Key not configured");
 
@@ -117,7 +117,8 @@ Deno.serve(async (req) => {
     `;
 
     const userContent = JSON.stringify({ title, description, options });
-    // Use standard gpt-4o-mini API endpoint for stability
+
+    // Call OpenAI
     const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -128,25 +129,25 @@ Deno.serve(async (req) => {
         model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Rewrite to Chaos JSON: ${userContent}` }
+          { role: "user", content: `Task Input:\nRewrite to Chaos JSON: ${userContent}` }
         ],
-        temperature: 0.9,
+        temperature: 1.0,
         response_format: { type: "json_object" }
       }),
     });
 
     const aiData = await openAiResponse.json();
-    if (aiData.error) {
-      console.error("OpenAI Error:", aiData.error);
-      throw new Error(aiData.error.message || "OpenAI API Error");
-    }
+    if (aiData.error) throw new Error(aiData.error.message);
 
-    // Parse output from standard chat completion
-    const resultText = aiData.choices?.[0]?.message?.content;
+    // Parse standard response
+    let resultText = aiData.choices?.[0]?.message?.content;
     if (!resultText) {
       console.error("AI Response:", aiData);
-      throw new Error("Invalid AI response structure");
+      throw new Error(`Invalid AI response structure (Raw: ${JSON.stringify(aiData)})`);
     }
+
+    // Attempt to clean markdown fences if present
+    resultText = resultText.replace(/```json\n?|```/g, "").trim();
 
     const rewrittenContent = JSON.parse(resultText);
 
@@ -163,8 +164,9 @@ Deno.serve(async (req) => {
     });
 
   } catch (error: any) {
+    console.error("Error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
+      status: 200, // Return 200 to ensure client reads error message
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

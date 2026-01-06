@@ -1,5 +1,5 @@
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
     }
 
     try {
-        const { topic_id, title, options = [], votes = {} } = await req.json();
+        const { topic_id, title, description, options = [], votes = {} } = await req.json();
 
         if (!topic_id) {
             throw new Error("topic_id is required");
@@ -96,6 +96,8 @@ Deno.serve(async (req) => {
     `;
 
         // 5. Call OpenAI (Stable v1/chat/completions)
+        const finalInput = `${systemPrompt}\n\nTask Input:\nOfficial Summary for: ${title}\nDescription: ${description}\nOptions: ${JSON.stringify(options)}\nVotes: ${JSON.stringify(votes)}`;
+
         const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -106,7 +108,7 @@ Deno.serve(async (req) => {
                 model: "gpt-4o-mini",
                 messages: [
                     { role: "system", content: systemPrompt },
-                    { role: "user", content: `Generate Official Summary for: ${title}` }
+                    { role: "user", content: `Generate Official Summary for Topic: "${title}"` }
                 ],
                 temperature: 0.5,
                 response_format: { type: "json_object" }
@@ -114,55 +116,51 @@ Deno.serve(async (req) => {
         });
 
         const aiData = await openAiResponse.json();
-        if (aiData.error) {
-            console.error("OpenAI Error:", aiData.error);
-            throw new Error(aiData.error.message || "OpenAI API Error");
-        }
+        if (aiData.error) throw new Error(aiData.error.message);
 
         // Parse Standard Response
-        const resultText = aiData.choices?.[0]?.message?.content;
+        let resultText = aiData.choices?.[0]?.message?.content;
         if (!resultText) {
             console.error("AI Response:", aiData);
-            throw new Error("Invalid AI response structure");
+            throw new Error(`Invalid AI response structure (Raw: ${JSON.stringify(aiData)})`);
         }
 
-        let summary;
-        try {
-            summary = JSON.parse(resultText);
-        } catch (e) {
-            console.error("JSON Parse Error:", e, resultText);
-            throw new Error("Failed to parse AI response");
-        }
+        // Clean potential markdown
+        resultText = resultText.replace(/```json\n?|```/g, "").trim();
+
+        const result = JSON.parse(resultText);
 
         // 6. Save to Database (Map keys to DB columns)
         const { error: insertError } = await supabase
             .from("topic_summaries")
             .insert({
                 topic_id: topic_id,
-                summary_zh: summary.zh,
-                summary_en: summary.en,
-                summary_ja: summary.ja,
-                chaos_level: summary.grade || "IV"
+                summary_zh: result.zh,
+                summary_en: result.en,
+                summary_ja: result.ja,
+                chaos_level: result.grade || "IV"
             });
 
         if (insertError) throw insertError;
 
         return new Response(JSON.stringify({
             success: true,
+            // Map keys back to what frontend/DB expects for the response data
             data: {
-                summary_zh: summary.zh,
-                summary_en: summary.en,
-                summary_ja: summary.ja,
-                chaos_level: summary.grade || "IV",
-                ...summary
+                summary_zh: result.zh,
+                summary_en: result.en,
+                summary_ja: result.ja,
+                chaos_level: result.grade || "IV",
+                ...result
             }
         }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
 
     } catch (error: any) {
+        console.error("Error:", error);
         return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
+            status: 200, // Return 200 for soft error handling
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
     }

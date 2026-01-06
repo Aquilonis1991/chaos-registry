@@ -480,67 +480,65 @@ const ProfilePage = () => {
         <header className="bg-gradient-primary shadow-lg">
           <div className="max-w-screen-xl mx-auto px-4 py-8">
             <div className="flex flex-col items-center gap-4">
-              <div className="pt-8 pb-6 px-4">
-                <div className="flex flex-col items-center space-y-3">
-                  <div className="relative">
-                    <div className="w-20 h-20 rounded-full border-4 border-background/20 overflow-hidden bg-background/10 backdrop-blur-sm flex items-center justify-center text-4xl shadow-inner">
-                      {profile.avatar ?? "🔥"}
-                    </div>
-                    {/* 稱號顯示於頭像上方 (如有) */}
-                    {assessmentResult?.title && (
-                      <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-0.5 rounded-full shadow-md whitespace-nowrap z-10 border-2 border-yellow-200">
+              <div className="pt-8 pb-6 px-4 w-full">
+                <div className="flex flex-col items-center gap-3">
+
+                  {/* 1. 稱號 (Title) */}
+                  {assessmentResult?.title && (
+                    <div className="animate-in fade-in slide-in-from-top-2">
+                      <span className="bg-yellow-400/90 text-yellow-900 text-sm font-bold px-3 py-1 rounded-full shadow-sm border border-yellow-200/50 backdrop-blur-sm">
                         {assessmentResult.title}
                       </span>
-                    )}
-                    {/* Edit Button */}
-                    <Button
-                      size="icon"
-                      variant="secondary"
-                      className="absolute bottom-0 right-0 w-7 h-7 rounded-full shadow-lg border border-background/50 hover:scale-105 transition-transform"
-                      onClick={() => setIsEditingName(true)}
-                    >
-                      <Edit className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
+                    </div>
+                  )}
 
-                  <div className="text-center space-y-1">
+                  {/* 2. 暱稱 (Nickname) */}
+                  <div className="relative">
                     {isEditingName ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 justify-center">
                         <Input
                           value={tempNickname}
                           onChange={(e) => setTempNickname(e.target.value)}
-                          className="w-40 h-8 text-center bg-primary-foreground/20 border-primary-foreground/40 text-primary-foreground"
+                          className="w-40 h-10 text-center text-xl bg-primary-foreground/20 border-primary-foreground/40 text-primary-foreground placeholder:text-primary-foreground/50 focus-visible:ring-primary-foreground/50"
                           maxLength={20}
                         />
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
-                          onClick={handleSaveName}
-                        >
-                          <Check className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
-                          onClick={handleCancelEdit}
-                        >
-                          ✕
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-10 w-10 text-primary-foreground hover:bg-primary-foreground/20"
+                            onClick={handleSaveName}
+                          >
+                            <Check className="w-5 h-5" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-10 w-10 text-primary-foreground hover:bg-primary-foreground/20"
+                            onClick={handleCancelEdit}
+                          >
+                            <span className="text-lg">✕</span>
+                          </Button>
+                        </div>
                       </div>
                     ) : (
-                      <h1 className="text-2xl font-bold text-primary-foreground drop-shadow-md">
-                        {profile.nickname}
-                      </h1>
-                    )}
-                    {/* 側寫顯示於暱稱下方 (如有) */}
-                    {assessmentResult?.description && (
-                      <p className="text-xs text-primary-foreground/80 max-w-[200px] mx-auto bg-black/10 px-2 py-1 rounded backdrop-blur-sm">
-                        {assessmentResult.description}
-                      </p>
+                      <div className="flex items-center justify-center gap-2 group cursor-pointer" onClick={() => setIsEditingName(true)}>
+                        <h1 className="text-3xl font-bold text-primary-foreground drop-shadow-md text-center">
+                          {profile.nickname}
+                        </h1>
+                        <Edit className="w-4 h-4 text-primary-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
                     )}
                   </div>
+
+                  {/* 3. 側寫 (Description) - 字體較小 */}
+                  {assessmentResult?.description && (
+                    <div className="w-full max-w-[280px] text-center animate-in fade-in slide-in-from-bottom-2 duration-700 delay-100">
+                      <p className="text-xs text-primary-foreground/90 bg-black/10 px-4 py-2 rounded-xl backdrop-blur-md leading-relaxed border border-white/5">
+                        {assessmentResult.description}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 

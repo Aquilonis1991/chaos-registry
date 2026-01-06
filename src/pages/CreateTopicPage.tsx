@@ -251,38 +251,19 @@ const CreateTopicPage = () => {
       return;
     }
 
-    setIsRewriting(true);
-    try {
-      // Preview check
-      const { data, error } = await supabase.functions.invoke('ai-chaos-rewrite', {
-        body: {
-          title: title,
-          description: description,
-          options: options.filter(o => o.trim() !== ""),
-          preview: true
-        }
+    // Optimization: Use frontend state to determine if payment is needed immediately
+    if (dailyRewriteCount > 0) {
+      setRewriteUsage({
+        isFree: false,
+        count: dailyRewriteCount + 1,
+        cost: 5
       });
-
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
-
-      const usage = data.usage;
-      if (usage.isFree) {
-        // It's free, execute directly
-        await executeRewrite();
-      } else {
-        // Needs payment, show dialog
-        setRewriteUsage(usage);
-        setShowPaymentConfirm(true);
-        setIsRewriting(false);
-      }
-    } catch (error: any) {
-      console.error('Rewrite check error:', error);
-      setIsRewriting(false);
-      toast.error(getText('topic.rewrite.error', '檢查改寫狀態失敗'), {
-        description: error.message
-      });
+      setShowPaymentConfirm(true);
+      return;
     }
+
+    // If it looks free, execute directly
+    await executeRewrite();
   };
 
   const applyRewrite = () => {
@@ -571,7 +552,7 @@ const CreateTopicPage = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>{getText('topic.unstable_rewrite.payment_title', '確認進行改寫？')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {getText('topic.unstable_rewrite.payment_message', '今日免費次數已用完，本次改寫將消耗 {{amount}} 代幣。').replace('{{amount}}', String(rewriteUsage?.cost || 5))}
+              {getText('topic.unstable_rewrite.payment_message', '今日免費次數已用完，本次改寫消耗 {{amount}} 代幣。').replace('{{amount}}', String(rewriteUsage?.cost || 5))}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -627,7 +608,7 @@ const CreateTopicPage = () => {
                   ) : (
                     <span className="text-orange-500 font-bold flex items-center gap-1">
                       <Coins className="w-4 h-4" />
-                      {getText('topic.unstable_rewrite.cost_prompt', '本次改寫將消耗 {{amount}} 代幣').replace('{{amount}}', String(rewriteUsage.cost))}
+                      {getText('topic.unstable_rewrite.cost_prompt', '本次改寫消耗 {{amount}} 代幣').replace('{{amount}}', String(rewriteUsage.cost))}
                     </span>
                   )}
                 </div>

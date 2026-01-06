@@ -376,7 +376,17 @@ const ProfilePage = () => {
       toast.success('鑑定完成！');
     } catch (error: any) {
       console.error('Assessment failed:', error);
-      toast.error(error.message || getText('profile.error.updateFailed', '鑑定失敗'));
+      // Try to extract detailed error from Supabase FunctionsHttpError context
+      let detailedMsg = error.message;
+      if (error.context && error.context.json && error.context.json.error) {
+        detailedMsg = error.context.json.error;
+      } else if (typeof error === 'string') {
+        detailedMsg = error;
+      }
+
+      toast.error(`鑑定失敗: ${detailedMsg}`, {
+        duration: 5000,
+      });
     } finally {
       setAssessmentLoading(false);
     }

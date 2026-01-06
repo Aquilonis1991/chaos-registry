@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -6,6 +6,8 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
+    console.log("[Request Started]", req.method, req.url);
+
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
@@ -18,14 +20,14 @@ Deno.serve(async (req) => {
 
         // 2. Auth Check
         const authHeader = req.headers.get("Authorization");
-        if (!authHeader) throw new Error("Missing Authorization header");
+        if (!authHeader) throw new Error("[AUTH_MISSING] Missing Authorization header");
 
         const {
             data: { user },
             error: authError,
         } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
 
-        if (authError || !user) throw new Error("Unauthorized");
+        if (authError || !user) throw new Error("[AUTH_INVALID] Unauthorized");
         const userId = user.id;
 
         // 3. Weekly Limit Check (Cool-down)
@@ -58,11 +60,11 @@ Deno.serve(async (req) => {
             { p_user_id: userId }
         );
 
-        if (metricsError) throw metricsError;
+        if (metricsError) throw new Error(`[DB_RPC_ERROR] ${metricsError.message} (Hint: Run SQL migration?)`);
 
         // 5. Build Prompt
         const openAiKey = Deno.env.get("OPENAI_API_KEY");
-        if (!openAiKey) throw new Error("OpenAI API Key not configured");
+        if (!openAiKey) throw new Error("[CONFIG_ERROR] OpenAI API Key not configured");
 
         // Extract language from request or default to 'zh'
         const { language = 'zh' } = await req.json().catch(() => ({}));
@@ -111,35 +113,36 @@ Deno.serve(async (req) => {
       }
     `;
 
-        // 6. Call OpenAI (GPT-5-Nano)
-        // Combine system and user prompt for "input" field
-        const finalInput = `${systemPrompt}\n\nTask Input:\nAnalyze user.`;
-
-        const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
+        // 6. Call OpenAI (Stable v1/chat/completions)
+        const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
                 "Authorization": `Bearer ${openAiKey}`,
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                model: "gpt-5-nano",
-                input: finalInput,
-                store: true
+                model: "gpt-4o-mini",
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: "Analyze user." }
+                ],
+                temperature: 1.0,
+                response_format: { type: "json_object" }
             }),
         });
 
         const aiData = await openAiResponse.json();
-        if (aiData.error) throw new Error(aiData.error.message);
-
-        // Parse output_text
-        let resultText = aiData.output_text;
-        if (!resultText) {
-            console.error("AI Response:", aiData);
-            throw new Error("Invalid AI response structure");
+        if (aiData.error) {
+            console.error("OpenAI Error:", aiData.error);
+            throw new Error(aiData.error.message || "OpenAI API Error");
         }
 
-        // Clean potential markdown
-        resultText = resultText.replace(/```json\n?|```/g, "").trim();
+        // Parse Standard Response
+        const resultText = aiData.choices?.[0]?.message?.content;
+        if (!resultText) {
+            console.error("AI Response:", aiData);
+            throw new Error("[OPENAI_PARSE_ERROR] Invalid AI response structure");
+        }
 
         const result = JSON.parse(resultText);
 
@@ -168,8 +171,12 @@ Deno.serve(async (req) => {
 
     } catch (error: any) {
         console.error("Error:", error);
+
+        // Return 500 for system errors to differentiate from 400 bad requests
+        // But to keep frontend safe, we might stick to returning error.message JSON
+        // We will prefix the error message to know WHERE it failed.
         return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
+            status: 400, // Keep 400 to ensure frontend shows it (frontend might swallow 500s differently)
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
     }

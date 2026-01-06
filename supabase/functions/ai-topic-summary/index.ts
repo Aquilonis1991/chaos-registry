@@ -95,60 +95,66 @@ Deno.serve(async (req) => {
       }
     `;
 
-        // 5. Call OpenAI (GPT-5-Nano)
-        // Combine prompts for "input"
-        const finalInput = `${systemPrompt}\n\nTask Input:\nOfficial Summary for: ${title}\nDescription: ${description}\nOptions: ${JSON.stringify(options)}\nVotes: ${JSON.stringify(votes)}`;
-
-        const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
+        // 5. Call OpenAI (Stable v1/chat/completions)
+        const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
                 "Authorization": `Bearer ${openAiKey}`,
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                model: "gpt-5-nano",
-                input: finalInput,
-                store: true
+                model: "gpt-4o-mini",
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: `Generate Official Summary for: ${title}` }
+                ],
+                temperature: 0.5,
+                response_format: { type: "json_object" }
             }),
         });
 
         const aiData = await openAiResponse.json();
-        if (aiData.error) throw new Error(aiData.error.message);
+        if (aiData.error) {
+            console.error("OpenAI Error:", aiData.error);
+            throw new Error(aiData.error.message || "OpenAI API Error");
+        }
 
-        // Parse output_text
-        let resultText = aiData.output_text;
+        // Parse Standard Response
+        const resultText = aiData.choices?.[0]?.message?.content;
         if (!resultText) {
             console.error("AI Response:", aiData);
             throw new Error("Invalid AI response structure");
         }
 
-        // Clean potential markdown
-        resultText = resultText.replace(/```json\n?|```/g, "").trim();
-
-        const result = JSON.parse(resultText);
+        let summary;
+        try {
+            summary = JSON.parse(resultText);
+        } catch (e) {
+            console.error("JSON Parse Error:", e, resultText);
+            throw new Error("Failed to parse AI response");
+        }
 
         // 6. Save to Database (Map keys to DB columns)
         const { error: insertError } = await supabase
             .from("topic_summaries")
             .insert({
                 topic_id: topic_id,
-                summary_zh: result.zh,
-                summary_en: result.en,
-                summary_ja: result.ja,
-                chaos_level: result.grade || "IV"
+                summary_zh: summary.zh,
+                summary_en: summary.en,
+                summary_ja: summary.ja,
+                chaos_level: summary.grade || "IV"
             });
 
         if (insertError) throw insertError;
 
         return new Response(JSON.stringify({
             success: true,
-            // Map keys back to what frontend/DB expects for the response data
             data: {
-                summary_zh: result.zh,
-                summary_en: result.en,
-                summary_ja: result.ja,
-                chaos_level: result.grade || "IV",
-                ...result
+                summary_zh: summary.zh,
+                summary_en: summary.en,
+                summary_ja: summary.ja,
+                chaos_level: summary.grade || "IV",
+                ...summary
             }
         }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },

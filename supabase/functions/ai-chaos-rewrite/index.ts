@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { title, options = [], description = "" } = await req.json();
+    const { title, options = [], description = "", preview = false } = await req.json();
 
     if (!title) {
       throw new Error("Title is required");
@@ -63,6 +63,40 @@ Deno.serve(async (req) => {
 
     // Refactoring to just use `supabase` (User Context).
 
+    // --- PREVIEW MODE START ---
+    if (preview) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const { data: usageData } = await supabase
+        .from('user_daily_actions')
+        .select('action_count')
+        .eq('user_id', user.id)
+        .eq('action_type', 'ai_chaos_rewrite')
+        .eq('action_date', todayStr)
+        .maybeSingle();
+
+      const currentCount = usageData?.action_count || 0;
+
+      const { data: configData } = await supabase
+        .from("system_config")
+        .select("value")
+        .eq("key", "ai_chaos_rewrite_cost")
+        .single();
+      const cost = configData?.value ? Number(configData.value) : 5;
+
+      return new Response(JSON.stringify({
+        success: true,
+        preview: true,
+        usage: {
+          isFree: currentCount < 1,
+          count: currentCount,
+          cost: cost
+        }
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    // --- PREVIEW MODE END ---
+
     // 3. Increment Daily Action & Check Cost
     const { data: usageCount, error: usageError } = await supabase.rpc(
       "increment_daily_action",
@@ -83,25 +117,24 @@ Deno.serve(async (req) => {
 
       cost = configData?.value ? Number(configData.value) : 5;
 
-      // Deduct tokens
-      const { error: deductError } = await supabase.rpc("deduct_tokens", {
-        token_amount: cost,
-        user_id: user.id
+      // Deduct tokens using the correct RPC (deduct_user_tokens)
+      // Signature: p_user_id UUID, p_amount INT, p_reason TEXT
+      const { data: deductResult, error: deductError } = await supabase.rpc("deduct_user_tokens", {
+        p_user_id: user.id,
+        p_amount: cost,
+        p_reason: `Unstable Rewrite (Daily #${usageCount})`
       });
 
       if (deductError) {
-        // Rollback logic could go here (decrement count), but for simplicity we just error out.
-        // In a production system, we might want more robust transaction handling.
-        throw new Error("Insufficient tokens or deduction failed");
+        throw new Error(`[PAYMENT_ERROR] ${deductError.message}`);
       }
 
-      // Log transaction
-      await supabase.from("token_transactions").insert({
-        user_id: user.id,
-        amount: -cost,
-        transaction_type: "ai_rewrite",
-        description: `Unstable Rewrite (Daily #${usageCount})`
-      });
+      // Check logical success from RPC JSON response
+      if (deductResult && deductResult.success === false) {
+        throw new Error(`[PAYMENT_ERROR] ${deductResult.error || 'Insufficient tokens'}`);
+      }
+
+      // Log transaction is handled inside deduct_user_tokens, no need to duplicate insert
     }
 
     // 4. Call OpenAI (Stable v1/chat/completions)
@@ -134,9 +167,9 @@ Deno.serve(async (req) => {
       規則：
       - 僅能參考使用者提供的內容（標題、描述、選項）。
       - 不可在內容完全空白的情況下生成。
-      - **必須連同「主題詳述 (Description)」一起改寫**。
+      - **CRITICAL: 必須連同「主題詳述 (Description)」一起改寫，絕對不能留空！**
       - **風格要求：必須像是一份「正式但荒謬的問卷調查題目」**。
-      - 語氣：權威、學術、冷靜，但內容毫無邏輯或極度偏頗。
+      - 語氣：權威、學術、冷靜，但內容毫無邏輯或極度偏頗 (Mixed with chaos)。
       - 使用指定語言輸出 (若輸入為繁中則輸出繁中)。
 
       輸出格式 JSON ONLY:

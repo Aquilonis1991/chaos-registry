@@ -189,6 +189,7 @@ const CreateTopicPage = () => {
   const [rewriteResult, setRewriteResult] = useState<{ rewritten_title: string; rewritten_description?: string; options: string[] } | null>(null);
   const [rewriteUsage, setRewriteUsage] = useState<{ isFree: boolean; cost: number; count: number } | null>(null);
   const [dailyRewriteCount, setDailyRewriteCount] = useState(0);
+  const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
 
   // Check daily rewrite usage on mount
   useEffect(() => {
@@ -209,22 +210,9 @@ const CreateTopicPage = () => {
     }
   }, [user?.id]);
 
-  const handleUnstableRewrite = async () => {
-    if (!title.trim()) {
-      toast.error(getText('topic.title.required', '請先輸入主題標題'));
-      return;
-    }
-
-    if (!user) {
-      toast.error(getText('topic.login.error', '請先登入'));
-      return;
-    }
-
-    // Check if user has enough tokens (if not free)
-    // Assuming cost is 5, but logic is handled in Edge Function too. 
-    // We strictly rely on backend error if insufficient.
-
+  const executeRewrite = async () => {
     setIsRewriting(true);
+    setShowPaymentConfirm(false);
     try {
       const { data, error } = await supabase.functions.invoke('ai-chaos-rewrite', {
         body: {
@@ -249,6 +237,51 @@ const CreateTopicPage = () => {
       });
     } finally {
       setIsRewriting(false);
+    }
+  };
+
+  const handleUnstableRewrite = async () => {
+    if (!title.trim()) {
+      toast.error(getText('topic.title.required', '請先輸入主題標題'));
+      return;
+    }
+
+    if (!user) {
+      toast.error(getText('topic.login.error', '請先登入'));
+      return;
+    }
+
+    setIsRewriting(true);
+    try {
+      // Preview check
+      const { data, error } = await supabase.functions.invoke('ai-chaos-rewrite', {
+        body: {
+          title: title,
+          description: description,
+          options: options.filter(o => o.trim() !== ""),
+          preview: true
+        }
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      const usage = data.usage;
+      if (usage.isFree) {
+        // It's free, execute directly
+        await executeRewrite();
+      } else {
+        // Needs payment, show dialog
+        setRewriteUsage(usage);
+        setShowPaymentConfirm(true);
+        setIsRewriting(false);
+      }
+    } catch (error: any) {
+      console.error('Rewrite check error:', error);
+      setIsRewriting(false);
+      toast.error(getText('topic.rewrite.error', '檢查改寫狀態失敗'), {
+        description: error.message
+      });
     }
   };
 
@@ -531,6 +564,26 @@ const CreateTopicPage = () => {
       </AlertDialog>
 
 
+
+      {/* Unstable Rewrite Payment Confirmation Dialog */}
+      <AlertDialog open={showPaymentConfirm} onOpenChange={setShowPaymentConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{getText('topic.unstable_rewrite.payment_title', '確認進行改寫？')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {getText('topic.unstable_rewrite.payment_message', '今日免費次數已用完，本次改寫將消耗 {{amount}} 代幣。').replace('{{amount}}', String(rewriteUsage?.cost || 5))}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isRewriting}>
+              {getText('common.button.cancel', '取消')}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={executeRewrite} disabled={isRewriting}>
+              {getText('common.button.confirm', '確認')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Unstable Rewrite Confirmation Dialog */}
       < AlertDialog open={rewriteConfirmOpen} onOpenChange={setRewriteConfirmOpen} >

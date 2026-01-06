@@ -65,6 +65,7 @@ const ProfilePage = () => {
   const { user, signOut } = useAuth();
   const { stats, loading: statsLoading } = useUserStats(user?.id);
   const { getConfig } = useSystemConfigCache();
+  const irrationalAssessmentCost = getConfig('irrational_assessment_cost', '5');
   const navigate = useNavigate();
   const { language, setLanguage } = useLanguage();
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
@@ -103,12 +104,26 @@ const ProfilePage = () => {
     }
   }, [user?.id]);
 
-  // Fetch assessment status
+  // Fetch assessment status with Monday 00:00 Taiwan Time Reset Logic
   useEffect(() => {
     if (user?.id) {
       const fetchAssessment = async () => {
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        // Calculate Start of Current Week (Monday 00:00 Taiwan Time)
+        const now = new Date();
+        const taiwanOffset = 8 * 60; // UTC+8 in minutes
+        // Get current time in Taiwan
+        const taiwanTime = new Date(now.getTime() + (now.getTimezoneOffset() + taiwanOffset) * 60000);
+
+        const dayOfWeek = taiwanTime.getDay(); // 0 (Sun) - 6 (Sat)
+        // Calculate days to subtract to get to Monday (Monday=0 in our logic for calculation)
+        // If Sun(0), subtract 6 days. If Mon(1), subtract 0. If Tue(2), subtract 1...
+        const daysSinceMonday = (dayOfWeek + 6) % 7;
+
+        taiwanTime.setHours(0, 0, 0, 0);
+        const startOfWeekTaiwan = new Date(taiwanTime.getTime() - daysSinceMonday * 24 * 60 * 60 * 1000);
+
+        // Convert back to UTC to compare with DB created_at (which is UTC)
+        const startOfWeekUTC = new Date(startOfWeekTaiwan.getTime() - (taiwanOffset * 60000));
 
         const { data, error } = await supabase
           .from('user_assessments')
@@ -120,8 +135,10 @@ const ProfilePage = () => {
 
         if (data) {
           setAssessmentResult({ title: data.title, description: data.description });
-          if (new Date(data.created_at) > sevenDaysAgo) {
+          if (new Date(data.created_at) > startOfWeekUTC) {
             setWeeklyAssessmentDone(true);
+          } else {
+            setWeeklyAssessmentDone(false);
           }
         }
       };
@@ -357,9 +374,12 @@ const ProfilePage = () => {
   };
 
   const handleAssessment = async () => {
+    // Check if user has enough tokens for paid assessment
     if (weeklyAssessmentDone) {
-      toast.info(getAssessText('profile.assessment.cooldown', '本週已完成一次鑑定'));
-      return;
+      if (!profile || profile.tokens < Number(irrationalAssessmentCost)) {
+        // Let backend handle exact check or show UI error here
+        // specific error will be returned by backend [PAYMENT_ERROR]
+      }
     }
 
     setAssessmentLoading(true);
@@ -369,14 +389,29 @@ const ProfilePage = () => {
       });
 
       if (error) throw error;
-      if (data.error) throw new Error(data.message || data.error);
+
+      // Handle Soft Errors from Backend
+      if (data.error) {
+        // If it's a specific token error, we might want to clean it up for display
+        throw new Error(data.message || data.error);
+      }
 
       setAssessmentResult(data.data);
       setWeeklyAssessmentDone(true);
-      toast.success('鑑定完成！');
+      toast.success(getText('profile.assessment.completed', '鑑定完成！'));
+      await refreshProfile(); // Refresh tokens
     } catch (error: any) {
       console.error('Assessment failed:', error);
-      toast.error(error.message || getText('profile.error.updateFailed', '鑑定失敗'));
+
+      // Extract detailed error if possible
+      let errorMessage = error.message || getText('profile.error.updateFailed', '鑑定失敗');
+
+      // Basic check for token error string from backend
+      if (errorMessage.includes("PAYMENT_ERROR") || errorMessage.includes("insufficient")) {
+        errorMessage = getText('profile.error.insufficientTokens', '代幣不足');
+      }
+
+      toast.error(errorMessage);
     } finally {
       setAssessmentLoading(false);
     }
@@ -613,15 +648,18 @@ const ProfilePage = () => {
                   size="sm"
                   className="border-violet-200 hover:bg-violet-50 hover:text-violet-700 dark:border-violet-800 dark:hover:bg-violet-900/50"
                   onClick={() => handleAssessment()}
-                  disabled={weeklyAssessmentDone || assessmentLoading}
+                  disabled={assessmentLoading}
                 >
                   {weeklyAssessmentDone ? (
-                    <span className="flex items-center gap-1 text-green-600">
-                      <Check className="w-3 h-3" />
-                      Okay
+                    <span className="flex items-center gap-1 text-orange-500 font-bold">
+                      <Coins className="w-3 h-3" />
+                      {getAssessText('profile.assessment.button_paid', '再次鑑定 ({{amount}} 代幣)').replace('{{amount}}', irrationalAssessmentCost)}
                     </span>
                   ) : (
-                    getAssessText('profile.assessment.button', '開始鑑定')
+                    <span className="flex items-center gap-1 text-green-600 font-bold">
+                      <Check className="w-3 h-3" />
+                      {getAssessText('profile.assessment.button_free', '本週免費鑑定')}
+                    </span>
                   )}
                 </Button>
               </CardContent>

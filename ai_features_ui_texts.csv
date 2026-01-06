@@ -1,0 +1,23 @@
+key,zh,en,ja
+topic.unstable_rewrite.button,不穩定改寫,Unstable Rewrite,不安定書き直し
+topic.unstable_rewrite.button_paid,不穩定改寫 ({{amount}} 代幣),Unstable Rewrite ({{amount}} Tokens),不安定書き直し ({{amount}} トークン)
+topic.unstable_rewrite.daily_free,每日首次免費,Daily First Free,毎日初回無料
+topic.unstable_rewrite.daily_used,今日已用 ({{amount}} 代幣),Used Today ({{amount}} Tokens),本日使用済み ({{amount}} トークン)
+topic.unstable_rewrite.loading,正在進行改寫...,Rewriting chaotically...,書き直し中...
+topic.unstable_rewrite.confirm_title,不穩定改寫確認,Unstable Rewrite Confirmation,不安定書き直し確認
+topic.unstable_rewrite.confirm_message,我們把你的內容改成了這個樣子，確定要用嗎？,We changed your content to look like this. Are you sure you want to use it?,コンテンツをこのように変更しました。よろしいですか？
+topic.unstable_rewrite.confirm_description,連詳述也一起改了,Even the description has been rewritten,説明文も書き直されました
+topic.unstable_rewrite.cancel,保留原樣,Keep Original,オリジナルを保持
+topic.unstable_rewrite.apply,套用改寫,Apply Rewrite,書き直しを適用
+topic.unstable_rewrite.cost_prompt,本次改寫將消耗 {{amount}} 代幣,This rewrite will cost {{amount}} tokens,この書き直しには {{amount}} トークンが必要です
+topic.rewrite.error,改寫失敗，請稍後再試,Rewrite failed, please try again later,書き直しに失敗しました。後でもう一度お試しください
+topic.rewrite.applied,已套用改寫內容,Rewritten content applied,書き直されたコンテンツが適用されました
+profile.assessment.title,不理性鑑定,Irrationality Assessment,非合理性診断
+profile.assessment.cooldown,本週已完成一次鑑定,Assessment completed this week,今週の診断は完了しました
+profile.assessment.start_prompt,看看 AI 眼中的你是什麼樣子？,See what you look like in the eyes of AI?,AIの目にあなたがどう映るか見てみませんか？
+profile.assessment.button_free,本週免費鑑定,Free Assessment This Week,今週の無料診断
+profile.assessment.disclaimer,娛樂用途，非心理分析,For entertainment purposes only, not psychoanalysis,エンターテイメント目的であり、精神分析ではありません
+official_summary.title,📄 官方結語（混亂等級 IV）,📄 Official Summary (Chaos Level IV),📄 公式結び (カオスレベル IV)
+official_summary.footer,系統已完成資料彙整。,System data compilation completed.,システムデータの集計が完了しました。
+official_summary.loading,系統正在彙整數據...,System compiling data...,システムがデータを集計中...
+profile.assessment.button_paid,再次鑑定 ({{amount}} 代幣),Re-assess ({{amount}} Tokens),再診断 ({{amount}} トークン)

@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -28,28 +28,68 @@ Deno.serve(async (req) => {
         if (authError || !user) throw new Error("Unauthorized");
         const userId = user.id;
 
-        // 3. Weekly Limit Check (Cool-down)
-        // Check if user has an assessment created in the last 7 days from the user_assessments table
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        // 3. Weekly Limit & Payment Check
+        // Calculate Taiwan Monday 00:00 (UTC+8)
+        const now = new Date();
+        const taiwanDate = new Date(now.getTime() + 8 * 60 * 60 * 1000); // Shift to Taiwan local time value
+        taiwanDate.setUTCHours(0, 0, 0, 0); // Clear H/M/S
+        const day = taiwanDate.getUTCDay(); // 0=Sun, 1=Mon
+        const diff = taiwanDate.getUTCDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
+        const mondayTaiwan = new Date(taiwanDate);
+        mondayTaiwan.setUTCDate(diff);
+        const validSince = new Date(mondayTaiwan.getTime() - 8 * 60 * 60 * 1000).toISOString(); // Back to UTC
 
+        // Check assessments since this Monday
         const { data: recentAssessments, error: checkError } = await supabase
             .from("user_assessments")
             .select("created_at")
             .eq("user_id", userId)
-            .gte("created_at", sevenDaysAgo.toISOString())
-            .limit(1);
+            .gte("created_at", validSince);
 
         if (checkError) throw checkError;
 
-        if (recentAssessments && recentAssessments.length > 0) {
-            return new Response(JSON.stringify({
-                error: "Weekly limit reached",
-                message: "您本週已完成鑑定，請下週再來！" // "You have completed the assessment this week, come back next week!"
-            }), {
-                status: 200, // Return 200 so client can read the error message
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
+        const isWeeklyFirst = !recentAssessments || recentAssessments.length === 0;
+
+        // If NOT first, charge fees
+        let cost = 0;
+        if (!isWeeklyFirst) {
+            // Get cost from config
+            const { data: configData } = await supabase
+                .from("system_config")
+                .select("value")
+                .eq("key", "irrational_assessment_cost")
+                .maybeSingle();
+
+            // Handle JSON/String value parsing safely
+            if (configData?.value) {
+                const val = configData.value;
+                cost = typeof val === 'number' ? val : parseInt(String(val), 10);
+            }
+            if (!cost || isNaN(cost)) cost = 5; // Default
+
+            // Deduct Tokens
+            const { data: deductResult, error: deductError } = await supabase.rpc(
+                "deduct_user_tokens",
+                {
+                    p_user_id: userId,
+                    p_amount: cost,
+                    p_reason: "不理性鑑定 (Irrationality Assessment)"
+                }
+            );
+
+            if (deductError) throw new Error(`[PAYMENT_ERROR] ${deductError.message}`);
+
+            // Check result logic (custom JSON return)
+            // { success: boolean, error?: string }
+            if (deductResult && deductResult.success === false) {
+                return new Response(JSON.stringify({
+                    error: "Insufficient tokens",
+                    message: `本週首次免費已用完。後續鑑定需消耗 ${cost} 代幣，您的餘額不足。`
+                }), {
+                    status: 200, // Return 200 for frontend detailed parsing
+                    headers: { ...corsHeaders, "Content-Type": "application/json" },
+                });
+            }
         }
 
         // 4. Fetch User Behavior Metrics (RPC)
@@ -111,31 +151,32 @@ Deno.serve(async (req) => {
       }
     `;
 
-        // 6. Call OpenAI (GPT-5-Nano)
-        // Combine system and user prompt for "input" field
-        const finalInput = `${systemPrompt}\n\nTask Input:\nAnalyze user.`;
-
-        const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
+        // 6. Call OpenAI (Stable v1/chat/completions)
+        const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
                 "Authorization": `Bearer ${openAiKey}`,
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                model: "gpt-5-nano",
-                input: finalInput,
-                store: true
+                model: "gpt-4o-mini",
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: "Analyze user based on formatted metrics. Output valid JSON." }
+                ],
+                temperature: 1.0,
+                response_format: { type: "json_object" }
             }),
         });
 
         const aiData = await openAiResponse.json();
         if (aiData.error) throw new Error(aiData.error.message);
 
-        // Parse output_text
-        let resultText = aiData.output_text;
+        // Parse Standard Response
+        let resultText = aiData.choices?.[0]?.message?.content;
         if (!resultText) {
             console.error("AI Response:", aiData);
-            throw new Error("Invalid AI response structure");
+            throw new Error(`Invalid AI response structure (Raw: ${JSON.stringify(aiData)})`);
         }
 
         // Clean potential markdown

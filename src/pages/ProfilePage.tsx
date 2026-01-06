@@ -107,8 +107,14 @@ const ProfilePage = () => {
   useEffect(() => {
     if (user?.id) {
       const fetchAssessment = async () => {
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const now = new Date();
+        const taiwanDate = new Date(now.getTime() + 8 * 60 * 60 * 1000); // Shift to Taiwan local time value
+        taiwanDate.setUTCHours(0, 0, 0, 0); // Clear H/M/S
+        const day = taiwanDate.getUTCDay(); // 0=Sun, 1=Mon
+        const diff = taiwanDate.getUTCDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
+        const mondayTaiwan = new Date(taiwanDate);
+        mondayTaiwan.setUTCDate(diff);
+        const validSince = new Date(mondayTaiwan.getTime() - 8 * 60 * 60 * 1000); // Back to UTC
 
         const { data, error } = await supabase
           .from('user_assessments')
@@ -120,7 +126,7 @@ const ProfilePage = () => {
 
         if (data) {
           setAssessmentResult({ title: data.title, description: data.description });
-          if (new Date(data.created_at) > sevenDaysAgo) {
+          if (new Date(data.created_at) >= validSince) {
             setWeeklyAssessmentDone(true);
           }
         }
@@ -357,9 +363,10 @@ const ProfilePage = () => {
   };
 
   const handleAssessment = async () => {
+    // Non-blocking check for payment prompt (handled by button UI or confirmation)
     if (weeklyAssessmentDone) {
-      toast.info(getAssessText('profile.assessment.cooldown', '本週已完成一次鑑定'));
-      return;
+      // Optional: Add confirmation dialog here if desired
+      // For now, we rely on the button explicit text "5 Tokens"
     }
 
     setAssessmentLoading(true);
@@ -619,19 +626,24 @@ const ProfilePage = () => {
                   </div>
                 </div>
                 <Button
-                  variant="outline"
+                  variant={weeklyAssessmentDone ? "secondary" : "default"}
                   size="sm"
-                  className="border-violet-200 hover:bg-violet-50 hover:text-violet-700 dark:border-violet-800 dark:hover:bg-violet-900/50"
+                  className={weeklyAssessmentDone
+                    ? "bg-violet-100 text-violet-700 hover:bg-violet-200 dark:bg-violet-900/50 dark:text-violet-300"
+                    : "bg-violet-600 hover:bg-violet-700 text-white shadow-md shadow-violet-500/20"
+                  }
                   onClick={() => handleAssessment()}
-                  disabled={weeklyAssessmentDone || assessmentLoading}
+                  disabled={assessmentLoading}
                 >
-                  {weeklyAssessmentDone ? (
-                    <span className="flex items-center gap-1 text-green-600">
-                      <Check className="w-3 h-3" />
-                      Okay
-                    </span>
+                  {assessmentLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
-                    getAssessText('profile.assessment.button', '開始鑑定')
+                    <span>
+                      {weeklyAssessmentDone
+                        ? (getAssessText('profile.assessment.button_paid', '再次鑑定 (5 代幣)'))
+                        : (getAssessText('profile.assessment.button_free', '本週免費鑑定'))
+                      }
+                    </span>
                   )}
                 </Button>
               </CardContent>

@@ -18,17 +18,24 @@ Deno.serve(async (req) => {
             throw new Error("topic_id is required");
         }
 
-        // 1. Initialize Supabase Client
+        // 1. Initialize Supabase Client with User Context
         const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-        // 2. Auth Check (User must be logged in to trigger, though data is public)
+        const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
         const authHeader = req.headers.get("Authorization");
+
         if (!authHeader) throw new Error("Missing Authorization header");
 
-        const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
-        if (authError || !user) throw new Error("Unauthorized");
+        const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+            global: { headers: { Authorization: authHeader } },
+        });
+
+        // 2. Auth Check
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+        if (authError || !user) {
+            console.error("Auth Error:", authError);
+            throw new Error("Unauthorized");
+        }
 
         // 3. Double-check if summary already exists
         const { data: existingSummary } = await supabase

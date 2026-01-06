@@ -186,7 +186,7 @@ const CreateTopicPage = () => {
   /* Unstable Rewrite State */
   const [isRewriting, setIsRewriting] = useState(false);
   const [rewriteConfirmOpen, setRewriteConfirmOpen] = useState(false);
-  const [rewriteResult, setRewriteResult] = useState<{ rewritten_title: string; options: string[] } | null>(null);
+  const [rewriteResult, setRewriteResult] = useState<{ rewritten_title: string; rewritten_description?: string; options: string[] } | null>(null);
   const [rewriteUsage, setRewriteUsage] = useState<{ isFree: boolean; cost: number; count: number } | null>(null);
   const [dailyRewriteCount, setDailyRewriteCount] = useState(0);
 
@@ -255,15 +255,12 @@ const CreateTopicPage = () => {
   const applyRewrite = () => {
     if (rewriteResult) {
       setTitle(rewriteResult.rewritten_title);
-      // Unstable rewrite (Unified Spec) does not return description, so logic implies description implies lost?
-      // Or we keep original? "rewrite" implies replacement.
-      // I will clear description as it might not match new title.
-      // But wait, if user wrote a long description, they might be annoyed.
-      // However, "Chaos" rules.
-      // Actually, let's keep it if not returned? No, spec says "Output JSON ONLY ...".
-      // I'll assume description is meant to be nuke or not part of the chaos output.
-      // Let's set it to empty for now to be safe with "Rewrite".
-      setDescription("");
+      if (rewriteResult.rewritten_description) {
+        setDescription(rewriteResult.rewritten_description);
+      } else {
+        // Fallback or keep original if not provided (though prompt requires it)
+        // setDescription(""); 
+      }
 
       // Ensure we have at least 2 options
       let newOptions = rewriteResult.options || [];
@@ -552,7 +549,10 @@ const CreateTopicPage = () => {
                     <span className="font-semibold">標題：</span>
                     <span className="text-foreground">{rewriteResult.rewritten_title}</span>
                   </div>
-                  {/* Description is not returned in Unified Spec */}
+                  <div>
+                    <span className="font-semibold">詳述：</span>
+                    <span className="text-foreground text-xs line-clamp-3">{rewriteResult.rewritten_description || '(無變更)'}</span>
+                  </div>
                   <div>
                     <span className="font-semibold">選項：</span>
                     <ul className="list-disc list-inside text-foreground">
@@ -572,8 +572,9 @@ const CreateTopicPage = () => {
                       {getText('topic.unstable_rewrite.daily_free', '每日首次免費')}
                     </span>
                   ) : (
-                    <span className="text-muted-foreground flex items-center gap-1">
-                      {getText('topic.unstable_rewrite.daily_used', '今日已用 ({{amount}} 代幣)').replace('{{amount}}', String(rewriteUsage.cost))}
+                    <span className="text-orange-500 font-bold flex items-center gap-1">
+                      <Coins className="w-4 h-4" />
+                      {getText('topic.unstable_rewrite.cost_prompt', '本次改寫將消耗 {{amount}} 代幣').replace('{{amount}}', String(rewriteUsage.cost))}
                     </span>
                   )}
                 </div>
@@ -676,11 +677,15 @@ const CreateTopicPage = () => {
                 className="text-purple-500 hover:text-purple-600 hover:bg-purple-100/50 -mt-2"
               >
                 <Sparkles className="w-4 h-4 mr-1.5" />
-                {getText('topic.unstable_rewrite.button', '不穩定改寫')}
-                {dailyRewriteCount === 0 && (
-                  <span className="ml-1.5 text-[10px] bg-green-500 text-white px-2 py-0.5 rounded-full">
-                    {getText('topic.unstable_rewrite.daily_free', '每日首次免費')}
-                  </span>
+                {dailyRewriteCount === 0 ? (
+                  <>
+                    {getText('topic.unstable_rewrite.button', '不穩定改寫')}
+                    <span className="ml-1.5 text-[10px] bg-green-500 text-white px-2 py-0.5 rounded-full">
+                      {getText('topic.unstable_rewrite.daily_free', '每日首次免費')}
+                    </span>
+                  </>
+                ) : (
+                  getText('topic.unstable_rewrite.button_paid', '不穩定改寫 ({{amount}} 代幣)').replace('{{amount}}', '5')
                 )}
               </Button>
             </div>

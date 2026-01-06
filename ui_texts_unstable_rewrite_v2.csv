@@ -1,0 +1,4 @@
+key,zh,en,ja
+topic.unstable_rewrite.confirm_description,連詳述也一起改了,Even the description has been rewritten,説明文も書き直されました
+topic.unstable_rewrite.cost_prompt,本次改寫將消耗 {{amount}} 代幣,This rewrite will cost {{amount}} tokens,この書き直しには {{amount}} トークンが必要です
+topic.unstable_rewrite.button_paid,不穩定改寫 ({{amount}} 代幣),Unstable Rewrite ({{amount}} Tokens),不安定な書き直し ({{amount}} トークン)

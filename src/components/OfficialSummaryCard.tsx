@@ -24,7 +24,9 @@ export const OfficialSummaryCard = ({ summary, isLoading, language }: OfficialSu
     const { getText } = useUIText(language as any);
 
     // Localization for Title and Footer
-    const title = getText('official_summary.title', '📄 官方結語（混亂等級 IV）');
+    // Defaults to IV if not present
+    const rawTitle = getText('official_summary.title', '📄 官方結語（混亂等級 {{level}}）');
+    const title = rawTitle.replace('{{level}}', summary?.chaos_level || 'IV');
     const footer = getText('official_summary.footer', '系統已完成資料彙整。');
     const loadingText = getText('official_summary.loading', '系統正在彙整混亂數據...');
 

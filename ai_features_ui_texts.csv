@@ -22,6 +22,6 @@ profile.assessment.disclaimer,娛樂用途，非心理分析,For entertainment p
 profile.assessment.button_paid,再次鑑定 ({{amount}} 代幣),Re-assess ({{amount}} Tokens),再診断 ({{amount}} トークン)
 profile.assessment.payment_title,確認進行鑑定？,Confirm Assessment?,診断を確認しますか？
 profile.assessment.payment_message,本次鑑定將消耗 {{amount}} 代幣。,This assessment will cost {{amount}} tokens.,この診断には {{amount}} トークンが必要です。
-official_summary.title,📄 官方結語（混亂等級 IV）,📄 Official Summary (Chaos Level IV),📄 公式結び (カオスレベル IV)
+official_summary.title,📄 官方結語（混亂等級 {{level}}）,📄 Official Summary (Chaos Level {{level}}),📄 公式結び (カオスレベル {{level}})
 official_summary.footer,系統已完成資料彙整。,System data compilation completed.,システムデータの集計が完了しました。
 official_summary.loading,系統正在彙整數據...,System compiling data...,システムがデータを集計中...

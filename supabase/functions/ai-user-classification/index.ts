@@ -111,31 +111,32 @@ Deno.serve(async (req) => {
       }
     `;
 
-        // 6. Call OpenAI (GPT-5-Nano)
-        // Combine system and user prompt for "input" field
-        const finalInput = `${systemPrompt}\n\nTask Input:\nAnalyze user.`;
-
-        const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
+        // 6. Call OpenAI (Stable v1/chat/completions)
+        const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
                 "Authorization": `Bearer ${openAiKey}`,
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                model: "gpt-5-nano",
-                input: finalInput,
-                store: true
+                model: "gpt-4o-mini",
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: "Analyze user based on formatted metrics. Output valid JSON." }
+                ],
+                temperature: 1.0,
+                response_format: { type: "json_object" }
             }),
         });
 
         const aiData = await openAiResponse.json();
         if (aiData.error) throw new Error(aiData.error.message);
 
-        // Parse output_text
-        let resultText = aiData.output_text;
+        // Parse Standard Response
+        let resultText = aiData.choices?.[0]?.message?.content;
         if (!resultText) {
             console.error("AI Response:", aiData);
-            throw new Error("Invalid AI response structure");
+            throw new Error(`Invalid AI response structure (Raw: ${JSON.stringify(aiData)})`);
         }
 
         // Clean potential markdown

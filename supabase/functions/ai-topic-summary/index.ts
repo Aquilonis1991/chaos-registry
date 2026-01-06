@@ -1,5 +1,5 @@
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
     }
 
     try {
-        const { topic_id, title, options = [], votes = {} } = await req.json();
+        const { topic_id, title, description, options = [], votes = {} } = await req.json();
 
         if (!topic_id) {
             throw new Error("topic_id is required");
@@ -95,31 +95,34 @@ Deno.serve(async (req) => {
       }
     `;
 
-        // 5. Call OpenAI (GPT-5-Nano)
-        // Combine prompts for "input"
+        // 5. Call OpenAI (Stable v1/chat/completions)
         const finalInput = `${systemPrompt}\n\nTask Input:\nOfficial Summary for: ${title}\nDescription: ${description}\nOptions: ${JSON.stringify(options)}\nVotes: ${JSON.stringify(votes)}`;
 
-        const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
+        const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
                 "Authorization": `Bearer ${openAiKey}`,
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                model: "gpt-5-nano",
-                input: finalInput,
-                store: true
+                model: "gpt-4o-mini",
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: `Generate Official Summary for Topic: "${title}"` }
+                ],
+                temperature: 0.5,
+                response_format: { type: "json_object" }
             }),
         });
 
         const aiData = await openAiResponse.json();
         if (aiData.error) throw new Error(aiData.error.message);
 
-        // Parse output_text
-        let resultText = aiData.output_text;
+        // Parse Standard Response
+        let resultText = aiData.choices?.[0]?.message?.content;
         if (!resultText) {
             console.error("AI Response:", aiData);
-            throw new Error("Invalid AI response structure");
+            throw new Error(`Invalid AI response structure (Raw: ${JSON.stringify(aiData)})`);
         }
 
         // Clean potential markdown
@@ -155,8 +158,9 @@ Deno.serve(async (req) => {
         });
 
     } catch (error: any) {
+        console.error("Error:", error);
         return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
+            status: 200, // Return 200 for soft error handling
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
     }

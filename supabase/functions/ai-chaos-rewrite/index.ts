@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 4. Call OpenAI for Rewrite (GPT-5-Nano)
+    // 4. Call OpenAI (Stable v1/chat/completions)
     const openAiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openAiKey) throw new Error("OpenAI API Key not configured");
 
@@ -117,31 +117,33 @@ Deno.serve(async (req) => {
     `;
 
     const userContent = JSON.stringify({ title, description, options });
-    const finalInput = `${systemPrompt}\n\nTask Input:\nRewrite to Chaos JSON: ${userContent}`;
 
-    // Use refined gpt-5-nano API endpoint
-    const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
+    // Call OpenAI
+    const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${openAiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-5-nano",
-        input: finalInput,
-        store: true
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Task Input:\nRewrite to Chaos JSON: ${userContent}` }
+        ],
+        temperature: 1.0,
+        response_format: { type: "json_object" }
       }),
     });
 
     const aiData = await openAiResponse.json();
     if (aiData.error) throw new Error(aiData.error.message);
 
-    // Parse output_text from standard response wrapper
-    let resultText = aiData.output_text;
+    // Parse standard response
+    let resultText = aiData.choices?.[0]?.message?.content;
     if (!resultText) {
-      // Fallback for debugging if structure differs
       console.error("AI Response:", aiData);
-      throw new Error("Invalid AI response structure");
+      throw new Error(`Invalid AI response structure (Raw: ${JSON.stringify(aiData)})`);
     }
 
     // Attempt to clean markdown fences if present
@@ -162,8 +164,9 @@ Deno.serve(async (req) => {
     });
 
   } catch (error: any) {
+    console.error("Error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
+      status: 200, // Return 200 to ensure client reads error message
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

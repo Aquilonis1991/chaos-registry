@@ -859,7 +859,13 @@ const CreateTopicPage = () => {
           <div className="space-y-3">
             <Label className="text-base font-semibold">{getText('topic.exposure.label', '曝光方案')}</Label>
             <RadioGroup value={exposure} onValueChange={setExposure}>
-              <Card className="cursor-pointer hover:shadow-card transition-all">
+              {/* Normal Exposure - 普通曝光 */}
+              <Card className={cn(
+                "cursor-pointer hover:shadow-card transition-all border",
+                exposure === "normal" 
+                  ? "border-primary/50 bg-gradient-to-br from-primary/5 to-transparent" 
+                  : "border-border/50"
+              )}>
                 <CardContent className="p-4">
                   <div className="flex items-center space-x-3">
                     <RadioGroupItem value="normal" id="normal" />
@@ -879,7 +885,13 @@ const CreateTopicPage = () => {
                 </CardContent>
               </Card>
 
-              <Card className="cursor-pointer hover:shadow-card transition-all">
+              {/* Medium Exposure - 中等曝光 */}
+              <Card className={cn(
+                "cursor-pointer hover:shadow-card transition-all border",
+                exposure === "medium"
+                  ? "border-yellow-500/50 bg-gradient-to-br from-yellow-500/10 via-yellow-400/5 to-transparent shadow-md shadow-yellow-500/10"
+                  : "border-border/50"
+              )}>
                 <CardContent className="p-4">
                   <div className="flex items-center space-x-3">
                     <RadioGroupItem value="medium" id="medium" />
@@ -887,9 +899,9 @@ const CreateTopicPage = () => {
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="font-semibold">{getText('topic.exposure.medium', '中等曝光')}</div>
-                          <div className="text-sm text-muted-foreground">{getText('topic.exposure.mediumDesc', '優先推薦')}</div>
+                          <div className="text-sm text-muted-foreground">{getText('topic.exposure.mediumDesc', '優先顯示')}</div>
                         </div>
-                        <div className="flex items-center gap-1 text-primary font-bold">
+                        <div className="flex items-center gap-1 text-yellow-600 dark:text-yellow-500 font-bold">
                           <Coins className="w-4 h-4" />
                           <span>{formatTokenAmount(mediumExposureCost)}</span>
                         </div>
@@ -899,7 +911,13 @@ const CreateTopicPage = () => {
                 </CardContent>
               </Card>
 
-              <Card className="cursor-pointer hover:shadow-card transition-all">
+              {/* High Exposure - 高度曝光 */}
+              <Card className={cn(
+                "cursor-pointer hover:shadow-card transition-all border",
+                exposure === "high"
+                  ? "border-amber-500/60 bg-gradient-to-br from-amber-500/15 via-purple-500/10 to-transparent shadow-lg shadow-amber-500/20"
+                  : "border-border/50"
+              )}>
                 <CardContent className="p-4">
                   <div className="flex items-center space-x-3">
                     <RadioGroupItem value="high" id="high" />
@@ -907,9 +925,9 @@ const CreateTopicPage = () => {
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="font-semibold">{getText('topic.exposure.high', '高度曝光')}</div>
-                          <div className="text-sm text-muted-foreground">{getText('topic.exposure.highDesc', '置頂推薦')}</div>
+                          <div className="text-sm text-muted-foreground">{getText('topic.exposure.highDesc', '置頂與優先推薦')}</div>
                         </div>
-                        <div className="flex items-center gap-1 text-primary font-bold">
+                        <div className="flex items-center gap-1 text-amber-600 dark:text-amber-500 font-bold">
                           <Coins className="w-4 h-4" />
                           <span>{formatTokenAmount(highExposureCost)}</span>
                         </div>

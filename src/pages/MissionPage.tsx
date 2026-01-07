@@ -64,6 +64,9 @@ const MissionPage = () => {
       createTopicReward: configs['mission_create_topic_reward'] ?? 50,
       login7DaysTarget: configs['mission_7days_login_target'] ?? 7,
       login7DaysReward: configs['mission_7days_login_reward_tokens'] ?? 100,
+      watchAdReward: configs['mission_watch_ad_reward'] ?? 5,
+      watchAdLimit: configs['mission_watch_ad_limit'] ?? 10,
+      dailyLoginReward: configs['mission_daily_login_reward'] ?? configs['daily_login_reward'] ?? 3,
     };
   }, [configs]);
 
@@ -271,8 +274,10 @@ const MissionPage = () => {
     setIsWatchingAd(true);
     let optimisticUpdateApplied = false;
     try {
-      const watchAdRewardConfig = getConfig('mission_watch_ad_reward', 5);
-      const AD_REWARD = typeof watchAdRewardConfig === 'number' ? watchAdRewardConfig : Number(watchAdRewardConfig) || 5;
+      // 使用 missionConfigs 中的配置值，確保與顯示的獎勵一致
+      const AD_REWARD = typeof missionConfigs.watchAdReward === 'number' 
+        ? missionConfigs.watchAdReward 
+        : Number(missionConfigs.watchAdReward) || 5;
 
       // 先觀看廣告，只有在廣告觀看成功後才進行樂觀更新
       // 這樣可以避免：如果用戶關閉廣告，代幣不會錯誤增加
@@ -301,8 +306,9 @@ const MissionPage = () => {
     } catch (error) {
       // 如果出錯且已經進行了樂觀更新，需要回滾
       if (optimisticUpdateApplied) {
-        const adReward = getConfig('mission_watch_ad_reward', getConfig('ad_reward_amount', 5));
-        const AD_REWARD = typeof adReward === 'number' ? adReward : Number(adReward) || 5;
+        const AD_REWARD = typeof missionConfigs.watchAdReward === 'number' 
+          ? missionConfigs.watchAdReward 
+          : Number(missionConfigs.watchAdReward) || 5;
         updateTokensOptimistically(-AD_REWARD);
       }
       // Error handled in useMissionOperations
@@ -487,12 +493,10 @@ const MissionPage = () => {
   const dailyCheckInButtonDone = getText('mission.daily.button.done', '今日已簽到');
   const dailyCheckInButtonAction = getText('mission.daily.button.action', '立即簽到');
   // 依據後台配置與今日是否可領取，顯示正確獎勵（避免「已簽到仍顯示 +3」造成誤解）
-  // 依據後台配置與今日是否可領取，顯示正確獎勵
-  const dailyLoginRewardConfig = getConfig('mission_daily_login_reward', 5);
-  const dailyLoginRewardAmount =
-    typeof dailyLoginRewardConfig === 'number'
-      ? dailyLoginRewardConfig
-      : Number(dailyLoginRewardConfig) || 5;
+  // 從 missionConfigs 讀取每日登入獎勵，確保與後台配置一致
+  const dailyLoginRewardAmount = typeof missionConfigs.dailyLoginReward === 'number'
+    ? missionConfigs.dailyLoginReward
+    : Number(missionConfigs.dailyLoginReward) || 3;
   const dailyCheckInReward =
     loginStreakInfo && loginStreakInfo.can_claim_today === false
       ? '+0'
@@ -500,8 +504,10 @@ const MissionPage = () => {
   const watchAdTitle = getText('mission.ad.title', '觀看廣告');
   const watchAdSubtitle = getText('mission.ad.subtitle', '輕鬆賺取代幣');
 
-  const watchAdRewardConfig = getConfig('mission_watch_ad_reward', 5);
-  const watchAdRewardAmount = typeof watchAdRewardConfig === 'number' ? watchAdRewardConfig : Number(watchAdRewardConfig) || 5;
+  // 從 missionConfigs 讀取觀看廣告獎勵，確保與後台配置一致
+  const watchAdRewardAmount = typeof missionConfigs.watchAdReward === 'number' 
+    ? missionConfigs.watchAdReward 
+    : Number(missionConfigs.watchAdReward) || 5;
   const watchAdReward = getText('mission.ad.reward', `+${watchAdRewardAmount}`);
 
   const watchAdLoading = getText('mission.ad.loading', '載入中...');

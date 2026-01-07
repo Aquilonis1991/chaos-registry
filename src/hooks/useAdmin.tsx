@@ -129,7 +129,7 @@ export const useAdmin = () => {
           console.warn('[useAdmin] RPC exception, trying direct query:', rpcErr);
         }
 
-        // 方法2：直接查詢 admin_users 表（5秒超時，快速失敗）
+        // 方法2：直接查詢 admin_users 表（15秒超時，快速失敗）
         console.log('[useAdmin] Attempting direct query...');
 
         const queryPromise = supabase
@@ -139,7 +139,7 @@ export const useAdmin = () => {
           .maybeSingle();
 
         const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) =>
-          setTimeout(() => reject(new Error('查詢超時（5秒）')), 5000)
+          setTimeout(() => reject(new Error('查詢超時（15秒）')), 15000)
         );
 
         let queryResult: { data: any; error: any };

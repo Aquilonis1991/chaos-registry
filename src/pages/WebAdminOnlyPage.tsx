@@ -3,6 +3,7 @@ import { ShieldX } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 /**
  * 網頁版僅限管理員使用頁面
@@ -21,6 +22,28 @@ const WebAdminOnlyPage = () => {
   const handleClearCache = () => {
     localStorage.removeItem('admin_status_cache');
     window.location.reload();
+  };
+
+  const handleTestConnection = async () => {
+    try {
+      console.log('[WebAdminOnlyPage] Testing connection...');
+      alert('正在測試連線...請查看 Console Log');
+
+      const start = Date.now();
+      const { data, error } = await supabase.from('admin_users').select('count', { count: 'exact', head: true });
+      const end = Date.now();
+
+      console.log('[WebAdminOnlyPage] Connection test result:', { data, error, timeMs: end - start });
+
+      if (error) {
+        alert(`連線失敗: ${error.message}`);
+      } else {
+        alert(`連線成功！耗時 ${end - start}ms`);
+      }
+    } catch (err: any) {
+      console.error('[WebAdminOnlyPage] Connection exception:', err);
+      alert(`連線異常: ${err.message}`);
+    }
   };
 
   return (
@@ -54,6 +77,12 @@ const WebAdminOnlyPage = () => {
           </div>
 
           <div className="flex flex-col gap-2">
+            <button
+              onClick={handleTestConnection}
+              className="w-full px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md text-sm font-medium transition-colors"
+            >
+              測試資料庫連線 (Test DB Connection)
+            </button>
             <button
               onClick={handleClearCache}
               className="w-full px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary/90 rounded-md text-sm font-medium transition-colors"

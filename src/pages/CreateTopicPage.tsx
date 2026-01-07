@@ -981,10 +981,11 @@ const CreateTopicPage = () => {
                       <span>{getText('topic.costSummary.exposure', '曝光方案')}</span>
                       <span className="font-semibold">{formatTokenAmount(exposureCost)}</span>
                     </div>
-                    <div className="flex justify-between opacity-90">
+                    {/* 隱藏投票天數資訊 */}
+                    {/* <div className="flex justify-between opacity-90">
                       <span>{getText('topic.costSummary.duration', '投票天數 ({{days}} 天)').replace('{{days}}', duration[0].toString())}</span>
                       <span className="font-semibold">{formatTokenAmount(durationCost, { withPlus: true })}</span>
-                    </div>
+                    </div> */}
                     <div className="border-t border-accent-foreground/20 pt-2"></div>
                     {dailyDiscountAmount > 0 && (
                       <div className={cn("flex justify-between", isDailyDiscountEligible ? "text-accent-foreground font-bold" : "text-muted-foreground opacity-90")}>

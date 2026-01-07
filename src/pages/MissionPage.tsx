@@ -57,7 +57,7 @@ const MissionPage = () => {
 
   // 提取配置值，避免在 useMemo 中調用函數導致無限循環
   const missionConfigs = useMemo(() => {
-    return {
+    const result = {
       firstVoteReward: configs['mission_first_vote_reward'] ?? 50,
       voteLoverTarget: configs['mission_vote_lover_target'] ?? 10,
       voteLoverReward: configs['mission_vote_lover_reward'] ?? 50,
@@ -68,6 +68,18 @@ const MissionPage = () => {
       watchAdLimit: configs['mission_watch_ad_limit'] ?? 10,
       dailyLoginReward: configs['mission_daily_login_reward'] ?? configs['daily_login_reward'] ?? 3,
     };
+    
+    // 調試日誌：檢查觀看廣告獎勵配置
+    if (configs['mission_watch_ad_reward'] !== undefined) {
+      console.log('[MissionPage] 觀看廣告獎勵配置:', {
+        rawValue: configs['mission_watch_ad_reward'],
+        type: typeof configs['mission_watch_ad_reward'],
+        parsedValue: result.watchAdReward,
+        allConfigs: configs
+      });
+    }
+    
+    return result;
   }, [configs]);
 
   const localizedMissions = useMemo(() => {
@@ -531,6 +543,12 @@ const MissionPage = () => {
   useEffect(() => {
     loadUserMissions();
   }, [user?.id]);
+
+  // 頁面加載時刷新配置，確保使用最新值（僅在首次加載時執行一次）
+  useEffect(() => {
+    refreshConfigs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 當頁面聚焦時也刷新任務狀態
   useEffect(() => {

@@ -387,12 +387,12 @@ export const UITextManager = () => {
       }));
 
       const columns = [
-        { key: 'key', label: 'Key' },
-        { key: 'category', label: 'Category' },
-        { key: 'zh', label: 'Traditional Chinese (ZH)' },
-        { key: 'en', label: 'English (EN)' },
-        { key: 'ja', label: 'Japanese (JA)' },
-        { key: 'description', label: 'Description' }
+        { key: 'key', label: 'key' },
+        { key: 'category', label: 'category' },
+        { key: 'zh', label: 'zh' },
+        { key: 'en', label: 'en' },
+        { key: 'ja', label: 'ja' },
+        { key: 'description', label: 'description' }
       ];
 
       downloadCSV('ui_texts_export', columns, csvData);

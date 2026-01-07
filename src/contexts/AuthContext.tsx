@@ -37,9 +37,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [anonymousId, setAnonymousId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // 安全超時機制：如果 Supabase 響應過慢，強制結束載入狀態
   useEffect(() => {
+    console.log('[AuthProvider] Mounting and starting authentication check...');
+
+    // 安全超時機制
+    const timeoutTimer = setTimeout(() => {
+      console.warn(`[AuthProvider] Session check timed out (current loading: ${loading}), forcing loading to false`);
+      if (loading) {
+        setLoading(false);
+      }
+    }, 2000); // 縮短為 2秒
+
     // 檢查是否有現有session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('[AuthProvider] getSession completed, session exists:', !!session);
+      clearTimeout(timeoutTimer); // 成功獲取後清除計時器
       if (session) {
         setSession(session);
         setUser(session.user);
@@ -54,6 +67,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setSession(null);
       }
       setLoading(false);
+    }).catch(err => {
+      console.error('[AuthProvider] Get session error:', err);
+      clearTimeout(timeoutTimer);
+      setLoading(false);
     });
 
     // 監聽認證狀態變化
@@ -66,14 +83,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setAnonymousId(null);
           // 清除匿名ID
           localStorage.removeItem('anonymous_id');
-          
+
           // 更新最後登入時間（僅在登入時，不是每次狀態變化）
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
             try {
               // 異步更新，不阻塞 UI
               supabase
                 .from('profiles')
-                .update({ 
+                .update({
                   last_login: new Date().toISOString(),
                   last_login_date: new Date().toISOString().split('T')[0]
                 })
@@ -99,7 +116,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeoutTimer);
+    };
   }, []);
 
   const signOut = async () => {
@@ -144,4 +164,3 @@ export const useAuthContext = () => {
   }
   return context;
 };
-

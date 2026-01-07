@@ -487,6 +487,35 @@ const MissionPage = () => {
     return userMissions[dbMissionId]?.completed === true;
   };
 
+  // 載入用戶任務完成狀態
+  useEffect(() => {
+    loadUserMissions();
+  }, [loadUserMissions]);
+
+  // 當頁面聚焦時也刷新任務狀態
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user?.id) {
+        loadUserMissions();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [user?.id, loadUserMissions]);
+
+  // 當頁面聚焦時刷新統計（確保數據是最新的）
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user?.id) {
+        refreshStats();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [user?.id, refreshStats]);
+
   if (uiTextsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -538,35 +567,6 @@ const MissionPage = () => {
   const genericTryAgain = getText('mission.toast.tryAgain', '請稍後再試');
   const watchAdSuccessTitle = getText('mission.toast.watchAdSuccess.title', '觀看廣告完成！');
   const watchAdSuccessDescTemplate = getText('mission.toast.watchAdSuccess.desc', '獲得 {{amount}} 代幣');
-
-  // 載入用戶任務完成狀態
-  useEffect(() => {
-    loadUserMissions();
-  }, [loadUserMissions]);
-
-  // 當頁面聚焦時也刷新任務狀態
-  useEffect(() => {
-    const handleFocus = () => {
-      if (user?.id) {
-        loadUserMissions();
-      }
-    };
-
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [user?.id, loadUserMissions]);
-
-  // 當頁面聚焦時刷新統計（確保數據是最新的）
-  useEffect(() => {
-    const handleFocus = () => {
-      if (user?.id) {
-        refreshStats();
-      }
-    };
-
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [user?.id, refreshStats]);
 
   return (
     <div className="min-h-screen bg-background pb-20">

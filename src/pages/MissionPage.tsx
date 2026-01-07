@@ -24,37 +24,6 @@ const MISSION_ID_MAP: Record<string, string> = {
   "4": "login_7days",     // 7天登入
 };
 
-const MISSION_TEMPLATES = [
-  {
-    id: "1",
-    name: "新手上路",
-    description: "完成第一次投票",
-    condition: "投票 1 次",
-    reward: 50,
-  },
-  {
-    id: "2",
-    name: "投票愛好者",
-    description: "對 10 個不同主題進行投票",
-    condition: "投票 10 次",
-    reward: 50,
-  },
-  {
-    id: "3",
-    name: "話題創造者",
-    description: "發起一個主題",
-    condition: "發起主題 1 次",
-    reward: 50,
-  },
-  {
-    id: "4",
-    name: "7天登入",
-    description: "連續登入 7 天",
-    condition: "連續登入 7 天",
-    reward: 100,
-  },
-];
-
 interface LoginStreakInfo {
   current_streak: number;
   total_login_days: number;
@@ -87,114 +56,65 @@ const MissionPage = () => {
   const lastStableStreakRef = useRef(0);
 
   const localizedMissions = useMemo(() => {
-    return MISSION_TEMPLATES.map((mission) => ({
+    // 從後台配置讀取任務參數 (使用與 SQL Patch 一致的默認值)
+    const firstVoteReward = getConfig('mission_first_vote_reward', 50);
+
+    const voteLoverTarget = getConfig('mission_vote_lover_target', 10);
+    const voteLoverReward = getConfig('mission_vote_lover_reward', 50);
+
+    const createTopicReward = getConfig('mission_create_topic_reward', 50);
+
+    const login7DaysTarget = getConfig('mission_7days_login_target', 7);
+    const login7DaysReward = getConfig('mission_7days_login_reward_tokens', 100);
+
+    const templates = [
+      {
+        id: "1",
+        name: "新手上路",
+        description: "完成第一次投票", // 這裡的文字會再次通過 getText 翻譯
+        condition: "投票 1 次",
+        reward: firstVoteReward,
+        target: 1, // 用於進度計算
+      },
+      {
+        id: "2",
+        name: "投票愛好者",
+        description: `對 ${voteLoverTarget} 個不同主題進行投票`,
+        condition: `投票 ${voteLoverTarget} 次`,
+        reward: voteLoverReward,
+        target: voteLoverTarget,
+      },
+      {
+        id: "3",
+        name: "話題創造者",
+        description: "發起一個主題",
+        condition: "發起主題 1 次",
+        reward: createTopicReward,
+        target: 1,
+      },
+      {
+        id: "4",
+        name: "7天登入",
+        description: `連續登入 ${login7DaysTarget} 天`,
+        condition: `連續登入 ${login7DaysTarget} 天`,
+        reward: login7DaysReward,
+        target: login7DaysTarget,
+      },
+    ];
+
+    return templates.map((mission) => ({
       ...mission,
       name: getText(`mission.list.${mission.id}.name`, mission.name),
-      description: getText(`mission.list.${mission.id}.description`, mission.description),
-      condition: getText(`mission.list.${mission.id}.condition`, mission.condition),
+      // 支援動態參數替換：如果 getText 返回的字串包含 {{target}} 佔位符，則進行替換
+      // 同時保留 defaults 中的動態數值
+      description: getText(`mission.list.${mission.id}.description`, mission.description)
+        .replace('{{target}}', String(mission.target)),
+      condition: getText(`mission.list.${mission.id}.condition`, mission.condition)
+        .replace('{{target}}', String(mission.target)),
     }));
-  }, [getText, language]);
+  }, [getText, language, getConfig]);
 
-  const headerTitle = getText('mission.header.title', '任務與獎勵');
-  const headerSubtitle = getText('mission.header.subtitle', '完成任務賺代幣');
-  const dailyCheckInTitle = getText('mission.daily.title', '每日簽到');
-  const dailyCheckInLoading = getText('mission.daily.loading', '載入中...');
-  const dailyCheckInPending = getText('mission.daily.pending', '今日還未簽到');
-  const dailyCheckInCompleted = getText('mission.daily.completed', '今日已簽到');
-  const dailyCheckInButtonClaiming = getText('mission.daily.button.claiming', '簽到中...');
-  const dailyCheckInButtonDone = getText('mission.daily.button.done', '今日已簽到');
-  const dailyCheckInButtonAction = getText('mission.daily.button.action', '立即簽到');
-  // 依據後台配置與今日是否可領取，顯示正確獎勵（避免「已簽到仍顯示 +3」造成誤解）
-  const dailyLoginRewardConfig = getConfig('daily_login_reward', 3);
-  const dailyLoginRewardAmount =
-    typeof dailyLoginRewardConfig === 'number'
-      ? dailyLoginRewardConfig
-      : Number(dailyLoginRewardConfig) || 3;
-  const dailyCheckInReward =
-    loginStreakInfo && loginStreakInfo.can_claim_today === false
-      ? '+0'
-      : `+${dailyLoginRewardAmount}`;
-  const watchAdTitle = getText('mission.ad.title', '觀看廣告');
-  const watchAdSubtitle = getText('mission.ad.subtitle', '輕鬆賺取代幣');
-  const watchAdReward = getText('mission.ad.reward', '+5');
-  const watchAdLoading = getText('mission.ad.loading', '載入中...');
-  const watchAdButton = getText('mission.ad.button', '觀看 30 秒廣告');
-  const missionsSectionTitle = getText('mission.list.title', '任務列表');
-  const missionInProgress = getText('mission.list.inProgress', '進行中');
-  const missionProgressTemplate = getText('mission.list.progress', '{{percent}}% 完成');
-  const missionClaiming = getText('mission.list.claiming', '領取中...');
-  const missionClaimButton = getText('mission.list.claimButton', '領取獎勵');
-  const missionClaimed = getText('mission.list.claimed', '已領取');
-  const missionAlreadyClaimedInfo = getText('mission.toast.alreadyClaimed', '任務獎勵已領取');
-  const missionIdMissingError = getText('mission.toast.missionMissing', '任務 ID 不存在');
-  const claimSuccessTitle = getText('mission.toast.claimSuccess.title', '獎勵領取成功！');
-  const claimSuccessDescTemplate = getText('mission.toast.claimSuccess.desc', '獲得 {{amount}} 代幣');
-  const claimErrorTitle = getText('mission.toast.claimError.title', '領取獎勵失敗');
-  const genericTryAgain = getText('mission.toast.tryAgain', '請稍後再試');
-  const watchAdSuccessTitle = getText('mission.toast.watchAdSuccess.title', '觀看廣告完成！');
-  const watchAdSuccessDescTemplate = getText('mission.toast.watchAdSuccess.desc', '獲得 {{amount}} 代幣');
-
-  // 載入用戶任務完成狀態
-  useEffect(() => {
-    loadUserMissions();
-  }, [user?.id]);
-
-  // 當頁面聚焦時也刷新任務狀態
-  useEffect(() => {
-    const handleFocus = () => {
-      if (user?.id) {
-        loadUserMissions();
-      }
-    };
-
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [user?.id]);
-
-  const loadUserMissions = async () => {
-    if (!user?.id) {
-      setLoadingMissions(false);
-      return;
-    }
-
-    try {
-      setLoadingMissions(true);
-      const { data, error } = await supabase
-        .from('user_missions')
-        .select('mission_id, completed, completed_at')
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      const missionsMap: Record<string, { completed: boolean; completed_at: string | null }> = {};
-      data?.forEach((mission) => {
-        missionsMap[mission.mission_id] = {
-          completed: mission.completed,
-          completed_at: mission.completed_at,
-        };
-      });
-
-      setUserMissions(missionsMap);
-    } catch (error) {
-      console.error('Error loading user missions:', error);
-    } finally {
-      setLoadingMissions(false);
-    }
-  };
-
-  // 當頁面聚焦時刷新統計（確保數據是最新的）
-  useEffect(() => {
-    const handleFocus = () => {
-      if (user?.id) {
-        refreshStats();
-      }
-    };
-
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [user?.id, refreshStats]);
-
-  // 計算任務進度
+  // 修改：getMissionProgress 需要依賴 localizedMissions 裡面的 target
   const getMissionProgress = (missionId: string): { progress: number; completed: boolean } => {
     if (statsLoading) {
       return { progress: 0, completed: false };
@@ -203,37 +123,40 @@ const MissionPage = () => {
     const dbMissionId = MISSION_ID_MAP[missionId];
     const isClaimed = dbMissionId ? userMissions[dbMissionId]?.completed === true : false;
 
+    // 獲取該任務的目標值 (從 localizedMissions 查找)
+    const missionTemplate = localizedMissions.find(m => m.id === missionId);
+    const target = missionTemplate?.target || 1; // 默認為 1 防呆
+
     // 如果已領取，任務視為已完成（即使統計數據為 0）
     if (isClaimed) {
       return { progress: 100, completed: true };
     }
 
     switch (missionId) {
-      case "1": // 新手上路：完成第一次投票
+      case "1": // 新手上路
         const voteProgress = stats.totalVotes > 0 ? 100 : 0;
         return {
           progress: voteProgress,
           completed: stats.totalVotes > 0
         };
-      case "2": // 投票愛好者：對 10 個不同主題進行投票
-        // 使用 uniqueTopicVotes 計算不重複的主題投票數
+      case "2": // 投票愛好者
         const uniqueTopics = stats.uniqueTopicVotes || 0;
-        const uniqueProgress = Math.min((uniqueTopics / 10) * 100, 100);
+        const uniqueProgress = Math.min((uniqueTopics / target) * 100, 100);
         return {
           progress: uniqueProgress,
-          completed: uniqueTopics >= 10
+          completed: uniqueTopics >= target
         };
-      case "3": // 話題創造者：發起一個主題
+      case "3": // 話題創造者
         const topicProgress = stats.topicsCreated > 0 ? 100 : 0;
         return {
           progress: topicProgress,
           completed: stats.topicsCreated > 0
         };
-      case "4": // 7天登入：連續登入 7 天
+      case "4": // 7天登入 (或其他天數)
         const streakForDisplay = displayedStreak || 0;
         return {
-          progress: Math.min((streakForDisplay / 7) * 100, 100),
-          completed: streakForDisplay >= 7
+          progress: Math.min((streakForDisplay / target) * 100, 100),
+          completed: streakForDisplay >= target
         };
       default:
         return { progress: 0, completed: false };
@@ -287,14 +210,45 @@ const MissionPage = () => {
     loadLoginStreak();
   }, [loadLoginStreak]);
 
+  const loadUserMissions = async () => {
+    if (!user?.id) {
+      setLoadingMissions(false);
+      return;
+    }
+
+    try {
+      setLoadingMissions(true);
+      const { data, error } = await supabase
+        .from('user_missions')
+        .select('mission_id, completed, completed_at')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      const missionsMap: Record<string, { completed: boolean; completed_at: string | null }> = {};
+      data?.forEach((mission) => {
+        missionsMap[mission.mission_id] = {
+          completed: mission.completed,
+          completed_at: mission.completed_at,
+        };
+      });
+
+      setUserMissions(missionsMap);
+    } catch (error) {
+      console.error('Error loading user missions:', error);
+    } finally {
+      setLoadingMissions(false);
+    }
+  };
+
   const handleWatchAd = async () => {
     if (isWatchingAd) return;
 
     setIsWatchingAd(true);
     let optimisticUpdateApplied = false;
     try {
-      const adReward = getConfig('mission_watch_ad_reward', getConfig('ad_reward_amount', 5));
-      const AD_REWARD = typeof adReward === 'number' ? adReward : Number(adReward) || 5;
+      const watchAdRewardConfig = getConfig('mission_watch_ad_reward', 5);
+      const AD_REWARD = typeof watchAdRewardConfig === 'number' ? watchAdRewardConfig : Number(watchAdRewardConfig) || 5;
 
       // 先觀看廣告，只有在廣告觀看成功後才進行樂觀更新
       // 這樣可以避免：如果用戶關閉廣告，代幣不會錯誤增加
@@ -499,6 +453,79 @@ const MissionPage = () => {
     );
   }
 
+  const headerTitle = getText('mission.header.title', '任務與獎勵');
+  const headerSubtitle = getText('mission.header.subtitle', '完成任務賺代幣');
+  const dailyCheckInTitle = getText('mission.daily.title', '每日簽到');
+  const dailyCheckInLoading = getText('mission.daily.loading', '載入中...');
+  const dailyCheckInPending = getText('mission.daily.pending', '今日還未簽到');
+  const dailyCheckInCompleted = getText('mission.daily.completed', '今日已簽到');
+  const dailyCheckInButtonClaiming = getText('mission.daily.button.claiming', '簽到中...');
+  const dailyCheckInButtonDone = getText('mission.daily.button.done', '今日已簽到');
+  const dailyCheckInButtonAction = getText('mission.daily.button.action', '立即簽到');
+  // 依據後台配置與今日是否可領取，顯示正確獎勵（避免「已簽到仍顯示 +3」造成誤解）
+  // 依據後台配置與今日是否可領取，顯示正確獎勵
+  const dailyLoginRewardConfig = getConfig('mission_daily_login_reward', 5);
+  const dailyLoginRewardAmount =
+    typeof dailyLoginRewardConfig === 'number'
+      ? dailyLoginRewardConfig
+      : Number(dailyLoginRewardConfig) || 5;
+  const dailyCheckInReward =
+    loginStreakInfo && loginStreakInfo.can_claim_today === false
+      ? '+0'
+      : `+${dailyLoginRewardAmount}`;
+  const watchAdTitle = getText('mission.ad.title', '觀看廣告');
+  const watchAdSubtitle = getText('mission.ad.subtitle', '輕鬆賺取代幣');
+
+  const watchAdRewardConfig = getConfig('mission_watch_ad_reward', 5);
+  const watchAdRewardAmount = typeof watchAdRewardConfig === 'number' ? watchAdRewardConfig : Number(watchAdRewardConfig) || 5;
+  const watchAdReward = getText('mission.ad.reward', `+${watchAdRewardAmount}`);
+
+  const watchAdLoading = getText('mission.ad.loading', '載入中...');
+  const watchAdButton = getText('mission.ad.button', '觀看 30 秒廣告');
+  const missionsSectionTitle = getText('mission.list.title', '任務列表');
+  const missionInProgress = getText('mission.list.inProgress', '進行中');
+  const missionProgressTemplate = getText('mission.list.progress', '{{percent}}% 完成');
+  const missionClaiming = getText('mission.list.claiming', '領取中...');
+  const missionClaimButton = getText('mission.list.claimButton', '領取獎勵');
+  const missionClaimed = getText('mission.list.claimed', '已領取');
+  const missionAlreadyClaimedInfo = getText('mission.toast.alreadyClaimed', '任務獎勵已領取');
+  const missionIdMissingError = getText('mission.toast.missionMissing', '任務 ID 不存在');
+  const claimSuccessTitle = getText('mission.toast.claimSuccess.title', '獎勵領取成功！');
+  const claimSuccessDescTemplate = getText('mission.toast.claimSuccess.desc', '獲得 {{amount}} 代幣');
+  const claimErrorTitle = getText('mission.toast.claimError.title', '領取獎勵失敗');
+  const genericTryAgain = getText('mission.toast.tryAgain', '請稍後再試');
+  const watchAdSuccessTitle = getText('mission.toast.watchAdSuccess.title', '觀看廣告完成！');
+  const watchAdSuccessDescTemplate = getText('mission.toast.watchAdSuccess.desc', '獲得 {{amount}} 代幣');
+
+  // 載入用戶任務完成狀態
+  useEffect(() => {
+    loadUserMissions();
+  }, [user?.id]);
+
+  // 當頁面聚焦時也刷新任務狀態
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user?.id) {
+        loadUserMissions();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [user?.id]);
+
+  // 當頁面聚焦時刷新統計（確保數據是最新的）
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user?.id) {
+        refreshStats();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [user?.id, refreshStats]);
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <LoadingBubble isLoading={isWatchingAd} />
@@ -523,7 +550,6 @@ const MissionPage = () => {
           </div>
         </div>
       </header>
-
       {/* Content */}
       <div className="max-w-screen-xl mx-auto px-4 py-6 space-y-6">
         {/* Daily Login Card */}
@@ -726,8 +752,7 @@ const MissionPage = () => {
 
 
       </div>
-    </div>
+    </div >
   );
 };
-
 export default MissionPage;

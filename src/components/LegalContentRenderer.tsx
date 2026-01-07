@@ -21,3 +21,4 @@ export const LegalContentRenderer = ({ content }: LegalContentRendererProps) => 
 export default LegalContentRenderer;
 
 
+

@@ -19,11 +19,11 @@ export const useMissionOperations = () => {
   const { getConfig } = useSystemConfigCache();
   const { language } = useLanguage();
   const { getText } = useUIText(language);
-  
+
   const completeMission = async (missionId: string) => {
     // 直接使用 RPC（更快更可靠，避免 CORS 問題）
     // Edge Function 在移動端容易出現 CORS 問題，RPC 更穩定
-          return await completeMissionFallback(missionId);
+    return await completeMissionFallback(missionId);
   };
 
   const completeMissionFallback = async (missionId: string) => {
@@ -43,7 +43,7 @@ export const useMissionOperations = () => {
       p_mission_id: missionId
     });
 
-    const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) => 
+    const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) =>
       setTimeout(() => reject(new Error('RPC 調用超時（10秒）')), 10000)
     );
 
@@ -125,21 +125,22 @@ export const useMissionOperations = () => {
       // 從後台配置讀取觀看廣告限制和獎勵
       // 注意：不需要每次都刷新配置，緩存已經足夠新（配置更新頻率低）
       // 只在首次加載時會自動獲取配置，之後使用緩存即可
-      
+
       // 優先使用 mission_watch_ad_limit（實際使用的鍵名），如果不存在則嘗試 max_ads_per_day
-      const maxAdsPerDayRaw = getConfig('mission_watch_ad_limit', getConfig('max_ads_per_day', 10));
-      // 優先讀取 mission_watch_ad_reward，如果不存在才讀取 ad_reward_amount
-      const adRewardRaw = getConfig('mission_watch_ad_reward', getConfig('ad_reward_amount', 5));
-      
+      // 優先使用 mission_watch_ad_limit
+      const maxAdsPerDayRaw = getConfig('mission_watch_ad_limit', 10);
+      // 優先讀取 mission_watch_ad_reward
+      const adRewardRaw = getConfig('mission_watch_ad_reward', 5);
+
       // 確保轉換為數字
       const MAX_ADS_PER_DAY = typeof maxAdsPerDayRaw === 'number' ? maxAdsPerDayRaw : Number(maxAdsPerDayRaw) || 10;
       const AD_REWARD = typeof adRewardRaw === 'number' ? adRewardRaw : Number(adRewardRaw) || 5;
-      
+
       const today = new Date().toISOString().split('T')[0];
       const lastLogin = profile.last_login ? new Date(profile.last_login).toISOString().split('T')[0] : null;
       let adWatchCount = profile.ad_watch_count || 0;
       if (lastLogin !== today) adWatchCount = 0;
-      
+
       // 在觀看廣告之前檢查限制
       if (adWatchCount >= MAX_ADS_PER_DAY) {
         const limitMsg = getText('mission.watchAd.limitReached', '今日觀看廣告次數已達上限');
@@ -162,7 +163,7 @@ export const useMissionOperations = () => {
       const rewardedAdUnitId = rewardedAdUnitIdConfig || undefined;
       await new Promise<void>((resolve, reject) =>
         watchRewardedAd(
-          resolve, 
+          resolve,
           (err) => reject(new Error(err || '廣告未完成')),
           rewardedAdUnitId // getAdId 函數會自動處理平台區分
         )
@@ -176,17 +177,17 @@ export const useMissionOperations = () => {
       // 優先使用 Edge Function（它會處理所有邏輯：代幣、觀看次數、交易記錄）
       try {
         const edgeStartTime = Date.now();
-        
+
         // 為 Edge Function 調用添加超時（20秒），給足夠時間處理
         // 如果 Edge Function 太慢，會自動回退到 RPC
         const edgeFunctionPromise = supabase.functions.invoke('watch-ad', {
           body: {}
         });
-        
-        const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) => 
+
+        const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) =>
           setTimeout(() => reject(new Error('Edge Function 調用超時（20秒）')), 20000)
         );
-        
+
         let edgeResult: { data: any; error: any };
         try {
           edgeResult = await Promise.race([
@@ -197,7 +198,7 @@ export const useMissionOperations = () => {
           console.warn('[watchAd] Edge Function 調用超時（20秒），將使用 RPC 備選方案');
           throw new Error('Edge Function 調用超時，將嘗試使用 RPC 備選方案');
         }
-        
+
         const { data: edgeData, error: edgeError } = edgeResult;
         const edgeDuration = Date.now() - edgeStartTime;
 
@@ -206,10 +207,10 @@ export const useMissionOperations = () => {
           usedEdgeFunction = true;
           // Edge Function 成功後立即返回，不等待後續操作
           const remainingAds = MAX_ADS_PER_DAY - (adWatchCount + 1);
-          return { 
-            success: true, 
-            reward: AD_REWARD, 
-            tokens_earned: AD_REWARD, 
+          return {
+            success: true,
+            reward: AD_REWARD,
+            tokens_earned: AD_REWARD,
             remaining_ads: remainingAds,
             usedEdgeFunction: true
           };
@@ -221,17 +222,17 @@ export const useMissionOperations = () => {
         // Edge Function 失敗，使用 RPC + 手動更新作為備選
         try {
           const rpcStartTime = Date.now();
-          
+
           // 調用 RPC（添加超時處理，15秒，給足夠時間處理）
           const rpcPromise = supabase.rpc('add_tokens', {
             user_id: user.id,
             token_amount: AD_REWARD
           });
-          
-          const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) => 
+
+          const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) =>
             setTimeout(() => reject(new Error('RPC 調用超時（15秒）')), 15000)
           );
-          
+
           let rpcResult: { data: any; error: any };
           try {
             rpcResult = await Promise.race([
@@ -243,9 +244,9 @@ export const useMissionOperations = () => {
             // RPC 超時，直接拋出錯誤（不嘗試備選方案，因為 add_tokens_from_ad_watch 可能不存在或參數不匹配）
             throw new Error('RPC 調用超時，請檢查網絡連接或稍後再試');
           }
-          
+
           const { data: rpcData, error: tokenError } = rpcResult;
-          
+
           const rpcDuration = Date.now() - rpcStartTime;
 
           if (tokenError) {
@@ -267,10 +268,10 @@ export const useMissionOperations = () => {
           Promise.allSettled([
             // 更新觀看次數和登入時間
             supabase.from('profiles')
-        .update({
-          ad_watch_count: adWatchCount + 1,
-          last_login: new Date().toISOString()
-        })
+              .update({
+                ad_watch_count: adWatchCount + 1,
+                last_login: new Date().toISOString()
+              })
               .eq('id', user.id)
           ]).catch(() => {
             // 靜默處理錯誤，不影響主流程
@@ -292,24 +293,24 @@ export const useMissionOperations = () => {
       // 移除耗時的驗證步驟，因為 RPC 已經成功執行了
       // 代幣已經在數據庫中增加，不需要再次查詢驗證
       const remainingAds = MAX_ADS_PER_DAY - (adWatchCount + 1);
-      
+
       // 注意：toast 訊息將在 MissionPage 中顯示，這裡不顯示以避免重複
-      return { 
-        success: true, 
-        reward: AD_REWARD, 
-        tokens_earned: AD_REWARD, 
+      return {
+        success: true,
+        reward: AD_REWARD,
+        tokens_earned: AD_REWARD,
         remaining_ads: remainingAds,
         usedEdgeFunction: false
       };
     } catch (error: any) {
       console.error('Watch ad error:', error);
-      
+
       // 如果已經顯示過限制錯誤，不再重複顯示
       if (error.limitReached) {
         // 錯誤訊息已經在限制檢查時顯示過了，直接拋出錯誤
         throw error;
       }
-      
+
       // 處理其他錯誤
       if (error.message?.includes('Daily ad watch limit') || error.message?.includes('已達上限')) {
         const limitMsg = getText('mission.watchAd.limitReached', '今日觀看廣告次數已達上限');
@@ -378,7 +379,7 @@ export const useMissionOperations = () => {
       });
       const today = new Date();
       const todayDate = today.toISOString().split('T')[0];
-      
+
       // 從 get_login_streak_info 獲取最新的 can_claim_today 狀態
       // 如果 record_daily_login 返回 is_new_login = false，表示已經簽到過
       // 需要重新查詢 get_login_streak_info 來獲取正確的 can_claim_today 狀態
@@ -405,7 +406,7 @@ export const useMissionOperations = () => {
           canClaimToday = false;
         }
       }
-      
+
       const loginInfo: DailyLoginInfo = {
         isNewLogin: loginResult.is_new_login,
         currentStreak: loginResult.current_streak || 0,
@@ -426,7 +427,7 @@ export const useMissionOperations = () => {
 
       // 新登入獎勵
       console.log('[claimDailyLogin] New login successful, reward tokens:', loginInfo.rewardTokens);
-      
+
       // 驗證代幣是否真的被發放（查詢最新的 profile）
       try {
         const { data: profileData, error: profileError } = await supabase
@@ -434,7 +435,7 @@ export const useMissionOperations = () => {
           .select('tokens')
           .eq('id', user.id)
           .single();
-        
+
         if (!profileError && profileData) {
           console.log('[claimDailyLogin] Current token balance after login:', profileData.tokens);
           if (loginInfo.rewardTokens > 0 && profileData.tokens !== undefined) {
@@ -448,7 +449,7 @@ export const useMissionOperations = () => {
       } catch (verifyError) {
         console.warn('[claimDailyLogin] Error verifying token balance:', verifyError);
       }
-      
+
       const loginSuccessMsg = getText('mission.dailyLogin.success', '簽到成功！獲得 {{amount}} 代幣')
         .replace('{{amount}}', loginInfo.rewardTokens.toLocaleString());
       toast.success(loginSuccessMsg, {
@@ -466,14 +467,14 @@ export const useMissionOperations = () => {
         details: error?.details,
         hint: error?.hint
       });
-      
+
       if (error.message?.includes('未登入')) {
         toast.error(getText('mission.dailyLogin.notLoggedIn', '請先登入'));
       } else {
         const errorMsg = error?.message || getText('mission.dailyLogin.failed', '簽到失敗');
         toast.error(errorMsg);
       }
-      
+
       throw error;
     }
   };

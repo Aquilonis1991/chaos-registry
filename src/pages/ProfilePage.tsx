@@ -506,9 +506,9 @@ const ProfilePage = () => {
       <AlertDialog open={showPaymentConfirm} onOpenChange={setShowPaymentConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{getText('profile.assessment.confirm_title', '確認進行鑑定？')}</AlertDialogTitle>
+            <AlertDialogTitle>{getAssessText('profile.assessment.payment_title', '確認進行鑑定？')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {getText('profile.assessment.confirm_message', '本次鑑定將消耗 {{amount}} 代幣。').replace('{{amount}}', irrationalAssessmentCost)}
+              {getAssessText('profile.assessment.payment_message', '本次鑑定將消耗 {{amount}} 代幣。').replace('{{amount}}', irrationalAssessmentCost)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

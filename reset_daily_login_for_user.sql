@@ -18,3 +18,4 @@ SELECT * FROM public.check_daily_login_status('08fc94c1-bfb3-47ed-9191-b46fa2483
 -- WHERE id = '08fc94c1-bfb3-47ed-9191-b46fa24837f2'::uuid
 --   AND last_login_date = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Taipei')::DATE;
 
+

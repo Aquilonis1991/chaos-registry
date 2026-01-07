@@ -40,3 +40,4 @@ SELECT
 FROM public.profiles
 WHERE id = '08fc94c1-bfb3-47ed-9191-b46fa24837f2'::uuid;
 
+

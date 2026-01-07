@@ -15,3 +15,4 @@ COMMENT ON COLUMN public.profiles.line_user_id IS 'LINE user ID for LINE login i
 
 
 
+

@@ -60,3 +60,4 @@ GRANT EXECUTE ON FUNCTION public.get_user_topics_with_stats(UUID, INTEGER) TO an
 NOTIFY pgrst, 'reload schema';
 
 
+

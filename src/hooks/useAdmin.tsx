@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useCallback, useMemo, useEffect, useRef, useState } from "react";
@@ -96,7 +96,7 @@ export const useAdmin = () => {
 
           const rpcPromise = supabase.rpc('is_admin', { check_user_id: user.id });
           const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) =>
-            setTimeout(() => reject(new Error('RPC 查詢超時（5秒）')), 5000)
+            setTimeout(() => reject(new Error('RPC 查詢超時（15秒）')), 15000)
           );
 
           let rpcResult: { data: any; error: any };
@@ -302,6 +302,7 @@ export const useAdmin = () => {
       console.log('[useAdmin] 🔍 Checking super admin status for user:', user.id);
 
       try {
+        // @ts-ignore
         const { data, error } = await supabase.rpc('is_super_admin', {
           check_user_id: user.id
         });
@@ -333,7 +334,7 @@ export const useAdmin = () => {
     staleTime: 300000,
     refetchOnWindowFocus: false,
     // 保持之前的數據，即使 enabled 變成 false
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
     // 當查詢被禁用時，保持最後的數據
     gcTime: Infinity, // 永遠不清理緩存
   });

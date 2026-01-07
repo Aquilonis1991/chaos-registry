@@ -95,30 +95,30 @@ export const WebAdminOnlyPage = () => {
               <p>User ID: {user.id}</p>
             </div>
           )}
-        </div>
 
-        <div className="flex flex-col gap-2">
-          <button
-            onClick={handleTestConnection}
-            className="w-full px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md text-sm font-medium transition-colors"
-          >
-            測試資料庫連線 (Test DB Connection)
-          </button>
-          <button
-            onClick={handleClearCache}
-            className="w-full px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary/90 rounded-md text-sm font-medium transition-colors"
-          >
-            清除快取並重試 (Clear Cache & Retry)
-          </button>
-          <button
-            onClick={() => signOut()}
-            className="w-full px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md text-sm font-medium transition-colors"
-          >
-            登出 (Sign Out)
-          </button>
-        </div>
-      </CardContent>
-    </Card>
+
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={handleTestConnection}
+              className="w-full px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md text-sm font-medium transition-colors"
+            >
+              測試資料庫連線 (Test DB Connection)
+            </button>
+            <button
+              onClick={handleClearCache}
+              className="w-full px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary/90 rounded-md text-sm font-medium transition-colors"
+            >
+              清除快取並重試 (Clear Cache & Retry)
+            </button>
+            <button
+              onClick={() => signOut()}
+              className="w-full px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md text-sm font-medium transition-colors"
+            >
+              登出 (Sign Out)
+            </button>
+          </div>
+        </CardContent>
+      </Card>
     </div >
   );
 };

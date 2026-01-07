@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 const parseTransactionAmount = (value: number | string | null | undefined): number => {
@@ -34,16 +34,7 @@ export const useUserStats = (userId: string | undefined) => {
   });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
-
-    fetchUserStats();
-  }, [userId]);
-
-  const fetchUserStats = async () => {
+  const fetchUserStats = useCallback(async () => {
     if (!userId) return;
 
     try {
@@ -251,11 +242,20 @@ export const useUserStats = (userId: string | undefined) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
-  const refreshStats = () => {
+  useEffect(() => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+
     fetchUserStats();
-  };
+  }, [userId, fetchUserStats]);
+
+  const refreshStats = useCallback(() => {
+    fetchUserStats();
+  }, [fetchUserStats]);
 
   return {
     stats,

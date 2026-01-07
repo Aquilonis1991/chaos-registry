@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AdMobService, watchRewardedAd } from "@/lib/admob";
@@ -479,7 +480,7 @@ export const useMissionOperations = () => {
     }
   };
 
-  const getLoginStreakInfo = async () => {
+  const getLoginStreakInfo = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
@@ -495,7 +496,7 @@ export const useMissionOperations = () => {
       console.error('Get login streak error:', error);
       return null;
     }
-  };
+  }, []);
 
   return { completeMission, watchAd, claimDailyLogin, getLoginStreakInfo };
 };

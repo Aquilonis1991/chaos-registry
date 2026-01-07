@@ -2,7 +2,7 @@
 -- This prevents malicious users from hijacking function execution by creating objects in other schemas.
 
 ALTER FUNCTION public.check_daily_topic_eligibility(uuid) SET search_path = public, extensions, pg_temp;
-ALTER FUNCTION public.upsert_ui_text_v2(text, text, text, text, text) SET search_path = public, extensions, pg_temp; -- Checking signature might be needed, using generic approach if possible or assuming signature based on name usage.
+
 -- Note: upsert_ui_text_v2 likely takes (p_key, p_category, p_zh, p_en, p_ja, p_description). Let's check signature if possible or just use name if unique. 
 -- Safer to use name only if unique, but Postgres requires signature for overloaded functions. 
 -- I will assume standard signatures or use a DO block to find them, but simple ALTER is standard.

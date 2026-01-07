@@ -546,10 +546,11 @@ const MissionPage = () => {
   const watchAdSubtitle = getText('mission.ad.subtitle', '輕鬆賺取代幣');
 
   // 從 missionConfigs 讀取觀看廣告獎勵，確保與後台配置一致
+  // 直接使用配置值顯示，不通過 ui_texts，因為獎勵數量應該從 system_config 讀取
   const watchAdRewardAmount = typeof missionConfigs.watchAdReward === 'number' 
     ? missionConfigs.watchAdReward 
     : Number(missionConfigs.watchAdReward) || 5;
-  const watchAdReward = getText('mission.ad.reward', `+${watchAdRewardAmount}`);
+  const watchAdReward = `+${watchAdRewardAmount}`;
 
   const watchAdLoading = getText('mission.ad.loading', '載入中...');
   const watchAdButton = getText('mission.ad.button', '觀看 30 秒廣告');

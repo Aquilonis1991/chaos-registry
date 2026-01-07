@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ShieldX } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
+import { useAuth } from "@/hooks/useAuth";
 
 /**
  * 網頁版僅限管理員使用頁面
@@ -10,11 +11,17 @@ import { useUIText } from "@/hooks/useUIText";
 const WebAdminOnlyPage = () => {
   const { language } = useLanguage();
   const { getText } = useUIText(language);
+  const { user, signOut } = useAuth(); // 使用 useAuth 獲取用戶資訊
 
   // 強制輸出日誌確認頁面被渲染
   if (typeof window !== 'undefined') {
-    window.console?.log?.('[WebAdminOnlyPage] Page rendered - Non-admin user blocked');
+    window.console?.log?.('[WebAdminOnlyPage] Page rendered - Non-admin user blocked', { userId: user?.id });
   }
+
+  const handleClearCache = () => {
+    localStorage.removeItem('admin_status_cache');
+    window.location.reload();
+  };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -36,9 +43,29 @@ const WebAdminOnlyPage = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="bg-muted rounded-lg p-4">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground mb-4">
               {getText('webAdminOnly.message', '一般用戶請使用手機 App 版本。如需使用網頁版，請聯繫系統管理員。')}
             </p>
+            {user && (
+              <div className="text-xs font-mono bg-black/5 p-2 rounded break-all">
+                <p>User ID: {user.id}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={handleClearCache}
+              className="w-full px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary/90 rounded-md text-sm font-medium transition-colors"
+            >
+              清除快取並重試 (Clear Cache & Retry)
+            </button>
+            <button
+              onClick={() => signOut()}
+              className="w-full px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md text-sm font-medium transition-colors"
+            >
+              登出 (Sign Out)
+            </button>
           </div>
         </CardContent>
       </Card>

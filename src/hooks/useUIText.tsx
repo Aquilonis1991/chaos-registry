@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveBaseLanguage, Language, BaseLanguage } from "@/contexts/LanguageContext";
@@ -113,14 +113,14 @@ export const useUIText = (language: Language = 'zh') => {
 
   const texts = fetchedTexts ?? cachedTexts ?? [];
 
-  const getText = (textKey: string, fallback: string = '') => {
+  const getText = useCallback((textKey: string, fallback: string = '') => {
     if (!texts) return fallback;
 
     const found = texts.find((t: UIText) => t.key === textKey);
     if (!found) return fallback;
 
     return found[baseLanguage] || found.value || fallback;
-  };
+  }, [texts, baseLanguage]);
 
   return { texts, getText, isLoading: textsLoading && !cachedTexts };
 };

@@ -544,12 +544,6 @@ const MissionPage = () => {
     loadUserMissions();
   }, [user?.id]);
 
-  // 頁面加載時刷新配置，確保使用最新值（僅在首次加載時執行一次）
-  useEffect(() => {
-    refreshConfigs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // 當頁面聚焦時也刷新任務狀態
   useEffect(() => {
     const handleFocus = () => {

@@ -24,8 +24,9 @@ ALTER FUNCTION public.get_latest_topics_with_exposure() SET search_path = public
 ALTER FUNCTION public.get_user_behavior_metrics(uuid) SET search_path = public, extensions, pg_temp;
 ALTER FUNCTION public.deduct_user_tokens(uuid, integer, text) SET search_path = public, extensions, pg_temp;
 
--- For upsert_ui_text_v2, guessing signature:
-ALTER FUNCTION public.upsert_ui_text_v2(text, text, text, text, text, text) SET search_path = public, extensions, pg_temp;
+-- For upsert_ui_text_v2, corrected signature based on usages (7 args):
+-- (check_key text, check_value text, check_category text, check_description text, check_zh text, check_en text, check_ja text)
+ALTER FUNCTION public.upsert_ui_text_v2(text, text, text, text, text, text, text) SET search_path = public, extensions, pg_temp;
 
 
 -- Fix 2: Remove overly permissive RLS policies

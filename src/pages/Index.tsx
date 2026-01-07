@@ -8,21 +8,24 @@ const Index = () => {
   const { user, isAnonymous, loading } = useAuth();
   const { isAdmin, isLoading: adminLoading } = useAdmin();
 
-  console.log('[Index] Render:', { 
-    hasUser: !!user, 
-    isAnonymous, 
-    loading, 
-    isAdmin, 
+  console.log('[Index] Render:', {
+    hasUser: !!user,
+    isAnonymous,
+    loading,
+    isAdmin,
     adminLoading,
-    isNative: isNative() 
+    isNative: isNative()
   });
 
   // 載入中顯示載入畫面
   if (loading || adminLoading) {
-    console.log('[Index] Still loading...');
+    console.log(`[Index] Still loading... (Auth: ${loading}, Admin: ${adminLoading})`);
     return (
-      <div className="min-h-screen bg-gradient-primary flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-primary flex items-center justify-center flex-col gap-4">
         <div className="text-primary-foreground text-xl">Loading...</div>
+        <div className="text-primary-foreground/70 text-sm">
+          {loading ? 'Authenticating...' : 'Checking permissions...'}
+        </div>
       </div>
     );
   }
@@ -30,7 +33,7 @@ const Index = () => {
   // 網頁版管理員檢查 - 必須明確處理所有情況
   if (!isNative() && user && !isAnonymous) {
     console.log('[Index] Web version, user logged in, checking admin status:', isAdmin);
-    
+
     // 如果管理員狀態還在載入中（undefined），繼續等待
     if (isAdmin === undefined && adminLoading) {
       console.log('[Index] Admin status still loading, waiting...');
@@ -40,14 +43,14 @@ const Index = () => {
         </div>
       );
     }
-    
+
     // 重要：如果查詢完成但結果是 undefined，或者明確是 false，都視為非管理員
     // 這確保了即使查詢失敗，也會阻止非管理員訪問
     if (isAdmin === false || (isAdmin === undefined && !adminLoading)) {
       console.log('[Index] Non-admin user on web, showing restriction page');
       return <WebAdminOnlyPage />;
     }
-    
+
     // 只有明確是 true 時才允許導向
     if (isAdmin !== true) {
       // 如果還不確定，繼續等待
@@ -58,7 +61,7 @@ const Index = () => {
         </div>
       );
     }
-    
+
     // 是管理員，正常導向
     console.log('[Index] Admin user on web, navigating to home');
     return <Navigate to="/home" replace />;

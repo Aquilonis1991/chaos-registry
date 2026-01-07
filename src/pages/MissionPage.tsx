@@ -40,7 +40,7 @@ const MissionPage = () => {
   const { watchAd, claimDailyLogin, getLoginStreakInfo, completeMission } = useMissionOperations();
   const { language } = useLanguage();
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
-  const { getConfig, refreshConfigs } = useSystemConfigCache();
+  const { configs, getConfig, refreshConfigs } = useSystemConfigCache();
   const [isWatchingAd, setIsWatchingAd] = useState(false);
   const [isClaimingLogin, setIsClaimingLogin] = useState(false);
   const [loginStreakInfo, setLoginStreakInfo] = useState<LoginStreakInfo | null>(null);
@@ -55,17 +55,41 @@ const MissionPage = () => {
   const userTokens = profile?.tokens || 0;
   const lastStableStreakRef = useRef(0);
 
+  // 提取配置值，避免在 useMemo 中調用函數導致無限循環
+  const missionConfigs = useMemo(() => {
+    return {
+      firstVoteReward: configs['mission_first_vote_reward'] ?? 50,
+      voteLoverTarget: configs['mission_vote_lover_target'] ?? 10,
+      voteLoverReward: configs['mission_vote_lover_reward'] ?? 50,
+      createTopicReward: configs['mission_create_topic_reward'] ?? 50,
+      login7DaysTarget: configs['mission_7days_login_target'] ?? 7,
+      login7DaysReward: configs['mission_7days_login_reward_tokens'] ?? 100,
+    };
+  }, [configs]);
+
   const localizedMissions = useMemo(() => {
     // 從後台配置讀取任務參數 (使用與 SQL Patch 一致的默認值)
-    const firstVoteReward = getConfig('mission_first_vote_reward', 50);
+    const firstVoteReward = typeof missionConfigs.firstVoteReward === 'number' 
+      ? missionConfigs.firstVoteReward 
+      : Number(missionConfigs.firstVoteReward) || 50;
 
-    const voteLoverTarget = getConfig('mission_vote_lover_target', 10);
-    const voteLoverReward = getConfig('mission_vote_lover_reward', 50);
+    const voteLoverTarget = typeof missionConfigs.voteLoverTarget === 'number'
+      ? missionConfigs.voteLoverTarget
+      : Number(missionConfigs.voteLoverTarget) || 10;
+    const voteLoverReward = typeof missionConfigs.voteLoverReward === 'number'
+      ? missionConfigs.voteLoverReward
+      : Number(missionConfigs.voteLoverReward) || 50;
 
-    const createTopicReward = getConfig('mission_create_topic_reward', 50);
+    const createTopicReward = typeof missionConfigs.createTopicReward === 'number'
+      ? missionConfigs.createTopicReward
+      : Number(missionConfigs.createTopicReward) || 50;
 
-    const login7DaysTarget = getConfig('mission_7days_login_target', 7);
-    const login7DaysReward = getConfig('mission_7days_login_reward_tokens', 100);
+    const login7DaysTarget = typeof missionConfigs.login7DaysTarget === 'number'
+      ? missionConfigs.login7DaysTarget
+      : Number(missionConfigs.login7DaysTarget) || 7;
+    const login7DaysReward = typeof missionConfigs.login7DaysReward === 'number'
+      ? missionConfigs.login7DaysReward
+      : Number(missionConfigs.login7DaysReward) || 100;
 
     const templates = [
       {
@@ -112,7 +136,7 @@ const MissionPage = () => {
       condition: getText(`mission.list.${mission.id}.condition`, mission.condition)
         .replace('{{target}}', String(mission.target)),
     }));
-  }, [getText, language, getConfig]);
+  }, [getText, language, missionConfigs]);
 
   // 修改：getMissionProgress 需要依賴 localizedMissions 裡面的 target
   const getMissionProgress = (missionId: string): { progress: number; completed: boolean } => {

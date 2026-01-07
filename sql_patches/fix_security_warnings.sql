@@ -18,9 +18,9 @@ ALTER FUNCTION public.check_daily_topic_eligibility(uuid) SET search_path = publ
 -- deduct_user_tokens: (p_user_id uuid, p_amount int, p_reason text)
 
 ALTER FUNCTION public.check_daily_topic_eligibility(uuid) SET search_path = public, extensions, pg_temp;
-ALTER FUNCTION public.sync_topic_vote_counts(uuid) SET search_path = public, extensions, pg_temp;
-ALTER FUNCTION public.get_hot_topics_with_exposure() SET search_path = public, extensions, pg_temp;
-ALTER FUNCTION public.get_latest_topics_with_exposure() SET search_path = public, extensions, pg_temp;
+ALTER FUNCTION public.sync_topic_vote_counts() SET search_path = public, extensions, pg_temp;
+ALTER FUNCTION public.get_hot_topics_with_exposure(integer, integer, integer) SET search_path = public, extensions, pg_temp;
+ALTER FUNCTION public.get_latest_topics_with_exposure(integer, integer, integer) SET search_path = public, extensions, pg_temp;
 ALTER FUNCTION public.get_user_behavior_metrics(uuid) SET search_path = public, extensions, pg_temp;
 ALTER FUNCTION public.deduct_user_tokens(uuid, integer, text) SET search_path = public, extensions, pg_temp;
 

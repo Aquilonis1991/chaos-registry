@@ -162,13 +162,13 @@ const formatTransactionDescription = (
   if (transactionType === 'ai_usage') {
     // Check for "Unstable Rewrite" or "不穩定改寫" pattern
     if (/Unstable Rewrite|不穩定改寫/i.test(normalize)) {
-      return getText('tokenHistory.description.unstableProcessing', '不穩定處理');
+      return getText('tokenHistory.description.unstableRewrite', '不穩定改寫');
     }
     // Check for "Irrationality Assessment" or "不理性鑑定" pattern
     if (/Irrationality Assessment|不理性鑑定/i.test(normalize)) {
       return getText('tokenHistory.description.irrationalityAssessment', '不理性鑑定');
     }
-    // Fallback for other ai_usage
+    // Fallback for other ai_usage (顯示類型標籤)
     return getText('tokenHistory.description.aiUsage', '不穩定處理');
   }
 

@@ -67,7 +67,7 @@ jobs:
           echo "=========================================="
       
       - name: Upload JWT Token as Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: apple-jwt-token
           path: secrets/apple-jwt-token.txt

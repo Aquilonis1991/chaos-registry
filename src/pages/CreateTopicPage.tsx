@@ -35,7 +35,7 @@ import { useUIText } from "@/hooks/useUIText";
 
 const CreateTopicPage = () => {
   const navigate = useNavigate();
-  const { profile, loading: profileLoading } = useProfile();
+  const { profile, loading: profileLoading, updateTokensOptimistically } = useProfile();
   const { user } = useAuth();
   const { createTopic, checkFreeCreateQualification, checkDailyDiscountEligibility } = useTopicOperations();
   const { getConfig, loading: configLoading } = useSystemConfigCache();
@@ -213,6 +213,13 @@ const CreateTopicPage = () => {
   const executeRewrite = async () => {
     setIsRewriting(true);
     setShowPaymentConfirm(false);
+    
+    // 樂觀更新：如果本次需要付費，立即扣除代幣
+    const rewriteCost = dailyRewriteCount > 0 ? 5 : 0;
+    if (rewriteCost > 0) {
+      updateTokensOptimistically(-rewriteCost);
+    }
+    
     try {
       const { data, error } = await supabase.functions.invoke('ai-chaos-rewrite', {
         body: {
@@ -229,9 +236,13 @@ const CreateTopicPage = () => {
       setRewriteUsage(data.usage);
       setDailyRewriteCount(data.usage.count);
       setRewriteConfirmOpen(true);
-      refreshStats(); // Update token count immediately
+      refreshStats(); // Update token count immediately (實時訂閱會確保最終一致性)
     } catch (error: any) {
       console.error('Rewrite error:', error);
+      // 如果失敗，回滾樂觀更新
+      if (rewriteCost > 0) {
+        updateTokensOptimistically(rewriteCost);
+      }
       toast.error(getText('topic.rewrite.error', '改寫失敗，請稍後再試'), {
         description: error.message
       });
@@ -253,10 +264,21 @@ const CreateTopicPage = () => {
 
     // Optimization: Use frontend state to determine if payment is needed immediately
     if (dailyRewriteCount > 0) {
+      const rewriteCost = 5; // 從配置獲取，這裡先硬編碼
+      // 檢查代幣是否足夠
+      if (profile && profile.tokens < rewriteCost) {
+        toast.error(getText('topic.rewrite.insufficientTokens', '代幣不足，無法進行改寫'), {
+          description: getText('topic.rewrite.insufficientTokensDesc', '需要 {{amount}} 代幣，您目前有 {{current}} 代幣')
+            .replace('{{amount}}', String(rewriteCost))
+            .replace('{{current}}', String(profile.tokens))
+        });
+        return;
+      }
+      
       setRewriteUsage({
         isFree: false,
         count: dailyRewriteCount + 1,
-        cost: 5
+        cost: rewriteCost
       });
       setShowPaymentConfirm(true);
       return;

@@ -26,6 +26,7 @@ const transactionTypeIcons: Record<string, string> = {
   watch_ad: '📺',
   admin_adjustment: '⚙️',
   purchase: '💰',
+  ai_usage: '🤖',
 };
 
 const normalizeTransactionType = (type: string): string => {
@@ -72,8 +73,9 @@ const getTransactionTypeLabel = (type: string, getText: (key: string, fallback: 
     watch_ad: getText('tokenHistory.type.watchAd', '觀看廣告'),
     admin_adjustment: getText('tokenHistory.type.adminAdjustment', '系統調整'),
     purchase: getText('tokenHistory.type.purchase', '購買'),
+    ai_usage: getText('tokenHistory.type.aiUsage', 'AI 功能'),
   };
-  return labels[type] || type;
+  return labels[type] || getText('tokenHistory.type.unknown', type);
 };
 
 const formatTransactionDescription = (
@@ -141,6 +143,20 @@ const formatTransactionDescription = (
 
   if (transactionType === 'complete_mission') {
     return getText('tokenHistory.description.completeMission', '完成任務');
+  }
+
+  // Handle ai_usage type with specific descriptions
+  if (transactionType === 'ai_usage') {
+    // Check for "Unstable Rewrite" pattern
+    if (/Unstable Rewrite|不穩定改寫/i.test(normalize)) {
+      return getText('tokenHistory.description.unstableRewrite', '不穩定改寫');
+    }
+    // Check for "Irrationality Assessment" pattern
+    if (/Irrationality Assessment|不理性鑑定/i.test(normalize)) {
+      return getText('tokenHistory.description.irrationalityAssessment', '不理性鑑定');
+    }
+    // Fallback for other ai_usage
+    return getText('tokenHistory.description.aiUsage', 'AI 功能使用');
   }
 
   return description;
@@ -308,8 +324,9 @@ export const useTokenHistory = (userId: string | undefined) => {
       setHistory(processedTransactions);
     } catch (err: any) {
       console.error('Error fetching token history:', err);
-      setError(err.message || '獲取代幣歷史失敗');
-      toast.error('載入代幣紀錄失敗');
+      const errorMessage = err.message || getText('tokenHistory.error.fetchFailed', '獲取代幣歷史失敗');
+      setError(errorMessage);
+      toast.error(getText('tokenHistory.error.loadFailed', '載入代幣紀錄失敗'));
     } finally {
       setLoading(false);
     }

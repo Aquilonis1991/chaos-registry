@@ -48,6 +48,7 @@ import { useUIText } from "@/hooks/useUIText";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserStats } from "@/hooks/useUserStats";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { profileUpdateSchema } from "@/lib/validationSchemas";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
@@ -648,44 +649,48 @@ const ProfilePage = () => {
         <div className="max-w-screen-xl mx-auto px-4 py-6 space-y-6">
           <div className="mb-6">
             <Card className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 border-violet-500/20 overflow-hidden">
-              <CardContent className="p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-violet-100 dark:bg-violet-900/30 rounded-full">
-                    <Brain className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+              <CardContent className="p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <div className="p-2 bg-violet-100 dark:bg-violet-900/30 rounded-full flex-shrink-0">
+                      <Brain className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-foreground mb-1">
+                        {getAssessText('profile.assessment.title', '不理性鑑定')}
+                      </h3>
+                      <p className="text-xs text-muted-foreground break-words">
+                        {weeklyAssessmentDone
+                          ? getAssessText('profile.assessment.cooldown', '本週已完成一次鑑定')
+                          : getAssessText('profile.assessment.start_prompt', '看看 AI 眼中的你是什麼樣子？')
+                        }
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-bold text-foreground">
-                      {getAssessText('profile.assessment.title', '不理性鑑定')}
-                    </h3>
-                    <p className="text-xs text-muted-foreground">
-                      {weeklyAssessmentDone
-                        ? getAssessText('profile.assessment.cooldown', '本週已完成一次鑑定')
-                        : getAssessText('profile.assessment.start_prompt', '看看 AI 眼中的你是什麼樣子？')
-                      }
-                    </p>
-                  </div>
+                  <Button
+                    variant={weeklyAssessmentDone ? "secondary" : "default"}
+                    size="sm"
+                    className={cn(
+                      "flex-shrink-0",
+                      weeklyAssessmentDone
+                        ? "bg-violet-100 text-violet-700 hover:bg-violet-200 dark:bg-violet-900/50 dark:text-violet-300"
+                        : "bg-violet-600 hover:bg-violet-700 text-white shadow-md shadow-violet-500/20"
+                    )}
+                    onClick={() => handleAssessment()}
+                    disabled={assessmentLoading}
+                  >
+                    {assessmentLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <span className="whitespace-nowrap">
+                        {weeklyAssessmentDone
+                          ? (getAssessText('profile.assessment.button_paid', '再次鑑定 ({{amount}} 代幣)').replace('{{amount}}', irrationalAssessmentCost))
+                          : (getAssessText('profile.assessment.button_free', '本週免費鑑定'))
+                        }
+                      </span>
+                    )}
+                  </Button>
                 </div>
-                <Button
-                  variant={weeklyAssessmentDone ? "secondary" : "default"}
-                  size="sm"
-                  className={weeklyAssessmentDone
-                    ? "bg-violet-100 text-violet-700 hover:bg-violet-200 dark:bg-violet-900/50 dark:text-violet-300"
-                    : "bg-violet-600 hover:bg-violet-700 text-white shadow-md shadow-violet-500/20"
-                  }
-                  onClick={() => handleAssessment()}
-                  disabled={assessmentLoading}
-                >
-                  {assessmentLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <span>
-                      {weeklyAssessmentDone
-                        ? (getAssessText('profile.assessment.button_paid', '再次鑑定 ({{amount}} 代幣)').replace('{{amount}}', irrationalAssessmentCost))
-                        : (getAssessText('profile.assessment.button_free', '本週免費鑑定'))
-                      }
-                    </span>
-                  )}
-                </Button>
               </CardContent>
               <div className="px-4 pb-2 text-[10px] text-muted-foreground/50 text-center">
                 {getAssessText('profile.assessment.disclaimer', '娛樂用途，非心理分析')}

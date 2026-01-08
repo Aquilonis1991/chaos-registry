@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
       const { data: deductResult, error: deductError } = await supabase.rpc("deduct_user_tokens", {
         p_user_id: user.id,
         p_amount: cost,
-        p_reason: `Unstable Rewrite (Daily #${usageCount})`
+        p_reason: `不穩定改寫`
       });
 
       if (deductError) {

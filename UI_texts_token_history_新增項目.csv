@@ -1,0 +1,9 @@
+key,category,zh,en,ja,description
+tokenHistory.type.aiUsage,token_history,AI 功能,AI Usage,AI機能,代幣交易類型：AI 功能
+tokenHistory.type.unknown,token_history,未知類型,Unknown Type,不明なタイプ,代幣交易類型：未知類型（fallback）
+tokenHistory.description.unstableRewrite,token_history,不穩定改寫,Unstable Rewrite,不安定書き直し,代幣交易描述：不穩定改寫
+tokenHistory.description.irrationalityAssessment,token_history,不理性鑑定,Irrationality Assessment,非合理的評価,代幣交易描述：不理性鑑定
+tokenHistory.description.aiUsage,token_history,AI 功能使用,AI Usage,AI機能使用,代幣交易描述：AI 功能使用（fallback）
+tokenHistory.error.fetchFailed,token_history,獲取代幣歷史失敗,Failed to fetch token history,トークン履歴の取得に失敗しました,錯誤訊息：獲取代幣歷史失敗
+tokenHistory.error.loadFailed,token_history,載入代幣紀錄失敗,Failed to load token records,トークン記録の読み込みに失敗しました,錯誤訊息：載入代幣紀錄失敗
+

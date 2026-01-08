@@ -73,7 +73,7 @@ const getTransactionTypeLabel = (type: string, getText: (key: string, fallback: 
     watch_ad: getText('tokenHistory.type.watchAd', '觀看廣告'),
     admin_adjustment: getText('tokenHistory.type.adminAdjustment', '系統調整'),
     purchase: getText('tokenHistory.type.purchase', '購買'),
-    ai_usage: getText('tokenHistory.type.aiUsage', 'AI 功能'),
+    ai_usage: getText('tokenHistory.type.aiUsage', '不穩定處理'),
   };
   return labels[type] || getText('tokenHistory.type.unknown', type);
 };
@@ -169,7 +169,7 @@ const formatTransactionDescription = (
       return getText('tokenHistory.description.irrationalityAssessment', '不理性鑑定');
     }
     // Fallback for other ai_usage
-    return getText('tokenHistory.description.aiUsage', 'AI 功能使用');
+    return getText('tokenHistory.description.aiUsage', '不穩定處理');
   }
 
   return description;

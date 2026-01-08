@@ -28,7 +28,7 @@ tokenHistory.description.dailyLoginReward,token_history,每日登入獎勵,Daily
 tokenHistory.mission.dailyLogin,token_history,每日登入,Daily Login,毎日ログイン,任務名稱：每日登入
 tokenHistory.mission.watchAd,token_history,觀看廣告,Watch Ad,広告を見る,任務名稱：觀看廣告
 tokenHistory.mission.completeMission,token_history,完成任務,Complete Mission,ミッション完了,任務名稱：完成任務
-tokenHistory.type.aiUsage,token_history,AI 功能,AI Usage,AI機能,代幣交易類型：AI 功能
+tokenHistory.type.aiUsage,token_history,不穩定處理,Unstable Processing,不安定処理,代幣交易類型：AI 功能
 tokenHistory.type.unknown,token_history,未知類型,Unknown Type,不明なタイプ,代幣交易類型：未知類型（fallback）
 tokenHistory.description.unstableRewrite,token_history,不穩定改寫,Unstable Rewrite,不安定書き直し,代幣交易描述：不穩定改寫
 tokenHistory.description.unstableProcessing,token_history,不穩定處理,Unstable Processing,不安定処理,代幣交易描述：不穩定處理（AI Usage）
@@ -36,7 +36,7 @@ tokenHistory.description.freeVote,token_history,免費投票：{{title}},Free Vo
 tokenHistory.description.freeVoteWithOption,token_history,免費投票：{{title}} - 選項：{{option}},Free Vote: {{title}} - Option: {{option}},無料投票：{{title}} - 選択肢：{{option}},代幣交易描述：免費投票與選項
 tokenHistory.description.unknownTopic,token_history,未知主題,Unknown Topic,不明なトピック,代幣交易描述：未知主題（fallback）
 tokenHistory.description.irrationalityAssessment,token_history,不理性鑑定,Irrationality Assessment,非合理的評価,代幣交易描述：不理性鑑定
-tokenHistory.description.aiUsage,token_history,AI 功能使用,AI Usage,AI機能使用,代幣交易描述：AI 功能使用（fallback）
+tokenHistory.description.aiUsage,token_history,不穩定處理,Unstable Processing,不安定処理,代幣交易描述：AI 功能使用（fallback）
 tokenHistory.error.fetchFailed,token_history,獲取代幣歷史失敗,Failed to fetch token history,トークン履歴の取得に失敗しました,錯誤訊息：獲取代幣歷史失敗
 tokenHistory.error.loadFailed,token_history,載入代幣紀錄失敗,Failed to load token records,トークン記録の読み込みに失敗しました,錯誤訊息：載入代幣紀錄失敗
 topicHistory.stats.votes,topic_history,票,votes,票,主題發起紀錄：票數單位

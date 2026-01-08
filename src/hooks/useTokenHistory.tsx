@@ -26,7 +26,7 @@ const transactionTypeIcons: Record<string, string> = {
   watch_ad: '📺',
   admin_adjustment: '⚙️',
   purchase: '💰',
-  ai_usage: '🤖',
+  ai_usage: '🌀',
 };
 
 const normalizeTransactionType = (type: string): string => {

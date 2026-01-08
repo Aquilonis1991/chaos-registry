@@ -1,0 +1,19 @@
+key,category,zh,en,ja,description,使用位置
+topic.unstable_rewrite.button,topic_create,不穩定改寫,Unstable Rewrite,不安定書き直し,不穩定改寫按鈕文字,CreateTopicPage.tsx - 按鈕標籤
+topic.unstable_rewrite.button_paid,topic_create,不穩定改寫 ({{amount}} 代幣),Unstable Rewrite ({{amount}} Tokens),不安定書き直し ({{amount}} トークン),不穩定改寫按鈕（付費）,CreateTopicPage.tsx - 付費按鈕標籤
+topic.unstable_rewrite.daily_free,topic_create,每日首次免費,Daily First Free,毎日初回無料,每日首次免費標籤,CreateTopicPage.tsx - 免費標籤
+topic.unstable_rewrite.daily_used,topic_create,今日已用 ({{amount}} 代幣),Used Today ({{amount}} Tokens),本日使用済み ({{amount}} トークン),今日已使用標籤,（未使用）
+topic.unstable_rewrite.loading,topic_create,正在進行混亂改寫...,Rewriting chaotically...,混沌とした書き換え中...,改寫中的載入提示,CreateTopicPage.tsx - LoadingBubble
+topic.unstable_rewrite.confirm_title,topic_create,不穩定改寫確認,Unstable Rewrite Confirmation,不安定書き直し確認,確認對話框標題,CreateTopicPage.tsx - AlertDialog 標題
+topic.unstable_rewrite.confirm_message,topic_create,我們把你的內容改成了這個樣子，確定要用嗎？,We changed your content to look like this. Are you sure you want to use it?,コンテンツをこのように変更しました。よろしいですか？,確認對話框訊息,CreateTopicPage.tsx - AlertDialog 描述
+topic.unstable_rewrite.confirm_description,topic_create,連詳述也一起改了,Even the description has been rewritten,説明文も書き直されました,確認對話框額外說明,（未使用）
+topic.unstable_rewrite.cancel,topic_create,保留原樣,Keep Original,オリジナルを保持,取消按鈕文字,CreateTopicPage.tsx - AlertDialog 取消按鈕
+topic.unstable_rewrite.apply,topic_create,套用改寫,Apply Rewrite,書き直しを適用,套用按鈕文字,CreateTopicPage.tsx - AlertDialog 確認按鈕
+topic.unstable_rewrite.cost_prompt,topic_create,本次改寫消耗 {{amount}} 代幣,This rewrite costs {{amount}} tokens,この書き直しは {{amount}} トークンかかります,費用提示文字,CreateTopicPage.tsx - 確認對話框費用顯示
+topic.unstable_rewrite.payment_title,topic_create,確認進行改寫？,Confirm Rewrite?,書き直しを確認しますか？,付費確認對話框標題,CreateTopicPage.tsx - 付費確認對話框
+topic.unstable_rewrite.payment_message,topic_create,今日免費次數已用完，本次改寫消耗 {{amount}} 代幣。,Free daily limit reached. This rewrite costs {{amount}} tokens.,今日の無料枠は終了しました。この書き直しは {{amount}} トークンかかります。,付費確認對話框訊息,CreateTopicPage.tsx - 付費確認對話框描述
+topic.rewrite.error,topic_create,改寫失敗，請稍後再試,Rewrite failed, please try again later,書き直しに失敗しました。後でもう一度お試しください,改寫失敗錯誤訊息,CreateTopicPage.tsx - 錯誤提示
+topic.rewrite.applied,topic_create,已套用改寫內容,Rewritten content applied,書き直されたコンテンツが適用されました,套用成功訊息,CreateTopicPage.tsx - 成功提示
+tokenHistory.description.unstableRewrite,token_history,不穩定改寫,Unstable Rewrite,不安定書き直し,代幣交易描述：不穩定改寫,useTokenHistory.tsx - 交易紀錄描述
+tokenHistory.description.unstableProcessing,token_history,不穩定處理,Unstable Processing,不安定処理,代幣交易描述：不穩定處理（AI Usage）,useTokenHistory.tsx - 交易紀錄描述（fallback）
+

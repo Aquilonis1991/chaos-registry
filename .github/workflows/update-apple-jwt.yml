@@ -58,37 +58,26 @@ jobs:
               console.error('無法讀取 JWT Token:', error);
             }
             
-            const issueBody = `## 🔄 Apple JWT Token 需要更新
-            
-新的 JWT Token 已自動生成，請更新 Supabase 設定。
-
-### 📋 更新步驟
-
-1. 前往 [Supabase Dashboard](https://app.supabase.com/)
-2. 選擇專案：\`epyykzxxglkjombvozhr\`
-3. 導航到 **Authentication** > **Providers** > **Apple**
-4. 將下面的 JWT Token 貼到 **Secret Key (for OAuth)** 欄位
-5. 點擊 **Save**
-
-### 🔑 JWT Token
-
-\`\`\`
-${token}
-\`\`\`
-
-### ⚠️ 重要提醒
-
-- JWT Token 有效期為 180 天
-- 請在到期前更新
-- 此 Token 已自動生成，可直接使用
-
-### 📅 生成時間
-
-${new Date().toISOString()}
-
----
-
-**自動生成於 GitHub Actions**`;
+            const issueBody = '## 🔄 Apple JWT Token 需要更新\n\n' +
+              '新的 JWT Token 已自動生成，請更新 Supabase 設定。\n\n' +
+              '### 📋 更新步驟\n\n' +
+              '1. 前往 [Supabase Dashboard](https://app.supabase.com/)\n' +
+              '2. 選擇專案：`epyykzxxglkjombvozhr`\n' +
+              '3. 導航到 **Authentication** > **Providers** > **Apple**\n' +
+              '4. 將下面的 JWT Token 貼到 **Secret Key (for OAuth)** 欄位\n' +
+              '5. 點擊 **Save**\n\n' +
+              '### 🔑 JWT Token\n\n' +
+              '```\n' +
+              token + '\n' +
+              '```\n\n' +
+              '### ⚠️ 重要提醒\n\n' +
+              '- JWT Token 有效期為 180 天\n' +
+              '- 請在到期前更新\n' +
+              '- 此 Token 已自動生成，可直接使用\n\n' +
+              '### 📅 生成時間\n\n' +
+              new Date().toISOString() + '\n\n' +
+              '---\n\n' +
+              '**自動生成於 GitHub Actions**';
 
             await github.rest.issues.create({
               owner: context.repo.owner,

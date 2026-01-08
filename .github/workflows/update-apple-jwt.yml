@@ -41,6 +41,7 @@ jobs:
       
       - name: Display JWT Token
         run: |
+          TOKEN=$(cat secrets/apple-jwt-token.txt)
           echo "=========================================="
           echo "✅ Apple JWT Token 已生成"
           echo "=========================================="
@@ -53,9 +54,10 @@ jobs:
           echo "5. 點擊 Save"
           echo ""
           echo "=========================================="
-          echo "🔑 JWT Token:"
+          echo "🔑 JWT Token (請複製以下內容):"
           echo "=========================================="
-          cat secrets/apple-jwt-token.txt
+          echo "::notice::JWT Token 已生成，請從下方複製"
+          echo "$TOKEN" | sed 's/\(.\{80\}\)/\1\n/g'
           echo ""
           echo "=========================================="
           echo "⚠️  重要提醒："
@@ -63,6 +65,13 @@ jobs:
           echo "- 請在到期前更新"
           echo "- 此 Token 已自動生成，可直接使用"
           echo "=========================================="
+      
+      - name: Upload JWT Token as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: apple-jwt-token
+          path: secrets/apple-jwt-token.txt
+          retention-days: 1
       
       - name: Create GitHub Issue (Optional)
         uses: actions/github-script@v6

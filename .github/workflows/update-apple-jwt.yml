@@ -39,14 +39,34 @@ jobs:
           APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
         run: node scripts/update-apple-jwt.cjs
       
-      - name: Read generated token
-        id: read-token
+      - name: Display JWT Token
         run: |
-          TOKEN=$(cat secrets/apple-jwt-token.txt)
-          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+          echo "=========================================="
+          echo "✅ Apple JWT Token 已生成"
+          echo "=========================================="
+          echo ""
+          echo "📋 更新步驟："
+          echo "1. 前往 Supabase Dashboard: https://app.supabase.com/"
+          echo "2. 選擇專案: epyykzxxglkjombvozhr"
+          echo "3. 導航到 Authentication > Providers > Apple"
+          echo "4. 將下面的 JWT Token 貼到 Secret Key (for OAuth) 欄位"
+          echo "5. 點擊 Save"
+          echo ""
+          echo "=========================================="
+          echo "🔑 JWT Token:"
+          echo "=========================================="
+          cat secrets/apple-jwt-token.txt
+          echo ""
+          echo "=========================================="
+          echo "⚠️  重要提醒："
+          echo "- JWT Token 有效期為 180 天"
+          echo "- 請在到期前更新"
+          echo "- 此 Token 已自動生成，可直接使用"
+          echo "=========================================="
       
-      - name: Create GitHub Issue
+      - name: Create GitHub Issue (Optional)
         uses: actions/github-script@v6
+        continue-on-error: true
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -56,36 +76,43 @@ jobs:
               token = fs.readFileSync('secrets/apple-jwt-token.txt', 'utf8').trim();
             } catch (error) {
               console.error('無法讀取 JWT Token:', error);
+              return;
             }
             
-            const issueBody = '## 🔄 Apple JWT Token 需要更新\n\n' +
-              '新的 JWT Token 已自動生成，請更新 Supabase 設定。\n\n' +
-              '### 📋 更新步驟\n\n' +
-              '1. 前往 [Supabase Dashboard](https://app.supabase.com/)\n' +
-              '2. 選擇專案：`epyykzxxglkjombvozhr`\n' +
-              '3. 導航到 **Authentication** > **Providers** > **Apple**\n' +
-              '4. 將下面的 JWT Token 貼到 **Secret Key (for OAuth)** 欄位\n' +
-              '5. 點擊 **Save**\n\n' +
-              '### 🔑 JWT Token\n\n' +
-              '```\n' +
-              token + '\n' +
-              '```\n\n' +
-              '### ⚠️ 重要提醒\n\n' +
-              '- JWT Token 有效期為 180 天\n' +
-              '- 請在到期前更新\n' +
-              '- 此 Token 已自動生成，可直接使用\n\n' +
-              '### 📅 生成時間\n\n' +
-              new Date().toISOString() + '\n\n' +
-              '---\n\n' +
-              '**自動生成於 GitHub Actions**';
+            try {
+              const issueBody = '## 🔄 Apple JWT Token 需要更新\n\n' +
+                '新的 JWT Token 已自動生成，請更新 Supabase 設定。\n\n' +
+                '### 📋 更新步驟\n\n' +
+                '1. 前往 [Supabase Dashboard](https://app.supabase.com/)\n' +
+                '2. 選擇專案：`epyykzxxglkjombvozhr`\n' +
+                '3. 導航到 **Authentication** > **Providers** > **Apple**\n' +
+                '4. 將下面的 JWT Token 貼到 **Secret Key (for OAuth)** 欄位\n' +
+                '5. 點擊 **Save**\n\n' +
+                '### 🔑 JWT Token\n\n' +
+                '```\n' +
+                token + '\n' +
+                '```\n\n' +
+                '### ⚠️ 重要提醒\n\n' +
+                '- JWT Token 有效期為 180 天\n' +
+                '- 請在到期前更新\n' +
+                '- 此 Token 已自動生成，可直接使用\n\n' +
+                '### 📅 生成時間\n\n' +
+                new Date().toISOString() + '\n\n' +
+                '---\n\n' +
+                '**自動生成於 GitHub Actions**';
 
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: '🔄 Apple JWT Token 需要更新 - ' + new Date().toLocaleDateString('zh-TW'),
-              body: issueBody,
-              labels: ['automated', 'apple-jwt', 'supabase']
-            });
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: '🔄 Apple JWT Token 需要更新 - ' + new Date().toLocaleDateString('zh-TW'),
+                body: issueBody,
+                labels: ['automated', 'apple-jwt', 'supabase']
+              });
+              console.log('✅ GitHub Issue 已建立');
+            } catch (error) {
+              console.log('⚠️  無法建立 GitHub Issue（可能是權限問題）');
+              console.log('   請從工作流程日誌中複製 JWT Token');
+            }
       
       - name: Cleanup
         run: |

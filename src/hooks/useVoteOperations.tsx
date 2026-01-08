@@ -1,6 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useProfile } from "@/hooks/useProfile";
+import { useUIText } from "@/hooks/useUIText";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const stringifyError = (error: any) => {
   if (!error) return "undefined";
@@ -275,12 +277,17 @@ export const useVoteOperations = () => {
 
       // 確保免費投票記錄到 token_transactions（如果函數沒有記錄）
       try {
+        // 使用 UI 文字管理來生成描述（支持多語系）
+        const freeVoteDesc = getText('tokenHistory.description.freeVoteWithOption', '免費投票：{{title}} - 選項：{{option}}')
+          .replace('{{title}}', topic?.title || getText('tokenHistory.description.unknownTopic', '未知主題'))
+          .replace('{{option}}', optionLabel);
+        
         const { data: txId, error: transError } = await (supabase.rpc as any)('log_token_transaction', {
           p_user_id: user.id,
           p_amount: 0,
           p_transaction_type: 'free_vote',
           p_reference_id: topicId,
-          p_description: `免費投票：${topic?.title || '未知主題'} - 選項：${optionLabel}`
+          p_description: freeVoteDesc
         });
 
         if (transError && !transError.message?.includes('duplicate')) {

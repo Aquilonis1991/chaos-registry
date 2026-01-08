@@ -110,7 +110,20 @@ const formatTransactionDescription = (
       .replace('{{amount}}', amount);
   }
 
-  const voteDetailMatch = normalize.match(/^(?:投票：|Vote:?)(.+?)(?:[-|–]\s*(?:選項|Option)：?\s*(.+))?$/i);
+  // Handle free vote with option pattern first (before regular vote)
+  const freeVoteMatch = normalize.match(/^(?:免費投票[：:]|Free Vote[：:]|Free vote:?)\s*(.+?)(?:[-|–]\s*(?:選項[：:]|Option[：:]|option:?)\s*(.+))?$/i);
+  if (freeVoteMatch) {
+    const title = freeVoteMatch[1].trim();
+    const option = freeVoteMatch[2]?.trim();
+    if (option) {
+      return getText('tokenHistory.description.freeVoteWithOption', '免費投票：{{title}} - 選項：{{option}}')
+        .replace('{{title}}', title)
+        .replace('{{option}}', option);
+    }
+    return getText('tokenHistory.description.freeVote', '免費投票：{{title}}').replace('{{title}}', title);
+  }
+
+  const voteDetailMatch = normalize.match(/^(?:投票[：:]|Vote:?)(.+?)(?:[-|–]\s*(?:選項[：:]|Option[：:]|option:?)\s*(.+))?$/i);
   if (voteDetailMatch) {
     const title = voteDetailMatch[1].trim();
     const option = voteDetailMatch[2]?.trim();
@@ -147,11 +160,11 @@ const formatTransactionDescription = (
 
   // Handle ai_usage type with specific descriptions
   if (transactionType === 'ai_usage') {
-    // Check for "Unstable Rewrite" pattern
+    // Check for "Unstable Rewrite" or "不穩定改寫" pattern
     if (/Unstable Rewrite|不穩定改寫/i.test(normalize)) {
-      return getText('tokenHistory.description.unstableRewrite', '不穩定改寫');
+      return getText('tokenHistory.description.unstableProcessing', '不穩定處理');
     }
-    // Check for "Irrationality Assessment" pattern
+    // Check for "Irrationality Assessment" or "不理性鑑定" pattern
     if (/Irrationality Assessment|不理性鑑定/i.test(normalize)) {
       return getText('tokenHistory.description.irrationalityAssessment', '不理性鑑定');
     }

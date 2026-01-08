@@ -1,0 +1,104 @@
+name: Update Apple JWT Token
+
+on:
+  schedule:
+    # 每 150 天執行一次（在 JWT 到期前 30 天）
+    # 使用 cron 語法：分 時 日 月 星期
+    # 這裡設定為每 5 個月的第 1 天執行
+    - cron: '0 0 1 */5 *'
+  workflow_dispatch:  # 允許手動觸發
+
+jobs:
+  update-jwt:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Create secrets directory
+        run: mkdir -p secrets
+      
+      - name: Write Apple private key
+        run: |
+          echo "${{ secrets.APPLE_KEY_FILE }}" > secrets/apple-sign-in-key.p8
+        env:
+          APPLE_KEY_FILE: ${{ secrets.APPLE_KEY_FILE }}
+      
+      - name: Generate JWT Token
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
+        run: node scripts/update-apple-jwt.js
+      
+      - name: Read generated token
+        id: read-token
+        run: |
+          TOKEN=$(cat secrets/apple-jwt-token.txt)
+          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+      
+      - name: Create GitHub Issue
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            let token = '';
+            try {
+              token = fs.readFileSync('secrets/apple-jwt-token.txt', 'utf8').trim();
+            } catch (error) {
+              console.error('無法讀取 JWT Token:', error);
+            }
+            
+            const issueBody = `## 🔄 Apple JWT Token 需要更新
+            
+新的 JWT Token 已自動生成，請更新 Supabase 設定。
+
+### 📋 更新步驟
+
+1. 前往 [Supabase Dashboard](https://app.supabase.com/)
+2. 選擇專案：\`epyykzxxglkjombvozhr\`
+3. 導航到 **Authentication** > **Providers** > **Apple**
+4. 將下面的 JWT Token 貼到 **Secret Key (for OAuth)** 欄位
+5. 點擊 **Save**
+
+### 🔑 JWT Token
+
+\`\`\`
+${token}
+\`\`\`
+
+### ⚠️ 重要提醒
+
+- JWT Token 有效期為 180 天
+- 請在到期前更新
+- 此 Token 已自動生成，可直接使用
+
+### 📅 生成時間
+
+${new Date().toISOString()}
+
+---
+
+**自動生成於 GitHub Actions**`;
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🔄 Apple JWT Token 需要更新 - ' + new Date().toLocaleDateString('zh-TW'),
+              body: issueBody,
+              labels: ['automated', 'apple-jwt', 'supabase']
+            });
+      
+      - name: Cleanup
+        run: |
+          rm -f secrets/apple-sign-in-key.p8
+          rm -f secrets/apple-jwt-token.txt

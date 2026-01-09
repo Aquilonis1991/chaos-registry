@@ -283,10 +283,10 @@ const AuthPage = () => {
     }
   };
 
-  const handleEdgeSocialLogin = async (provider: 'line' | 'twitter') => {
+  const handleEdgeSocialLogin = async (provider: 'line') => {
     try {
       const platform = isNative() ? 'app' : 'web';
-      const functionName = provider === 'line' ? 'line-auth' : 'twitter-auth';
+      const functionName = 'line-auth';
       
       // 使用 Supabase Client 的 functions.invoke 方法，會自動處理授權
       // 注意：Edge Function 需要接受 POST 請求並從 body 中讀取 platform
@@ -307,12 +307,11 @@ const AuthPage = () => {
         throw new Error('Edge Function 未返回 authUrl');
       }
 
-      // 交給 provider 的 OAuth 頁面（LINE/Twitter 會再回到 Edge Function callback，最後回到 Deep Link / Web）
+      // 交給 provider 的 OAuth 頁面（LINE 會再回到 Edge Function callback，最後回到 Deep Link / Web）
       window.location.href = authUrl;
     } catch (err: any) {
       console.error(`[${provider}] Login error:`, err);
-      const providerName = provider === 'line' ? 'LINE' : 'X (Twitter)';
-      toast.error(getText('auth_social_login_error', '{{provider}}登入失敗').replace('{{provider}}', providerName), {
+      toast.error(getText('auth_social_login_error', '{{provider}}登入失敗').replace('{{provider}}', 'LINE'), {
         description: err?.message || '未知錯誤'
       });
     }
@@ -445,9 +444,12 @@ const AuthPage = () => {
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="h-14 w-14 sm:h-12 sm:w-12 rounded-full touch-manipulation"
-                    onClick={() => handleEdgeSocialLogin('twitter')}
-                    title={getText('auth_twitter_login', '使用 X (Twitter) 登入')}
+                    className="h-14 w-14 sm:h-12 sm:w-12 rounded-full touch-manipulation opacity-50 cursor-not-allowed"
+                    onClick={() => {
+                      toast.info(getText('auth_twitter_login_disabled', 'X (Twitter) 登入功能暫時停用'));
+                    }}
+                    title={getText('auth_twitter_login_disabled', 'X (Twitter) 登入功能暫時停用')}
+                    disabled
                   >
                     {/* X / Twitter */}
                     <svg className="h-7 w-7 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

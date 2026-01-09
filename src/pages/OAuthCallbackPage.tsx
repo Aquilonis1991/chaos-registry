@@ -57,11 +57,15 @@ export const OAuthCallbackPage = () => {
           
           try {
             // 使用 fetch 調用 Edge Function
+            // 添加 Supabase anon key 作為 apikey header，以通過 Supabase 路由層級的檢查
+            const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+            
             // Edge Function 使用 Deno.serve，應該可以處理無授權的請求
             // 注意：Edge Function 會返回重定向響應（magic link），我們需要讓瀏覽器跟隨重定向
             const response = await fetch(edgeFunctionUrl.toString(), {
               method: 'GET',
               headers: {
+                'apikey': supabaseAnonKey || '',
                 'Content-Type': 'application/json',
               },
               redirect: 'manual', // 手動處理重定向，因為我們需要瀏覽器實際訪問 magic link

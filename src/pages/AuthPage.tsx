@@ -286,9 +286,18 @@ const AuthPage = () => {
   const handleEdgeSocialLogin = async (provider: 'line' | 'twitter') => {
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      
       if (!supabaseUrl) {
         toast.error(getText('auth_login_error', '登入失敗，請稍後再試'), {
           description: '缺少 VITE_SUPABASE_URL'
+        });
+        return;
+      }
+
+      if (!supabaseAnonKey) {
+        toast.error(getText('auth_login_error', '登入失敗，請稍後再試'), {
+          description: '缺少 VITE_SUPABASE_PUBLISHABLE_KEY'
         });
         return;
       }
@@ -299,7 +308,15 @@ const AuthPage = () => {
           ? `${supabaseUrl}/functions/v1/line-auth/auth?platform=${encodeURIComponent(platform)}`
           : `${supabaseUrl}/functions/v1/twitter-auth/auth?platform=${encodeURIComponent(platform)}`;
 
-      const res = await fetch(endpoint, { method: 'GET' });
+      // 添加 Supabase anon key 作為 apikey header，以通過 Supabase 路由層級的檢查
+      const res = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'apikey': supabaseAnonKey,
+          'Content-Type': 'application/json',
+        },
+      });
+      
       const json = await res.json().catch(() => null);
       const authUrl = json?.authUrl;
 

@@ -27,8 +27,10 @@ const FRONTEND_URL = Deno.env.get('FRONTEND_URL') || 'https://chaos-registry.ver
 const FRONTEND_DEEP_LINK = Deno.env.get('FRONTEND_DEEP_LINK') || 'votechaos://auth/callback'
 
 // State 簽名密鑰（用於 CSRF 保護）
-// 使用 SERVICE_ROLE_KEY 的一部分作為簽名密鑰（Edge Functions 是無狀態的，不能使用內存存儲）
-const STATE_SECRET = SERVICE_ROLE_KEY.substring(0, 32) // 使用前 32 個字符作為密鑰
+// 使用 Supabase 的 JWT Secret，這樣 Supabase 的內建處理邏輯就能驗證簽名
+// 如果沒有設定 JWT_SECRET 環境變數，回退到使用 SERVICE_ROLE_KEY
+const JWT_SECRET = Deno.env.get('JWT_SECRET') || Deno.env.get('SUPABASE_JWT_SECRET')
+const STATE_SECRET = JWT_SECRET || SERVICE_ROLE_KEY.substring(0, 32) // 優先使用 JWT_SECRET，否則使用前 32 個字符
 const STATE_EXPIRY = 5 * 60 * 1000 // 5 分鐘
 
 // 生成簽名的 state（JWT 格式，以便 Supabase 不會報錯）

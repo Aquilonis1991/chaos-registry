@@ -633,8 +633,20 @@ async function handleCallback(req: Request, corsHeaders: Record<string, string>)
     // 當用戶訪問 magic link 時，Supabase 會驗證 token 並重定向到 redirect_to，並在 URL hash 中包含 access_token 和 refresh_token
     const magicLink = linkData.properties.action_link
     console.log('Magic link generated, redirecting to:', magicLink)
-    
-    // 直接重定向到 magic link，讓 Supabase 處理驗證和 token 生成
+
+    // 對於 POST 請求（來自前端 fetch），返回 JSON 響應而不是重定向
+    // 這樣可以避免 CORS 問題
+    if (req.method === 'POST') {
+      return new Response(
+        JSON.stringify({ redirectUrl: magicLink }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
+
+    // 對於 GET 請求（直接重定向），返回 302 重定向
     return Response.redirect(magicLink)
 
   } catch (error) {

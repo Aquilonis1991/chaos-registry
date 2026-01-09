@@ -304,6 +304,16 @@ async function handleCallback(req: Request, corsHeaders: Record<string, string>)
   if (!stateParam) {
     console.error('No state parameter provided')
     const errorUrl = getErrorRedirectUrl('invalid_state', 'Missing state parameter')
+    // 對於 POST 請求，返回 JSON 響應
+    if (req.method === 'POST') {
+      return new Response(
+        JSON.stringify({ redirectUrl: errorUrl }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
     return Response.redirect(errorUrl)
   }
 
@@ -312,6 +322,16 @@ async function handleCallback(req: Request, corsHeaders: Record<string, string>)
   if (!stateVerification.valid) {
     console.error('Invalid or expired state:', stateParam)
     const errorUrl = getErrorRedirectUrl('invalid_state', 'Invalid or expired state parameter', 'auto')
+    // 對於 POST 請求，返回 JSON 響應
+    if (req.method === 'POST') {
+      return new Response(
+        JSON.stringify({ redirectUrl: errorUrl }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
     return Response.redirect(errorUrl)
   }
 
@@ -323,6 +343,16 @@ async function handleCallback(req: Request, corsHeaders: Record<string, string>)
   if (error) {
     console.error('LINE OAuth error:', error, errorDescription)
     const errorUrl = getErrorRedirectUrl(error, errorDescription || '')
+    // 對於 POST 請求，返回 JSON 響應
+    if (req.method === 'POST') {
+      return new Response(
+        JSON.stringify({ redirectUrl: errorUrl }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
     return Response.redirect(errorUrl)
   }
 
@@ -330,6 +360,16 @@ async function handleCallback(req: Request, corsHeaders: Record<string, string>)
   if (!code) {
     console.error('No authorization code provided')
     const errorUrl = getErrorRedirectUrl('no_code', 'No authorization code provided')
+    // 對於 POST 請求，返回 JSON 響應
+    if (req.method === 'POST') {
+      return new Response(
+        JSON.stringify({ redirectUrl: errorUrl }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
     return Response.redirect(errorUrl)
   }
 

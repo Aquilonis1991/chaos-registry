@@ -126,6 +126,25 @@ Deno.serve(async (req) => {
   const origin = req.headers.get('origin')
   const corsHeaders = getCorsHeaders(origin)
   
+  // 如果是回調請求且是 GET 請求且沒有授權 header，立即重定向到前端
+  // 這必須在驗證來源之前執行，因為這是來自 LINE 服務器的直接重定向
+  if (isCallback && req.method === 'GET' && !req.headers.get('authorization')) {
+    console.log('[CRITICAL] GET callback without authorization header detected, redirecting to frontend immediately')
+    const code = url.searchParams.get('code')
+    const state = url.searchParams.get('state')
+    const error = url.searchParams.get('error')
+    
+    // 構建前端應用的回調 URL
+    const frontendCallbackUrl = new URL(`${FRONTEND_URL}/auth/callback`)
+    if (code) frontendCallbackUrl.searchParams.set('code', code)
+    if (state) frontendCallbackUrl.searchParams.set('state', state)
+    if (error) frontendCallbackUrl.searchParams.set('error', error)
+    frontendCallbackUrl.searchParams.set('provider', 'line')
+    
+    console.log('[CRITICAL] Redirecting to frontend:', frontendCallbackUrl.toString())
+    return Response.redirect(frontendCallbackUrl.toString(), 302)
+  }
+  
   // 只有非回調請求才驗證來源
   if (!isCallback) {
     const originValidation = validateOrigin(req)

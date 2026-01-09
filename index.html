@@ -44,7 +44,8 @@
       const error = urlParams.get('error') || hashParams.get('error');
       const provider = urlParams.get('provider') || hashParams.get('provider');
       
-      // 處理 LINE 和 X (Twitter) Provider：如果有 code 和 state，且沒有 Supabase 的 access_token，立即轉發到 Edge Function
+      // 處理 LINE Provider：如果有 code 和 state，且沒有 Supabase 的 access_token，使用 fetch POST 請求調用 Edge Function
+      // 注意：X (Twitter) 使用不同的處理方式（JWT state，可能可以通過重定向）
       if (code && state && !hashParams.get('access_token') && !urlParams.get('access_token')) {
         // 判斷是 LINE 還是 X (Twitter)
         // 如果 state 是 JWT 格式（X/Twitter），或者沒有明確的 provider 標記，優先判斷為 X (Twitter)
@@ -54,6 +55,7 @@
         // 從當前 URL 推斷 Supabase URL（從 hostname 提取）
         // 或者使用默認值
         let supabaseUrl = 'https://epyykzxxglkjombvozhr.supabase.co';
+        let supabaseAnonKey = '';
         try {
           // 嘗試從當前頁面的 hostname 推斷（如果是 Supabase 託管）
           const hostname = window.location.hostname;
@@ -67,16 +69,64 @@
           // 使用默認值
         }
         
-        // 構建 Edge Function 回調 URL
-        const edgeFunctionUrl = new URL(supabaseUrl + '/functions/v1/' + functionName + '/callback');
-        edgeFunctionUrl.searchParams.set('code', code);
-        edgeFunctionUrl.searchParams.set('state', state);
-        if (error) edgeFunctionUrl.searchParams.set('error', error);
-        
-        console.log('[Pre-React] Detected OAuth callback, redirecting to Edge Function:', edgeFunctionUrl.toString());
-        
-        // 立即重定向，避免 Supabase 處理
-        window.location.replace(edgeFunctionUrl.toString());
+        // 對於 LINE，使用 fetch POST 請求調用 Edge Function（避免 401 錯誤）
+        if (functionName === 'line-auth') {
+          const edgeFunctionUrl = supabaseUrl + '/functions/v1/' + functionName + '/callback';
+          
+          console.log('[Pre-React] LINE callback detected, calling Edge Function via fetch:', edgeFunctionUrl);
+          
+          // 使用 fetch POST 請求調用 Edge Function
+          fetch(edgeFunctionUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': supabaseAnonKey || '',
+              'Authorization': 'Bearer ' + (supabaseAnonKey || ''),
+            },
+            body: JSON.stringify({
+              code: code,
+              state: state,
+              error: error || null,
+            }),
+          })
+          .then(async (response) => {
+            if (response.status >= 300 && response.status < 400) {
+              // 重定向響應（Edge Function 返回 magic link）
+              const redirectUrl = response.headers.get('location');
+              if (redirectUrl) {
+                console.log('[Pre-React] Edge Function returned redirect:', redirectUrl);
+                window.location.href = redirectUrl;
+                return;
+              }
+            } else if (response.ok) {
+              const data = await response.json().catch(() => null);
+              if (data?.redirectUrl) {
+                window.location.href = data.redirectUrl;
+                return;
+              }
+            }
+            // 如果沒有重定向，讓 React 處理
+            console.log('[Pre-React] Edge Function response:', response.status);
+          })
+          .catch((err) => {
+            console.error('[Pre-React] Error calling Edge Function:', err);
+            // 如果出錯，讓 React 處理
+          });
+          
+          // 阻止後續處理
+          return;
+        } else {
+          // 對於 X (Twitter)，使用直接重定向（因為它使用 JWT state，可能可以通過）
+          const edgeFunctionUrl = new URL(supabaseUrl + '/functions/v1/' + functionName + '/callback');
+          edgeFunctionUrl.searchParams.set('code', code);
+          edgeFunctionUrl.searchParams.set('state', state);
+          if (error) edgeFunctionUrl.searchParams.set('error', error);
+          
+          console.log('[Pre-React] X (Twitter) callback detected, redirecting to Edge Function:', edgeFunctionUrl.toString());
+          
+          // 立即重定向，避免 Supabase 處理
+          window.location.replace(edgeFunctionUrl.toString());
+        }
       }
     })();
   </script>

@@ -85,17 +85,55 @@ export const OAuthCallbackPage = () => {
         
         return;
       } else {
-        // 對於 X (Twitter)，使用直接重定向（因為它使用 JWT state，可能可以通過）
+        // 對於 X (Twitter)，使用 fetch POST 請求調用 Edge Function（避免 401 錯誤）
+        console.log('[OAuthCallbackPage] X (Twitter) callback detected, calling Edge Function via fetch');
+        
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://epyykzxxglkjombvozhr.supabase.co';
-        const edgeFunctionUrl = new URL(`${supabaseUrl}/functions/v1/${functionName}/callback`);
-        edgeFunctionUrl.searchParams.set('code', code);
-        edgeFunctionUrl.searchParams.set('state', state);
-        if (error) edgeFunctionUrl.searchParams.set('error', error);
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
         
-        console.log('[OAuthCallbackPage] Immediate redirect to Edge Function:', edgeFunctionUrl.toString());
+        // 使用 POST 請求調用 Edge Function 的回調處理邏輯
+        const edgeFunctionUrl = `${supabaseUrl}/functions/v1/${functionName}/callback`;
         
-        // 立即重定向，避免 Supabase 處理
-        window.location.replace(edgeFunctionUrl.toString());
+        // 使用 fetch 調用 Edge Function
+        fetch(edgeFunctionUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseAnonKey || '',
+            'Authorization': `Bearer ${supabaseAnonKey || ''}`,
+          },
+          body: JSON.stringify({
+            code,
+            state,
+            error: error || null,
+          }),
+        })
+        .then(async (response) => {
+          if (response.status >= 300 && response.status < 400) {
+            // 重定向響應（Edge Function 返回 magic link）
+            const redirectUrl = response.headers.get('location');
+            if (redirectUrl) {
+              console.log('[OAuthCallbackPage] Edge Function returned redirect:', redirectUrl);
+              window.location.href = redirectUrl;
+              return;
+            }
+          } else if (response.ok) {
+            const data = await response.json().catch(() => null);
+            if (data?.redirectUrl) {
+              window.location.href = data.redirectUrl;
+              return;
+            }
+          }
+          throw new Error(`Edge Function error: ${response.status}`);
+        })
+        .catch((err) => {
+          console.error('[OAuthCallbackPage] Error calling Edge Function:', err);
+          toast.error('登入失敗', {
+            description: '無法處理登入回調'
+          });
+          navigate('/auth', { replace: true });
+        });
+        
         return;
       }
     }

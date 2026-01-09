@@ -20,20 +20,25 @@ export const OAuthCallbackPage = () => {
         console.log('[OAuthCallbackPage] Processing OAuth callback');
         console.log('[OAuthCallbackPage] Current URL:', window.location.href);
         
-        // 檢查是否為 LINE Provider 的回調（LINE 仍然使用 Edge Function）
+        // 檢查是否為 LINE 或 X (Twitter) Provider 的回調（兩者都使用 Edge Function）
         const urlParams = new URLSearchParams(window.location.search);
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         
-        // 檢查 URL 參數或 hash 參數中是否有 OAuth code 和 state（LINE Provider 的標記）
+        // 檢查 URL 參數或 hash 參數中是否有 OAuth code 和 state（Edge Function Provider 的標記）
         const code = urlParams.get('code') || hashParams.get('code');
         const state = urlParams.get('state') || hashParams.get('state');
         const error = urlParams.get('error') || hashParams.get('error');
         const provider = urlParams.get('provider') || hashParams.get('provider');
         
-        // 如果檢測到 OAuth code 和 state，且沒有 Supabase 的 access_token，可能是 LINE Provider
-        // 或者如果 URL 中包含 provider=line 或 error 參數，也可能是 LINE Provider
-        if ((code && state && !hashParams.get('access_token')) || provider === 'line' || (error && code && state)) {
-          console.log('[OAuthCallbackPage] Detected LINE OAuth callback, calling Edge Function');
+        // 如果檢測到 OAuth code 和 state，且沒有 Supabase 的 access_token，可能是 Edge Function Provider
+        // 或者如果 URL 中包含 provider=line 或 provider=twitter 或 error 參數，也可能是 Edge Function Provider
+        if ((code && state && !hashParams.get('access_token')) || provider === 'line' || provider === 'twitter' || (error && code && state)) {
+          // 判斷是 LINE 還是 X (Twitter)
+          const isTwitter = provider === 'twitter' || (code && state && !hashParams.get('access_token') && !provider);
+          const functionName = isTwitter ? 'twitter-auth' : 'line-auth';
+          const providerName = isTwitter ? 'X (Twitter)' : 'LINE';
+          
+          console.log(`[OAuthCallbackPage] Detected ${providerName} OAuth callback, calling Edge Function`);
           
           // 使用 fetch 調用 Edge Function，避免 Supabase 路由層級的授權檢查
           const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -46,7 +51,7 @@ export const OAuthCallbackPage = () => {
           }
           
           // 構建 Edge Function 回調 URL
-          const edgeFunctionUrl = new URL(`${supabaseUrl}/functions/v1/line-auth/callback`);
+          const edgeFunctionUrl = new URL(`${supabaseUrl}/functions/v1/${functionName}/callback`);
           if (code) edgeFunctionUrl.searchParams.set('code', code);
           if (state) edgeFunctionUrl.searchParams.set('state', state);
           if (error) edgeFunctionUrl.searchParams.set('error', error);
@@ -110,7 +115,7 @@ export const OAuthCallbackPage = () => {
           return;
         }
         
-        // Supabase 會自動處理 hash fragment 中的 access_token（適用於 Google、Apple、Discord、X (Twitter) 等內建 Provider）
+        // Supabase 會自動處理 hash fragment 中的 access_token（適用於 Google、Apple、Discord 等內建 Provider）
         // 我們只需要等待 session 建立
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         

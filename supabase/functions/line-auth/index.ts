@@ -625,6 +625,16 @@ async function handleCallback(req: Request, corsHeaders: Record<string, string>)
       const fallbackUrl = (platform === 'app' && FRONTEND_DEEP_LINK)
         ? `${FRONTEND_DEEP_LINK}?${redirectParams.toString()}`
         : `${FRONTEND_URL}/auth?${redirectParams.toString()}`
+      // 對於 POST 請求，返回 JSON 響應以避免 CORS 問題
+      if (req.method === 'POST') {
+        return new Response(
+          JSON.stringify({ redirectUrl: fallbackUrl }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        )
+      }
       return Response.redirect(fallbackUrl)
     }
 

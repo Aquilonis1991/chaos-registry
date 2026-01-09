@@ -116,7 +116,9 @@ class NativeAdPlugin : Plugin() {
             if (uri != null) {
                 data.put("imageUrl", uri.toString())
             } else {
-                encodeDrawable(firstImage.drawable)?.let { base64 ->
+                // firstImage.drawable is non-null when firstImage exists, so we can call encodeDrawable directly
+                val base64 = encodeDrawable(firstImage.drawable)
+                if (base64 != null) {
                     data.put("imageBase64", base64)
                 }
             }

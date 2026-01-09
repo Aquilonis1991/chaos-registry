@@ -55,7 +55,9 @@
         // 從當前 URL 推斷 Supabase URL（從 hostname 提取）
         // 或者使用默認值
         let supabaseUrl = 'https://epyykzxxglkjombvozhr.supabase.co';
-        let supabaseAnonKey = '';
+        // Supabase Anon Key（公開的，用於客戶端）
+        // 注意：這是公開的 Anon Key，用於客戶端調用 Edge Function
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVweXlrenh4Z2xram9tYnZvemhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0MDg1MTEsImV4cCI6MjA3NTk4NDUxMX0.A2QBfDwW1TlG5GiKaHN3_JzT3Tk3U0hJfTZm0hRq1tg';
         try {
           // 嘗試從當前頁面的 hostname 推斷（如果是 Supabase 託管）
           const hostname = window.location.hostname;
@@ -76,12 +78,13 @@
           console.log('[Pre-React] LINE callback detected, calling Edge Function via fetch:', edgeFunctionUrl);
           
           // 使用 fetch POST 請求調用 Edge Function
+          // 添加 apikey header 以避免 Supabase 路由層級攔截
           fetch(edgeFunctionUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'apikey': supabaseAnonKey || '',
-              'Authorization': 'Bearer ' + (supabaseAnonKey || ''),
+              'apikey': supabaseAnonKey,
+              'Authorization': 'Bearer ' + supabaseAnonKey,
             },
             body: JSON.stringify({
               code: code,

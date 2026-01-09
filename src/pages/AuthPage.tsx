@@ -308,11 +308,12 @@ const AuthPage = () => {
           ? `${supabaseUrl}/functions/v1/line-auth/auth?platform=${encodeURIComponent(platform)}`
           : `${supabaseUrl}/functions/v1/twitter-auth/auth?platform=${encodeURIComponent(platform)}`;
 
-      // 添加 Supabase anon key 作為 apikey header，以通過 Supabase 路由層級的檢查
+      // 添加 Supabase anon key 作為 apikey 和 Authorization header，以通過 Supabase 路由層級的檢查
       const res = await fetch(endpoint, {
         method: 'GET',
         headers: {
           'apikey': supabaseAnonKey,
+          'Authorization': `Bearer ${supabaseAnonKey}`,
           'Content-Type': 'application/json',
         },
       });

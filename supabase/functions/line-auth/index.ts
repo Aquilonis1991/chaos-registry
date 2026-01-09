@@ -16,10 +16,9 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 const SERVICE_ROLE_KEY = Deno.env.get('SERVICE_ROLE_KEY')!
 
 // 根據環境決定回調 URL
-const isProduction = Deno.env.get('ENVIRONMENT') === 'production'
-const LINE_REDIRECT_URI = isProduction
-  ? 'https://epyykzxxglkjombvozhr.supabase.co/functions/v1/line-auth/callback'
-  : Deno.env.get('LINE_REDIRECT_URI') || 'https://epyykzxxglkjombvozhr.supabase.co/functions/v1/line-auth/callback'
+// 優先使用環境變數 LINE_REDIRECT_URI（如果設置）
+// 否則使用默認的 Edge Function URL（舊的回調方式，可能導致 401 錯誤）
+const LINE_REDIRECT_URI = Deno.env.get('LINE_REDIRECT_URI') || 'https://epyykzxxglkjombvozhr.supabase.co/functions/v1/line-auth/callback'
 
 const FRONTEND_URL = Deno.env.get('FRONTEND_URL') || 'https://chaos-registry.vercel.app'
 const FRONTEND_DEEP_LINK = Deno.env.get('FRONTEND_DEEP_LINK') || 'votechaos://auth/callback'

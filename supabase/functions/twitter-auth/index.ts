@@ -278,10 +278,32 @@ async function handleCallback(req: Request, corsHeaders: Record<string, string>)
   })
   
   const url = new URL(req.url)
-  const code = url.searchParams.get('code')
-  const stateParam = url.searchParams.get('state')
-  const error = url.searchParams.get('error')
-  const errorDescription = url.searchParams.get('error_description')
+  let code: string | null = null
+  let stateParam: string | null = null
+  let error: string | null = null
+  let errorDescription: string | null = null
+  
+  // 支持 GET（來自 X 服務器直接重定向）和 POST（來自前端轉發）
+  if (req.method === 'POST') {
+    // POST 請求：從 body 中讀取
+    try {
+      const body = await req.json().catch(() => null)
+      if (body) {
+        code = body.code || null
+        stateParam = body.state || null
+        error = body.error || null
+        errorDescription = body.error_description || null
+      }
+    } catch (e) {
+      console.warn('Failed to parse POST body:', e)
+    }
+  } else {
+    // GET 請求：從 query 參數中讀取
+    code = url.searchParams.get('code')
+    stateParam = url.searchParams.get('state')
+    error = url.searchParams.get('error')
+    errorDescription = url.searchParams.get('error_description')
+  }
 
   // 決定錯誤重定向目標（需要在驗證 state 之前定義）
   const getErrorRedirectUrl = (errorMsg: string, errorDesc: string, platformOverride?: string) => {

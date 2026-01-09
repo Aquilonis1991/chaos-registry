@@ -363,6 +363,16 @@ async function handleCallback(req: Request, corsHeaders: Record<string, string>)
   if (!codeVerifier) {
     console.error('No code verifier found in state')
     const errorUrl = getErrorRedirectUrl('no_code_verifier', 'No code verifier found')
+    // 對於 POST 請求，返回 JSON 響應
+    if (req.method === 'POST') {
+      return new Response(
+        JSON.stringify({ redirectUrl: errorUrl }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
     return Response.redirect(errorUrl)
   }
 

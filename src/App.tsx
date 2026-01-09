@@ -27,6 +27,7 @@ import PrivacyPage from "./pages/PrivacyPage";
 import AboutPage from "./pages/AboutPage";
 import AuthPage from "./pages/AuthPage";
 import VerifyRedirectPage from "./pages/VerifyRedirectPage";
+import { OAuthCallbackPage } from "./pages/OAuthCallbackPage";
 import AdminPage from "./pages/AdminPage";
 import SearchPage from "./pages/SearchPage";
 import NotFound from "./pages/NotFound";
@@ -67,6 +68,7 @@ const App = () => (
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<AuthPage />} />
+                <Route path="/auth/callback" element={<OAuthCallbackPage />} />
                 <Route path="/auth/verify-redirect" element={<VerifyRedirectPage />} />
                 <Route path="/error" element={<ErrorPage />} />
                 <Route path="/network-error" element={<NetworkErrorPage />} />

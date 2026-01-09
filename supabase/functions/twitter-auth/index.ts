@@ -38,11 +38,12 @@ async function generateSignedState(platform: string, codeVerifier: string): Prom
   const timestamp = Date.now()
   const expiresIn = 600 // 10 分鐘
   
-  // 生成 JWT token（Supabase 期望 state 是 JWT 格式）
+  // 生成 JWT token（Supabase 期望 state 是 JWT 格式，且包含 provider 欄位）
   const payload = {
     timestamp,
     platform,
     codeVerifier,
+    provider: 'twitter', // Supabase 期望 state 中包含 provider 資訊
     exp: Math.floor(Date.now() / 1000) + expiresIn, // JWT 標準的過期時間
   }
   

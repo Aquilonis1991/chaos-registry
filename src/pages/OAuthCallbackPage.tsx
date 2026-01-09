@@ -20,7 +20,7 @@ export const OAuthCallbackPage = () => {
         console.log('[OAuthCallbackPage] Processing OAuth callback');
         console.log('[OAuthCallbackPage] Current URL:', window.location.href);
         
-        // 檢查是否為 LINE 或 X (Twitter) Provider 的回調（兩者都使用 Edge Function）
+        // 立即檢查 URL 參數，在 Supabase 處理之前就轉發（避免 Supabase 攔截）
         const urlParams = new URLSearchParams(window.location.search);
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         
@@ -30,9 +30,41 @@ export const OAuthCallbackPage = () => {
         const error = urlParams.get('error') || hashParams.get('error');
         const provider = urlParams.get('provider') || hashParams.get('provider');
         
-        // 如果檢測到 OAuth code 和 state，且沒有 Supabase 的 access_token，可能是 Edge Function Provider
-        // 或者如果 URL 中包含 provider=line 或 provider=twitter 或 error 參數，也可能是 Edge Function Provider
-        if ((code && state && !hashParams.get('access_token')) || provider === 'line' || provider === 'twitter' || (error && code && state)) {
+        // 優先檢測：如果有 code 和 state，且沒有 Supabase 的 access_token，立即轉發到 Edge Function
+        // 這可以避免 Supabase 的內建處理邏輯攔截回調
+        if (code && state && !hashParams.get('access_token') && !urlParams.get('access_token')) {
+          // 判斷是 LINE 還是 X (Twitter)
+          // 如果 state 是 JWT 格式（X/Twitter），或者沒有明確的 provider 標記，優先判斷為 X (Twitter)
+          const isTwitter = provider === 'twitter' || (!provider && state.includes('.'));
+          const functionName = isTwitter ? 'twitter-auth' : 'line-auth';
+          const providerName = isTwitter ? 'X (Twitter)' : 'LINE';
+          
+          console.log(`[OAuthCallbackPage] Detected ${providerName} OAuth callback, forwarding to Edge Function immediately (before Supabase processing)`);
+          
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          if (!supabaseUrl) {
+            toast.error('登入失敗', {
+              description: '缺少 VITE_SUPABASE_URL'
+            });
+            navigate('/auth', { replace: true });
+            return;
+          }
+          
+          // 構建 Edge Function 回調 URL
+          const edgeFunctionUrl = new URL(`${supabaseUrl}/functions/v1/${functionName}/callback`);
+          edgeFunctionUrl.searchParams.set('code', code);
+          edgeFunctionUrl.searchParams.set('state', state);
+          if (error) edgeFunctionUrl.searchParams.set('error', error);
+          
+          console.log('[OAuthCallbackPage] Redirecting to Edge Function:', edgeFunctionUrl.toString());
+          
+          // 立即重定向，避免 Supabase 處理
+          window.location.href = edgeFunctionUrl.toString();
+          return;
+        }
+        
+        // 備用檢測：如果 URL 中包含 provider=line 或 provider=twitter 或 error 參數
+        if (provider === 'line' || provider === 'twitter' || (error && code && state)) {
           // 判斷是 LINE 還是 X (Twitter)
           const isTwitter = provider === 'twitter' || (code && state && !hashParams.get('access_token') && !provider);
           const functionName = isTwitter ? 'twitter-auth' : 'line-auth';

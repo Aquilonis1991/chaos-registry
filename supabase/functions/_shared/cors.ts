@@ -31,8 +31,18 @@ export const isOriginAllowed = (origin: string | null): boolean => {
  * @returns CORS 標頭物件
  */
 export const getCorsHeaders = (origin: string | null) => {
-  // 如果來源被允許，使用該來源；否則使用第一個允許的來源
-  const allowedOrigin = origin && isOriginAllowed(origin) ? origin : ALLOWED_ORIGINS[0];
+  // 如果來源被允許，使用該來源；否則檢查是否是前端應用
+  let allowedOrigin: string;
+  
+  if (origin && isOriginAllowed(origin)) {
+    allowedOrigin = origin;
+  } else if (origin && (origin.includes('chaos-registry.vercel.app') || origin.includes('localhost'))) {
+    // 允許來自前端應用的請求（即使不在嚴格列表中）
+    allowedOrigin = origin;
+  } else {
+    // 使用第一個允許的來源作為默認值
+    allowedOrigin = ALLOWED_ORIGINS[0];
+  }
   
   return {
     'Access-Control-Allow-Origin': allowedOrigin,

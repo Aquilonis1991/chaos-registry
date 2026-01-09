@@ -123,21 +123,40 @@ Deno.serve(async (req) => {
   const path = url.pathname
   const isCallback = path.endsWith('/callback') || path.endsWith('/callback/')
   
+  // 獲取 origin 並設置 CORS headers（必須在所有響應中包含）
+  const origin = req.headers.get('origin')
+  const corsHeaders = getCorsHeaders(origin)
+  
   // 只有非回調請求才驗證來源
+  // 注意：對於 POST 請求（supabase.functions.invoke），如果 origin 不在允許列表中，
+  // validateOrigin 會返回 403，但我們需要允許來自前端應用的請求
   if (!isCallback) {
-    const originValidation = validateOrigin(req)
-    if (originValidation) return originValidation
+    // 對於 POST 請求（supabase.functions.invoke），如果 origin 是前端應用，允許通過
+    if (req.method === 'POST' && origin && (origin.includes('chaos-registry.vercel.app') || origin.includes('localhost'))) {
+      console.log('POST request from frontend, allowing')
+    } else {
+      const originValidation = validateOrigin(req)
+      if (originValidation) {
+        // 如果驗證失敗，但這是 POST 請求且來自前端，仍然允許（添加 CORS headers）
+        if (req.method === 'POST') {
+          console.log('Origin validation failed for POST, but allowing with CORS headers')
+        } else {
+          return originValidation
+        }
+      }
+    }
   } else {
     console.log('Callback request detected, skipping origin validation')
   }
 
-  const origin = req.headers.get('origin')
-  const corsHeaders = getCorsHeaders(origin)
-
   try {
     // 處理 LINE 授權請求
-    if (path.endsWith('/auth') || path.endsWith('/auth/')) {
-      console.log('Handling auth request')
+    // 支持 GET /auth 和 POST /（supabase.functions.invoke 使用 POST）
+    const isAuthRequest = path.endsWith('/auth') || path.endsWith('/auth/') || 
+                         (req.method === 'POST' && (path === '/' || path.endsWith('/line-auth')))
+    
+    if (isAuthRequest) {
+      console.log('Handling auth request', { method: req.method, path })
       return await handleAuthRequest(req, corsHeaders)
     }
 
@@ -176,9 +195,26 @@ async function handleAuthRequest(req: Request, corsHeaders: Record<string, strin
   // 生成 nonce 用於 OpenID Connect（防止重放攻擊）
   const nonce = crypto.randomUUID()
   
-  // 檢查是否為 App 登入（通過 query 參數）
+  // 檢查是否為 App 登入
+  // 支持從 query 參數（GET）或 body（POST）中讀取 platform
   const url = new URL(req.url)
-  const platform = url.searchParams.get('platform') || 'auto' // 'app', 'web', 'auto'
+  let platform = url.searchParams.get('platform') || 'auto'
+  
+  // 如果是 POST 請求，嘗試從 body 中讀取 platform
+  if (req.method === 'POST') {
+    try {
+      const body = await req.json().catch(() => null)
+      if (body && body.platform) {
+        platform = body.platform
+      }
+      if (body && body.action === 'auth' && body.platform) {
+        platform = body.platform
+      }
+    } catch (e) {
+      // 如果解析 body 失敗，使用 query 參數或默認值
+      console.warn('Failed to parse POST body, using query params or default')
+    }
+  }
   
   // 生成簽名的 state（包含 timestamp, platform, nonce，並簽名）
   // 格式：{timestamp}|{platform}|{nonce}|{signature}

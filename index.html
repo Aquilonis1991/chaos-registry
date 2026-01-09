@@ -119,16 +119,52 @@
           // 阻止後續處理
           return;
         } else {
-          // 對於 X (Twitter)，使用直接重定向（因為它使用 JWT state，可能可以通過）
-          const edgeFunctionUrl = new URL(supabaseUrl + '/functions/v1/' + functionName + '/callback');
-          edgeFunctionUrl.searchParams.set('code', code);
-          edgeFunctionUrl.searchParams.set('state', state);
-          if (error) edgeFunctionUrl.searchParams.set('error', error);
+          // 對於 X (Twitter)，也使用 fetch POST 請求調用 Edge Function（避免 401 錯誤）
+          const edgeFunctionUrl = supabaseUrl + '/functions/v1/' + functionName + '/callback';
           
-          console.log('[Pre-React] X (Twitter) callback detected, redirecting to Edge Function:', edgeFunctionUrl.toString());
+          console.log('[Pre-React] X (Twitter) callback detected, calling Edge Function via fetch:', edgeFunctionUrl);
           
-          // 立即重定向，避免 Supabase 處理
-          window.location.replace(edgeFunctionUrl.toString());
+          // 使用 fetch POST 請求調用 Edge Function
+          // 添加 apikey header 以避免 Supabase 路由層級攔截
+          fetch(edgeFunctionUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': supabaseAnonKey,
+              'Authorization': 'Bearer ' + supabaseAnonKey,
+            },
+            body: JSON.stringify({
+              code: code,
+              state: state,
+              error: error || null,
+            }),
+          })
+          .then(async (response) => {
+            if (response.status >= 300 && response.status < 400) {
+              // 重定向響應（Edge Function 返回 magic link）
+              const redirectUrl = response.headers.get('location');
+              if (redirectUrl) {
+                console.log('[Pre-React] Edge Function returned redirect:', redirectUrl);
+                window.location.href = redirectUrl;
+                return;
+              }
+            } else if (response.ok) {
+              const data = await response.json().catch(() => null);
+              if (data?.redirectUrl) {
+                window.location.href = data.redirectUrl;
+                return;
+              }
+            }
+            // 如果沒有重定向，讓 React 處理
+            console.log('[Pre-React] Edge Function response:', response.status);
+          })
+          .catch((err) => {
+            console.error('[Pre-React] Error calling Edge Function:', err);
+            // 如果出錯，讓 React 處理
+          });
+          
+          // 阻止後續處理
+          return;
         }
       }
     })();

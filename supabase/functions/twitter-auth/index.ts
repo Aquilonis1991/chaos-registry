@@ -136,6 +136,29 @@ Deno.serve(async (req) => {
   const path = url.pathname
   const isCallback = path.endsWith('/callback') || path.endsWith('/callback/')
   
+  // 獲取 origin 並設置 CORS headers（必須在所有響應中包含）
+  const origin = req.headers.get('origin')
+  const corsHeaders = getCorsHeaders(origin)
+  
+  // 如果是回調請求且是 GET 請求且沒有授權 header，立即重定向到前端
+  // 這必須在驗證來源之前執行，因為這是來自 X 服務器的直接重定向
+  if (isCallback && req.method === 'GET' && !req.headers.get('authorization')) {
+    console.log('[CRITICAL] GET callback without authorization header detected, redirecting to frontend immediately')
+    const code = url.searchParams.get('code')
+    const state = url.searchParams.get('state')
+    const error = url.searchParams.get('error')
+    
+    // 構建前端應用的回調 URL
+    const frontendCallbackUrl = new URL(`${FRONTEND_URL}/auth/callback`)
+    if (code) frontendCallbackUrl.searchParams.set('code', code)
+    if (state) frontendCallbackUrl.searchParams.set('state', state)
+    if (error) frontendCallbackUrl.searchParams.set('error', error)
+    frontendCallbackUrl.searchParams.set('provider', 'twitter')
+    
+    console.log('[CRITICAL] Redirecting to frontend:', frontendCallbackUrl.toString())
+    return Response.redirect(frontendCallbackUrl.toString(), 302)
+  }
+  
   // 只有非回調請求才驗證來源
   if (!isCallback) {
     const originValidation = validateOrigin(req)
@@ -143,9 +166,6 @@ Deno.serve(async (req) => {
   } else {
     console.log('Callback request detected, skipping origin validation')
   }
-
-  const origin = req.headers.get('origin')
-  const corsHeaders = getCorsHeaders(origin)
 
   try {
     const url = new URL(req.url)
@@ -283,6 +303,16 @@ async function handleCallback(req: Request, corsHeaders: Record<string, string>)
   if (!stateParam) {
     console.error('No state parameter provided')
     const errorUrl = getErrorRedirectUrl('invalid_state', 'Missing state parameter')
+    // 對於 POST 請求，返回 JSON 響應
+    if (req.method === 'POST') {
+      return new Response(
+        JSON.stringify({ redirectUrl: errorUrl }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
     return Response.redirect(errorUrl)
   }
 
@@ -291,6 +321,16 @@ async function handleCallback(req: Request, corsHeaders: Record<string, string>)
   if (!stateVerification.valid) {
     console.error('Invalid or expired state:', stateParam)
     const errorUrl = getErrorRedirectUrl('invalid_state', 'Invalid or expired state parameter', 'auto')
+    // 對於 POST 請求，返回 JSON 響應
+    if (req.method === 'POST') {
+      return new Response(
+        JSON.stringify({ redirectUrl: errorUrl }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
     return Response.redirect(errorUrl)
   }
 
@@ -308,6 +348,16 @@ async function handleCallback(req: Request, corsHeaders: Record<string, string>)
   if (error) {
     console.error('Twitter OAuth error:', error, errorDescription)
     const errorUrl = getErrorRedirectUrl(error, errorDescription || '')
+    // 對於 POST 請求，返回 JSON 響應
+    if (req.method === 'POST') {
+      return new Response(
+        JSON.stringify({ redirectUrl: errorUrl }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
     return Response.redirect(errorUrl)
   }
 
@@ -315,6 +365,16 @@ async function handleCallback(req: Request, corsHeaders: Record<string, string>)
   if (!code) {
     console.error('No authorization code provided')
     const errorUrl = getErrorRedirectUrl('no_code', 'No authorization code provided')
+    // 對於 POST 請求，返回 JSON 響應
+    if (req.method === 'POST') {
+      return new Response(
+        JSON.stringify({ redirectUrl: errorUrl }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
     return Response.redirect(errorUrl)
   }
 
@@ -541,7 +601,18 @@ async function handleCallback(req: Request, corsHeaders: Record<string, string>)
     const magicLink = linkData.properties.action_link
     console.log('Magic link generated, redirecting to:', magicLink)
     
-    // 直接重定向到 magic link，讓 Supabase 處理驗證和 token 生成
+    // 對於 POST 請求，返回 JSON 響應（包含 redirectUrl）
+    if (req.method === 'POST') {
+      return new Response(
+        JSON.stringify({ redirectUrl: magicLink }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
+    
+    // 對於 GET 請求，直接重定向到 magic link，讓 Supabase 處理驗證和 token 生成
     return Response.redirect(magicLink)
 
   } catch (error) {

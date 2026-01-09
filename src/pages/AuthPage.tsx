@@ -256,7 +256,7 @@ const AuthPage = () => {
     }
   };
 
-  const handleSocialLogin = async (provider: 'google' | 'apple' | 'discord' | 'twitter') => {
+  const handleSocialLogin = async (provider: 'google' | 'apple' | 'discord') => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
@@ -273,7 +273,6 @@ const AuthPage = () => {
           google: 'Google',
           apple: 'Apple',
           discord: 'Discord',
-          twitter: 'X (Twitter)',
         };
         const providerName = providerNames[provider] || provider;
         const socialLoginErrorTemplate = getText('auth_social_login_error', '{{provider}}登入失敗');
@@ -284,10 +283,10 @@ const AuthPage = () => {
     }
   };
 
-  const handleEdgeSocialLogin = async (provider: 'line') => {
+  const handleEdgeSocialLogin = async (provider: 'line' | 'twitter') => {
     try {
       const platform = isNative() ? 'app' : 'web';
-      const functionName = 'line-auth';
+      const functionName = provider === 'line' ? 'line-auth' : 'twitter-auth';
       
       // 使用 Supabase Client 的 functions.invoke 方法，會自動處理授權
       // 注意：Edge Function 需要接受 POST 請求並從 body 中讀取 platform
@@ -308,11 +307,12 @@ const AuthPage = () => {
         throw new Error('Edge Function 未返回 authUrl');
       }
 
-      // 交給 provider 的 OAuth 頁面（LINE 會再回到 Edge Function callback，最後回到 Deep Link / Web）
+      // 交給 provider 的 OAuth 頁面（LINE/Twitter 會再回到 Edge Function callback，最後回到 Deep Link / Web）
       window.location.href = authUrl;
     } catch (err: any) {
       console.error(`[${provider}] Login error:`, err);
-      toast.error(getText('auth_social_login_error', '{{provider}}登入失敗').replace('{{provider}}', 'LINE'), {
+      const providerName = provider === 'line' ? 'LINE' : 'X (Twitter)';
+      toast.error(getText('auth_social_login_error', '{{provider}}登入失敗').replace('{{provider}}', providerName), {
         description: err?.message || '未知錯誤'
       });
     }
@@ -446,7 +446,7 @@ const AuthPage = () => {
                     variant="outline"
                     size="icon"
                     className="h-14 w-14 sm:h-12 sm:w-12 rounded-full touch-manipulation"
-                    onClick={() => handleSocialLogin('twitter')}
+                    onClick={() => handleEdgeSocialLogin('twitter')}
                     title={getText('auth_twitter_login', '使用 X (Twitter) 登入')}
                   >
                     {/* X / Twitter */}

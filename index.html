@@ -26,6 +26,61 @@
   <meta name="twitter:site" content="@lovable_dev" />
   <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
 
+  <!-- 在 React 載入之前檢測 X (Twitter) OAuth 回調並轉發到 Edge Function -->
+  <!-- 這可以避免 Supabase 的內建處理邏輯（OAuth 1.0a）攔截回調 -->
+  <script>
+    (function() {
+      // 只在 /auth/callback 路徑執行
+      if (window.location.pathname !== '/auth/callback' && !window.location.pathname.includes('/auth/callback')) {
+        return;
+      }
+      
+      // 立即檢查 URL 參數
+      const urlParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      
+      const code = urlParams.get('code') || hashParams.get('code');
+      const state = urlParams.get('state') || hashParams.get('state');
+      const error = urlParams.get('error') || hashParams.get('error');
+      const provider = urlParams.get('provider') || hashParams.get('provider');
+      
+      // 如果有 code 和 state，且沒有 Supabase 的 access_token，立即轉發到 Edge Function
+      if (code && state && !hashParams.get('access_token') && !urlParams.get('access_token')) {
+        // 判斷是 LINE 還是 X (Twitter)
+        // 如果 state 是 JWT 格式（X/Twitter），或者沒有明確的 provider 標記，優先判斷為 X (Twitter)
+        const isTwitter = provider === 'twitter' || (!provider && state.includes('.'));
+        const functionName = isTwitter ? 'twitter-auth' : 'line-auth';
+        
+        // 從當前 URL 推斷 Supabase URL（從 hostname 提取）
+        // 或者使用默認值
+        let supabaseUrl = 'https://epyykzxxglkjombvozhr.supabase.co';
+        try {
+          // 嘗試從當前頁面的 hostname 推斷（如果是 Supabase 託管）
+          const hostname = window.location.hostname;
+          if (hostname.includes('supabase.co')) {
+            const match = hostname.match(/([^.]+)\.supabase\.co/);
+            if (match) {
+              supabaseUrl = 'https://' + match[1] + '.supabase.co';
+            }
+          }
+        } catch (e) {
+          // 使用默認值
+        }
+        
+        // 構建 Edge Function 回調 URL
+        const edgeFunctionUrl = new URL(supabaseUrl + '/functions/v1/' + functionName + '/callback');
+        edgeFunctionUrl.searchParams.set('code', code);
+        edgeFunctionUrl.searchParams.set('state', state);
+        if (error) edgeFunctionUrl.searchParams.set('error', error);
+        
+        console.log('[Pre-React] Detected OAuth callback, redirecting to Edge Function:', edgeFunctionUrl.toString());
+        
+        // 立即重定向，避免 Supabase 處理
+        window.location.replace(edgeFunctionUrl.toString());
+      }
+    })();
+  </script>
+
   <!-- Critical CSS for Loading Skeleton -->
   <style>
     body {

@@ -256,7 +256,7 @@ const AuthPage = () => {
     }
   };
 
-  const handleSocialLogin = async (provider: 'google' | 'apple' | 'discord' | 'twitter') => {
+  const handleSocialLogin = async (provider: 'google' | 'apple' | 'discord') => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
@@ -273,7 +273,6 @@ const AuthPage = () => {
           google: 'Google',
           apple: 'Apple',
           discord: 'Discord',
-          twitter: 'X (Twitter)',
         };
         const providerName = providerNames[provider] || provider;
         const socialLoginErrorTemplate = getText('auth_social_login_error', '{{provider}}登入失敗');
@@ -284,7 +283,7 @@ const AuthPage = () => {
     }
   };
 
-  const handleEdgeSocialLogin = async (provider: 'line') => {
+  const handleEdgeSocialLogin = async (provider: 'line' | 'twitter') => {
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       if (!supabaseUrl) {
@@ -295,7 +294,10 @@ const AuthPage = () => {
       }
 
       const platform = isNative() ? 'app' : 'web';
-      const endpoint = `${supabaseUrl}/functions/v1/line-auth/auth?platform=${encodeURIComponent(platform)}`;
+      const endpoint =
+        provider === 'line'
+          ? `${supabaseUrl}/functions/v1/line-auth/auth?platform=${encodeURIComponent(platform)}`
+          : `${supabaseUrl}/functions/v1/twitter-auth/auth?platform=${encodeURIComponent(platform)}`;
 
       const res = await fetch(endpoint, { method: 'GET' });
       const json = await res.json().catch(() => null);
@@ -309,10 +311,11 @@ const AuthPage = () => {
         throw new Error(msg);
       }
 
-      // 交給 provider 的 OAuth 頁面（LINE 會再回到 Edge Function callback，最後回到 Deep Link / Web）
+      // 交給 provider 的 OAuth 頁面（LINE/Twitter 會再回到 Edge Function callback，最後回到 Deep Link / Web）
       window.location.href = authUrl;
     } catch (err: any) {
-      toast.error(getText('auth_social_login_error', '{{provider}}登入失敗').replace('{{provider}}', 'LINE'), {
+      const providerName = provider === 'line' ? 'LINE' : 'X (Twitter)';
+      toast.error(getText('auth_social_login_error', '{{provider}}登入失敗').replace('{{provider}}', providerName), {
         description: err?.message || '未知錯誤'
       });
     }

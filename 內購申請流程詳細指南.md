@@ -585,3 +585,4 @@ npx supabase functions deploy verify-app-store-purchase
 **適用版本**：Google Play Console 最新版、App Store Connect 最新版
 
 
+

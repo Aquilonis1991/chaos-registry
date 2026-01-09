@@ -163,3 +163,4 @@ SELECT
     ELSE '✗ 未設置'
   END;
 
+

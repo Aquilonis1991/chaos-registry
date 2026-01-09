@@ -17,3 +17,4 @@ topic.rewrite.applied,topic_create,已套用改寫內容,Rewritten content appli
 tokenHistory.description.unstableRewrite,token_history,不穩定改寫,Unstable Rewrite,不安定書き直し,代幣交易描述：不穩定改寫,useTokenHistory.tsx - 交易紀錄描述
 tokenHistory.description.unstableProcessing,token_history,不穩定處理,Unstable Processing,不安定処理,代幣交易描述：不穩定處理（AI Usage）,useTokenHistory.tsx - 交易紀錄描述（fallback）
 
+

@@ -59,3 +59,4 @@ GRANT EXECUTE ON FUNCTION public.update_system_config(uuid, jsonb) TO authentica
 
 
 
+

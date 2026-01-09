@@ -44,3 +44,4 @@ npx supabase functions deploy ai-user-classification
 2. 查看是否有錯誤訊息
 3. 確認部署的版本是否為最新（檢查代碼中的 prompt 是否包含「【極重要】」標記）
 
+

@@ -390,3 +390,4 @@ SELECT
   '所有資料庫結構資訊已列出，請檢查上述各部分的結果' as message,
   now() as completed_at;
 
+

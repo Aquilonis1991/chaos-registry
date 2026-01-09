@@ -196,7 +196,8 @@ async function handleAuthRequest(req: Request, corsHeaders: Record<string, strin
   
   // 構建 X (Twitter) 授權 URL
   // X 使用 OAuth 2.0 with PKCE (S256 method)
-  const scope = 'tweet.read users.read offline.access'
+  // 2025 更新：移除 tweet.read，僅保留必要的 users.read 和 offline.access
+  const scope = 'users.read offline.access'
   const authUrl = `https://twitter.com/i/oauth2/authorize?` +
     `response_type=code&` +
     `client_id=${TWITTER_CLIENT_ID}&` +

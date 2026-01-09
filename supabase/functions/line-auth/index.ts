@@ -128,23 +128,9 @@ Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(origin)
   
   // 只有非回調請求才驗證來源
-  // 注意：對於 POST 請求（supabase.functions.invoke），如果 origin 不在允許列表中，
-  // validateOrigin 會返回 403，但我們需要允許來自前端應用的請求
   if (!isCallback) {
-    // 對於 POST 請求（supabase.functions.invoke），如果 origin 是前端應用，允許通過
-    if (req.method === 'POST' && origin && (origin.includes('chaos-registry.vercel.app') || origin.includes('localhost'))) {
-      console.log('POST request from frontend, allowing')
-    } else {
-      const originValidation = validateOrigin(req)
-      if (originValidation) {
-        // 如果驗證失敗，但這是 POST 請求且來自前端，仍然允許（添加 CORS headers）
-        if (req.method === 'POST') {
-          console.log('Origin validation failed for POST, but allowing with CORS headers')
-        } else {
-          return originValidation
-        }
-      }
-    }
+    const originValidation = validateOrigin(req)
+    if (originValidation) return originValidation
   } else {
     console.log('Callback request detected, skipping origin validation')
   }

@@ -16,10 +16,11 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 const SERVICE_ROLE_KEY = Deno.env.get('SERVICE_ROLE_KEY')!
 
 // 根據環境決定回調 URL
+// 注意：X Developer Portal 強制要求使用標準 Supabase 回調 URL
 const isProduction = Deno.env.get('ENVIRONMENT') === 'production'
 const TWITTER_REDIRECT_URI = isProduction
-  ? 'https://epyykzxxglkjombvozhr.supabase.co/functions/v1/twitter-auth/callback'
-  : Deno.env.get('TWITTER_REDIRECT_URI') || 'https://epyykzxxglkjombvozhr.supabase.co/functions/v1/twitter-auth/callback'
+  ? 'https://epyykzxxglkjombvozhr.supabase.co/auth/v1/callback'
+  : Deno.env.get('TWITTER_REDIRECT_URI') || 'https://epyykzxxglkjombvozhr.supabase.co/auth/v1/callback'
 
 const FRONTEND_URL = Deno.env.get('FRONTEND_URL') || 'https://chaos-registry.vercel.app'
 const FRONTEND_DEEP_LINK = Deno.env.get('FRONTEND_DEEP_LINK') || 'votechaos://auth/callback'

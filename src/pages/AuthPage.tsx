@@ -449,7 +449,7 @@ const AuthPage = () => {
                     variant="outline"
                     size="icon"
                     className="h-14 w-14 sm:h-12 sm:w-12 rounded-full touch-manipulation"
-                    onClick={() => handleSocialLogin('twitter')}
+                    onClick={() => handleEdgeSocialLogin('twitter')}
                     title={getText('auth_twitter_login', '使用 X (Twitter) 登入')}
                   >
                     {/* X / Twitter */}

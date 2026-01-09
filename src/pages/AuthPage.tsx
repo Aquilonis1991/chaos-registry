@@ -285,53 +285,32 @@ const AuthPage = () => {
 
   const handleEdgeSocialLogin = async (provider: 'line' | 'twitter') => {
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      
-      if (!supabaseUrl) {
-        toast.error(getText('auth_login_error', '登入失敗，請稍後再試'), {
-          description: '缺少 VITE_SUPABASE_URL'
-        });
-        return;
-      }
-
-      if (!supabaseAnonKey) {
-        toast.error(getText('auth_login_error', '登入失敗，請稍後再試'), {
-          description: '缺少 VITE_SUPABASE_PUBLISHABLE_KEY'
-        });
-        return;
-      }
-
       const platform = isNative() ? 'app' : 'web';
-      const endpoint =
-        provider === 'line'
-          ? `${supabaseUrl}/functions/v1/line-auth/auth?platform=${encodeURIComponent(platform)}`
-          : `${supabaseUrl}/functions/v1/twitter-auth/auth?platform=${encodeURIComponent(platform)}`;
-
-      // 添加 Supabase anon key 作為 apikey 和 Authorization header，以通過 Supabase 路由層級的檢查
-      const res = await fetch(endpoint, {
-        method: 'GET',
-        headers: {
-          'apikey': supabaseAnonKey,
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-          'Content-Type': 'application/json',
+      const functionName = provider === 'line' ? 'line-auth' : 'twitter-auth';
+      
+      // 使用 Supabase Client 的 functions.invoke 方法，會自動處理授權
+      // 注意：Edge Function 需要接受 POST 請求並從 body 中讀取 platform
+      const { data, error } = await supabase.functions.invoke(functionName, {
+        body: { 
+          action: 'auth',
+          platform: platform 
         },
       });
       
-      const json = await res.json().catch(() => null);
-      const authUrl = json?.authUrl;
-
-      if (!res.ok || !authUrl) {
-        const msg =
-          json?.message ||
-          json?.error ||
-          `Edge Function 回傳異常（${res.status}）`;
-        throw new Error(msg);
+      if (error) {
+        console.error(`[${provider}] Edge Function error:`, error);
+        throw error;
+      }
+      
+      const authUrl = data?.authUrl;
+      if (!authUrl) {
+        throw new Error('Edge Function 未返回 authUrl');
       }
 
       // 交給 provider 的 OAuth 頁面（LINE/Twitter 會再回到 Edge Function callback，最後回到 Deep Link / Web）
       window.location.href = authUrl;
     } catch (err: any) {
+      console.error(`[${provider}] Login error:`, err);
       const providerName = provider === 'line' ? 'LINE' : 'X (Twitter)';
       toast.error(getText('auth_social_login_error', '{{provider}}登入失敗').replace('{{provider}}', providerName), {
         description: err?.message || '未知錯誤'

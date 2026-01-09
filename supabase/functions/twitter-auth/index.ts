@@ -140,8 +140,12 @@ Deno.serve(async (req) => {
     const path = url.pathname
 
     // 處理 X 授權請求
-    if (path.endsWith('/auth') || path.endsWith('/auth/')) {
-      console.log('Handling auth request')
+    // 支持 GET /auth 和 POST /（supabase.functions.invoke 使用 POST）
+    const isAuthRequest = path.endsWith('/auth') || path.endsWith('/auth/') || 
+                         (req.method === 'POST' && (path === '/' || path.endsWith('/twitter-auth')))
+    
+    if (isAuthRequest) {
+      console.log('Handling auth request', { method: req.method, path })
       return await handleAuthRequest(req, corsHeaders)
     }
 
@@ -187,9 +191,22 @@ async function handleAuthRequest(req: Request, corsHeaders: Record<string, strin
   const hashBase64 = btoa(String.fromCharCode(...hashArray))
   const codeChallenge = hashBase64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
 
-  // 檢查是否為 App 登入（通過 query 參數）
-  const url = new URL(req.url)
-  const platform = url.searchParams.get('platform') || 'auto' // 'app', 'web', 'auto'
+  // 檢查是否為 App 登入（支持 GET query 參數和 POST body）
+  let platform = 'auto' // 'app', 'web', 'auto'
+  
+  if (req.method === 'POST') {
+    // POST 請求：從 body 中讀取
+    try {
+      const body = await req.json().catch(() => ({}))
+      platform = body.platform || body.action === 'auth' ? (body.platform || 'auto') : 'auto'
+    } catch (e) {
+      console.warn('Failed to parse POST body, using default platform')
+    }
+  } else {
+    // GET 請求：從 query 參數中讀取
+    const url = new URL(req.url)
+    platform = url.searchParams.get('platform') || 'auto'
+  }
   
   // 生成簽名的 state（包含 timestamp, platform, codeVerifier，並簽名）
   // 格式：{timestamp}|{platform}|{codeVerifier}|{signature}

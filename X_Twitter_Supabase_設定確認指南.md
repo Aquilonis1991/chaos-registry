@@ -140,7 +140,7 @@ rS6Tm4i1gZA0jg11lJUEHRDWg-98wu3Tk_X3iyA3QmC4SYWgQG
    - [ ] 已進入 **「User authentication settings」** 標籤頁
    - [ ] **App permissions** 已設定為 **「Read」**
    - [ ] **Type of App** 已設定為 **「Web App, Automated App or Bot」**
-   - [ ] **Callback URI** 已設定為：`https://epyykzxxglkjombvozhr.supabase.co/functions/v1/twitter-auth/callback`
+   - [ ] **Callback URI** 已設定為：`https://epyykzxxglkjombvozhr.supabase.co/auth/v1/callback`
    - [ ] **Website URL** 已設定為：`https://chaos-registry.vercel.app`
 
 ---

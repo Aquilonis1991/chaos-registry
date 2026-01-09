@@ -165,30 +165,10 @@ Deno.serve(async (req) => {
     }
 
     // 處理 LINE 回調
-    // 支持 GET /callback（來自 LINE 服務器直接重定向）和 POST /callback（來自前端轉發）
+    // 支持 GET /callback（來自 LINE 服務器直接重定向，已在上面處理）和 POST /callback（來自前端轉發）
     if (isCallback) {
       console.log('Handling callback request', { method: req.method, path })
-      
-      // 如果是 GET 請求且沒有授權 header（來自 LINE 服務器直接重定向），
-      // 重定向到前端應用，讓前端使用 POST 請求調用 Edge Function
-      if (req.method === 'GET' && !req.headers.get('authorization')) {
-        console.log('GET callback without authorization header, redirecting to frontend')
-        const url = new URL(req.url)
-        const code = url.searchParams.get('code')
-        const state = url.searchParams.get('state')
-        const error = url.searchParams.get('error')
-        
-        // 構建前端應用的回調 URL
-        const frontendCallbackUrl = new URL(`${FRONTEND_URL}/auth/callback`)
-        if (code) frontendCallbackUrl.searchParams.set('code', code)
-        if (state) frontendCallbackUrl.searchParams.set('state', state)
-        if (error) frontendCallbackUrl.searchParams.set('error', error)
-        frontendCallbackUrl.searchParams.set('provider', 'line')
-        
-        console.log('Redirecting to frontend:', frontendCallbackUrl.toString())
-        return Response.redirect(frontendCallbackUrl.toString(), 302)
-      }
-      
+      // 注意：GET 請求且沒有授權 header 的情況已在上面處理（自動重定向到前端）
       return await handleCallback(req, corsHeaders)
     }
 

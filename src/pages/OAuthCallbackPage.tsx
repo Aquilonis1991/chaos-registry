@@ -15,242 +15,41 @@ export const OAuthCallbackPage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // 同步檢查並立即轉發（在 Supabase 處理之前）
+    // 這必須在 React 渲染之前就執行，所以放在 useEffect 的最開始
+    const urlParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const code = urlParams.get('code') || hashParams.get('code');
+    const state = urlParams.get('state') || hashParams.get('state');
+    const error = urlParams.get('error') || hashParams.get('error');
+    const provider = urlParams.get('provider') || hashParams.get('provider');
+    
+    // 如果有 code 和 state，且沒有 Supabase 的 access_token，立即轉發到 Edge Function
+    // 這必須在 Supabase 處理之前就執行，所以使用同步方式
+    if (code && state && !hashParams.get('access_token') && !urlParams.get('access_token')) {
+      // 判斷是 LINE 還是 X (Twitter)
+      // 如果 state 是 JWT 格式（X/Twitter），或者沒有明確的 provider 標記，優先判斷為 X (Twitter)
+      const isTwitter = provider === 'twitter' || (!provider && state.includes('.'));
+      const functionName = isTwitter ? 'twitter-auth' : 'line-auth';
+      
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://epyykzxxglkjombvozhr.supabase.co';
+      const edgeFunctionUrl = new URL(`${supabaseUrl}/functions/v1/${functionName}/callback`);
+      edgeFunctionUrl.searchParams.set('code', code);
+      edgeFunctionUrl.searchParams.set('state', state);
+      if (error) edgeFunctionUrl.searchParams.set('error', error);
+      
+      console.log('[OAuthCallbackPage] Immediate redirect to Edge Function:', edgeFunctionUrl.toString());
+      
+      // 立即重定向，避免 Supabase 處理
+      window.location.replace(edgeFunctionUrl.toString());
+      return;
+    }
+    
     const handleCallback = async () => {
       try {
         console.log('[OAuthCallbackPage] Processing OAuth callback');
         console.log('[OAuthCallbackPage] Current URL:', window.location.href);
         
-        // 立即檢查 URL 參數，在 Supabase 處理之前就轉發（避免 Supabase 攔截）
-        const urlParams = new URLSearchParams(window.location.search);
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        
-        // 檢查 URL 參數或 hash 參數中是否有 OAuth code 和 state（Edge Function Provider 的標記）
-        const code = urlParams.get('code') || hashParams.get('code');
-        const state = urlParams.get('state') || hashParams.get('state');
-        const error = urlParams.get('error') || hashParams.get('error');
-        const provider = urlParams.get('provider') || hashParams.get('provider');
-        
-        // 優先檢測：如果有 code 和 state，且沒有 Supabase 的 access_token，立即轉發到 Edge Function
-        // 這可以避免 Supabase 的內建處理邏輯攔截回調
-        // 處理 LINE 和 X (Twitter) Provider
-        if (code && state && !hashParams.get('access_token') && !urlParams.get('access_token')) {
-          // 判斷是 LINE 還是 X (Twitter)
-          // 如果 state 是 JWT 格式（X/Twitter），或者沒有明確的 provider 標記，優先判斷為 X (Twitter)
-          const isTwitter = provider === 'twitter' || (!provider && state.includes('.'));
-          const functionName = isTwitter ? 'twitter-auth' : 'line-auth';
-          const providerName = isTwitter ? 'X (Twitter)' : 'LINE';
-          
-          console.log(`[OAuthCallbackPage] Detected ${providerName} OAuth callback, forwarding to Edge Function immediately (before Supabase processing)`);
-          
-          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-          if (!supabaseUrl) {
-            toast.error('登入失敗', {
-              description: '缺少 VITE_SUPABASE_URL'
-            });
-            navigate('/auth', { replace: true });
-            return;
-          }
-          
-          // 構建 Edge Function 回調 URL
-          const edgeFunctionUrl = new URL(`${supabaseUrl}/functions/v1/${functionName}/callback`);
-          edgeFunctionUrl.searchParams.set('code', code);
-          edgeFunctionUrl.searchParams.set('state', state);
-          if (error) edgeFunctionUrl.searchParams.set('error', error);
-          
-          console.log('[OAuthCallbackPage] Redirecting to Edge Function:', edgeFunctionUrl.toString());
-          
-          // 立即重定向，避免 Supabase 處理
-          window.location.href = edgeFunctionUrl.toString();
-          return;
-        }
-        
-        // 備用檢測：如果 URL 中包含 provider=line 或 provider=twitter
-        if ((provider === 'line' || provider === 'twitter') && code && state) {
-          // 判斷是 LINE 還是 X (Twitter)
-          const isTwitter = provider === 'twitter';
-          const functionName = isTwitter ? 'twitter-auth' : 'line-auth';
-          const providerName = isTwitter ? 'X (Twitter)' : 'LINE';
-          
-          console.log(`[OAuthCallbackPage] Detected ${providerName} OAuth callback, calling Edge Function`);
-          
-          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-          if (!supabaseUrl) {
-            toast.error('登入失敗', {
-              description: '缺少 VITE_SUPABASE_URL'
-            });
-            navigate('/auth', { replace: true });
-            return;
-          }
-          
-          // 構建 Edge Function 回調 URL
-          const edgeFunctionUrl = new URL(`${supabaseUrl}/functions/v1/${functionName}/callback`);
-          if (code) edgeFunctionUrl.searchParams.set('code', code);
-          if (state) edgeFunctionUrl.searchParams.set('state', state);
-          if (error) edgeFunctionUrl.searchParams.set('error', error);
-          
-          console.log('[OAuthCallbackPage] Calling Edge Function:', edgeFunctionUrl.toString());
-          
-          try {
-            // 使用 fetch 調用 Edge Function
-            // 添加 Supabase anon key 作為 apikey 和 Authorization header，以通過 Supabase 路由層級的檢查
-            const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-            
-            // Edge Function 使用 Deno.serve，應該可以處理無授權的請求
-            // 注意：Edge Function 會返回重定向響應（magic link），我們需要讓瀏覽器跟隨重定向
-            const response = await fetch(edgeFunctionUrl.toString(), {
-              method: 'GET',
-              headers: {
-                'apikey': supabaseAnonKey || '',
-                'Authorization': `Bearer ${supabaseAnonKey || ''}`,
-                'Content-Type': 'application/json',
-              },
-              redirect: 'manual', // 手動處理重定向，因為我們需要瀏覽器實際訪問 magic link
-            });
-            
-            // 檢查響應狀態
-            if (response.status >= 300 && response.status < 400) {
-              // 重定向響應（Edge Function 返回 magic link）
-              const redirectUrl = response.headers.get('location');
-              if (redirectUrl) {
-                console.log('[OAuthCallbackPage] Edge Function returned redirect:', redirectUrl);
-                // 讓瀏覽器訪問 magic link，Supabase 會驗證 token 並重定向到前端
-                window.location.href = redirectUrl;
-                return;
-              }
-            } else if (response.ok) {
-              // 如果返回成功，檢查是否有重定向 URL
-              const data = await response.json().catch(() => null);
-              if (data?.redirectUrl) {
-                window.location.href = data.redirectUrl;
-                return;
-              }
-            } else {
-              // 錯誤響應
-              const errorText = await response.text().catch(() => 'Unknown error');
-              console.error('[OAuthCallbackPage] Edge Function returned error:', response.status, errorText);
-              throw new Error(`Edge Function error: ${response.status} ${errorText}`);
-            }
-          } catch (fetchError) {
-            console.error('[OAuthCallbackPage] Error calling Edge Function:', fetchError);
-            // 如果 fetch 失敗（可能是 CORS 或網絡問題），嘗試直接重定向（備用方案）
-            // 這會讓瀏覽器直接訪問 Edge Function，Edge Function 會處理重定向
-            console.log('[OAuthCallbackPage] Fallback: redirecting directly to Edge Function');
-            window.location.href = edgeFunctionUrl.toString();
-            return;
-          }
-          
-          // 如果所有方法都失敗
-          toast.error('登入失敗', {
-            description: '無法處理登入回調'
-          });
-          navigate('/auth', { replace: true });
-          return;
-        }
-        
-        // 舊的 LINE 專用檢測（保留作為備用）
-        if (code && state && !hashParams.get('access_token') && !urlParams.get('access_token') && provider === 'line') {
-          console.log('[OAuthCallbackPage] Detected LINE OAuth callback, forwarding to Edge Function immediately (before Supabase processing)');
-          
-          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-          if (!supabaseUrl) {
-            toast.error('登入失敗', {
-              description: '缺少 VITE_SUPABASE_URL'
-            });
-            navigate('/auth', { replace: true });
-            return;
-          }
-          
-          // 構建 Edge Function 回調 URL
-          const edgeFunctionUrl = new URL(`${supabaseUrl}/functions/v1/line-auth/callback`);
-          edgeFunctionUrl.searchParams.set('code', code);
-          edgeFunctionUrl.searchParams.set('state', state);
-          if (error) edgeFunctionUrl.searchParams.set('error', error);
-          
-          console.log('[OAuthCallbackPage] Redirecting to Edge Function:', edgeFunctionUrl.toString());
-          
-          // 立即重定向，避免 Supabase 處理
-          window.location.href = edgeFunctionUrl.toString();
-          return;
-        }
-        
-        // 備用檢測：如果 URL 中包含 provider=line 或 provider=twitter（已在上方處理，此處保留作為備用）
-        if ((provider === 'line' || provider === 'twitter') && code && state) {
-          console.log('[OAuthCallbackPage] Detected LINE OAuth callback, calling Edge Function');
-          
-          // 使用 fetch 調用 Edge Function，避免 Supabase 路由層級的授權檢查
-          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-          if (!supabaseUrl) {
-            toast.error('登入失敗', {
-              description: '缺少 VITE_SUPABASE_URL'
-            });
-            navigate('/auth', { replace: true });
-            return;
-          }
-          
-          // 構建 Edge Function 回調 URL
-          const edgeFunctionUrl = new URL(`${supabaseUrl}/functions/v1/line-auth/callback`);
-          if (code) edgeFunctionUrl.searchParams.set('code', code);
-          if (state) edgeFunctionUrl.searchParams.set('state', state);
-          if (error) edgeFunctionUrl.searchParams.set('error', error);
-          
-          console.log('[OAuthCallbackPage] Calling Edge Function:', edgeFunctionUrl.toString());
-          
-          try {
-            // 使用 fetch 調用 Edge Function
-            // 添加 Supabase anon key 作為 apikey 和 Authorization header，以通過 Supabase 路由層級的檢查
-            const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-            
-            // Edge Function 使用 Deno.serve，應該可以處理無授權的請求
-            // 注意：Edge Function 會返回重定向響應（magic link），我們需要讓瀏覽器跟隨重定向
-            const response = await fetch(edgeFunctionUrl.toString(), {
-              method: 'GET',
-              headers: {
-                'apikey': supabaseAnonKey || '',
-                'Authorization': `Bearer ${supabaseAnonKey || ''}`,
-                'Content-Type': 'application/json',
-              },
-              redirect: 'manual', // 手動處理重定向，因為我們需要瀏覽器實際訪問 magic link
-            });
-            
-            // 檢查響應狀態
-            if (response.status >= 300 && response.status < 400) {
-              // 重定向響應（Edge Function 返回 magic link）
-              const redirectUrl = response.headers.get('location');
-              if (redirectUrl) {
-                console.log('[OAuthCallbackPage] Edge Function returned redirect:', redirectUrl);
-                // 讓瀏覽器訪問 magic link，Supabase 會驗證 token 並重定向到前端
-                window.location.href = redirectUrl;
-                return;
-              }
-            } else if (response.ok) {
-              // 如果返回成功，檢查是否有重定向 URL
-              const data = await response.json().catch(() => null);
-              if (data?.redirectUrl) {
-                window.location.href = data.redirectUrl;
-                return;
-              }
-            } else {
-              // 錯誤響應
-              const errorText = await response.text().catch(() => 'Unknown error');
-              console.error('[OAuthCallbackPage] Edge Function returned error:', response.status, errorText);
-              throw new Error(`Edge Function error: ${response.status} ${errorText}`);
-            }
-          } catch (fetchError) {
-            console.error('[OAuthCallbackPage] Error calling Edge Function:', fetchError);
-            // 如果 fetch 失敗（可能是 CORS 或網絡問題），嘗試直接重定向（備用方案）
-            // 這會讓瀏覽器直接訪問 Edge Function，Edge Function 會處理重定向
-            console.log('[OAuthCallbackPage] Fallback: redirecting directly to Edge Function');
-            window.location.href = edgeFunctionUrl.toString();
-            return;
-          }
-          
-          // 如果所有方法都失敗
-          toast.error('登入失敗', {
-            description: '無法處理登入回調'
-          });
-          navigate('/auth', { replace: true });
-          return;
-        }
         
         // Supabase 會自動處理 hash fragment 中的 access_token（適用於 Google、Apple、Discord 等內建 Provider）
         // 我們只需要等待 session 建立

@@ -25,7 +25,10 @@ android {
 }
 
 repositories {
-    flatDir{
+    // Using flatDir for local JAR files (required by Capacitor/Cordova plugins)
+    // This warning can be safely ignored as it's necessary for loading local dependencies
+    // Note: flatDir is deprecated but still required for Capacitor/Cordova plugin compatibility
+    flatDir {
         dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
     }
 }

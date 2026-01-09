@@ -1,6 +1,7 @@
 // 使用 Deno.serve 而不是 serve，以避免 Supabase 路由層級的 JWT 檢查
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.74.0'
 import { getCorsHeaders, handleCorsPreFlight, validateOrigin } from '../_shared/cors.ts'
+import { create, verify } from 'https://deno.land/x/djwt@v3.0.2/mod.ts'
 
 // X (Twitter) OAuth 配置
 const TWITTER_CLIENT_ID = Deno.env.get('TWITTER_CLIENT_ID')
@@ -30,73 +31,81 @@ const FRONTEND_DEEP_LINK = Deno.env.get('FRONTEND_DEEP_LINK') || 'votechaos://au
 const STATE_SECRET = SERVICE_ROLE_KEY.substring(0, 32) // 使用前 32 個字符作為密鑰
 const STATE_EXPIRY = 5 * 60 * 1000 // 5 分鐘
 
-// 生成簽名的 state（包含 timestamp, platform, codeVerifier）
+// 生成簽名的 state（JWT 格式，以便 Supabase 不會報錯）
 async function generateSignedState(platform: string, codeVerifier: string): Promise<string> {
   const timestamp = Date.now()
-  const data = `${timestamp}|${platform}|${codeVerifier}`
+  const expiresIn = 600 // 10 分鐘
   
-  // 使用 HMAC-SHA256 簽名
-  const encoder = new TextEncoder()
-  const keyData = encoder.encode(STATE_SECRET)
-  const messageData = encoder.encode(data)
+  // 生成 JWT token（Supabase 期望 state 是 JWT 格式）
+  const payload = {
+    timestamp,
+    platform,
+    codeVerifier,
+    exp: Math.floor(Date.now() / 1000) + expiresIn, // JWT 標準的過期時間
+  }
   
-  // 使用 Web Crypto API 生成 HMAC
-  const cryptoKey = await crypto.subtle.importKey(
+  const key = await crypto.subtle.importKey(
     'raw',
-    keyData,
+    new TextEncoder().encode(STATE_SECRET),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign']
   )
   
-  const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData)
-  const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature))).substring(0, 32)
+  // 使用 djwt 生成 JWT token
+  const token = await create(
+    { alg: 'HS256', typ: 'JWT' },
+    payload,
+    key
+  )
   
-  return `${data}|${signatureBase64}`
+  return token
 }
 
-// 驗證簽名的 state
+// 驗證簽名的 state（JWT 格式）
 async function verifySignedState(signedState: string): Promise<{ valid: boolean, timestamp?: number, platform?: string, codeVerifier?: string }> {
   try {
-    const parts = signedState.split('|')
-    if (parts.length < 4) {
-      return { valid: false }
-    }
-    
-    const timestamp = parseInt(parts[0], 10)
-    const platform = parts[1]
-    const codeVerifier = parts.slice(2, -1).join('|') // codeVerifier 可能包含 |，所以取中間部分
-    const signature = parts[parts.length - 1] // 最後一個是簽名
-    
-    // 驗證時間戳（防止過期）
-    const now = Date.now()
-    if (now - timestamp > STATE_EXPIRY) {
-      return { valid: false }
-    }
-    
-    // 驗證簽名
-    const data = `${timestamp}|${platform}|${codeVerifier}`
-    const encoder = new TextEncoder()
-    const keyData = encoder.encode(STATE_SECRET)
-    const messageData = encoder.encode(data)
-    
-    const cryptoKey = await crypto.subtle.importKey(
+    const key = await crypto.subtle.importKey(
       'raw',
-      keyData,
+      new TextEncoder().encode(STATE_SECRET),
       { name: 'HMAC', hash: 'SHA-256' },
       false,
-      ['sign']
+      ['verify']
     )
     
-    const expectedSignature = await crypto.subtle.sign('HMAC', cryptoKey, messageData)
-    const expectedSignatureBase64 = btoa(String.fromCharCode(...new Uint8Array(expectedSignature))).substring(0, 32)
+    // 使用 djwt 驗證 JWT token
+    const payload = await verify(signedState, key)
     
-    if (signature !== expectedSignatureBase64) {
+    // 檢查過期時間（JWT 標準）
+    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+      console.error('State token expired (JWT exp)')
+      return { valid: false }
+    }
+    
+    // 檢查時間戳（額外的時效性檢查）
+    const timestamp = payload.timestamp as number
+    if (!timestamp) {
+      console.error('State token missing timestamp')
+      return { valid: false }
+    }
+    
+    const maxAge = STATE_EXPIRY // 5 分鐘
+    if (Date.now() - timestamp > maxAge) {
+      console.error('State token expired (timestamp)')
+      return { valid: false }
+    }
+    
+    const platform = payload.platform as string
+    const codeVerifier = payload.codeVerifier as string
+    
+    if (!platform || !codeVerifier) {
+      console.error('State token missing required fields')
       return { valid: false }
     }
     
     return { valid: true, timestamp, platform, codeVerifier }
-  } catch {
+  } catch (error) {
+    console.error('State verification failed:', error)
     return { valid: false }
   }
 }

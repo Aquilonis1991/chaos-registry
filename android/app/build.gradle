@@ -45,6 +45,14 @@ dependencies {
 
 apply from: 'capacitor.build.gradle'
 
+// Add testClasses task for compatibility with tools that expect it
+// This task compiles test classes without running them
+tasks.register('testClasses') {
+    dependsOn 'compileDebugUnitTestSources', 'compileReleaseUnitTestSources'
+    description = 'Compiles test classes for all variants'
+    group = 'verification'
+}
+
 try {
     def servicesJSON = file('google-services.json')
     if (servicesJSON.text) {

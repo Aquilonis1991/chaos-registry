@@ -101,7 +101,9 @@ class NativeAdPlugin : Plugin() {
         nativeAd.icon?.let { icon ->
             data.put("iconUrl", icon.uri?.toString())
             if (icon.uri == null) {
-                encodeDrawable(icon.drawable)?.let { base64 ->
+                // icon.drawable is non-null when icon is non-null, so we can call encodeDrawable directly
+                val base64 = encodeDrawable(icon.drawable)
+                if (base64 != null) {
                     data.put("iconBase64", base64)
                 }
             }

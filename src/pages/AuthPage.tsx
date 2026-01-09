@@ -256,7 +256,7 @@ const AuthPage = () => {
     }
   };
 
-  const handleSocialLogin = async (provider: 'google' | 'apple' | 'discord') => {
+  const handleSocialLogin = async (provider: 'google' | 'apple' | 'discord' | 'twitter') => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
@@ -273,6 +273,7 @@ const AuthPage = () => {
           google: 'Google',
           apple: 'Apple',
           discord: 'Discord',
+          twitter: 'X (Twitter)',
         };
         const providerName = providerNames[provider] || provider;
         const socialLoginErrorTemplate = getText('auth_social_login_error', '{{provider}}登入失敗');
@@ -444,12 +445,9 @@ const AuthPage = () => {
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="h-14 w-14 sm:h-12 sm:w-12 rounded-full touch-manipulation opacity-50 cursor-not-allowed"
-                    onClick={() => {
-                      toast.info(getText('auth_twitter_login_disabled', 'X (Twitter) 登入功能暫時停用'));
-                    }}
-                    title={getText('auth_twitter_login_disabled', 'X (Twitter) 登入功能暫時停用')}
-                    disabled
+                    className="h-14 w-14 sm:h-12 sm:w-12 rounded-full touch-manipulation"
+                    onClick={() => handleSocialLogin('twitter')}
+                    title={getText('auth_twitter_login', '使用 X (Twitter) 登入')}
                   >
                     {/* X / Twitter */}
                     <svg className="h-7 w-7 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

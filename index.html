@@ -26,14 +26,22 @@
   <meta name="twitter:site" content="@lovable_dev" />
   <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
 
-  <!-- 在 React 載入之前檢測 LINE OAuth 回調並轉發到 Edge Function -->
+  <!-- 在 React 載入之前檢測 LINE 和 X (Twitter) OAuth 回調並轉發到 Edge Function -->
   <!-- 這可以避免 Supabase 的內建處理邏輯攔截回調 -->
   <script>
     (function() {
-      // 只在 /auth/callback 路徑執行
-      if (window.location.pathname !== '/auth/callback' && !window.location.pathname.includes('/auth/callback')) {
+      // 檢查是否為 OAuth 回調（包括 /auth/callback 和 Supabase 的 /auth/v1/callback）
+      const pathname = window.location.pathname;
+      const isAuthCallback = pathname === '/auth/callback' || 
+                            pathname.includes('/auth/callback') ||
+                            pathname === '/auth/v1/callback' ||
+                            pathname.includes('/auth/v1/callback');
+      
+      if (!isAuthCallback) {
         return;
       }
+      
+      console.log('[Pre-React] OAuth callback detected, pathname:', pathname);
       
       // 立即檢查 URL 參數
       const urlParams = new URLSearchParams(window.location.search);
@@ -43,6 +51,44 @@
       const state = urlParams.get('state') || hashParams.get('state');
       const error = urlParams.get('error') || hashParams.get('error');
       const provider = urlParams.get('provider') || hashParams.get('provider');
+      const platform = urlParams.get('platform') || hashParams.get('platform');
+      
+      // 檢查是否為 magic link 回調（URL hash 中包含 access_token 和 refresh_token）
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      const type = hashParams.get('type');
+      const deepLink = urlParams.get('deep_link'); // 從 URL 參數中提取 deep_link（Edge Function 傳遞的）
+      
+      // 優先處理：如果有 deep_link 參數且是 magic link 回調，立即重定向到 Deep Link
+      // 這確保了在外部瀏覽器中也能正確返回 APP
+      if (deepLink && type === 'magiclink' && accessToken && refreshToken) {
+        console.log('[Pre-React] Deep link parameter detected, redirecting to Deep Link immediately');
+        const deepLinkUrl = deepLink + '#access_token=' + encodeURIComponent(accessToken) + '&refresh_token=' + encodeURIComponent(refreshToken) + '&type=magiclink';
+        console.log('[Pre-React] Redirecting to Deep Link:', deepLinkUrl);
+        
+        // 立即重定向到 Deep Link（在 React 載入之前）
+        window.location.href = deepLinkUrl;
+        return;
+      }
+      
+      // 如果是 magic link 回調且在外部瀏覽器中，嘗試重定向到 Deep Link
+      if (type === 'magiclink' && accessToken && refreshToken) {
+        console.log('[Pre-React] Magic link callback detected in external browser, redirecting to Deep Link');
+        
+        // 檢查是否為移動設備
+        const userAgent = navigator.userAgent || '';
+        const isMobile = userAgent.includes('Mobile') || userAgent.includes('Android') || userAgent.includes('iPhone');
+        
+        // 如果有 platform=app 參數，或者是移動設備，重定向到 Deep Link
+        if (platform === 'app' || isMobile) {
+          const deepLinkUrl = 'votechaos://auth/callback#access_token=' + encodeURIComponent(accessToken) + '&refresh_token=' + encodeURIComponent(refreshToken) + '&type=magiclink';
+          console.log('[Pre-React] Redirecting to Deep Link:', deepLinkUrl);
+          
+          // 立即重定向到 Deep Link（在 React 載入之前）
+          window.location.href = deepLinkUrl;
+          return;
+        }
+      }
       
       // 處理 LINE Provider：如果有 code 和 state，且沒有 Supabase 的 access_token，使用 fetch POST 請求調用 Edge Function
       // 注意：X (Twitter) 使用不同的處理方式（JWT state，可能可以通過重定向）
@@ -123,6 +169,7 @@
           const edgeFunctionUrl = supabaseUrl + '/functions/v1/' + functionName + '/callback';
           
           console.log('[Pre-React] X (Twitter) callback detected, calling Edge Function via fetch:', edgeFunctionUrl);
+          console.log('[Pre-React] Callback parameters:', { code: code ? 'present' : 'missing', state: state ? 'present' : 'missing', error: error || 'none' });
           
           // 使用 fetch POST 請求調用 Edge Function
           // 添加 apikey header 以避免 Supabase 路由層級攔截
@@ -140,23 +187,74 @@
             }),
           })
           .then(async (response) => {
+            console.log('[Pre-React] Edge Function response status:', response.status);
+            console.log('[Pre-React] Edge Function response headers:', Object.fromEntries(response.headers.entries()));
+            
             if (response.status >= 300 && response.status < 400) {
               // 重定向響應（Edge Function 返回 magic link）
               const redirectUrl = response.headers.get('location');
               if (redirectUrl) {
                 console.log('[Pre-React] Edge Function returned redirect:', redirectUrl);
-                window.location.href = redirectUrl;
+                
+                // 處理 magic link 或 Deep Link
+                if (redirectUrl.startsWith('votechaos://')) {
+                  console.log('[Pre-React] Deep Link detected, using window.location.href');
+                  window.location.href = redirectUrl;
+                } else if (redirectUrl.startsWith('http://') || redirectUrl.startsWith('https://')) {
+                  try {
+                    var urlObj = new URL(redirectUrl);
+                    var redirectTo = urlObj.searchParams.get('redirect_to');
+                    
+                    if (redirectTo && redirectTo.startsWith('votechaos://')) {
+                      console.log('[Pre-React] Magic link with Deep Link redirect_to detected, opening Deep Link directly:', redirectTo);
+                      window.location.href = redirectTo;
+                    } else {
+                      console.log('[Pre-React] Opening URL:', redirectUrl);
+                      window.location.href = redirectUrl;
+                    }
+                  } catch (e) {
+                    console.error('[Pre-React] Failed to parse redirect URL:', e);
+                    window.location.href = redirectUrl;
+                  }
+                } else {
+                  window.location.href = redirectUrl;
+                }
                 return;
               }
             } else if (response.ok) {
               const data = await response.json().catch(() => null);
+              console.log('[Pre-React] Edge Function response data:', data);
               if (data?.redirectUrl) {
-                window.location.href = data.redirectUrl;
+                console.log('[Pre-React] Edge Function returned redirectUrl:', data.redirectUrl);
+                
+                // 處理 magic link 或 Deep Link
+                if (data.redirectUrl.startsWith('votechaos://')) {
+                  console.log('[Pre-React] Deep Link detected, using window.location.href');
+                  window.location.href = data.redirectUrl;
+                } else if (data.redirectUrl.startsWith('http://') || data.redirectUrl.startsWith('https://')) {
+                  try {
+                    var urlObj = new URL(data.redirectUrl);
+                    var redirectTo = urlObj.searchParams.get('redirect_to');
+                    
+                    if (redirectTo && redirectTo.startsWith('votechaos://')) {
+                      console.log('[Pre-React] Magic link with Deep Link redirect_to detected, opening Deep Link directly:', redirectTo);
+                      window.location.href = redirectTo;
+                    } else {
+                      console.log('[Pre-React] Opening URL:', data.redirectUrl);
+                      window.location.href = data.redirectUrl;
+                    }
+                  } catch (e) {
+                    console.error('[Pre-React] Failed to parse redirect URL:', e);
+                    window.location.href = data.redirectUrl;
+                  }
+                } else {
+                  window.location.href = data.redirectUrl;
+                }
                 return;
               }
             }
             // 如果沒有重定向，讓 React 處理
-            console.log('[Pre-React] Edge Function response:', response.status);
+            console.log('[Pre-React] Edge Function response:', response.status, 'No redirect URL found');
           })
           .catch((err) => {
             console.error('[Pre-React] Error calling Edge Function:', err);

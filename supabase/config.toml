@@ -1,1 +1,12 @@
 project_id = "idfqzcsxvuxperxfieam"
+
+# LINE Auth Edge Function 配置
+# 禁用 JWT 驗證，因為 LINE 回調的 GET 請求不會包含 Authorization header
+# 我們會在代碼中手動驗證需要 JWT 的路由（POST 請求）
+[functions.line-auth]
+verify_jwt = false
+
+# LINE Auth Callback Edge Function 配置
+# 獨立的 callback 處理函數，禁用 JWT 驗證
+[functions.line-auth-callback]
+verify_jwt = false

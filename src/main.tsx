@@ -12,14 +12,18 @@ setTimeout(async () => {
   console.log('Starting service initialization...');
 
   try {
-    // 1. 設置錯誤處理器
+    // 1. 設置錯誤處理器（改進：保存清理函數）
+    let cleanupErrorHandlers: (() => void) | undefined;
     try {
       const { setupGlobalErrorHandlers } = await import("./lib/errorLogger");
-      setupGlobalErrorHandlers();
+      cleanupErrorHandlers = setupGlobalErrorHandlers();
       console.log('Error handlers ready');
     } catch (error) {
       console.error('Error handler setup failed:', error);
     }
+    
+    // 在應用卸載時清理（雖然這在 SPA 中不常見，但為了完整性）
+    // 注意：實際清理會在頁面卸載時自動發生
 
     // 2. 初始化 Capacitor
     try {
@@ -44,11 +48,11 @@ setTimeout(async () => {
       console.error('Capacitor initialization failed:', error);
     }
 
-    // 3. 初始化 App 生命週期
+    // 3. 初始化 App 生命週期（優先級最高，確保 Deep Link 監聽器盡早設置）
     try {
       const { initializeAppLifecycle } = await import("./lib/app-lifecycle");
       initializeAppLifecycle();
-      console.log('App lifecycle ready');
+      console.log('App lifecycle ready - Deep Link listener registered');
     } catch (error) {
       console.error('App lifecycle initialization failed:', error);
     }

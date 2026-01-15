@@ -95,14 +95,19 @@ export const useVoteOperations = () => {
         .eq('id', topicId)
         .single();
 
-      // 解析選項文字
+      // 解析選項文字（改進：添加更嚴格的 null 檢查）
       let optionLabel = option;
-      if (topic?.options && Array.isArray(topic.options)) {
-        const foundOption = topic.options.find((opt: any) =>
-          (opt.id === option) || (opt.id === undefined && opt === option)
-        );
+      if (topic?.options && Array.isArray(topic.options) && topic.options.length > 0) {
+        const foundOption = topic.options.find((opt: any) => {
+          if (!opt) return false; // 確保 opt 不是 null/undefined
+          return (opt.id === option) || (opt.id === undefined && opt === option);
+        });
         if (foundOption) {
-          optionLabel = typeof foundOption === 'string' ? foundOption : (foundOption.text || foundOption.label || option);
+          if (typeof foundOption === 'string') {
+            optionLabel = foundOption;
+          } else if (foundOption && typeof foundOption === 'object') {
+            optionLabel = foundOption.text || foundOption.label || option;
+          }
         }
       }
 
@@ -264,14 +269,19 @@ export const useVoteOperations = () => {
         .eq('id', topicId)
         .single();
 
-      // 解析選項文字
+      // 解析選項文字（改進：添加更嚴格的 null 檢查）
       let optionLabel = option;
-      if (topic?.options && Array.isArray(topic.options)) {
-        const foundOption = topic.options.find((opt: any) =>
-          (opt.id === option) || (opt.id === undefined && opt === option)
-        );
+      if (topic?.options && Array.isArray(topic.options) && topic.options.length > 0) {
+        const foundOption = topic.options.find((opt: any) => {
+          if (!opt) return false; // 確保 opt 不是 null/undefined
+          return (opt.id === option) || (opt.id === undefined && opt === option);
+        });
         if (foundOption) {
-          optionLabel = typeof foundOption === 'string' ? foundOption : (foundOption.text || foundOption.label || option);
+          if (typeof foundOption === 'string') {
+            optionLabel = foundOption;
+          } else if (foundOption && typeof foundOption === 'object') {
+            optionLabel = foundOption.text || foundOption.label || option;
+          }
         }
       }
 

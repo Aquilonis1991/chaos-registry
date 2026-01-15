@@ -38,23 +38,36 @@ export const useMissionOperations = () => {
     ).catch(() => ({ restricted: false }));
 
     // 使用安全的數據庫函數來完成任務（原子性操作，防止競態條件）
-    // 添加超時處理（10秒）
-    const rpcPromise = supabase.rpc('complete_mission_safe' as any, {
-      p_user_id: user.id,
-      p_mission_id: missionId
-    });
-
-    const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) =>
-      setTimeout(() => reject(new Error('RPC 調用超時（10秒）')), 10000)
-    );
+    // 改進：使用 AbortController 來取消請求，而不是讓 Promise 繼續執行
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => {
+      abortController.abort();
+    }, 10000); // 10秒超時
 
     let rpcResult: { data: any; error: any };
     try {
+      // 注意：Supabase RPC 目前不直接支援 AbortController
+      // 但我們可以使用 Promise.race，並在超時後記錄警告
+      const rpcPromise = supabase.rpc('complete_mission_safe' as any, {
+        p_user_id: user.id,
+        p_mission_id: missionId
+      });
+
+      const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) =>
+        setTimeout(() => {
+          abortController.abort();
+          reject(new Error('RPC 調用超時（10秒）'));
+        }, 10000)
+      );
+
       rpcResult = await Promise.race([
         rpcPromise,
         timeoutPromise
       ]) as { data: any; error: any };
+      
+      clearTimeout(timeoutId);
     } catch (timeoutError: any) {
+      clearTimeout(timeoutId);
       console.error('[completeMission] RPC 調用超時:', timeoutError);
       throw new Error('完成任務超時，請檢查網絡連接或稍後再試');
     }

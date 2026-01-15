@@ -41,16 +41,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     console.log('[AuthProvider] Mounting and starting authentication check...');
 
-    // 安全超時機制
+    // 使用 ref 來追蹤組件是否已卸載，避免在已卸載的組件上設置狀態
+    let isMounted = true;
+
+    // 安全超時機制（修復閉包問題：直接設置狀態，不檢查 loading）
     const timeoutTimer = setTimeout(() => {
-      console.warn(`[AuthProvider] Session check timed out (current loading: ${loading}), forcing loading to false`);
-      if (loading) {
+      if (isMounted) {
+        console.warn('[AuthProvider] Session check timed out, forcing loading to false');
         setLoading(false);
       }
     }, 2000); // 縮短為 2秒
 
     // 檢查是否有現有session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!isMounted) return; // 如果組件已卸載，不執行狀態更新
+      
       console.log('[AuthProvider] getSession completed, session exists:', !!session);
       clearTimeout(timeoutTimer); // 成功獲取後清除計時器
       if (session) {
@@ -68,6 +73,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       setLoading(false);
     }).catch(err => {
+      if (!isMounted) return; // 如果組件已卸載，不執行狀態更新
+      
       console.error('[AuthProvider] Get session error:', err);
       clearTimeout(timeoutTimer);
       setLoading(false);
@@ -76,6 +83,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // 監聽認證狀態變化
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!isMounted) return; // 如果組件已卸載，不執行狀態更新
+        
         if (session) {
           setSession(session);
           setUser(session.user);
@@ -117,6 +126,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
 
     return () => {
+      isMounted = false; // 標記組件已卸載
       subscription.unsubscribe();
       clearTimeout(timeoutTimer);
     };

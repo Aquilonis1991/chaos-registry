@@ -5,11 +5,10 @@
 export const ALLOWED_ORIGINS = [
   'https://epyykzxxglkjombvozhr.supabase.co', // Supabase 託管
   'capacitor://localhost', // Capacitor APP (iOS/Android)
-  'https://localhost', // Capacitor (androidScheme/iosScheme = https)
+  'https://localhost', // Capacitor (androidScheme/iosScheme = https) - ⚠️ 關鍵：必須包含此項
   'http://localhost', // Capacitor (androidScheme/iosScheme = http)
   'http://localhost:5173', // Vite 開發環境
   'http://localhost:8080', // Vite 開發環境 (替代 port)
-  'http://localhost:8080', // Vite 備用端口
   'http://localhost:3000', // 備用開發端口
   // 生產環境域名（上線後添加）
   'https://chaos-registry.vercel.app',
@@ -34,10 +33,11 @@ export const getCorsHeaders = (origin: string | null) => {
   // 如果來源被允許，使用該來源；否則檢查是否是前端應用
   let allowedOrigin: string;
   
-  if (origin && isOriginAllowed(origin)) {
+  // ⚠️ 關鍵修復：優先處理 localhost（包括 https://localhost）
+  if (origin && (origin.includes('localhost') || origin.includes('chaos-registry.vercel.app'))) {
+    // 允許來自前端應用的請求（包括 https://localhost）
     allowedOrigin = origin;
-  } else if (origin && (origin.includes('chaos-registry.vercel.app') || origin.includes('localhost'))) {
-    // 允許來自前端應用的請求（即使不在嚴格列表中）
+  } else if (origin && isOriginAllowed(origin)) {
     allowedOrigin = origin;
   } else {
     // 使用第一個允許的來源作為默認值
@@ -83,11 +83,13 @@ export const validateOrigin = (req: Request): Response | null => {
   
   // 如果有 origin 且不在允許列表中
   if (origin && !isOriginAllowed(origin)) {
+    // 即使來源無效，也要返回 CORS headers，以便瀏覽器能夠讀取錯誤訊息
+    const corsHeaders = getCorsHeaders(origin);
     return new Response(
       JSON.stringify({ error: 'Forbidden: Invalid origin' }), 
       { 
         status: 403,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }

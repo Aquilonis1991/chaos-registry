@@ -181,13 +181,9 @@ Deno.serve(async (req) => {
     const error = url.searchParams.get('error')
 
     // 決定重定向目標
-    // 優先使用 Deep Link（APP），這樣可以保持 APP 的 context
-    let redirectBase = FRONTEND_DEEP_LINK
-
-    // 如果明確指定了 source=web（未來擴展），則重定向到網頁
-    if (url.searchParams.get('source') === 'web') {
-      redirectBase = `${FRONTEND_URL}/auth/callback`
-    }
+    // LINE 登入目前只支援 APP，所以必須使用 Deep Link，避免網頁與 App 混淆
+    // 根據 LINE登入修復完整報告.md 的建議：完全使用 Deep Link，避免 Context 丟失
+    const redirectBase = FRONTEND_DEEP_LINK
 
     // 構建前端應用的回調 URL
     const targetUrl = new URL(redirectBase)
@@ -445,13 +441,8 @@ async function handleCallback(req: Request, corsHeaders: Record<string, string>)
     errorParams.set('error', errorMsg)
     errorParams.set('error_description', errorDesc)
 
-    // 只支持 'app' platform
-    if (FRONTEND_DEEP_LINK) {
-      return `${FRONTEND_DEEP_LINK}?${errorParams.toString()}`
-    } else {
-      // 如果沒有 Deep Link，使用前端 URL（不應該發生）
-      return `${FRONTEND_URL}/auth?${errorParams.toString()}`
-    }
+    // 只支持 'app' platform，必須使用 Deep Link
+    return `${FRONTEND_DEEP_LINK}?${errorParams.toString()}`
   }
 
   // 安全檢查：驗證 state 參數（CSRF 保護）
@@ -865,10 +856,8 @@ async function handleCallback(req: Request, corsHeaders: Record<string, string>)
       redirectParams.set('error', 'session_generation_failed')
       redirectParams.set('error_description', linkError?.message || 'Failed to generate session')
 
-      // 只支持 'app' platform
-      const fallbackUrl = FRONTEND_DEEP_LINK
-        ? `${FRONTEND_DEEP_LINK}?${redirectParams.toString()}`
-        : `${FRONTEND_URL}/auth?${redirectParams.toString()}`
+      // 只支持 'app' platform，必須使用 Deep Link
+      const fallbackUrl = `${FRONTEND_DEEP_LINK}?${redirectParams.toString()}`
       // 對於 POST 請求，返回 JSON 響應以避免 CORS 問題
       if (req.method === 'POST') {
         return new Response(
@@ -924,10 +913,8 @@ async function handleCallback(req: Request, corsHeaders: Record<string, string>)
     errorParams.set('error', 'line_callback_error')
     errorParams.set('error_description', errorMessage)
 
-    // 只支持 'app' platform
-    const errorUrl = FRONTEND_DEEP_LINK
-      ? `${FRONTEND_DEEP_LINK}?${errorParams.toString()}`
-      : `${FRONTEND_URL}/auth?${errorParams.toString()}`
+    // 只支持 'app' platform，必須使用 Deep Link
+    const errorUrl = `${FRONTEND_DEEP_LINK}?${errorParams.toString()}`
     // 對於 POST 請求，返回 JSON 響應以避免 CORS 問題
     if (req.method === 'POST') {
       return new Response(

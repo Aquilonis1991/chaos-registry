@@ -42,14 +42,9 @@ Deno.serve(async (req) => {
   })
 
   // 決定重定向目標
-  // 優先使用 Deep Link（APP），這樣可以保持 APP 的 context
-  // 注意：LINE 登入目前只支援 APP，所以默認應該重定向到 Deep Link
-  let redirectBase = FRONTEND_DEEP_LINK
-
-  // 如果明確指定了 source=web（未來擴展），則重定向到網頁
-  if (url.searchParams.get('source') === 'web') {
-    redirectBase = `${FRONTEND_URL}/auth/callback`
-  }
+  // LINE 登入目前只支援 APP，所以必須使用 Deep Link，避免網頁與 App 混淆
+  // 根據 LINE登入修復完整報告.md 的建議：完全使用 Deep Link，避免 Context 丟失
+  const redirectBase = FRONTEND_DEEP_LINK
 
   // 構建回調 URL
   const targetUrl = new URL(redirectBase)

@@ -4,11 +4,6 @@ const config: CapacitorConfig = {
   appId: 'com.votechaos.app',
   appName: 'ChaosRegistry',
   webDir: 'dist',
-  server: {
-    // 回歸原本設定：使用 https://localhost 作為 WebView origin（先前已測試可用的第三方登入設定）
-    androidScheme: 'https',
-    iosScheme: 'https'
-  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 0,

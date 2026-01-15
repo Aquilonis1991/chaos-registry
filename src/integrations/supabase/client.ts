@@ -2,39 +2,33 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
+// 從環境變數讀取，強制要求設置（安全改進：移除硬編碼的 API Key）
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-// 檢查環境變數是否設置
+// 驗證環境變數是否設置
 if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
   const errorMsg = `
 ❌ Supabase 環境變數未設置！
 
 請在專案根目錄創建 .env.local 檔案，內容如下：
 
-VITE_SUPABASE_URL=https://epyykzxxglkjombvozhr.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=您的API_Key
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
 
 然後重新啟動開發伺服器（npm run dev）
-  `;
-  console.error(errorMsg);
-  
-  // 在開發環境中顯示錯誤頁面
-  if (import.meta.env.DEV) {
-    document.body.innerHTML = `
-      <div style="padding: 20px; font-family: monospace; background: #fee; border: 2px solid #f00; margin: 20px;">
-        <h1 style="color: #c00;">❌ 環境變數未設置</h1>
-        <p>請檢查 .env.local 檔案是否存在並包含正確的 Supabase 配置。</p>
-        <pre style="background: #fff; padding: 10px; border: 1px solid #ccc; margin-top: 10px;">
-VITE_SUPABASE_URL=https://epyykzxxglkjombvozhr.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=您的API_Key
-        </pre>
-      </div>
+
+注意：為了安全，不再使用硬編碼的默認值。
     `;
-  }
   
-  // 創建一個假的 client 以避免應用崩潰
-  throw new Error('Supabase environment variables are not set');
+  if (import.meta.env.DEV) {
+    console.error(errorMsg);
+    throw new Error('VITE_SUPABASE_URL 和 VITE_SUPABASE_PUBLISHABLE_KEY 環境變數必須設置');
+  } else {
+    // 生產環境也應該拋出錯誤，而不是使用默認值
+    console.error('[Supabase Client] 環境變數未設置');
+    throw new Error('Supabase 環境變數未配置');
+  }
 }
 
 // Import the supabase client like this:

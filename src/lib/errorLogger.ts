@@ -235,20 +235,19 @@ export const clearLocalErrorLogs = (): void => {
 };
 
 /**
- * 全局錯誤處理器
+ * 全局錯誤處理器（改進：返回清理函數，防止記憶體洩漏）
  */
 export const setupGlobalErrorHandlers = () => {
-  // 捕獲未處理的 Promise 錯誤
-  window.addEventListener('unhandledrejection', (event) => {
+  // 定義處理函數（必須是命名函數，才能正確移除監聽器）
+  const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
     console.error('Unhandled promise rejection:', event.reason);
     logError(event.reason, ErrorLevel.ERROR, ErrorType.UNKNOWN, {
       type: 'unhandledRejection',
       promise: String(event.promise),
     });
-  });
+  };
 
-  // 捕獲全局錯誤
-  window.addEventListener('error', (event) => {
+  const handleError = (event: ErrorEvent) => {
     console.error('Global error:', event.error);
     logError(event.error || event.message, ErrorLevel.ERROR, ErrorType.UNKNOWN, {
       type: 'globalError',
@@ -256,9 +255,20 @@ export const setupGlobalErrorHandlers = () => {
       lineno: event.lineno,
       colno: event.colno,
     });
-  });
+  };
+
+  // 添加監聽器
+  window.addEventListener('unhandledrejection', handleUnhandledRejection);
+  window.addEventListener('error', handleError);
 
   console.log('Global error handlers set up');
+
+  // 返回清理函數
+  return () => {
+    window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    window.removeEventListener('error', handleError);
+    console.log('Global error handlers cleaned up');
+  };
 };
 
 /**

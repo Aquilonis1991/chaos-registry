@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 
 /**
  * 防止異步操作重複執行的 Hook
@@ -7,6 +7,8 @@ import { useState, useCallback } from 'react';
 export const useAsyncAction = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  // 使用 useRef 來追蹤 loading 狀態，避免依賴問題
+  const loadingRef = React.useRef(false);
 
   const execute = useCallback(async <T,>(
     action: () => Promise<T>,
@@ -16,12 +18,13 @@ export const useAsyncAction = () => {
       onFinally?: () => void;
     }
   ): Promise<T | null> => {
-    // 如果正在執行，直接返回
-    if (loading) {
+    // 如果正在執行，直接返回（使用 ref 檢查，避免閉包問題）
+    if (loadingRef.current) {
       console.warn('Action already in progress, skipping');
       return null;
     }
 
+    loadingRef.current = true;
     setLoading(true);
     setError(null);
 
@@ -35,10 +38,11 @@ export const useAsyncAction = () => {
       options?.onError?.(error);
       return null;
     } finally {
+      loadingRef.current = false;
       setLoading(false);
       options?.onFinally?.();
     }
-  }, [loading]);
+  }, []); // 移除 loading 依賴，使用 ref 來追蹤狀態
 
   const reset = useCallback(() => {
     setLoading(false);

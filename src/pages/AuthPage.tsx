@@ -256,16 +256,28 @@ const AuthPage = () => {
     }
   };
 
-  const handleSocialLogin = async (provider: 'google' | 'apple' | 'discord') => {
+  const handleSocialLogin = async (provider: 'google' | 'apple' | 'discord' | 'x') => {
     try {
+      // X (Twitter) 需要簡化 scope，移除 tweet.read（可能需要審核）
+      const oauthOptions: {
+        redirectTo: string;
+        scopes?: string;
+      } = {
+        // 回歸原本設計：
+        // - App：使用 Deep Link 回調（由 OAuthCallbackHandler 解析 token 並 setSession）
+        // - Web：回到網站 /home（Supabase 會自動在 hash 建立 session）
+        redirectTo: isNative() ? appDeepLinkCallback : `${publicSiteUrl}/home`,
+      };
+
+      // 為 X provider 簡化 scope，只使用基本登入權限
+      if (provider === 'x') {
+        // 移除 tweet.read（可能需要審核），只保留基本登入所需權限
+        oauthOptions.scopes = 'users.read users.email offline.access';
+      }
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
-        options: {
-          // 回歸原本設計：
-          // - App：使用 Deep Link 回調（由 OAuthCallbackHandler 解析 token 並 setSession）
-          // - Web：回到網站 /home（Supabase 會自動在 hash 建立 session）
-          redirectTo: isNative() ? appDeepLinkCallback : `${publicSiteUrl}/home`,
-        },
+        options: oauthOptions,
       });
 
       if (error) {
@@ -273,6 +285,7 @@ const AuthPage = () => {
           google: 'Google',
           apple: 'Apple',
           discord: 'Discord',
+          x: 'X (Twitter)',
         };
         const providerName = providerNames[provider] || provider;
         const socialLoginErrorTemplate = getText('auth_social_login_error', '{{provider}}登入失敗');
@@ -283,35 +296,90 @@ const AuthPage = () => {
     }
   };
 
-  const handleEdgeSocialLogin = async (provider: 'line' | 'twitter') => {
+  const handleEdgeSocialLogin = async (provider: 'line') => {
     try {
-      const platform = isNative() ? 'app' : 'web';
-      const functionName = provider === 'line' ? 'line-auth' : 'twitter-auth';
+      console.log(`[AuthPage] handleEdgeSocialLogin called for provider: ${provider}`);
+      console.log(`[AuthPage] isNative(): ${isNative()}`);
       
-      // 使用 Supabase Client 的 functions.invoke 方法，會自動處理授權
-      // 注意：Edge Function 需要接受 POST 請求並從 body 中讀取 platform
-      const { data, error } = await supabase.functions.invoke(functionName, {
-        body: { 
-          action: 'auth',
-          platform: platform 
-        },
-      });
-      
-      if (error) {
-        console.error(`[${provider}] Edge Function error:`, error);
-        throw error;
+      // 只支持 APP 登入（網頁版不支持 LINE 登入）
+      if (!isNative()) {
+        toast.error('LINE 登入僅支持 APP 版本');
+        return;
       }
       
+      const platform = 'app'; // 強制使用 'app'
+      const functionName = 'line-auth';
+      
+      console.log(`[AuthPage] Platform: ${platform}, Function: ${functionName}`);
+      
+      // ✅ 根本修復：不使用 supabase.functions.invoke，而是直接使用 fetch
+      // 原因：supabase.functions.invoke 在內部使用 fetch，瀏覽器會發送 OPTIONS 預檢請求
+      // 但 Supabase 的路由層可能在我們的代碼執行前就處理了 OPTIONS，導致 CORS 錯誤
+      // 直接使用 fetch 可以確保 OPTIONS 請求被我們的 Edge Function 正確處理
+      console.log(`[AuthPage] Calling Edge Function via direct fetch: ${functionName}`);
+      
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://epyykzxxglkjombvozhr.supabase.co';
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
+      
+      // 獲取 session token（如果有的話，LINE 登入時可能還沒有 session）
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token || supabaseAnonKey;
+      
+      // 構建 Edge Function URL
+      const edgeFunctionUrl = `${supabaseUrl}/functions/v1/${functionName}`;
+      
+      console.log(`[AuthPage] Edge Function URL: ${edgeFunctionUrl}`);
+      console.log(`[AuthPage] Has session token: ${!!session?.access_token}`);
+      
+      // 使用 fetch 直接調用 Edge Function
+      const response = await fetch(edgeFunctionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+          'apikey': supabaseAnonKey,
+        },
+        body: JSON.stringify({
+          action: 'auth',
+          platform: platform
+        }),
+      });
+      
+      console.log(`[AuthPage] Edge Function response status: ${response.status}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[AuthPage] Edge Function error: ${response.status} - ${errorText}`);
+        throw new Error(`Edge Function error: ${response.status} - ${errorText}`);
+      }
+      
+      const data = await response.json();
+      console.log(`[AuthPage] Edge Function response received:`, data);
+      
       const authUrl = data?.authUrl;
+      console.log(`[AuthPage] Auth URL:`, authUrl);
+      
       if (!authUrl) {
+        console.error(`[AuthPage] Edge Function 未返回 authUrl, data:`, data);
         throw new Error('Edge Function 未返回 authUrl');
       }
 
-      // 交給 provider 的 OAuth 頁面（LINE/Twitter 會再回到 Edge Function callback，最後回到 Deep Link / Web）
-      window.location.href = authUrl;
+      console.log(`[AuthPage] Redirecting to OAuth page: ${authUrl}`);
+      
+      // 在 App 環境中，直接使用 window.location.href 在當前 WebView 中打開
+      // WebView 配置已經設置了 setSupportMultipleWindows(false) 和 WebChromeClient
+      // 這樣可以防止打開新分頁，並且可以正確處理回調
+      if (isNative()) {
+        console.log('[AuthPage] Opening OAuth page in current WebView (window.location.href)');
+        // 直接使用 window.location.href，WebView 配置會防止打開新分頁
+        window.location.href = authUrl;
+      } else {
+        // Web 環境，直接使用 window.location.href
+        window.location.href = authUrl;
+      }
     } catch (err: any) {
-      console.error(`[${provider}] Login error:`, err);
-      const providerName = provider === 'line' ? 'LINE' : 'X (Twitter)';
+      console.error(`[AuthPage] [${provider}] Login error:`, err);
+      const providerName = 'LINE';
       toast.error(getText('auth_social_login_error', '{{provider}}登入失敗').replace('{{provider}}', providerName), {
         description: err?.message || '未知錯誤'
       });
@@ -441,12 +509,13 @@ const AuthPage = () => {
                     </svg>
                   </Button>
 
+                  {/* X (Twitter) 使用 Supabase 內建 Provider，支持網頁版和 APP 版 */}
                   <Button
                     type="button"
                     variant="outline"
                     size="icon"
                     className="h-14 w-14 sm:h-12 sm:w-12 rounded-full touch-manipulation"
-                    onClick={() => handleEdgeSocialLogin('twitter')}
+                    onClick={() => handleSocialLogin('x')}
                     title={getText('auth_twitter_login', '使用 X (Twitter) 登入')}
                   >
                     {/* X / Twitter */}
@@ -455,18 +524,21 @@ const AuthPage = () => {
                     </svg>
                   </Button>
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-14 w-14 sm:h-12 sm:w-12 rounded-full touch-manipulation"
-                    onClick={() => handleEdgeSocialLogin('line')}
-                    title={getText('auth_line_login', '使用 LINE 登入')}
-                  >
-                    <svg className="h-7 w-7 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.029-.199.029-.211 0-.391-.09-.51-.25l-2.443-3.317v2.942c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.029.194-.029.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.086.766.062 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314" />
-                    </svg>
-                  </Button>
+                  {/* LINE 登入僅支持 APP 版本 */}
+                  {isNative() && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-14 w-14 sm:h-12 sm:w-12 rounded-full touch-manipulation"
+                      onClick={() => handleEdgeSocialLogin('line')}
+                      title={getText('auth_line_login', '使用 LINE 登入')}
+                    >
+                      <svg className="h-7 w-7 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.029-.199.029-.211 0-.391-.09-.51-.25l-2.443-3.317v2.942c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.029.194-.029.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.086.766.062 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314" />
+                      </svg>
+                    </Button>
+                  )}
                 </div>
               </form>
             </TabsContent>

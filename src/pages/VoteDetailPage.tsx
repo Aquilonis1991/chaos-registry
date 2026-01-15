@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -63,6 +63,17 @@ const VoteDetailPage = () => {
   const [pendingVoteAmount, setPendingVoteAmount] = useState<number | null>(null);
   const [pendingVoteSource, setPendingVoteSource] = useState<'quick' | 'custom' | null>(null);
 
+  // 使用 useCallback 包裝 checkFreeVoteAvailable，使其穩定（改進：修復依賴問題）
+  const checkFreeVote = useCallback(async (topicId: string) => {
+    if (!topicId) return false;
+    try {
+      return await checkFreeVoteAvailable(topicId);
+    } catch (error) {
+      console.error('Error checking free vote:', error);
+      return false;
+    }
+  }, [checkFreeVoteAvailable]);
+
   const selectOptionText = getText('vote.detail.error.selectOption', '請先選擇一個選項');
   const loginRequiredTitle = getText('vote.detail.error.loginRequired.title', '需要註冊才能投票');
   const loginRequiredDescription = getText('vote.detail.error.loginRequired.description', '請先註冊帳號以參與投票');
@@ -101,11 +112,11 @@ const VoteDetailPage = () => {
   const confirmDialogCancelText = getText('vote.detail.confirm.cancel', '取消');
   const confirmDialogConfirmText = getText('vote.detail.confirm.confirm', '確認投入');
 
-  // Check free vote availability when component mounts
+  // Check free vote availability when component mounts（改進：使用穩定的 checkFreeVote）
   useEffect(() => {
     if (user && !isAnonymous && id) {
       setCheckingFreeVote(true);
-      checkFreeVoteAvailable(id)
+      checkFreeVote(id)
         .then(setFreeVoteAvailable)
         .catch((error) => {
           console.error('Error checking free vote:', error);
@@ -116,7 +127,7 @@ const VoteDetailPage = () => {
       setFreeVoteAvailable(false);
       setCheckingFreeVote(false);
     }
-  }, [user, isAnonymous, id]); // 移除 checkFreeVoteAvailable 避免無限循環
+  }, [user, isAnonymous, id, checkFreeVote]); // 添加 checkFreeVote 到依賴數組
 
   const handleVote = async (tokenAmount: number) => {
     if (!selectedOption) {

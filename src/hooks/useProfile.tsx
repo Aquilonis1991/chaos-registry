@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { toast } from "sonner";
@@ -34,7 +34,7 @@ export const useProfile = () => {
       if (showLoading || !profile) {
         setLoading(true);
       }
-      
+
       // Fetch full profile data for authenticated user
       const { data, error } = await supabase
         .from('profiles')
@@ -85,7 +85,7 @@ export const useProfile = () => {
           // 注意：實時訂閱的數據是權威來源，會直接覆蓋任何樂觀更新
           // 這是正確的行為，確保最終一致性
           const newProfile = payload.new as Profile;
-          
+
           // 靜默更新，不觸發任何 toast 或副作用
           // toast 應該只在用戶操作成功時顯示一次（在 MissionPage 中）
           setProfile(newProfile);
@@ -101,7 +101,7 @@ export const useProfile = () => {
   // 樂觀更新代幣數量（用於立即更新 UI）
   // 注意：此更新會被實時訂閱覆蓋，所以不會導致重複更新
   // 實時訂閱會在數據庫更新時自動同步，確保最終一致性
-  const updateTokensOptimistically = (delta: number) => {
+  const updateTokensOptimistically = useCallback((delta: number) => {
     setProfile((currentProfile) => {
       if (currentProfile) {
         const newTokens = Math.max(0, (currentProfile.tokens || 0) + delta);
@@ -112,12 +112,12 @@ export const useProfile = () => {
       }
       return currentProfile;
     });
-  };
+  }, []);
 
   // refreshProfile 包裝函數，不顯示 loading（用於背景刷新）
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     await fetchProfile(false);
-  };
+  }, [fetchProfile]);
 
   return { profile, loading, refreshProfile, updateTokensOptimistically };
 };

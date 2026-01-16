@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { TimeFilterOption, getStartDateFromFilter } from "@/components/TimeFilter";
 
 export interface VoteHistory {
   id: string;
@@ -12,6 +13,12 @@ export interface VoteHistory {
   voted_at: string;
   topic_status: string;
   topic_tags: string[];
+}
+
+interface UseVoteHistoryOptions {
+  userId: string | undefined;
+  timeFilter?: TimeFilterOption | null;
+  isAdmin?: boolean;
 }
 
 const resolveOptionText = (topicOptions: any[] | undefined, selectedOption: string | null) => {
@@ -44,20 +51,11 @@ const resolveOptionText = (topicOptions: any[] | undefined, selectedOption: stri
   return matchedOption.text || normalizedSelected;
 };
 
-export const useVoteHistory = (userId: string | undefined) => {
+export const useVoteHistory = (userId: string | undefined, options?: { timeFilter?: TimeFilterOption | null; isAdmin?: boolean }) => {
+  const { timeFilter = null, isAdmin = false } = options || {};
   const [history, setHistory] = useState<VoteHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!userId) {
-      setHistory([]);
-      setLoading(false);
-      return;
-    }
-
-    fetchVoteHistory();
-  }, [userId]);
 
   const fetchVoteHistory = async () => {
     if (!userId) return;
@@ -66,8 +64,16 @@ export const useVoteHistory = (userId: string | undefined) => {
       setLoading(true);
       setError(null);
 
-      // 獲取代幣投票記錄（從 votes 表）
-      const { data: votes, error: votesError } = await supabase
+      // 計算時間篩選條件
+      const startDate = getStartDateFromFilter(timeFilter);
+      
+      // 如果不是管理員，限制查詢範圍在1年內
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      const minDate = !isAdmin ? oneYearAgo : null;
+
+      // 構建時間查詢條件
+      let votesQuery = supabase
         .from('votes')
         .select(`
           id,
@@ -82,7 +88,20 @@ export const useVoteHistory = (userId: string | undefined) => {
             options
           )
         `)
-        .eq('user_id', userId)
+        .eq('user_id', userId);
+
+      // 應用時間篩選
+      if (startDate) {
+        votesQuery = votesQuery.gte('created_at', startDate.toISOString());
+      }
+      
+      // 如果不是管理員，限制在1年內
+      if (minDate) {
+        const effectiveMinDate = startDate && startDate > minDate ? startDate : minDate;
+        votesQuery = votesQuery.gte('created_at', effectiveMinDate.toISOString());
+      }
+
+      const { data: votes, error: votesError } = await votesQuery
         .order('created_at', { ascending: false });
 
       if (votesError) {
@@ -90,7 +109,7 @@ export const useVoteHistory = (userId: string | undefined) => {
       }
 
       // 獲取免費投票記錄
-      const { data: freeVotes, error: freeVotesError } = await supabase
+      let freeVotesQuery = supabase
         .from('free_votes')
         .select(`
           id,
@@ -104,7 +123,20 @@ export const useVoteHistory = (userId: string | undefined) => {
             options
           )
         `)
-        .eq('user_id', userId)
+        .eq('user_id', userId);
+
+      // 應用時間篩選
+      if (startDate) {
+        freeVotesQuery = freeVotesQuery.gte('used_at', startDate.toISOString());
+      }
+      
+      // 如果不是管理員，限制在1年內
+      if (minDate) {
+        const effectiveMinDate = startDate && startDate > minDate ? startDate : minDate;
+        freeVotesQuery = freeVotesQuery.gte('used_at', effectiveMinDate.toISOString());
+      }
+
+      const { data: freeVotes, error: freeVotesError } = await freeVotesQuery
         .order('used_at', { ascending: false });
 
       if (freeVotesError) {
@@ -154,6 +186,17 @@ export const useVoteHistory = (userId: string | undefined) => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!userId) {
+      setHistory([]);
+      setLoading(false);
+      return;
+    }
+
+    fetchVoteHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, timeFilter, isAdmin]);
 
   const refreshHistory = () => {
     fetchVoteHistory();

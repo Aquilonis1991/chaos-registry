@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { TimeFilterOption, getStartDateFromFilter } from "@/components/TimeFilter";
 
 export interface TopicHistory {
   id: string;
@@ -21,7 +22,8 @@ export interface TopicHistory {
   }>;
 }
 
-export const useTopicHistory = (userId: string | undefined) => {
+export const useTopicHistory = (userId: string | undefined, options?: { timeFilter?: TimeFilterOption | null; isAdmin?: boolean }) => {
+  const { timeFilter = null, isAdmin = false } = options || {};
   const [topics, setTopics] = useState<TopicHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +36,8 @@ export const useTopicHistory = (userId: string | undefined) => {
     }
 
     fetchTopicHistory();
-  }, [userId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, timeFilter, isAdmin]);
 
   const fetchTopicHistory = async () => {
     if (!userId) return;
@@ -43,10 +46,32 @@ export const useTopicHistory = (userId: string | undefined) => {
       setLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
+      // 計算時間篩選條件
+      const startDate = getStartDateFromFilter(timeFilter);
+      
+      // 如果不是管理員，限制查詢範圍在1年內
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      const minDate = !isAdmin ? oneYearAgo : null;
+
+      // 構建查詢
+      let query = supabase
         .from('topics')
         .select('*')
-        .eq('creator_id', userId)
+        .eq('creator_id', userId);
+
+      // 應用時間篩選
+      if (startDate) {
+        query = query.gte('created_at', startDate.toISOString());
+      }
+      
+      // 如果不是管理員，限制在1年內
+      if (minDate) {
+        const effectiveMinDate = startDate && startDate > minDate ? startDate : minDate;
+        query = query.gte('created_at', effectiveMinDate.toISOString());
+      }
+
+      const { data, error: fetchError } = await query
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;

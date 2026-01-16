@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TopicCard } from "@/components/TopicCard";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Coins, Loader2 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { AnnouncementCarousel } from "@/components/AnnouncementCarousel";
 import { SearchBar } from "@/components/SearchBar";
 import { Logo } from "@/components/Logo";
@@ -18,6 +18,7 @@ import { insertAdsIntoList } from "@/lib/adInsertion";
 
 const HomePage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { profile } = useProfile();
   const { language } = useLanguage();
@@ -25,21 +26,48 @@ const HomePage = () => {
   const { getConfig, loading: configLoading, configs } = useSystemConfigCache();
   const [currentTab, setCurrentTab] = useState<'hot' | 'latest' | 'joined'>('hot');
   
+  // 當從其他頁面回到首頁時，確保 Intersection Observer 重新設置
+  useEffect(() => {
+    // 當 location.pathname 變為 /home 時，表示回到了首頁
+    // 這會觸發 Intersection Observer 的重新設置
+  }, [location.pathname]);
+  
   // 注意：配置緩存會在首次加載時自動獲取，不需要每次掛載都刷新
   // 如果需要強制刷新配置，可以在特定場景下手動調用 refreshConfigs()
   
-  // 根據當前標籤獲取主題
-  const { topics: hotTopics, loading: hotLoading } = useTopics({ 
+  // 根據當前標籤獲取主題（啟用無限滾動）
+  const { 
+    topics: hotTopics, 
+    loading: hotLoading, 
+    loadingMore: hotLoadingMore,
+    hasMore: hotHasMore,
+    loadMore: hotLoadMore 
+  } = useTopics({ 
     filter: 'hot', 
-    limit: 20 
+    limit: 20,
+    enableInfiniteScroll: true
   });
-  const { topics: latestTopics, loading: latestLoading } = useTopics({ 
+  const { 
+    topics: latestTopics, 
+    loading: latestLoading,
+    loadingMore: latestLoadingMore,
+    hasMore: latestHasMore,
+    loadMore: latestLoadMore
+  } = useTopics({ 
     filter: 'latest', 
-    limit: 20 
+    limit: 20,
+    enableInfiniteScroll: true
   });
-  const { topics: joinedTopics, loading: joinedLoading } = useTopics({ 
+  const { 
+    topics: joinedTopics, 
+    loading: joinedLoading,
+    loadingMore: joinedLoadingMore,
+    hasMore: joinedHasMore,
+    loadMore: joinedLoadMore
+  } = useTopics({ 
     filter: 'joined', 
-    userId: user?.id 
+    userId: user?.id,
+    enableInfiniteScroll: true
   });
 
   const promotedLimitConfig = getConfig('home_promoted_limit', 30);
@@ -101,6 +129,123 @@ const HomePage = () => {
   }, [adInsertionEnabled, adInsertionInterval, adInsertionSkipFirst, adUnitId]);
 
   const userTokens = profile?.tokens || 0;
+
+  // 無限滾動：Intersection Observer refs
+  const hotLoadMoreRef = useRef<HTMLDivElement>(null);
+  const latestLoadMoreRef = useRef<HTMLDivElement>(null);
+  const joinedLoadMoreRef = useRef<HTMLDivElement>(null);
+
+  // 無限滾動：載入更多處理
+  const handleHotLoadMore = useCallback(() => {
+    if (hotHasMore && !hotLoadingMore && !hotLoading) {
+      hotLoadMore();
+    }
+  }, [hotHasMore, hotLoadingMore, hotLoading, hotLoadMore]);
+
+  const handleLatestLoadMore = useCallback(() => {
+    if (latestHasMore && !latestLoadingMore && !latestLoading) {
+      latestLoadMore();
+    }
+  }, [latestHasMore, latestLoadingMore, latestLoading, latestLoadMore]);
+
+  const handleJoinedLoadMore = useCallback(() => {
+    if (joinedHasMore && !joinedLoadingMore && !joinedLoading) {
+      joinedLoadMore();
+    }
+  }, [joinedHasMore, joinedLoadingMore, joinedLoading, joinedLoadMore]);
+
+  // 無限滾動：設置 Intersection Observer
+  // 只在當前標籤頁顯示時才設置 Observer，確保從其他頁面回來時能正常工作
+  // 添加 location.pathname 作為依賴，確保從其他頁面回來時重新設置
+  useEffect(() => {
+    // 只在熱門標籤頁顯示時設置 Observer
+    if (currentTab !== 'hot') return;
+
+    let observer: IntersectionObserver | null = null;
+    let timer: NodeJS.Timeout | null = null;
+
+    // 使用 setTimeout 確保 DOM 已更新
+    timer = setTimeout(() => {
+      const element = hotLoadMoreRef.current;
+      if (!element || !hotHasMore) return;
+
+      observer = new IntersectionObserver(
+        (entries) => {
+          if (entries[0].isIntersecting && hotHasMore && !hotLoadingMore && !hotLoading) {
+            handleHotLoadMore();
+          }
+        },
+        { threshold: 0.1, rootMargin: '100px' }
+      );
+
+      observer.observe(element);
+    }, 100);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      if (observer) observer.disconnect();
+    };
+  }, [currentTab, location.pathname, hotHasMore, hotLoadingMore, hotLoading, handleHotLoadMore]);
+
+  useEffect(() => {
+    // 只在最新標籤頁顯示時設置 Observer
+    if (currentTab !== 'latest') return;
+
+    let observer: IntersectionObserver | null = null;
+    let timer: NodeJS.Timeout | null = null;
+
+    // 使用 setTimeout 確保 DOM 已更新
+    timer = setTimeout(() => {
+      const element = latestLoadMoreRef.current;
+      if (!element || !latestHasMore) return;
+
+      observer = new IntersectionObserver(
+        (entries) => {
+          if (entries[0].isIntersecting && latestHasMore && !latestLoadingMore && !latestLoading) {
+            handleLatestLoadMore();
+          }
+        },
+        { threshold: 0.1, rootMargin: '100px' }
+      );
+
+      observer.observe(element);
+    }, 100);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      if (observer) observer.disconnect();
+    };
+  }, [currentTab, location.pathname, latestHasMore, latestLoadingMore, latestLoading, handleLatestLoadMore]);
+
+  useEffect(() => {
+    // 只在參與過標籤頁顯示時設置 Observer
+    if (currentTab !== 'joined') return;
+
+    let observer: IntersectionObserver | null = null;
+    let timer: NodeJS.Timeout | null = null;
+
+    // 使用 setTimeout 確保 DOM 已更新
+    timer = setTimeout(() => {
+      const element = joinedLoadMoreRef.current;
+      if (!element || !joinedHasMore) return;
+
+      observer = new IntersectionObserver(
+        (entries) => {
+          if (entries[0].isIntersecting && joinedHasMore && !joinedLoadingMore && !joinedLoading) {
+            handleJoinedLoadMore();
+          }
+        },
+        { threshold: 0.1, rootMargin: '100px' }
+      );
+
+      observer.observe(element);
+    }, 100);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      if (observer) observer.disconnect();
+    };
+  }, [currentTab, location.pathname, joinedHasMore, joinedLoadingMore, joinedLoading, handleJoinedLoadMore]);
 
   const handleSearchSubmit = (term: string) => {
     const sanitized = term.trim();
@@ -242,6 +387,17 @@ const HomePage = () => {
                     )}
                   </div>
                 )}
+                {/* 無限滾動觸發元素 */}
+                {hotHasMore && (
+                  <div ref={hotLoadMoreRef} className="py-4">
+                    {hotLoadingMore && (
+                      <div className="flex justify-center items-center gap-2 text-muted-foreground">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span className="text-sm">{getText('common.state.loading', '載入中...')}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </TabsContent>
@@ -280,6 +436,17 @@ const HomePage = () => {
                   ),
                   { ...adConfig, adIndex: 100 }
                 )}
+                {/* 無限滾動觸發元素 */}
+                {latestHasMore && (
+                  <div ref={latestLoadMoreRef} className="py-4">
+                    {latestLoadingMore && (
+                      <div className="flex justify-center items-center gap-2 text-muted-foreground">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span className="text-sm">{getText('common.state.loading', '載入中...')}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </TabsContent>
@@ -317,6 +484,17 @@ const HomePage = () => {
                     </div>
                   ),
                   { ...adConfig, adIndex: 200 }
+                )}
+                {/* 無限滾動觸發元素 */}
+                {joinedHasMore && (
+                  <div ref={joinedLoadMoreRef} className="py-4">
+                    {joinedLoadingMore && (
+                      <div className="flex justify-center items-center gap-2 text-muted-foreground">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span className="text-sm">{getText('common.state.loading', '載入中...')}</span>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             )}

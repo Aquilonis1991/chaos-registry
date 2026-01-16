@@ -63,17 +63,6 @@ const VoteDetailPage = () => {
   const [pendingVoteAmount, setPendingVoteAmount] = useState<number | null>(null);
   const [pendingVoteSource, setPendingVoteSource] = useState<'quick' | 'custom' | null>(null);
 
-  // 使用 useCallback 包裝 checkFreeVoteAvailable，使其穩定（改進：修復依賴問題）
-  const checkFreeVote = useCallback(async (topicId: string) => {
-    if (!topicId) return false;
-    try {
-      return await checkFreeVoteAvailable(topicId);
-    } catch (error) {
-      console.error('Error checking free vote:', error);
-      return false;
-    }
-  }, [checkFreeVoteAvailable]);
-
   const selectOptionText = getText('vote.detail.error.selectOption', '請先選擇一個選項');
   const loginRequiredTitle = getText('vote.detail.error.loginRequired.title', '需要註冊才能投票');
   const loginRequiredDescription = getText('vote.detail.error.loginRequired.description', '請先註冊帳號以參與投票');
@@ -112,11 +101,11 @@ const VoteDetailPage = () => {
   const confirmDialogCancelText = getText('vote.detail.confirm.cancel', '取消');
   const confirmDialogConfirmText = getText('vote.detail.confirm.confirm', '確認投入');
 
-  // Check free vote availability when component mounts（改進：使用穩定的 checkFreeVote）
+  // Check free vote availability when component mounts
   useEffect(() => {
     if (user && !isAnonymous && id) {
       setCheckingFreeVote(true);
-      checkFreeVote(id)
+      checkFreeVoteAvailable(id)
         .then(setFreeVoteAvailable)
         .catch((error) => {
           console.error('Error checking free vote:', error);
@@ -127,7 +116,7 @@ const VoteDetailPage = () => {
       setFreeVoteAvailable(false);
       setCheckingFreeVote(false);
     }
-  }, [user, isAnonymous, id, checkFreeVote]); // 添加 checkFreeVote 到依賴數組
+  }, [user, isAnonymous, id, checkFreeVoteAvailable]);
 
   const handleVote = async (tokenAmount: number) => {
     if (!selectedOption) {

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Loader2, Coins, Gift, Calendar } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -5,13 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useVoteHistory } from "@/hooks/useVoteHistory";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdmin } from "@/hooks/useAdmin";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { formatRelativeTime } from "@/lib/relativeTime";
+import { TimeFilter, TimeFilterOption } from "@/components/TimeFilter";
 
 const VoteHistoryPage = () => {
   const { user } = useAuth();
-  const { history, loading } = useVoteHistory(user?.id);
+  const { isAdmin } = useAdmin();
+  const [timeFilter, setTimeFilter] = useState<TimeFilterOption | null>(null);
+  const { history, loading } = useVoteHistory(user?.id, { timeFilter, isAdmin: isAdmin || false });
   const { language } = useLanguage();
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
 
@@ -37,16 +42,24 @@ const VoteHistoryPage = () => {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg">
         <div className="max-w-screen-xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Link to="/profile">
-              <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/20">
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-xl font-bold text-primary-foreground">{headerTitle}</h1>
-              <p className="text-sm text-primary-foreground/80">{headerSubtitle}</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Link to="/profile">
+                <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/20">
+                  <ArrowLeft className="w-5 h-5" />
+                </Button>
+              </Link>
+              <div>
+                <h1 className="text-xl font-bold text-primary-foreground">{headerTitle}</h1>
+                <p className="text-sm text-primary-foreground/80">{headerSubtitle}</p>
+              </div>
             </div>
+            <TimeFilter
+              value={timeFilter}
+              onChange={setTimeFilter}
+              isAdmin={isAdmin || false}
+              className="bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground border-primary-foreground/30"
+            />
           </div>
         </div>
       </header>

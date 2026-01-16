@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useProfile } from "@/hooks/useProfile";
@@ -16,7 +17,7 @@ const stringifyError = (error: any) => {
 export const useVoteOperations = () => {
   const { updateTokensOptimistically, refreshProfile } = useProfile();
 
-  const castVote = async (topicId: string, option: string, amount: number) => {
+  const castVote = useCallback(async (topicId: string, option: string, amount: number) => {
     // 直接使用安全的資料庫函數（不使用 Edge Function）
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -225,9 +226,9 @@ export const useVoteOperations = () => {
       }
       throw error;
     }
-  };
+  }, [updateTokensOptimistically, refreshProfile, getText]);
 
-  const castFreeVote = async (topicId: string, option: string) => {
+  const castFreeVote = useCallback(async (topicId: string, option: string) => {
     // 直接使用安全的資料庫函數（不使用 Edge Function）
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -291,7 +292,7 @@ export const useVoteOperations = () => {
         const freeVoteDesc = getText('tokenHistory.description.freeVoteWithOption', '免費投票：{{title}} - 選項：{{option}}')
           .replace('{{title}}', topic?.title || getText('tokenHistory.description.unknownTopic', '未知主題'))
           .replace('{{option}}', optionLabel);
-        
+
         const { data: txId, error: transError } = await (supabase.rpc as any)('log_token_transaction', {
           p_user_id: user.id,
           p_amount: 0,
@@ -345,9 +346,9 @@ export const useVoteOperations = () => {
       }
       throw error;
     }
-  };
+  }, [getText]);
 
-  const checkFreeVoteAvailable = async (topicId: string): Promise<boolean> => {
+  const checkFreeVoteAvailable = useCallback(async (topicId: string): Promise<boolean> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return false;
@@ -374,7 +375,7 @@ export const useVoteOperations = () => {
       console.error('Error checking free vote:', error);
       return false;
     }
-  };
+  }, []);
 
   return { castVote, castFreeVote, checkFreeVoteAvailable };
 };

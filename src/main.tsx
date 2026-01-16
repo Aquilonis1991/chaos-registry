@@ -41,8 +41,18 @@ setTimeout(async () => {
         } catch (admobError) {
           console.error('AdMob initialization failed:', admobError);
         }
+
+        // 2.2 初始化購買服務（Google Play / App Store）
+        try {
+          const { purchaseService } = await import("./lib/purchase");
+          await purchaseService.initialize();
+          console.log('Purchase service initialized');
+        } catch (purchaseError) {
+          console.error('Purchase service initialization failed:', purchaseError);
+        }
       } else {
         console.log('AdMob initialization skipped (web platform)');
+        console.log('Purchase service initialization skipped (web platform)');
       }
     } catch (error) {
       console.error('Capacitor initialization failed:', error);

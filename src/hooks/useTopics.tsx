@@ -35,24 +35,47 @@ interface UseTopicsOptions {
   filter?: 'hot' | 'latest' | 'joined' | 'all';
   limit?: number;
   userId?: string;
+  enableInfiniteScroll?: boolean; // 是否啟用無限滾動
 }
 
 export const useTopics = (options: UseTopicsOptions = {}) => {
-  const { filter = 'all', limit = 20, userId } = options;
+  const { filter = 'all', limit = 20, userId, enableInfiniteScroll = false } = options;
   const [topics, setTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
+  const [allJoinedTopicIds, setAllJoinedTopicIds] = useState<string[]>([]); // 緩存參與過的所有 topic IDs
   const { getConfig } = useSystemConfigCache();
   const graceDaysConfig = getConfig('home_expired_topic_grace_days', 3);
   const expiredGraceDays = Math.max(Number(graceDaysConfig) || 0, 0);
 
+  // 當 filter、limit、userId 或 expiredGraceDays 改變時，重置並重新載入
   useEffect(() => {
-    fetchTopics();
+    if (enableInfiniteScroll) {
+      // 無限滾動模式：重置狀態
+      setTopics([]);
+      setOffset(0);
+      setHasMore(true);
+      setLoadingMore(false);
+      if (filter === 'joined') {
+        setAllJoinedTopicIds([]); // 清除緩存的 IDs
+      }
+    }
+    if (filter !== 'joined') {
+      fetchTopics(0, true); // 重新載入，不累積
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter, limit, userId, expiredGraceDays]);
 
-  const fetchTopics = async () => {
+  const fetchTopics = async (currentOffset: number = 0, reset: boolean = false) => {
     try {
-      setLoading(true);
+      if (reset || currentOffset === 0) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
       setError(null);
 
       let data: any[] = [];
@@ -66,7 +89,7 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
             'get_hot_topics_with_exposure',
             {
               p_limit: limit,
-              p_offset: 0,
+              p_offset: currentOffset,
               p_grace_days: expiredGraceDays
             }
           );
@@ -95,7 +118,7 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
             'get_latest_topics_with_exposure',
             {
               p_limit: limit,
-              p_offset: 0,
+              p_offset: currentOffset,
               p_grace_days: expiredGraceDays
             }
           );
@@ -134,7 +157,7 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
             'get_hot_topics_with_exposure',
             {
               p_limit: limit,
-              p_offset: 0,
+              p_offset: currentOffset,
               p_grace_days: expiredGraceDays
             }
           );
@@ -186,52 +209,107 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
         };
       });
 
-      setTopics(processedTopics);
+      // 判斷是否還有更多資料
+      const hasMoreData = processedTopics.length === limit;
+      setHasMore(hasMoreData);
+
+      // 更新主題列表（累積或重置）
+      // 嚴格去重：確保同一主題不會重複顯示
+      if (reset || currentOffset === 0) {
+        // 重置時也要去重（防止初始載入時有重複）
+        setTopics(prev => {
+          const existingIds = new Set(prev.map(t => t.id));
+          const newTopics = processedTopics.filter(t => !existingIds.has(t.id));
+          return newTopics.length > 0 ? newTopics : processedTopics;
+        });
+        setOffset(processedTopics.length);
+      } else {
+        // 累積模式：嚴格避免重複
+        setTopics(prev => {
+          const existingIds = new Set(prev.map(t => t.id));
+          const newTopics = processedTopics.filter(t => !existingIds.has(t.id));
+          if (newTopics.length === 0) {
+            // 如果所有新主題都已存在，可能是分頁問題，停止載入更多
+            setHasMore(false);
+            return prev;
+          }
+          return [...prev, ...newTopics];
+        });
+        setOffset(prev => prev + processedTopics.length);
+      }
     } catch (err: any) {
       console.error('Error fetching topics:', err);
       setError(err.message || '獲取主題列表失敗');
       toast.error('載入主題失敗');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
-  // 獲取用戶參與過的主題
-  const fetchJoinedTopics = async () => {
+  // 獲取用戶參與過的主題（支援分頁）
+  const fetchJoinedTopics = async (currentOffset: number = 0, reset: boolean = false) => {
     if (!userId) {
       setTopics([]);
+      setLoading(false);
       return;
     }
 
     try {
-      setLoading(true);
+      if (reset || currentOffset === 0) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
       setError(null);
 
       // 僅計入使用代幣投票過或自己建立的主題
-      const [{ data: tokenVotes, error: tokenVotesError }, { data: createdTopics, error: createdTopicsError }] = await Promise.all([
-        supabase
-          .from('votes')
-          .select('topic_id')
-          .eq('user_id', userId),
-        supabase
-          .from('topics')
-          .select('id')
-          .eq('creator_id', userId)
-      ]);
+      // 為了性能，我們只在首次載入時獲取所有 ID，之後使用緩存
+      let allTopicIds: string[] = [];
+      
+      if (reset || currentOffset === 0 || allJoinedTopicIds.length === 0) {
+        // 首次載入或重置時，獲取所有相關的 topic IDs
+        const [{ data: tokenVotes, error: tokenVotesError }, { data: createdTopics, error: createdTopicsError }] = await Promise.all([
+          supabase
+            .from('votes')
+            .select('topic_id')
+            .eq('user_id', userId),
+          supabase
+            .from('topics')
+            .select('id')
+            .eq('creator_id', userId)
+        ]);
 
-      if (tokenVotesError) throw tokenVotesError;
-      if (createdTopicsError) throw createdTopicsError;
+        if (tokenVotesError) throw tokenVotesError;
+        if (createdTopicsError) throw createdTopicsError;
 
-      const topicIds = [
-        ...(tokenVotes?.map(v => v.topic_id) || []),
-        ...(createdTopics?.map(t => t.id) || [])
-      ];
+        const topicIds = [
+          ...(tokenVotes?.map(v => v.topic_id) || []),
+          ...(createdTopics?.map(t => t.id) || [])
+        ];
 
-      const uniqueTopicIds = [...new Set(topicIds)];
+        allTopicIds = [...new Set(topicIds)];
+        setAllJoinedTopicIds(allTopicIds); // 緩存所有 IDs
+      } else {
+        // 使用緩存的 IDs
+        allTopicIds = allJoinedTopicIds;
+      }
 
-      if (uniqueTopicIds.length === 0) {
+      if (allTopicIds.length === 0) {
         setTopics([]);
+        setHasMore(false);
         setLoading(false);
+        setLoadingMore(false);
+        return;
+      }
+
+      // 分頁處理：從所有 ID 中取出一部分
+      const paginatedTopicIds = allTopicIds.slice(currentOffset, currentOffset + limit);
+      
+      if (paginatedTopicIds.length === 0) {
+        setHasMore(false);
+        setLoading(false);
+        setLoadingMore(false);
         return;
       }
 
@@ -245,7 +323,7 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
             avatar
           )
         `)
-        .in('id', uniqueTopicIds)
+        .in('id', paginatedTopicIds)
         .eq('status', 'active')
         .gte('end_at', graceCutoffDate.toISOString())
         .order('created_at', { ascending: false });
@@ -267,31 +345,86 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
         };
       });
 
-      setTopics(processedTopics);
+      // 判斷是否還有更多資料
+      const hasMoreData = currentOffset + processedTopics.length < allTopicIds.length;
+      setHasMore(hasMoreData);
+
+      // 更新主題列表（累積或重置）
+      // 嚴格去重：確保同一主題不會重複顯示
+      if (reset || currentOffset === 0) {
+        // 重置時也要去重（防止初始載入時有重複）
+        setTopics(prev => {
+          const existingIds = new Set(prev.map(t => t.id));
+          const newTopics = processedTopics.filter(t => !existingIds.has(t.id));
+          return newTopics.length > 0 ? newTopics : processedTopics;
+        });
+        setOffset(processedTopics.length);
+      } else {
+        // 累積模式：嚴格避免重複
+        setTopics(prev => {
+          const existingIds = new Set(prev.map(t => t.id));
+          const newTopics = processedTopics.filter(t => !existingIds.has(t.id));
+          if (newTopics.length === 0) {
+            // 如果所有新主題都已存在，可能是分頁問題，停止載入更多
+            setHasMore(false);
+            return prev;
+          }
+          return [...prev, ...newTopics];
+        });
+        setOffset(prev => prev + processedTopics.length);
+      }
     } catch (err: any) {
       console.error('Error fetching joined topics:', err);
       setError(err.message || '獲取參與主題失敗');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
   // 如果是參與過篩選，使用專門的函數
   useEffect(() => {
     if (filter === 'joined') {
-      fetchJoinedTopics();
+      if (enableInfiniteScroll) {
+        // 無限滾動模式：重置狀態
+        setTopics([]);
+        setOffset(0);
+        setHasMore(true);
+        setLoadingMore(false);
+        setAllJoinedTopicIds([]); // 清除緩存的 IDs
+      }
+      fetchJoinedTopics(0, true);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter, userId, expiredGraceDays]);
 
   const refreshTopics = () => {
-    fetchTopics();
+    setTopics([]);
+    setOffset(0);
+    setHasMore(true);
+    fetchTopics(0, true);
+  };
+
+  // 載入更多（無限滾動）
+  const loadMore = async () => {
+    if (!hasMore || loadingMore || loading) {
+      return;
+    }
+    if (filter === 'joined') {
+      await fetchJoinedTopics(offset, false);
+    } else {
+      await fetchTopics(offset, false);
+    }
   };
 
   return {
     topics,
     loading,
+    loadingMore,
     error,
+    hasMore,
     refreshTopics,
+    loadMore,
   };
 };
 

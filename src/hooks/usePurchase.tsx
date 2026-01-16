@@ -6,19 +6,7 @@ import { toast } from 'sonner';
 import { isNative, getPlatform } from '@/lib/capacitor';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useUIText } from './useUIText';
-
-// 產品 ID 映射（對應 Google Play / App Store 的產品 ID）
-const PRODUCT_ID_MAP: Record<number, {
-  android: string;
-  ios: string;
-  tokens: number;
-  bonus: number;
-}> = {
-  1: { android: 'token_pack_small', ios: 'token_pack_small', tokens: 100, bonus: 0 },
-  2: { android: 'token_pack_medium', ios: 'token_pack_medium', tokens: 500, bonus: 50 },
-  3: { android: 'token_pack_large', ios: 'token_pack_large', tokens: 1000, bonus: 150 },
-  4: { android: 'token_pack_xlarge', ios: 'token_pack_xlarge', tokens: 3000, bonus: 500 },
-};
+import { purchaseService, PRODUCT_ID_MAP } from '@/lib/purchase';
 
 export const usePurchase = () => {
   const { user } = useAuth();
@@ -78,58 +66,79 @@ export const usePurchase = () => {
     platform: string
   ) => {
     try {
-      // 動態導入 CdvPurchase
-      const { Store, ProductType, Platform } = window.CdvPurchase || {};
-
-      if (!Store) {
-        throw new Error('Store plugin not found. Please ensure cordova-plugin-purchase is installed.');
+      // 確保購買服務已初始化
+      if (!purchaseService.isInitialized()) {
+        console.log('[Purchase] Service not initialized, initializing now...');
+        const initialized = await purchaseService.initialize();
+        if (!initialized) {
+          throw new Error('無法初始化購買服務，請確認已安裝內購插件');
+        }
       }
 
-      const store = Store;
+      const store = purchaseService.getStore();
+      if (!store) {
+        throw new Error('購買服務未初始化');
+      }
 
-      // 1. 決定商店類型
-      const storePlatform = platform === 'ios' ? Platform.APPLE_APPSTORE : Platform.GOOGLE_PLAY;
+      // 獲取產品
+      const product = store.get(productId);
+      if (!product) {
+        throw new Error(`產品不存在: ${productId}。請確認產品已在 Google Play Console / App Store Connect 中創建。`);
+      }
 
-      // 2. 初始化商店
-      // 注意：實際應用中，最好在 App 啟動時進行初始化，這裡為了簡化放在購買流程中
-      if (!store.get(productId)) {
-        store.register({
-          id: productId,
-          type: ProductType.CONSUMABLE,
-          platform: storePlatform,
+      // 檢查產品是否可購買
+      if (!product.canPurchase) {
+        console.warn('[Purchase] Product cannot be purchased:', {
+          productId,
+          state: product.state,
+          valid: product.valid,
         });
+        throw new Error('產品目前無法購買，請稍後再試');
       }
 
-      // 3. 設置事件監聽
+      // 設置事件監聽
       // 監聽購買已批准 (User has purchased the product)
       const approvedListener = store.when()
         .product(productId)
         .approved(async (transaction: any) => {
           try {
-            // 4. 驗證購買 (呼叫後端 Supabase Edge Function)
+            console.log('[Purchase] Transaction approved:', {
+              productId,
+              transactionId: transaction.transactionId,
+              purchaseToken: transaction.purchaseToken || transaction.receipt,
+            });
+
+            // 驗證購買 (呼叫後端 Supabase Edge Function)
             const verifyFunction = platform === 'android'
               ? 'verify-google-play-purchase'
               : 'verify-app-store-purchase';
 
-            console.log(`Verifying purchase on ${platform} via ${verifyFunction}...`);
+            console.log(`[Purchase] Verifying purchase on ${platform} via ${verifyFunction}...`);
 
             const { data, error } = await supabase.functions.invoke(verifyFunction, {
               body: {
                 purchaseToken: transaction.purchaseToken || transaction.receipt,
-                // iOS 的 receipt 通常比較長，或是需要 transactionId
                 transactionId: transaction.transactionId,
                 productId: productId,
                 packageName: 'com.votechaos.app',
-                platform: platform // 傳遞平台資訊給後端
+                platform: platform,
               },
             });
 
-            if (error) throw error;
+            if (error) {
+              console.error('[Purchase] Verification error:', error);
+              throw error;
+            }
 
-            // 5. 完成交易
+            if (!data?.success) {
+              throw new Error(data?.error || '驗證失敗');
+            }
+
+            // 完成交易
             await transaction.finish();
+            console.log('[Purchase] Transaction finished');
 
-            // 6. 顯示成功與刷新
+            // 顯示成功與刷新
             const productInfo = PRODUCT_ID_MAP[packageId];
             const totalTokens = (productInfo.tokens + productInfo.bonus).toLocaleString();
 
@@ -147,35 +156,57 @@ export const usePurchase = () => {
             approvedListener.remove();
 
           } catch (err: any) {
-            console.error('Verification failed:', err);
-            toast.error('驗證失敗: ' + (err.message || 'Unknown error'));
+            console.error('[Purchase] Verification failed:', err);
+            toast.error(
+              getText('recharge.toast.verificationFailed', '驗證失敗: {{error}}')
+                .replace('{{error}}', err.message || 'Unknown error')
+            );
+            // 不完成交易，讓用戶可以重試
           }
         });
 
-      // 7. 刷新商店以獲取最新產品資訊
-      await store.initialize([storePlatform]);
-      await store.update();
+      // 監聽購買錯誤
+      const errorListener = store.when()
+        .product(productId)
+        .error((error: any) => {
+          console.error('[Purchase] Purchase error:', error);
+          toast.error(
+            getText('recharge.toast.purchaseError', '購買失敗: {{error}}')
+              .replace('{{error}}', error.message || 'Unknown error')
+          );
+          errorListener.remove();
+        });
 
-      // 4. 發起購買
-      const product = store.get(productId);
-      if (!product) {
-        throw new Error('Product not found: ' + productId);
-      }
+      // 刷新產品信息
+      await purchaseService.refreshProducts();
 
-      if (!product.canPurchase) {
-        throw new Error('Product cannot be purchased currently.');
-      }
-
+      // 發起購買
+      console.log('[Purchase] Ordering product:', productId);
       await product.getOffer().order();
+      console.log('[Purchase] Purchase order initiated');
 
     } catch (error: any) {
-      console.error('Native purchase error:', error);
+      console.error('[Purchase] Native purchase error:', error);
+      
       // 詳細錯誤處理
-      if (error.code === 6777001) { // 示例錯誤碼
-        toast.error('使用者取消了購買');
-      } else {
-        toast.error(error.message || '購買流程發生錯誤');
+      let errorMessage = error.message || getText('recharge.toast.failure.desc', '購買失敗，請稍後再試');
+      
+      // 處理常見的購買錯誤
+      if (error.code === 6777001 || error.code === 'USER_CANCELLED' || error.message?.includes('cancelled')) {
+        errorMessage = getText('recharge.toast.userCancelled', '使用者取消了購買');
+        // 用戶取消不需要顯示錯誤提示
+        return;
+      } else if (error.code === 'ITEM_ALREADY_OWNED' || error.message?.includes('already owned')) {
+        errorMessage = getText('recharge.toast.alreadyOwned', '您已經擁有此產品');
+      } else if (error.code === 'ITEM_UNAVAILABLE' || error.message?.includes('unavailable')) {
+        errorMessage = getText('recharge.toast.unavailable', '產品目前無法購買');
+      } else if (error.message?.includes('not found') || error.message?.includes('Product not found')) {
+        errorMessage = getText('recharge.toast.productNotFound', '產品不存在，請確認產品已在商店中創建');
+      } else if (error.message?.includes('not initialized') || error.message?.includes('Store not initialized')) {
+        errorMessage = getText('recharge.toast.storeNotReady', '購買服務未就緒，請稍後再試');
       }
+      
+      toast.error(errorMessage);
       throw error;
     }
   };

@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUIText } from "@/hooks/useUIText";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { TimeFilterOption, getStartDateFromFilter } from "@/components/TimeFilter";
 
 export interface TokenHistory {
   id: string;
@@ -175,7 +176,8 @@ const formatTransactionDescription = (
   return description;
 };
 
-export const useTokenHistory = (userId: string | undefined) => {
+export const useTokenHistory = (userId: string | undefined, options?: { timeFilter?: TimeFilterOption | null; isAdmin?: boolean }) => {
+  const { timeFilter = null, isAdmin = false } = options || {};
   const { language } = useLanguage();
   const { getText } = useUIText(language);
   const [history, setHistory] = useState<TokenHistory[]>([]);
@@ -190,7 +192,8 @@ export const useTokenHistory = (userId: string | undefined) => {
     }
 
     fetchTokenHistory();
-  }, [userId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, timeFilter, isAdmin]);
 
   const fetchTokenHistory = async () => {
     if (!userId) return;
@@ -199,10 +202,32 @@ export const useTokenHistory = (userId: string | undefined) => {
       setLoading(true);
       setError(null);
 
-      const { data: transactions, error: transactionsError } = await supabase
+      // 計算時間篩選條件
+      const startDate = getStartDateFromFilter(timeFilter);
+      
+      // 如果不是管理員，限制查詢範圍在1年內
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      const minDate = !isAdmin ? oneYearAgo : null;
+
+      // 構建查詢
+      let query = supabase
         .from('token_transactions')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', userId);
+
+      // 應用時間篩選
+      if (startDate) {
+        query = query.gte('created_at', startDate.toISOString());
+      }
+      
+      // 如果不是管理員，限制在1年內
+      if (minDate) {
+        const effectiveMinDate = startDate && startDate > minDate ? startDate : minDate;
+        query = query.gte('created_at', effectiveMinDate.toISOString());
+      }
+
+      const { data: transactions, error: transactionsError } = await query
         .order('created_at', { ascending: false })
         .limit(200);
 

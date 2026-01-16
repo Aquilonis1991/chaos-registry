@@ -40,45 +40,77 @@ export const useUserStats = (userId: string | undefined) => {
     try {
       setLoading(true);
 
-      // 獲取代幣投票記錄（從 votes 表）
-      const { data: votesData, error: votesError } = await supabase
-        .from('votes')
-        .select('topic_id, amount')
-        .eq('user_id', userId);
+      // 並行執行所有數據庫查詢
+      const [
+        votesResult,
+        freeVotesResult,
+        topicsResult,
+        transactionsResult,
+        profileResult
+      ] = await Promise.all([
+        // 1. 獲取代幣投票記錄
+        supabase
+          .from('votes')
+          .select('topic_id, amount')
+          .eq('user_id', userId),
 
+        // 2. 獲取免費投票記錄
+        (supabase.from as any)('free_votes')
+          .select('topic_id')
+          .eq('user_id', userId),
+
+        // 3. 獲取創建的主題數量
+        supabase
+          .from('topics')
+          .select('*', { count: 'exact', head: true })
+          .eq('creator_id', userId),
+
+        // 4. 獲取交易記錄
+        supabase
+          .from('token_transactions')
+          .select('id, amount, transaction_type')
+          .eq('user_id', userId),
+
+        // 5. 獲取用戶資料
+        supabase
+          .from('profiles')
+          .select('created_at, last_login')
+          .eq('id', userId)
+          .single()
+      ]);
+
+      const { data: votesData, error: votesError } = votesResult;
+      const { data: freeVotesData, error: freeVotesError } = freeVotesResult;
+      const { count: topicsCount, error: topicsError } = topicsResult;
+      const { data: allTransactions, error: transError } = transactionsResult;
+      const { data: profile, error: profileError } = profileResult;
+
+      // 處理投票數據
       if (votesError) {
         console.warn('⚠️ Error fetching votes:', votesError);
-        // 不拋出錯誤，繼續執行
       } else {
         console.log('✅ Votes fetched:', votesData?.length || 0, 'votes');
         if (votesData && votesData.length > 0) {
-          console.log('📋 Vote topic IDs:', votesData.map(v => v.topic_id));
+          console.log('📋 Vote topic IDs:', votesData.map((v: any) => v.topic_id));
         }
       }
 
-      // 獲取免費投票記錄（從 free_votes 表）
-      const { data: freeVotesData, error: freeVotesError } = await (supabase.from as any)('free_votes')
-        .select('topic_id')
-        .eq('user_id', userId);
-
+      // 處理免費投票數據
       if (freeVotesError) {
         console.warn('⚠️ Error fetching free votes:', freeVotesError);
-        // 不拋出錯誤，繼續執行
       } else {
         console.log('✅ Free votes fetched:', freeVotesData?.length || 0, 'free votes');
         if (freeVotesData && freeVotesData.length > 0) {
-          console.log('📋 Free vote topic IDs:', freeVotesData.map(v => v.topic_id));
+          console.log('📋 Free vote topic IDs:', freeVotesData.map((v: any) => v.topic_id));
         }
       }
 
       const freeVoteCount = freeVotesData?.length || 0;
       console.log('📊 Free vote count:', freeVoteCount);
-      
+
       // 從 votes 表計算代幣投票次數（僅作為診斷用途）
-      // 注意：votes 表中的 amount 欄位會被覆寫，因此不能作為最終統計依據
       let tokenVoteCountFromVotes = 0;
       if (votesData && votesData.length > 0) {
-        // 計算所有有 amount > 0 的投票記錄的代幣總額
         const votesWithAmount = votesData.filter((v: any) => v.amount && v.amount > 0);
         tokenVoteCountFromVotes = votesWithAmount.reduce((sum: number, v: any) => {
           const amount = typeof v.amount === 'number' ? v.amount : parseFloat(String(v.amount)) || 0;
@@ -90,123 +122,92 @@ export const useUserStats = (userId: string | undefined) => {
           tokenVoteCount: tokenVoteCountFromVotes
         });
       }
-      
-      // 從 token_transactions 表計算代幣投票次數（唯一可信來源）
-      let tokenVoteCountFromTransactions = 0;
 
-      // 計算投票過的不同主題數量（用於「投票愛好者」任務）
+      // 計算投票過的不同主題數量
       const voteTopicIds = new Set([
-        ...(votesData?.map(v => v.topic_id) || []),
-        ...(freeVotesData?.map(v => v.topic_id) || [])
+        ...(votesData?.map((v: any) => v.topic_id) || []),
+        ...(freeVotesData?.map((v: any) => v.topic_id) || [])
       ]);
       const uniqueTopicVotesCount = voteTopicIds.size;
       console.log('📊 Unique topic votes:', uniqueTopicVotesCount, 'topics:', Array.from(voteTopicIds));
 
-      // 獲取創建的主題數量
-      const { count: topicsCount, error: topicsError } = await supabase
-        .from('topics')
-        .select('*', { count: 'exact', head: true })
-        .eq('creator_id', userId);
-
+      // 處理主題數量錯誤
       if (topicsError) {
         console.warn('Error fetching topics count:', topicsError);
       } else {
         console.log('✅ Topics created:', topicsCount || 0);
       }
 
-      // 計算代幣使用統計（如果表不存在，使用默認值）
+      // 計算代幣使用統計
       let tokensSpent = 0;
       let tokensEarned = 0;
-      
-      try {
-        const { data: allTransactions, error: transError } = await supabase
-          .from('token_transactions')
-          .select('id, amount, transaction_type')
-          .eq('user_id', userId);
+      let tokenVoteCountFromTransactions = 0;
 
-        if (transError) {
-          console.warn('⚠️ Error fetching token_transactions (table may not exist):', transError);
-          // 使用 votes 表計算的結果
-          tokenVoteCountFromTransactions = 0;
-        } else {
-          // 計算代幣投票次數：統計所有 cast_vote 交易的代幣總額（絕對值相加）
-          const voteTransactions = allTransactions?.filter(
-            (t) => t.transaction_type === 'cast_vote'
-          );
+      if (transError) {
+        console.warn('⚠️ Error fetching token_transactions:', transError);
+        // 如果失敗，退回到使用 votes 表的數據（雖然不準確，但比 0 好）
+        // 但為了保持邏輯一致，這裡保持 0，並依賴上方的診斷日誌
+      } else {
+        const voteTransactions = allTransactions?.filter(
+          (t: any) => t.transaction_type === 'cast_vote'
+        );
 
-          console.log('🔍 Token transactions for votes:', {
-            totalTransactions: allTransactions?.length || 0,
-            voteTransactions: voteTransactions?.length || 0,
-            voteTransactionsData: voteTransactions?.map(t => ({
-              id: t.id || 'unknown',
-              amount: t.amount,
-              type: t.transaction_type
-            }))
+        console.log('🔍 Token transactions for votes:', {
+          totalTransactions: allTransactions?.length || 0,
+          voteTransactions: voteTransactions?.length || 0,
+          voteTransactionsData: voteTransactions?.map((t: any) => ({
+            id: t.id || 'unknown',
+            amount: t.amount,
+            type: t.transaction_type
+          }))
+        });
+
+        tokenVoteCountFromTransactions = voteTransactions?.reduce((sum: number, t: any) => {
+          const amountValue = parseTransactionAmount(t.amount);
+          const absAmount = Math.abs(amountValue);
+          console.log('🔍 Processing vote transaction:', {
+            amount: t.amount,
+            parsedAmount: amountValue,
+            absAmount: absAmount,
+            sum: sum + absAmount
           });
+          return sum + absAmount;
+        }, 0) || 0;
 
-          // 計算代幣投票的代幣總額（每1代幣 = 1票）
-          tokenVoteCountFromTransactions = voteTransactions?.reduce((sum, t) => {
+        console.log('✅ Calculated tokenVoteCount from transactions:', tokenVoteCountFromTransactions);
+
+        tokensSpent = allTransactions
+          ?.filter((t: any) => parseTransactionAmount(t.amount) < 0)
+          .reduce((sum: number, t: any) => {
             const amountValue = parseTransactionAmount(t.amount);
-            const absAmount = Math.abs(amountValue);
-            console.log('🔍 Processing vote transaction:', {
-              amount: t.amount,
-              parsedAmount: amountValue,
-              absAmount: absAmount,
-              sum: sum + absAmount
-            });
-            return sum + absAmount; // 使用絕對值，因為 amount 是負數
+            return sum + Math.abs(amountValue);
           }, 0) || 0;
-          
-          console.log('✅ Calculated tokenVoteCount from transactions:', tokenVoteCountFromTransactions);
 
-          tokensSpent = allTransactions
-            ?.filter(t => parseTransactionAmount(t.amount) < 0)
-            .reduce((sum, t) => {
-              const amountValue = parseTransactionAmount(t.amount);
-              return sum + Math.abs(amountValue);
-            }, 0) || 0;
-
-          tokensEarned = allTransactions
-            ?.filter(t => parseTransactionAmount(t.amount) > 0)
-            .reduce((sum, t) => {
-              const amountValue = parseTransactionAmount(t.amount);
-              return sum + amountValue;
-            }, 0) || 0;
-        }
-      } catch (transError) {
-        console.warn('⚠️ Exception fetching token_transactions:', transError);
-        tokenVoteCountFromTransactions = 0;
+        tokensEarned = allTransactions
+          ?.filter((t: any) => parseTransactionAmount(t.amount) > 0)
+          .reduce((sum: number, t: any) => {
+            const amountValue = parseTransactionAmount(t.amount);
+            return sum + amountValue;
+          }, 0) || 0;
       }
 
       const tokenVoteCount = tokenVoteCountFromTransactions;
 
       if (tokenVoteCount === 0 && tokenVoteCountFromVotes > 0) {
-        console.warn('⚠️ Token transactions missing but votes table shows spending. Run backfill script if needed.', {
+        console.warn('⚠️ Token transactions missing but votes table shows spending.', {
           diagnosticVotesAmount: tokenVoteCountFromVotes
         });
       }
 
-      // 獲取用戶註冊時間
+      // 處理用戶資料
       let joinedDate = '';
       let lastActive = '';
-      
-      try {
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('created_at, last_login')
-          .eq('id', userId)
-          .single();
 
-        if (profileError) {
-          console.warn('⚠️ Error fetching profile:', profileError);
-          // 不拋出錯誤，使用默認值
-        } else {
-          joinedDate = profile?.created_at || '';
-          lastActive = profile?.last_login || '';
-        }
-      } catch (profileError) {
-        console.warn('⚠️ Exception fetching profile:', profileError);
-        // 使用默認值
+      if (profileError) {
+        console.warn('⚠️ Error fetching profile:', profileError);
+      } else {
+        joinedDate = profile?.created_at || '';
+        lastActive = profile?.last_login || '';
       }
 
       const totalVotes = tokenVoteCount + freeVoteCount;
@@ -221,24 +222,22 @@ export const useUserStats = (userId: string | undefined) => {
         }
       });
 
-      // 構建最終統計數據（即使部分查詢失敗，也要設置已獲取的數據）
+      // 構建最終統計數據
       const finalStats = {
-        totalVotes: totalVotes, // 總投票次數（用於「新手上路」任務）
+        totalVotes: totalVotes,
         totalFreeVotes: freeVoteCount,
         topicsCreated: topicsCount || 0,
         tokensSpent,
         tokensEarned,
         joinedDate,
         lastActive,
-        uniqueTopicVotes: uniqueTopicVotesCount, // 投票過的不同主題數量（用於「投票愛好者」任務）
+        uniqueTopicVotes: uniqueTopicVotesCount,
       };
 
       console.log('📊 Final User Stats:', finalStats);
       setStats(finalStats);
     } catch (error) {
       console.error('❌ Critical error fetching user stats:', error);
-      // 即使發生錯誤，也嘗試設置已獲取的數據（如果有的話）
-      // 這裡不設置，因為如果發生關鍵錯誤，我們希望保持初始狀態
     } finally {
       setLoading(false);
     }

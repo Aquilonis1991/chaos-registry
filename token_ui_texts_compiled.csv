@@ -1,0 +1,69 @@
+key,category,zh,en,ja,description
+tokenHistory.type.createTopic,token_history,建立主題,Create Topic,トピック作成,失序值交易類型：建立主題
+tokenHistory.type.freeCreateTopic,token_history,免費建立主題,Free Create Topic,無料トピック作成,失序值交易類型：免費建立主題
+tokenHistory.type.castVote,token_history,投票,Cast Vote,投票する,失序值交易類型：投票
+tokenHistory.type.freeVote,token_history,免費投票,Free Vote,無料投票,失序值交易類型：免費投票
+tokenHistory.type.completeMission,token_history,完成任務,Complete Mission,ミッション完了,失序值交易類型：完成任務
+tokenHistory.type.watchAd,token_history,觀看廣告,Watch Ad,広告を見る,失序值交易類型：觀看廣告
+tokenHistory.type.adminAdjustment,token_history,系統調整,Admin Adjustment,システム調整,失序值交易類型：系統調整
+tokenHistory.type.purchase,token_history,購買,Purchase,購入,失序值交易類型：購買
+tokenHistory.header.title,token_history,失序值使用紀錄,Chaos Value History,カオス値利用履歴,失序值紀錄頁面標題
+tokenHistory.header.subtitle,token_history,查看你的失序值使用歷史,Review how you spent Chaos Values,カオス値利用履歴を確認,失序值紀錄頁面副標
+tokenHistory.empty.text,token_history,還沒有使用紀錄,No history yet,履歴はまだありません,失序值紀錄空狀態文字
+tokenHistory.empty.button,token_history,開始使用,Start now,今すぐ始める,失序值紀錄空狀態按鈕
+tokenHistory.description.createTopic,token_history,建立主題：{{title}},Create Topic: {{title}},トピック作成：{{title}},失序值交易描述：建立主題
+tokenHistory.description.freeCreateTopic,token_history,免費建立主題：{{title}},Free Create Topic: {{title}},無料トピック作成：{{title}},失序值交易描述：免費建立主題
+tokenHistory.description.createTopicPrefix,token_history,建立主題：,Create Topic: ,トピック作成：,失序值交易描述：建立主題前綴
+tokenHistory.description.freeCreateTopicPrefix,token_history,免費建立主題：,Free Create Topic: ,無料トピック作成：,失序值交易描述：免費建立主題前綴
+tokenHistory.description.castVote,token_history,投票使用 {{amount}} 失序值,Cast Vote using {{amount}} Chaos Values,{{amount}}カオス値で投票,失序值交易描述：投票使用失序值
+tokenHistory.description.vote,token_history,投票：{{title}},Vote: {{title}},投票：{{title}},失序值交易描述：投票標題
+tokenHistory.description.voteWithOption,token_history,投票：{{title}}（選項：{{option}}）,Vote: {{title}} (Option: {{option}}),投票：{{title}}（選択肢：{{option}}）,失序值交易描述：投票與選項
+tokenHistory.description.watchAdReward,token_history,觀看廣告獲得 {{amount}} 失序值,Watch ad to earn {{amount}} Chaos Values,広告視聴で{{amount}}カオス値獲得,失序值交易描述：觀看廣告獎勵
+tokenHistory.description.completeMission,token_history,完成任務,Completed mission,ミッション完了,失序值交易描述：完成任務
+tokenHistory.description.votePrefix,token_history,投票使用,Vote using,投票使用,失序值交易描述：投票前綴
+tokenHistory.description.tokensUnit,token_history,失序值,Chaos Values,カオス値,失序值單位
+tokenHistory.description.dailyLoginReward,token_history,每日登入獎勵,Daily Login Reward,毎日ログイン報酬,失序值交易描述：每日登入獎勵
+tokenHistory.mission.dailyLogin,token_history,每日登入,Daily Login,毎日ログイン,任務名稱：每日登入
+tokenHistory.mission.watchAd,token_history,觀看廣告,Watch Ad,広告を見る,任務名稱：觀看廣告
+tokenHistory.mission.completeMission,token_history,完成任務,Complete Mission,ミッション完了,任務名稱：完成任務
+tokenHistory.type.aiUsage,token_history,不穩定處理,Unstable Processing,不安定処理,失序值交易類型：AI 功能
+tokenHistory.type.unknown,token_history,未知類型,Unknown Type,不明なタイプ,失序值交易類型：未知類型（fallback）
+tokenHistory.description.unstableRewrite,token_history,不穩定改寫,Unstable Rewrite,不安定書き直し,失序值交易描述：不穩定改寫
+tokenHistory.description.unstableProcessing,token_history,不穩定處理,Unstable Processing,不安定処理,失序值交易描述：不穩定處理（AI Usage）
+tokenHistory.description.freeVote,token_history,免費投票：{{title}},Free Vote: {{title}},無料投票：{{title}},失序值交易描述：免費投票
+tokenHistory.description.freeVoteWithOption,token_history,免費投票：{{title}} - 選項：{{option}},Free Vote: {{title}} - Option: {{option}},無料投票：{{title}} - 選択肢：{{option}},失序值交易描述：免費投票與選項
+tokenHistory.description.unknownTopic,token_history,未知主題,Unknown Topic,不明なトピック,失序值交易描述：未知主題（fallback）
+tokenHistory.description.irrationalityAssessment,token_history,不理性鑑定,Irrationality Assessment,非合理的評価,失序值交易描述：不理性鑑定
+tokenHistory.description.aiUsage,token_history,不穩定處理,Unstable Processing,不安定処理,失序值交易描述：AI 功能使用（fallback）
+tokenHistory.error.fetchFailed,token_history,獲取失序值歷史失敗,Failed to fetch Chaos Value history,カオス値履歴の取得に失敗しました,錯誤訊息：獲取失序值歷史失敗
+tokenHistory.error.loadFailed,token_history,載入失序值紀錄失敗,Failed to load Chaos Value records,カオス値記録の読み込みに失敗しました,錯誤訊息：載入失序值紀錄失敗
+mission.watchAd.success,mission,獲得 {{amount}} 失序值！,Earned {{amount}} Chaos Values!,{{amount}}カオス値を獲得しました！,觀看廣告成功獲得失序值的訊息
+mission.dailyLogin.success,mission,簽到成功！獲得 {{amount}} 失序值,Login reward! Earned {{amount}} Chaos Values,ログインボーナス！{{amount}}カオス値を獲得,每日簽到成功的訊息
+mission.dailyLogin.noMoreReward,mission,今日已簽到，不再發放失序值,Already claimed today, no Chaos Values,本日は既に受け取り済み、カオス値なし,Code Default (Recharge/Mission)
+mission.header.subtitle,mission,完成任務賺失序值,Complete missions to earn Chaos Values,任務を完了してカオス値を獲得,Code Default (Recharge/Mission)
+mission.ad.subtitle,mission,輕鬆賺取失序值,Earn Chaos Values easily,簡単にカオス値を獲得,Code Default (Recharge/Mission)
+mission.toast.claimSuccess.desc,mission,獲得 {{amount}} 失序值,Earned {{amount}} Chaos Values,{{amount}}カオス値を獲得,Code Default (Recharge/Mission)
+mission.toast.watchAdSuccess.desc,mission,獲得 {{amount}} 失序值,Earned {{amount}} Chaos Values,{{amount}}カオス値を獲得,Code Default (Recharge/Mission)
+exposure.dialog.tokenBalance,exposure_dialog,失序值餘額：,Chaos Value Balance: ,カオス値残高：,失序值餘額標籤
+exposure.dialog.priceDiff,exposure_dialog,差額 {{amount}} 失序值,Price Difference: {{amount}} Chaos Values,差額 {{amount}} カオス値,價格差額顯示
+exposure.dialog.tokensInsufficient,exposure_dialog,失序值不足（需要 {{required}}，目前 {{current}}）,Insufficient Chaos Values (Need: {{required}}, Current: {{current}}),カオス値不足（必要：{{required}}、現在：{{current}}）,失序值不足提示
+exposure.error.insufficientTokens,exposure_dialog,失序值不足（需要：{{required}}，目前：{{current}}）,Insufficient Chaos Values (Need: {{required}}, Current: {{current}}),カオス値不足（必要：{{required}}、現在：{{current}}）,失序值不足錯誤
+topic.costSummary.totalCost,create_topic,總消耗失序值,Total Chaos Values used,合計消費カオス値,消耗總額文字
+topic.costSummary.remainingTokens,create_topic,剩餘失序值,Chaos Values remaining,残りカオス値,剩餘失序值文字
+topic.costSummary.token,create_topic,失序值,Chaos Values,カオス値,失序值字樣
+topic.unstable_rewrite.button_paid,ai_features,不穩定改寫 ({{amount}} 失序值),Unstable Rewrite ({{amount}} Chaos Values),不安定書き直し ({{amount}} カオス値)
+topic.unstable_rewrite.daily_used,ai_features,今日已用 ({{amount}} 失序值),Used Today ({{amount}} Chaos Values),本日使用済み ({{amount}} カオス値)
+topic.unstable_rewrite.cost_prompt,ai_features,本次改寫消耗 {{amount}} 失序值,This rewrite costs {{amount}} Chaos Values,この書き直しは {{amount}} カオス値かかります
+topic.unstable_rewrite.payment_message,ai_features,今日免費次數已用完，本次改寫消耗 {{amount}} 失序值。,Free daily limit reached. This rewrite costs {{amount}} Chaos Values.,今日の無料枠は終了しました。この書き直しは {{amount}} カオス値かかります。
+profile.assessment.button_paid,ai_features,再次鑑定 ({{amount}} 失序值),Re-assess ({{amount}} Chaos Values),再診断 ({{amount}} カオス値)
+profile.assessment.payment_message,ai_features,本次鑑定將消耗 {{amount}} 失序值。,This assessment will cost {{amount}} Chaos Values.,この診断には {{amount}} カオス値が必要です。
+topic.unstable_rewrite.daily_used,topic_create,今日已用 ({{amount}} 失序值),Used Today ({{amount}} Chaos Values),本日使用済み ({{amount}} カオス値),Badge for paid daily use
+recharge.header.title,recharge,失序值儲值,,,(Code Default)
+recharge.header.subtitle,recharge,購買失序值參與更多投票,,,(Code Default)
+recharge.toast.success.desc,recharge,已獲得 {{amount}} 失序值,,,(Code Default)
+recharge.balance.label,recharge,當前失序值餘額,,,(Code Default)
+recharge.packages.tokenUnit,recharge,失序值,,,(Code Default)
+recharge.info.item1,recharge,• 失序值可用於投票、發起主題等功能,,,(Code Default)
+recharge.info.item2,recharge,• 儲值金額越高，贈送失序值越多,,,(Code Default)
+recharge.info.item3,recharge,• 完成每日任務也可免費獲得失序值,,,(Code Default)
+recharge.info.item4,recharge,• 失序值永久有效，不會過期,,,(Code Default)

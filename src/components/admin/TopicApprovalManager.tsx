@@ -63,7 +63,7 @@ export const TopicApprovalManager = () => {
     mutationFn: async (topicId: string) => {
       // 獲取當前用戶 ID
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       const { error } = await supabase
         .from('topics')
         .update({
@@ -94,7 +94,7 @@ export const TopicApprovalManager = () => {
     mutationFn: async ({ topicId, reason }: { topicId: string; reason: string }) => {
       // 獲取當前用戶 ID
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       const { error } = await supabase
         .from('topics')
         .update({
@@ -133,7 +133,7 @@ export const TopicApprovalManager = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-topics'] });
-      toast.success('主題已刪除，代幣已退還');
+      toast.success('主題已刪除，失序值已退還');
       setShowDeleteDialog(false);
       setSelectedTopic(null);
     },
@@ -333,7 +333,7 @@ export const TopicApprovalManager = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>刪除主題</AlertDialogTitle>
             <AlertDialogDescription>
-              確定要刪除此主題嗎？發起者將獲得代幣退還。此操作無法撤銷。
+              確定要刪除此主題嗎？發起者將獲得失序值退還。此操作無法撤銷。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

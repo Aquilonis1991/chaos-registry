@@ -13,7 +13,7 @@ const AboutPage = () => {
   return (
     <div className="min-h-screen bg-background pb-8">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg">
+      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top))]">
         <div className="max-w-screen-xl mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
             <Button
@@ -60,9 +60,9 @@ const AboutPage = () => {
                 </p>
                 <ul className="list-disc list-inside space-y-2 ml-4">
                   <li>瀏覽各種有趣的投票主題</li>
-                  <li>使用代幣參與投票，表達自己的意見</li>
+                  <li>使用失序值參與投票，表達自己的意見</li>
                   <li>發起自己感興趣的投票話題</li>
-                  <li>使用代幣提高主題曝光度，讓更多人看到</li>
+                  <li>使用失序值提高主題曝光度，讓更多人看到</li>
                 </ul>
                 <p className="mt-4">
                   <strong>重要聲明</strong>：本平台具備內容治理與舉報機制，禁止真實政治人物、仇恨言論或敏感政治內容。本服務僅供娛樂用途，不反映任何真實政治行為或公共政策。
@@ -97,9 +97,9 @@ const AboutPage = () => {
                 <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg">
                   <Coins className="w-6 h-6 text-primary flex-shrink-0 mt-1" />
                   <div>
-                    <h4 className="font-semibold text-foreground mb-1">代幣系統</h4>
+                    <h4 className="font-semibold text-foreground mb-1">失序值系統</h4>
                     <p className="text-sm text-muted-foreground">
-                      使用代幣參與投票或提高主題曝光度
+                      使用失序值參與投票或提高主題曝光度
                     </p>
                   </div>
                 </div>
@@ -125,7 +125,7 @@ const AboutPage = () => {
                 </p>
                 <ol className="list-decimal list-inside space-y-2 ml-4">
                   <li><strong>投票平台服務</strong>：提供用戶瀏覽、參與和創建投票主題的平台</li>
-                  <li><strong>代幣系統</strong>：用戶可以使用代幣參與投票或提高主題曝光度</li>
+                  <li><strong>失序值系統</strong>：用戶可以使用失序值參與投票或提高主題曝光度</li>
                   <li><strong>內容管理</strong>：提供內容審核和舉報機制，確保平台內容品質</li>
                   <li><strong>用戶服務</strong>：提供用戶支援、問題回報和建議反饋服務</li>
                 </ol>
@@ -150,7 +150,7 @@ const AboutPage = () => {
                   <p className="font-semibold text-lg mb-2">服務描述</p>
                   <p className="text-muted-foreground">
                     ChaosRegistry 是一款以虛構、趣味話題為核心的娛樂性投票平台。
-                    使用者可瀏覽主題、以代幣投票、發起投票，或使用代幣提高主題曝光度。
+                    使用者可瀏覽主題、以失序值投票、發起投票，或使用失序值提高主題曝光度。
                     平台具備內容治理與舉報機制，禁止真實政治人物、仇恨言論或敏感政治內容。
                     本服務僅供娛樂用途，不反映任何真實政治行為或公共政策。
                   </p>

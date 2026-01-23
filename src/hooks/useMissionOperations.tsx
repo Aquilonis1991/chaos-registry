@@ -64,7 +64,7 @@ export const useMissionOperations = () => {
         rpcPromise,
         timeoutPromise
       ]) as { data: any; error: any };
-      
+
       clearTimeout(timeoutId);
     } catch (timeoutError: any) {
       clearTimeout(timeoutId);
@@ -129,12 +129,14 @@ export const useMissionOperations = () => {
       }
 
       // 1) 先檢查每日限制（在觀看廣告之前）
-      const { data: profile, error: profileError } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('tokens, ad_watch_count, last_login')
+        .select('tokens, ad_watch_count, last_login, last_ad_watch_date')
         .eq('id', user.id)
         .single();
-      if (profileError || !profile) throw new Error('找不到用戶資料');
+      if (profileError || !profileData) throw new Error('找不到用戶資料');
+
+      const profile = profileData as any;
 
       // 從後台配置讀取觀看廣告限制和獎勵
       // 注意：不需要每次都刷新配置，緩存已經足夠新（配置更新頻率低）
@@ -150,10 +152,41 @@ export const useMissionOperations = () => {
       const MAX_ADS_PER_DAY = typeof maxAdsPerDayRaw === 'number' ? maxAdsPerDayRaw : Number(maxAdsPerDayRaw) || 10;
       const AD_REWARD = typeof adRewardRaw === 'number' ? adRewardRaw : Number(adRewardRaw) || 5;
 
-      const today = new Date().toISOString().split('T')[0];
-      const lastLogin = profile.last_login ? new Date(profile.last_login).toISOString().split('T')[0] : null;
+      // 使用 UTC 時間來判斷是否跨日 (與伺服器邏輯一致)
+      // 獲取 UTC YYYY-MM-DD
+      const getUtcDate = () => {
+        return new Date().toISOString().split('T')[0];
+      };
+
+      const today = getUtcDate();
+
+      // 改進：使用 last_ad_watch_date 來判斷重置
+      // 如果 last_ad_watch_date 不存在，表示從未觀看過（或新欄位），視為新的一天
+      let lastActivityDatePart = null;
+      const refDate = profile.last_ad_watch_date;
+
+      if (refDate) {
+        // refDate 是 ISO 字符串 (UTC)，直接截取日期部分即可
+        // 假設 refDate 如 "2023-10-27T10:00:00.000Z"
+        lastActivityDatePart = refDate.split('T')[0];
+      } else {
+        // 如果沒有 last_ad_watch_date，強制重置（視為今天沒看過）
+        lastActivityDatePart = 'never';
+      }
+
       let adWatchCount = profile.ad_watch_count || 0;
-      if (lastLogin !== today) adWatchCount = 0;
+
+      // 如果上次觀看日期 (本地) 不等於今天 (本地)，或是從未觀看過，重置計數
+      if (lastActivityDatePart !== today) {
+        console.log('[watchAd] New day detected (or first time), resetting count:', { last: lastActivityDatePart, today });
+        adWatchCount = 0;
+      }
+
+      // 如果上次活動日期 (本地) 不等於今天 (本地)，重置計數
+      if (lastActivityDatePart !== today) {
+        console.log('[watchAd] New day detected (Local time), resetting count:', { last: lastActivityDatePart, today });
+        adWatchCount = 0;
+      }
 
       // 在觀看廣告之前檢查限制
       if (adWatchCount >= MAX_ADS_PER_DAY) {
@@ -233,18 +266,19 @@ export const useMissionOperations = () => {
           throw new Error('Edge Function failed');
         }
       } catch (edgeError: any) {
-        // Edge Function 失敗，使用 RPC + 手動更新作為備選
+        // Edge Function 失敗，使用 Atomic RPC 作為備選 (比 add_tokens 更安全，會檢查限制)
         try {
           const rpcStartTime = Date.now();
 
-          // 調用 RPC（添加超時處理，15秒，給足夠時間處理）
-          const rpcPromise = supabase.rpc('add_tokens', {
-            user_id: user.id,
-            token_amount: AD_REWARD
+          // 調用 Atomic RPC (包含限制檢查、代幣增加、事務記錄)
+          // 參數: p_reward_amount, p_max_ads_per_day
+          const rpcPromise = supabase.rpc('watch_ad_atomic', {
+            p_reward_amount: AD_REWARD,
+            p_max_ads_per_day: MAX_ADS_PER_DAY
           });
 
           const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) =>
-            setTimeout(() => reject(new Error('RPC 調用超時（15秒）')), 15000)
+            setTimeout(() => reject(new Error('Atomic RPC 調用超時（15秒）')), 15000)
           );
 
           let rpcResult: { data: any; error: any };
@@ -254,48 +288,40 @@ export const useMissionOperations = () => {
               timeoutPromise
             ]) as { data: any; error: any };
           } catch (timeoutError: any) {
-            console.error('[watchAd] ❌ RPC 調用超時:', timeoutError);
-            // RPC 超時，直接拋出錯誤（不嘗試備選方案，因為 add_tokens_from_ad_watch 可能不存在或參數不匹配）
+            console.error('[watchAd] ❌ Atomic RPC 調用超時:', timeoutError);
             throw new Error('RPC 調用超時，請檢查網絡連接或稍後再試');
           }
 
-          const { data: rpcData, error: tokenError } = rpcResult;
-
+          const { data: rpcData, error: atomicError } = rpcResult;
           const rpcDuration = Date.now() - rpcStartTime;
 
-          if (tokenError) {
-            console.error('[watchAd] ❌ Add tokens RPC error:', {
-              error: tokenError,
-              code: tokenError.code,
-              message: tokenError.message,
-              details: tokenError.details,
-              hint: tokenError.hint
-            });
-            throw new Error('增加代幣失敗：' + (tokenError.message || '未知錯誤'));
+          if (atomicError) {
+            console.error('[watchAd] ❌ Watch Ad Atomic RPC error:', atomicError);
+            throw atomicError;
           }
 
+          if (rpcData && rpcData.success) {
+            tokenUpdateSuccess = true;
+            // Atomic RPC 已經更新了 last_ad_watch_date 和 ad_watch_count
+            // 所以不需要這裡手動更新 profiles
+            console.log('✅ Watch ad success via Atomic RPC');
+          } else {
+            throw new Error('Atomic RPC returned failure');
+          }
 
-          // RPC 調用成功後，立即標記為成功（不等待後續操作）
-          tokenUpdateSuccess = true;
-
-          // 後續操作改為異步執行，不阻塞 UI
-          Promise.allSettled([
-            // 更新觀看次數和登入時間
-            supabase.from('profiles')
-              .update({
-                ad_watch_count: adWatchCount + 1,
-                last_login: new Date().toISOString()
-              })
-              .eq('id', user.id)
-          ]).catch(() => {
-            // 靜默處理錯誤，不影響主流程
-          });
         } catch (rpcError: any) {
-          console.error('[watchAd] ❌ RPC 備選方案失敗:', {
+          console.error('[watchAd] ❌ Atomic RPC 備選方案失敗:', {
             error: rpcError,
-            message: rpcError?.message,
-            stack: rpcError?.stack
+            message: rpcError?.message
           });
+
+          if (rpcError.message?.includes('Daily ad watch limit reached')) {
+            const limitMsg = getText('mission.watchAd.limitReached', '今日觀看廣告次數已達上限');
+            const limitError = new Error(limitMsg);
+            (limitError as any).limitReached = true;
+            throw limitError;
+          }
+
           throw rpcError;
         }
       }

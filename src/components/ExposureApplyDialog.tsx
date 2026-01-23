@@ -67,10 +67,10 @@ export const ExposureApplyDialog = ({
 
   const loadExposureLimits = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('exposure_limits')
         .select('*')
-        .order('price', { ascending: true });
+        .order('value', { ascending: true });
 
       if (error) throw error;
       setLimits(data || []);
@@ -90,7 +90,7 @@ export const ExposureApplyDialog = ({
     setCheckResult(null);
 
     try {
-      const { data, error } = await supabase.rpc('can_apply_exposure', {
+      const { data, error } = await (supabase as any).rpc('can_apply_exposure', {
         p_user_id: user.id,
         p_exposure_level: level,
         p_topic_id: topicId,
@@ -115,7 +115,7 @@ export const ExposureApplyDialog = ({
           global_limit_exceeded: getText('exposure.error.globalLimitExceeded', '今日曝光額滿，請明日再試'),
           penalty_active: getText('exposure.error.penaltyActive', '因違規行為，曝光功能已暫停至 {{time}}')
             .replace('{{time}}', new Date(data.penalty_until).toLocaleString('zh-TW')),
-          insufficient_tokens: getText('exposure.error.insufficientTokens', '代幣不足（需要：{{required}}，目前：{{current}}）')
+          insufficient_tokens: getText('exposure.error.insufficientTokens', '失序值不足（需要：{{required}}，目前：{{current}}）')
             .replace('{{required}}', String(data.required))
             .replace('{{current}}', String(data.current)),
           already_at_or_higher: getText('exposure.error.alreadyAtOrHigher', '目前曝光等級已是相同或更高，無需升級'),
@@ -139,7 +139,7 @@ export const ExposureApplyDialog = ({
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.rpc('apply_exposure', {
+      const { data, error } = await (supabase as any).rpc('apply_exposure', {
         p_topic_id: topicId,
         p_exposure_level: selectedLevel,
       });
@@ -156,7 +156,7 @@ export const ExposureApplyDialog = ({
       } else {
         const errorMessages: Record<string, string> = {
           not_authenticated: getText('exposure.error.notAuthenticated', '請先登入'),
-          insufficient_tokens: getText('exposure.error.insufficientTokens', '代幣不足（需要：{{required}}，目前：{{current}}）')
+          insufficient_tokens: getText('exposure.error.insufficientTokens', '失序值不足（需要：{{required}}，目前：{{current}}）')
             .replace('{{required}}', String(data.details?.required || 0))
             .replace('{{current}}', String(data.details?.current || 0)),
           daily_limit_exceeded: getText('exposure.error.dailyLimitExceeded', '今日申請次數已達上限（{{limit}}次）')
@@ -256,7 +256,7 @@ export const ExposureApplyDialog = ({
           <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
             <div className="flex items-center gap-2">
               <Coins className="w-5 h-5 text-accent" />
-              <span className="font-semibold">{getText('exposure.dialog.tokenBalance', '代幣餘額：')}{userTokens.toLocaleString()}</span>
+              <span className="font-semibold">{getText('exposure.dialog.tokenBalance', '失序值餘額：')}{userTokens.toLocaleString()}</span>
             </div>
             <div className="text-sm text-muted-foreground">
               {getText('exposure.dialog.currentLevel', '目前等級：')}{getLevelInfo(currentLevel).label || getText('exposure.dialog.levelNotSet', '未設定')}
@@ -323,7 +323,7 @@ export const ExposureApplyDialog = ({
                               {info.label}
                             </Badge>
                             <span className="text-sm font-medium">
-                              {getText('exposure.dialog.priceDiff', '差額 {{amount}} 代幣')
+                              {getText('exposure.dialog.priceDiff', '差額 {{amount}} 失序值')
                                 .replace('{{amount}}', String(priceDiff))}
                             </span>
                           </div>
@@ -337,7 +337,7 @@ export const ExposureApplyDialog = ({
                         </div>
                         {!canAfford && (
                           <p className="text-xs text-red-500 mt-1">
-                            {getText('exposure.dialog.tokensInsufficient', '代幣不足（需要 {{required}}，目前 {{current}}）')
+                            {getText('exposure.dialog.tokensInsufficient', '失序值不足（需要 {{required}}，目前 {{current}}）')
                               .replace('{{required}}', String(priceDiff))
                               .replace('{{current}}', String(userTokens))}
                           </p>

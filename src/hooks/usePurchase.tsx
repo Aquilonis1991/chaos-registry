@@ -69,9 +69,9 @@ export const usePurchase = () => {
       // 確保購買服務已初始化
       if (!purchaseService.isInitialized()) {
         console.log('[Purchase] Service not initialized, initializing now...');
-        const initialized = await purchaseService.initialize();
-        if (!initialized) {
-          throw new Error('無法初始化購買服務，請確認已安裝內購插件');
+        const initResult = await purchaseService.initialize();
+        if (!initResult.success) {
+          throw new Error(initResult.error || '無法初始化購買服務，請確認已安裝內購插件');
         }
       }
 
@@ -187,10 +187,10 @@ export const usePurchase = () => {
 
     } catch (error: any) {
       console.error('[Purchase] Native purchase error:', error);
-      
+
       // 詳細錯誤處理
       let errorMessage = error.message || getText('recharge.toast.failure.desc', '購買失敗，請稍後再試');
-      
+
       // 處理常見的購買錯誤
       if (error.code === 6777001 || error.code === 'USER_CANCELLED' || error.message?.includes('cancelled')) {
         errorMessage = getText('recharge.toast.userCancelled', '使用者取消了購買');
@@ -205,7 +205,7 @@ export const usePurchase = () => {
       } else if (error.message?.includes('not initialized') || error.message?.includes('Store not initialized')) {
         errorMessage = getText('recharge.toast.storeNotReady', '購買服務未就緒，請稍後再試');
       }
-      
+
       toast.error(errorMessage);
       throw error;
     }

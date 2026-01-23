@@ -19,7 +19,7 @@ const TermsPage = () => {
   return (
     <div className="min-h-screen bg-background pb-8">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg">
+      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top))]">
         <div className="max-w-screen-xl mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
             <Button
@@ -96,18 +96,18 @@ const DefaultTermsSections = () => (
     </section>
 
     <section>
-      <h3 className="text-xl font-bold text-foreground mb-3">三、代幣制度</h3>
+      <h3 className="text-xl font-bold text-foreground mb-3">三、失序值制度</h3>
       <ol className="list-decimal list-inside space-y-2 text-foreground">
-        <li>本服務提供之「代幣」為 App 內專用虛擬貨幣，僅可用於投票、建立主題、購買曝光方案等功能。</li>
-        <li>代幣無法兌換現金、轉讓或提領，亦不具任何投資性質。</li>
-        <li>代幣可透過以下方式取得：
+        <li>本服務提供之「失序值」為 App 內專用虛擬貨幣，僅可用於投票、建立主題、購買曝光方案等功能。</li>
+        <li>失序值無法兌換現金、轉讓或提領，亦不具任何投資性質。</li>
+        <li>失序值可透過以下方式取得：
           <ul className="list-disc list-inside ml-6 mt-2">
             <li>內購儲值（實際金流經由 Google / Apple 官方管道）</li>
             <li>完成任務（登入、觀看廣告等）</li>
           </ul>
         </li>
-        <li>代幣一經使用、儲值或消耗，概不退還。</li>
-        <li>若因系統錯誤導致代幣異常，本公司得於查證後進行調整。</li>
+        <li>失序值一經使用、儲值或消耗，概不退還。</li>
+        <li>若因系統錯誤導致失序值異常，本公司得於查證後進行調整。</li>
       </ol>
     </section>
 
@@ -157,7 +157,7 @@ const DefaultTermsSections = () => (
       <h3 className="text-xl font-bold text-foreground mb-3">七、個資與隱私</h3>
       <ol className="list-decimal list-inside space-y-2 text-foreground">
         <li>本公司將依據《不理性登記處隱私權政策》保護使用者資料。</li>
-        <li>主要收集項目包含：登入識別資訊（UUID、Email）、使用紀錄、代幣消耗與行為統計。</li>
+        <li>主要收集項目包含：登入識別資訊（UUID、Email）、使用紀錄、失序值消耗與行為統計。</li>
         <li>未經您的同意，本公司不會將個人資料提供給第三方，除非依法律規定或執法單位要求。</li>
       </ol>
     </section>

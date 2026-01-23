@@ -27,7 +27,7 @@ interface DeleteTopicDialogProps {
    * 刪除成功後的回調
    */
   onDeleteSuccess?: () => void;
-  
+
   /**
    * 是否在刪除後導航到首頁
    * @default true
@@ -84,7 +84,7 @@ export const DeleteTopicDialog = ({
       });
 
       setOpen(false);
-      
+
       if (onDeleteSuccess) {
         onDeleteSuccess();
       }
@@ -97,7 +97,7 @@ export const DeleteTopicDialog = ({
       }
     } catch (error: any) {
       console.error('Delete topic error:', error);
-      
+
       // 處理特定錯誤
       if (error.message?.includes('foreign key')) {
         toast.error(getText('deleteTopic.error.cannotDelete', '無法刪除'), {
@@ -153,7 +153,7 @@ export const DeleteTopicDialog = ({
               <p>{getText('deleteTopic.dialog.warning.afterDelete', '刪除主題後：')}</p>
               <ul className="list-disc list-inside space-y-1 text-sm">
                 <li><strong>{getText('deleteTopic.dialog.warning.cannotRestore', '無法恢復')}</strong>{getText('deleteTopic.dialog.warning.cannotRestoreDesc', '主題內容')}</li>
-                <li><strong>{getText('deleteTopic.dialog.warning.noRefund', '不會歸還')}</strong>{getText('deleteTopic.dialog.warning.noRefundDesc', '發布時消耗的代幣')}</li>
+                <li><strong>{getText('deleteTopic.dialog.warning.noRefund', '不會歸還')}</strong>{getText('deleteTopic.dialog.warning.noRefundDesc', '發布時消耗的失序值')}</li>
                 <li><strong>{getText('deleteTopic.dialog.warning.votesRemain', '已投票的用戶')}</strong>{getText('deleteTopic.dialog.warning.votesRemainDesc', '仍可查看投票記錄')}</li>
                 <li><strong>{getText('deleteTopic.dialog.warning.removed', '主題將從首頁')}</strong>{getText('deleteTopic.dialog.warning.removedDesc', '永久移除')}</li>
               </ul>

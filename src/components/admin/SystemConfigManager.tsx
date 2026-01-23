@@ -37,7 +37,7 @@ const SystemConfigManager = () => {
       // Parse the value based on its type
       let parsedValue;
       const originalType = typeof originalValue;
-      
+
       if (originalType === 'object' && originalValue !== null) {
         // JSON 對象或數組
         try {
@@ -106,7 +106,7 @@ const SystemConfigManager = () => {
     const getConfigValue = (key: string): number => {
       const config = configs.find(c => c.key === key);
       if (!config) return 10; // 默認值
-      
+
       const editedValue = editedValues[config.id];
       if (editedValue !== undefined) {
         const numValue = Number(editedValue);
@@ -137,15 +137,15 @@ const SystemConfigManager = () => {
     // 模擬 50 個主題的列表，計算廣告插入位置
     const totalItems = 50;
     const positions: number[] = [];
-    
+
     for (let index = 0; index < totalItems; index++) {
       const positionAfterSkip = index + 1 - skipFirst;
-      const shouldInsertAd = 
+      const shouldInsertAd =
         index + 1 > skipFirst &&
         positionAfterSkip > 0 &&
         positionAfterSkip % interval === 0 &&
         index < totalItems - 1;
-      
+
       if (shouldInsertAd) {
         positions.push(index + 1); // 位置從 1 開始
       }
@@ -155,13 +155,23 @@ const SystemConfigManager = () => {
     setTestDialogOpen(true);
   };
 
-  const groupedConfigs = configs.reduce((acc, config) => {
-    if (!acc[config.category]) {
-      acc[config.category] = [];
-    }
-    acc[config.category].push(config);
-    return acc;
-  }, {} as Record<string, typeof configs>);
+  // Keys that are managed by dedicated components and should be hidden here
+  const HIDDEN_KEYS = [
+    'legal_terms_content',
+    'legal_privacy_content',
+    'ai_chaos_rewrite_prompt',
+    'ai_chaos_verification_prompt'
+  ];
+
+  const groupedConfigs = configs
+    .filter(config => !HIDDEN_KEYS.includes(config.key))
+    .reduce((acc, config) => {
+      if (!acc[config.category]) {
+        acc[config.category] = [];
+      }
+      acc[config.category].push(config);
+      return acc;
+    }, {} as Record<string, typeof configs>);
 
   const orderedCategories = [
     'validation',
@@ -238,9 +248,16 @@ const SystemConfigManager = () => {
                     const currentValue = getValue(config.id, config.value);
                     const hasChanged = editedValues[config.id] !== undefined;
                     const isObject = typeof config.value === 'object';
-                    const isAdConfig = config.key === 'ad_insertion_interval' || 
-                                      config.key === 'ad_insertion_skip_first' || 
-                                      config.key === 'ad_insertion_enabled';
+                    const isAdConfig = config.key === 'ad_insertion_interval' ||
+                      config.key === 'ad_insertion_skip_first' ||
+                      config.key === 'ad_insertion_enabled';
+
+                    // Force textarea for AI prompts if they somehow appear here
+                    const isLongText = typeof config.value === 'string' && (
+                      config.value.length > 50 ||
+                      config.key.includes('prompt') ||
+                      config.key.includes('content')
+                    );
 
                     return (
                       <div key={config.id} className="space-y-2 border-b pb-4 last:border-0">
@@ -257,8 +274,8 @@ const SystemConfigManager = () => {
                           </div>
                           <div className="flex gap-2">
                             {isAdConfig && config.key === 'ad_insertion_interval' && (
-                              <Dialog 
-                                open={testDialogOpen} 
+                              <Dialog
+                                open={testDialogOpen}
                                 onOpenChange={(open) => {
                                   setTestDialogOpen(open);
                                   if (open) {
@@ -349,12 +366,13 @@ const SystemConfigManager = () => {
                             </Button>
                           </div>
                         </div>
-                        {isObject ? (
+                        {isObject || isLongText ? (
                           <textarea
                             id={config.id}
                             value={currentValue}
                             onChange={(e) => handleValueChange(config.id, e.target.value)}
-                            className="w-full min-h-[100px] p-2 border rounded-md font-mono text-sm bg-background"
+                            className="w-full min-h-[200px] p-2 border rounded-md font-mono text-sm bg-background"
+                            rows={isLongText ? 10 : 3}
                           />
                         ) : (
                           <Input

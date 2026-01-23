@@ -25,47 +25,47 @@ const HomePage = () => {
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
   const { getConfig, loading: configLoading, configs } = useSystemConfigCache();
   const [currentTab, setCurrentTab] = useState<'hot' | 'latest' | 'joined'>('hot');
-  
+
   // 當從其他頁面回到首頁時，確保 Intersection Observer 重新設置
   useEffect(() => {
     // 當 location.pathname 變為 /home 時，表示回到了首頁
     // 這會觸發 Intersection Observer 的重新設置
   }, [location.pathname]);
-  
+
   // 注意：配置緩存會在首次加載時自動獲取，不需要每次掛載都刷新
   // 如果需要強制刷新配置，可以在特定場景下手動調用 refreshConfigs()
-  
+
   // 根據當前標籤獲取主題（啟用無限滾動）
-  const { 
-    topics: hotTopics, 
-    loading: hotLoading, 
+  const {
+    topics: hotTopics,
+    loading: hotLoading,
     loadingMore: hotLoadingMore,
     hasMore: hotHasMore,
-    loadMore: hotLoadMore 
-  } = useTopics({ 
-    filter: 'hot', 
+    loadMore: hotLoadMore
+  } = useTopics({
+    filter: 'hot',
     limit: 20,
     enableInfiniteScroll: true
   });
-  const { 
-    topics: latestTopics, 
+  const {
+    topics: latestTopics,
     loading: latestLoading,
     loadingMore: latestLoadingMore,
     hasMore: latestHasMore,
     loadMore: latestLoadMore
-  } = useTopics({ 
-    filter: 'latest', 
+  } = useTopics({
+    filter: 'latest',
     limit: 20,
     enableInfiniteScroll: true
   });
-  const { 
-    topics: joinedTopics, 
+  const {
+    topics: joinedTopics,
     loading: joinedLoading,
     loadingMore: joinedLoadingMore,
     hasMore: joinedHasMore,
     loadMore: joinedLoadMore
-  } = useTopics({ 
-    filter: 'joined', 
+  } = useTopics({
+    filter: 'joined',
     userId: user?.id,
     enableInfiniteScroll: true
   });
@@ -89,16 +89,16 @@ const HomePage = () => {
   // 廣告配置（從系統配置讀取，完全由後台控制）
   const adInsertionIntervalRaw = getConfig('ad_insertion_interval', 10);
   const adInsertionInterval = Number(adInsertionIntervalRaw) || 10;
-  
+
   const adInsertionSkipFirstRaw = getConfig('ad_insertion_skip_first', 10);
   const adInsertionSkipFirst = Number(adInsertionSkipFirstRaw) || 10;
-  
+
   const adUnitIdConfig = getConfig('admob_native_ad_unit_id', 'ca-app-pub-3940256099942544/2247696110');
   const adUnitId = typeof adUnitIdConfig === 'string' ? adUnitIdConfig : String(adUnitIdConfig || '');
-  
+
   const adInsertionEnabledValue = getConfig('ad_insertion_enabled', true);
   const adInsertionEnabled = adInsertionEnabledValue === true || adInsertionEnabledValue === 'true' || String(adInsertionEnabledValue).toLowerCase() === 'true';
-  
+
   // 調試：輸出實際讀取到的配置值
   useEffect(() => {
     console.log('[HomePage] 讀取的配置值:');
@@ -107,7 +107,7 @@ const HomePage = () => {
     console.log('  - ad_insertion_enabled (原始):', adInsertionEnabledValue, '→ (解析後):', adInsertionEnabled);
     console.log('  - admob_native_ad_unit_id:', adUnitIdConfig ? 'SET' : 'MISSING');
   }, [adInsertionIntervalRaw, adInsertionSkipFirstRaw, adInsertionEnabledValue, adUnitIdConfig, adInsertionInterval, adInsertionSkipFirst, adInsertionEnabled]);
-  
+
   const adConfig = {
     interval: adInsertionInterval,
     skipFirst: adInsertionSkipFirst,
@@ -264,9 +264,9 @@ const HomePage = () => {
   const formatCreatedAt = (dateString: string) => formatRelativeTime(new Date(dateString), getText);
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background pb-32">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg">
+      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[env(safe-area-inset-top)]">
         <div className="max-w-screen-xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -280,8 +280,8 @@ const HomePage = () => {
                 </p>
               </div>
             </div>
-            
-            <button 
+
+            <button
               onClick={() => navigate('/recharge')}
               className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-4 py-2 rounded-full hover:bg-primary-foreground/30 transition-colors cursor-pointer"
             >
@@ -344,7 +344,7 @@ const HomePage = () => {
                     <div className="space-y-4">
                       {promotedHotTopics.map((topic) => (
                         <div key={topic.id}>
-                          <TopicCard 
+                          <TopicCard
                             id={topic.id}
                             title={topic.title}
                             tags={topic.tags}
@@ -359,7 +359,7 @@ const HomePage = () => {
                     </div>
                   </div>
                 )}
-                
+
                 {/* 一般主題列表 */}
                 {regularHotTopics.length > 0 && (
                   <div className="space-y-4">
@@ -367,7 +367,7 @@ const HomePage = () => {
                       regularHotTopics,
                       (topic, index) => (
                         <div key={topic.id}>
-                          <TopicCard 
+                          <TopicCard
                             id={topic.id}
                             title={topic.title}
                             tags={topic.tags}
@@ -422,7 +422,7 @@ const HomePage = () => {
                   latestTopics,
                   (topic) => (
                     <div key={topic.id}>
-                      <TopicCard 
+                      <TopicCard
                         id={topic.id}
                         title={topic.title}
                         tags={topic.tags}
@@ -471,7 +471,7 @@ const HomePage = () => {
                   joinedTopics,
                   (topic) => (
                     <div key={topic.id}>
-                      <TopicCard 
+                      <TopicCard
                         id={topic.id}
                         title={topic.title}
                         tags={topic.tags}

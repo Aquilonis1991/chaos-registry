@@ -6,12 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { 
-  Loader2, 
-  Search, 
-  Gift, 
-  Ban, 
-  MoreVertical, 
+import {
+  Loader2,
+  Search,
+  Gift,
+  Ban,
+  MoreVertical,
   Coins,
   TrendingUp,
   Trash2,
@@ -115,12 +115,12 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   const { language } = useLanguage();
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
   const { isSuperAdmin } = useAdmin();
-  
+
   // 獲取管理員列表（只有最高管理者可以看到）
   const { data: adminList } = useQuery({
     queryKey: ['admin-list'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_admin_list');
+      const { data, error } = await (supabase as any).rpc('get_admin_list');
       if (error) throw error;
       return data || [];
     },
@@ -129,7 +129,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
     placeholderData: (previousData) => previousData ?? [],
     gcTime: Infinity, // 永遠不清理緩存
   });
-  
+
   // 創建管理員狀態映射（用於快速查找）
   const adminMap = useMemo(() => {
     if (!adminList) return new Map();
@@ -142,7 +142,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
     });
     return map;
   }, [adminList]);
-  
+
   const [showSuspendDialog, setShowSuspendDialog] = useState(false);
   const [suspendTarget, setSuspendTarget] = useState<UserProfile | null>(null);
   const [suspendReason, setSuspendReason] = useState("");
@@ -152,7 +152,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   const searchPlaceholder = getText('admin.userManager.search.placeholder', '搜尋用戶暱稱...');
   const searchButtonText = getText('admin.userManager.search.button', '搜尋');
   const tableHeaderUser = getText('admin.userManager.table.header.user', '用戶');
-  const tableHeaderTokens = getText('admin.userManager.table.header.tokens', '代幣');
+  const tableHeaderTokens = getText('admin.userManager.table.header.tokens', '失序值');
   const tableHeaderCreatedAt = getText('admin.userManager.table.header.createdAt', '註冊時間');
   const tableHeaderLastLogin = getText('admin.userManager.table.header.lastLogin', '最後登入');
   const tableHeaderActions = getText('admin.userManager.table.header.actions', '操作');
@@ -169,28 +169,28 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   const rewardDialogTitle = getText('admin.userManager.dialog.title', '派發獎勵');
   const rewardDialogDescriptionTemplate = getText('admin.userManager.dialog.description', '為 {{nickname}} 派發獎勵');
   const rewardTypeLabel = getText('admin.userManager.dialog.rewardTypeLabel', '獎勵類型');
-  const rewardTypeTokensLabel = getText('admin.userManager.dialog.rewardType.tokens', '代幣');
+  const rewardTypeTokensLabel = getText('admin.userManager.dialog.rewardType.tokens', '失序值');
   const rewardTypeFreeCreateLabel = getText('admin.userManager.dialog.rewardType.freeCreate', '免費創建資格');
   const rewardTypePlaceholder = getText('admin.userManager.dialog.rewardTypePlaceholder', '選擇獎勵類型');
-  const rewardTokenAmountLabel = getText('admin.userManager.dialog.tokenAmountLabel', '代幣數量');
-  const rewardTokenAmountPlaceholder = getText('admin.userManager.dialog.tokenAmountPlaceholder', '輸入代幣數量');
+  const rewardTokenAmountLabel = getText('admin.userManager.dialog.tokenAmountLabel', '失序值數量');
+  const rewardTokenAmountPlaceholder = getText('admin.userManager.dialog.tokenAmountPlaceholder', '輸入失序值數量');
   const rewardReasonLabel = getText('admin.userManager.dialog.reasonLabel', '派發原因（選填）');
   const rewardReasonPlaceholder = getText('admin.userManager.dialog.reasonPlaceholder', '輸入派發原因...');
-  const rewardStatsTokensTemplate = getText('admin.userManager.dialog.stats.tokens', '當前代幣：{{amount}}');
+  const rewardStatsTokensTemplate = getText('admin.userManager.dialog.stats.tokens', '當前失序值：{{amount}}');
   const rewardStatsTopicsTemplate = getText('admin.userManager.dialog.stats.topics', '創建主題數：{{count}}');
   const rewardStatsVotesTemplate = getText('admin.userManager.dialog.stats.votes', '投票總數：{{count}}');
   const dialogCancelText = getText('admin.userManager.dialog.cancel', '取消');
   const dialogConfirmText = getText('admin.userManager.dialog.confirm', '確認派發');
   const dialogProcessingText = getText('admin.userManager.dialog.processing', '派發中...');
-  const tokensSuccessTemplate = getText('admin.userManager.toast.tokensSuccess', '已派發 {{amount}} 代幣');
+  const tokensSuccessTemplate = getText('admin.userManager.toast.tokensSuccess', '已派發 {{amount}} 失序值');
   const freeCreateSuccessText = getText('admin.userManager.toast.freeCreateSuccess', '已派發免費創建資格');
   const rewardErrorPrefix = getText('admin.userManager.toast.rewardErrorPrefix', '派發失敗：');
   const unknownErrorText = getText('admin.userManager.toast.unknownError', '未知錯誤');
   const noUserSelectedError = getText('admin.userManager.error.noUserSelected', '未選擇用戶');
   const notLoggedInError = getText('admin.userManager.error.notLoggedIn', '未登入');
-  const tokenAmountMustBePositive = getText('admin.userManager.error.tokenAmountPositive', '代幣數量必須大於 0');
+  const tokenAmountMustBePositive = getText('admin.userManager.error.tokenAmountPositive', '失序值數量必須大於 0');
   const rewardFailureDefault = getText('admin.userManager.error.rewardFailure', '派發失敗');
-  const invalidTokenAmountText = getText('admin.userManager.error.invalidTokenAmount', '請輸入有效的代幣數量');
+  const invalidTokenAmountText = getText('admin.userManager.error.invalidTokenAmount', '請輸入有效的失序值數量');
   const dropdownDeleteText = getText('admin.userManager.dropdown.delete', '刪除用戶');
   const deleteDialogTitle = getText('admin.userManager.delete.title', '刪除用戶');
   const deleteDialogDescriptionTemplate = getText('admin.userManager.delete.description', '確定要刪除 {{nickname}} 嗎？資料會被保留於後台日誌，使用者可重新註冊。');
@@ -208,7 +208,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
     queryFn: async () => {
       let query = supabase
         .from('profiles')
-        .select('id, nickname, avatar, tokens, created_at, last_login_date, is_deleted, deleted_at, deleted_reason')
+        .select('id, nickname, avatar, tokens, created_at, last_login_date, is_deleted, deleted_at, deleted_reason', { count: 'exact' })
         .order('created_at', { ascending: false });
 
       if (searchQuery.trim()) {
@@ -216,8 +216,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
       }
 
       const { data, error, count } = await query
-        .range((page - 1) * pageSize, page * pageSize - 1)
-        .select('*', { count: 'exact' });
+        .range((page - 1) * pageSize, page * pageSize - 1);
 
       if (error) throw error;
       return { users: data as UserProfile[], total: count || 0 };
@@ -229,7 +228,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
     queryKey: ['admin-user-stats', selectedUser?.id],
     queryFn: async () => {
       if (!selectedUser) return null;
-      const { data, error } = await supabase.rpc('get_user_stats', {
+      const { data, error } = await (supabase as any).rpc('get_user_stats', {
         p_user_id: selectedUser.id
       });
       if (error) throw error;
@@ -243,18 +242,18 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
     queryKey: ['admin-user-detail-stats', detailUser?.id],
     queryFn: async () => {
       if (!detailUser) return null;
-      
+
       console.log('[UserManager] Fetching user stats for:', detailUser.id);
-      
+
       // 添加超時處理（30秒，增加時間以處理複雜查詢）
-      const rpcPromise = supabase.rpc('get_user_stats', {
+      const rpcPromise = (supabase as any).rpc('get_user_stats', {
         p_user_id: detailUser.id
       });
-      
-      const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) => 
+
+      const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) =>
         setTimeout(() => reject(new Error('查詢超時（30秒）')), 30000)
       );
-      
+
       let result: { data: any; error: any };
       try {
         result = await Promise.race([
@@ -265,9 +264,9 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
         console.error('[UserManager] RPC timeout:', timeoutError);
         throw new Error('查詢統計數據超時，請稍後再試');
       }
-      
+
       const { data, error } = result;
-      
+
       if (error) {
         console.error('[UserManager] Error fetching user stats:', {
           error,
@@ -278,9 +277,9 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
         });
         throw error;
       }
-      
+
       console.log('[UserManager] User stats fetched:', data);
-      
+
       if (!data || data.length === 0) {
         console.warn('[UserManager] No stats data returned, returning default values');
         // 返回默認值而不是 null，避免 UI 一直顯示載入中
@@ -293,7 +292,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
           last_login: detailUser.last_login_date || ''
         } as UserStats;
       }
-      
+
       const stats = data[0] as UserStats;
       console.log('[UserManager] Parsed stats:', stats);
       return stats;
@@ -308,9 +307,9 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
     queryKey: ['admin-user-token-transactions', detailUser?.id],
     queryFn: async () => {
       if (!detailUser) return null;
-      
+
       console.log('[UserManager] Fetching token transactions for:', detailUser.id);
-      
+
       // 添加超時處理（30秒，增加時間以處理大量數據）
       const queryPromise = supabase
         .from('token_transactions')
@@ -318,11 +317,11 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
         .eq('user_id', detailUser.id)
         .order('created_at', { ascending: false })
         .limit(50); // 增加顯示數量到50筆
-      
-      const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) => 
+
+      const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) =>
         setTimeout(() => reject(new Error('查詢超時（30秒）')), 30000)
       );
-      
+
       let result: { data: any; error: any };
       try {
         result = await Promise.race([
@@ -333,9 +332,9 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
         console.error('[UserManager] Token transactions query timeout:', timeoutError);
         throw new Error('查詢交易記錄超時，請稍後再試');
       }
-      
+
       const { data, error } = result;
-      
+
       if (error) {
         console.error('[UserManager] Error fetching token transactions:', {
           error,
@@ -344,9 +343,9 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
         });
         throw error;
       }
-      
+
       console.log('[UserManager] Token transactions fetched:', data?.length || 0, 'records');
-      
+
       return data || [];
     },
     enabled: !!detailUser,
@@ -359,19 +358,19 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
     queryKey: ['admin-user-topics', detailUser?.id],
     queryFn: async () => {
       if (!detailUser) return null;
-      
+
       console.log('[UserManager] Fetching user topics with stats for:', detailUser.id);
-      
-      const { data, error } = await supabase.rpc('get_user_topics_with_stats', {
+
+      const { data, error } = await (supabase as any).rpc('get_user_topics_with_stats', {
         p_user_id: detailUser.id,
         p_limit: 20,
       });
-      
+
       if (error) {
         console.error('[UserManager] Error fetching user topics via RPC:', error);
         throw error;
       }
-      
+
       console.log('[UserManager] User topics fetched via RPC:', data?.length || 0, 'topics');
       return (data || []) as UserTopicDetail[];
     },
@@ -384,7 +383,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   const rewardMutation = useMutation({
     mutationFn: async () => {
       if (!selectedUser) throw new Error(noUserSelectedError);
-      
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error(notLoggedInError);
 
@@ -394,7 +393,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
           throw new Error(tokenAmountMustBePositive);
         }
 
-        const { data, error } = await supabase.rpc('admin_grant_tokens', {
+        const { data, error } = await (supabase as any).rpc('admin_grant_tokens', {
           p_user_id: selectedUser.id,
           p_amount: amount,
           p_admin_id: user.id,
@@ -407,7 +406,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
         }
         return data?.[0];
       } else {
-        const { data, error } = await supabase.rpc('admin_grant_free_create', {
+        const { data, error } = await (supabase as any).rpc('admin_grant_free_create', {
           p_user_id: selectedUser.id,
           p_admin_id: user.id,
           p_reason: rewardReason.trim() || null
@@ -483,7 +482,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   const deleteMutation = useMutation({
     mutationFn: async () => {
       if (!deleteTarget) throw new Error(noUserSelectedError);
-      const { data, error } = await supabase.rpc('admin_soft_delete_user', {
+      const { data, error } = await (supabase as any).rpc('admin_soft_delete_user', {
         p_target_user_id: deleteTarget.id,
         p_reason: deleteReason.trim() || null
       });
@@ -512,7 +511,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
       if (!suspendTarget) throw new Error('未選擇要暫停的管理員');
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('未登入');
-      const { data, error } = await supabase.rpc('suspend_admin', {
+      const { data, error } = await (supabase as any).rpc('suspend_admin', {
         p_target_user_id: suspendTarget.id,
         p_suspending_admin_id: user.id,
         p_reason: suspendReason.trim() || null
@@ -543,7 +542,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
     mutationFn: async (userId: string) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('未登入');
-      const { data, error } = await supabase.rpc('unsuspend_admin', {
+      const { data, error } = await (supabase as any).rpc('unsuspend_admin', {
         p_target_user_id: userId,
         p_unsuspending_admin_id: user.id
       });
@@ -707,7 +706,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                                   <Gift className="w-4 h-4 mr-2" />
                                   {dropdownRewardText}
                                 </DropdownMenuItem>
-                                <DropdownMenuItem 
+                                <DropdownMenuItem
                                   disabled={user.is_deleted}
                                   onClick={() => {
                                     if (user.is_deleted) {
@@ -736,14 +735,14 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                                     <>
                                       <DropdownMenuSeparator />
                                       {adminInfo.isSuspended ? (
-                                        <DropdownMenuItem 
+                                        <DropdownMenuItem
                                           onClick={() => handleUnsuspendAdmin(user.id)}
                                         >
                                           <UserIcon className="w-4 h-4 mr-2" />
                                           恢復管理員權限
                                         </DropdownMenuItem>
                                       ) : (
-                                        <DropdownMenuItem 
+                                        <DropdownMenuItem
                                           onClick={() => handleOpenSuspendDialog(user)}
                                         >
                                           <Ban className="w-4 h-4 mr-2" />
@@ -754,7 +753,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                                   );
                                 })()}
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem 
+                                <DropdownMenuItem
                                   onClick={() => {
                                     setSelectedUser(user);
                                     queryClient.invalidateQueries({ queryKey: ['admin-user-stats'] });
@@ -997,7 +996,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
               {getText('admin.userManager.detail.description', '查看用戶的完整信息和活動記錄')}
             </DialogDescription>
           </DialogHeader>
-          
+
           {detailUser && (
             <div className="space-y-6 py-4">
               {/* 基本信息 */}
@@ -1191,7 +1190,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                       <Coins className="w-5 h-5" />
                       {getText('admin.userManager.detail.tokenTransactions', '代幣交易記錄')} ({tokenTransactions.length})
                     </h3>
-                    
+
                     {/* 分類統計 */}
                     <div className="grid grid-cols-3 gap-2 mb-4">
                       <div className="p-2 bg-blue-50 rounded text-center">
@@ -1213,14 +1212,14 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="space-y-2 max-h-60 overflow-y-auto">
                       {tokenTransactions.map((tx: any) => {
                         // 根據交易類型設置圖標和顏色
                         let typeIcon = '💰';
                         let typeColor = 'text-gray-600';
                         let typeLabel = tx.transaction_type;
-                        
+
                         if (tx.transaction_type === 'deposit' || tx.transaction_type === 'purchase') {
                           typeIcon = '💳';
                           typeColor = 'text-blue-600';
@@ -1246,7 +1245,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                           typeColor = 'text-teal-600';
                           typeLabel = '完成任務';
                         }
-                        
+
                         return (
                           <div key={tx.id} className="flex items-center justify-between p-2 border rounded text-sm">
                             <div className="flex-1">

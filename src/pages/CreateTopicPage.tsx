@@ -114,7 +114,7 @@ const CreateTopicPage = () => {
     }
 
     if (!hasFreeCreateQualification && profile.tokens < totalCost) {
-      toast.error(getText('topic.token.error', '代幣不足！'));
+      toast.error(getText('topic.token.error', '失序值不足！'));
       return;
     }
 
@@ -165,7 +165,7 @@ const CreateTopicPage = () => {
   const [customTag, setCustomTag] = useState("");
   const [exposure, setExposure] = useState("normal");
   const [duration, setDuration] = useState([7]);
-  const tokenLabel = getText('topic.costSummary.token', '代幣');
+  const tokenLabel = getText('topic.costSummary.token', '失序值');
   const formatTokenAmount = (value: number, options: { withPlus?: boolean } = {}) => {
     const templateKey = options.withPlus ? 'topic.costSummary.plusValueWithUnit' : 'topic.costSummary.valueWithUnit';
     const template = getText(
@@ -196,7 +196,7 @@ const CreateTopicPage = () => {
     if (user?.id) {
       const checkDailyUsage = async () => {
         const today = new Date().toISOString().split('T')[0];
-        const { data } = await supabase
+        const { data } = await (supabase as any)
           .from('user_daily_actions')
           .select('count')
           .eq('user_id', user.id)
@@ -213,13 +213,13 @@ const CreateTopicPage = () => {
   const executeRewrite = async () => {
     setIsRewriting(true);
     setShowPaymentConfirm(false);
-    
+
     // 樂觀更新：如果本次需要付費，立即扣除代幣
     const rewriteCost = dailyRewriteCount > 0 ? 5 : 0;
     if (rewriteCost > 0) {
       updateTokensOptimistically(-rewriteCost);
     }
-    
+
     try {
       const { data, error } = await supabase.functions.invoke('ai-chaos-rewrite', {
         body: {
@@ -267,14 +267,14 @@ const CreateTopicPage = () => {
       const rewriteCost = 5; // 從配置獲取，這裡先硬編碼
       // 檢查代幣是否足夠
       if (profile && profile.tokens < rewriteCost) {
-        toast.error(getText('topic.rewrite.insufficientTokens', '代幣不足，無法進行改寫'), {
-          description: getText('topic.rewrite.insufficientTokensDesc', '需要 {{amount}} 代幣，您目前有 {{current}} 代幣')
+        toast.error(getText('topic.rewrite.insufficientTokens', '失序值不足，無法進行改寫'), {
+          description: getText('topic.rewrite.insufficientTokensDesc', '需要 {{amount}} 失序值，您目前有 {{current}} 失序值')
             .replace('{{amount}}', String(rewriteCost))
             .replace('{{current}}', String(profile.tokens))
         });
         return;
       }
-      
+
       setRewriteUsage({
         isFree: false,
         count: dailyRewriteCount + 1,
@@ -574,7 +574,7 @@ const CreateTopicPage = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>{getText('topic.unstable_rewrite.payment_title', '確認進行改寫？')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {getText('topic.unstable_rewrite.payment_message', '今日免費次數已用完，本次改寫消耗 {{amount}} 代幣。').replace('{{amount}}', String(rewriteUsage?.cost || 5))}
+              {getText('topic.unstable_rewrite.payment_message', '今日免費次數已用完，本次改寫消耗 {{amount}} 失序值。').replace('{{amount}}', String(rewriteUsage?.cost || 5))}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -678,10 +678,14 @@ const CreateTopicPage = () => {
 
 
 
-              <div className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
+              <button
+                type="button"
+                onClick={() => navigate('/recharge')}
+                className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-3 py-1.5 rounded-full hover:bg-primary-foreground/30 transition-colors cursor-pointer"
+              >
                 <Coins className="w-4 h-4 text-accent" />
                 <span className="font-bold text-primary-foreground text-sm">{userTokens}</span>
-              </div>
+              </button>
             </div>
           </div>
         </header>
@@ -741,7 +745,7 @@ const CreateTopicPage = () => {
                     </span>
                   </>
                 ) : (
-                  getText('topic.unstable_rewrite.button_paid', '不穩定改寫 ({{amount}} 代幣)').replace('{{amount}}', '5')
+                  getText('topic.unstable_rewrite.button_paid', '不穩定改寫 ({{amount}} 失序值)').replace('{{amount}}', '5')
                 )}
               </Button>
             </div>
@@ -884,8 +888,8 @@ const CreateTopicPage = () => {
               {/* Normal Exposure - 普通曝光 */}
               <Card className={cn(
                 "cursor-pointer hover:shadow-card transition-all border",
-                exposure === "normal" 
-                  ? "border-primary/50 bg-gradient-to-br from-primary/5 to-transparent" 
+                exposure === "normal"
+                  ? "border-primary/50 bg-gradient-to-br from-primary/5 to-transparent"
                   : "border-border/50"
               )}>
                 <CardContent className="p-4">

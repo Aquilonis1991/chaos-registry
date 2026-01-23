@@ -179,8 +179,8 @@ const NotificationsPage = () => {
 
       // 只更新非客服回覆的通知（客服回覆有獨立的標籤頁）
       setNotifications((prev) =>
-        prev.map((n) => 
-          n.type !== 'contact' 
+        prev.map((n) =>
+          n.type !== 'contact'
             ? { ...n, is_read: true, read_at: new Date().toISOString() }
             : n
         )
@@ -277,9 +277,8 @@ const NotificationsPage = () => {
         {list.map((notification) => (
           <Card
             key={notification.id}
-            className={`hover:shadow-md transition-shadow ${
-              !notification.is_read ? 'border-primary border-2' : ''
-            }`}
+            className={`hover:shadow-md transition-shadow ${!notification.is_read ? 'border-primary border-2' : ''
+              }`}
           >
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
@@ -411,7 +410,7 @@ const NotificationsPage = () => {
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg">
+      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top))]">
         <div className="max-w-screen-xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -445,11 +444,11 @@ const NotificationsPage = () => {
       {/* Content */}
       <div className="max-w-screen-xl mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-          <TabsList 
+          <TabsList
             className="!flex !flex-col !w-full gap-2 !h-auto p-2 !items-stretch"
-            style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
               height: 'auto',
               alignItems: 'stretch'
             }}

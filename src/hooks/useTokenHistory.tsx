@@ -26,6 +26,9 @@ const transactionTypeIcons: Record<string, string> = {
   complete_mission: '✅',
   watch_ad: '📺',
   admin_adjustment: '⚙️',
+  admin_grant: '🎁',
+  system_grant: '🎉',
+  manual_adjustment: '🔧',
   purchase: '💰',
   ai_usage: '🌀',
 };
@@ -73,6 +76,9 @@ const getTransactionTypeLabel = (type: string, getText: (key: string, fallback: 
     complete_mission: getText('tokenHistory.type.completeMission', '完成任務'),
     watch_ad: getText('tokenHistory.type.watchAd', '觀看廣告'),
     admin_adjustment: getText('tokenHistory.type.adminAdjustment', '系統調整'),
+    admin_grant: getText('tokenHistory.type.adminGrant', '管理員發放'),
+    system_grant: getText('tokenHistory.type.systemGrant', '系統發放'),
+    manual_adjustment: getText('tokenHistory.type.manualAdjustment', '人工調整'),
     purchase: getText('tokenHistory.type.purchase', '購買'),
     ai_usage: getText('tokenHistory.type.aiUsage', '不穩定處理'),
   };
@@ -204,7 +210,7 @@ export const useTokenHistory = (userId: string | undefined, options?: { timeFilt
 
       // 計算時間篩選條件
       const startDate = getStartDateFromFilter(timeFilter);
-      
+
       // 如果不是管理員，限制查詢範圍在1年內
       const oneYearAgo = new Date();
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
@@ -220,7 +226,7 @@ export const useTokenHistory = (userId: string | undefined, options?: { timeFilt
       if (startDate) {
         query = query.gte('created_at', startDate.toISOString());
       }
-      
+
       // 如果不是管理員，限制在1年內
       if (minDate) {
         const effectiveMinDate = startDate && startDate > minDate ? startDate : minDate;
@@ -229,7 +235,7 @@ export const useTokenHistory = (userId: string | undefined, options?: { timeFilt
 
       const { data: transactions, error: transactionsError } = await query
         .order('created_at', { ascending: false })
-        .limit(200);
+        .limit(500);
 
       if (transactionsError) {
         console.error('❌ Error fetching token_transactions:', transactionsError);
@@ -281,7 +287,7 @@ export const useTokenHistory = (userId: string | undefined, options?: { timeFilt
         // 先解析 amount，確保正確處理
         let amountValue = parseAmountValue(transaction.amount);
         const originalType = transaction.transaction_type;
-        
+
         // 調試日誌：記錄原始資料
         console.log('🔍 Processing transaction:', {
           id: transaction.id,
@@ -291,10 +297,10 @@ export const useTokenHistory = (userId: string | undefined, options?: { timeFilt
           parsedAmount: amountValue,
           reference_id: transaction.reference_id
         });
-        
+
         // 決定最終的 transaction_type
         let normalizedType: string;
-        
+
         // 如果原本是 free_create_topic 但 amount 是負數（有實際支出），應該改為 create_topic
         if (originalType === 'free_create_topic' && amountValue < 0) {
           normalizedType = 'create_topic';
@@ -310,7 +316,7 @@ export const useTokenHistory = (userId: string | undefined, options?: { timeFilt
         } else {
           // 其他情況使用 normalizeTransactionType
           normalizedType = normalizeTransactionType(originalType);
-          
+
           // 對於建立主題的交易，如果 amount 為 0 或 null，嘗試從主題資訊重新計算成本
           if (
             normalizedType === 'create_topic' &&

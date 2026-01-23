@@ -19,6 +19,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import LegalContentManager from "@/components/admin/LegalContentManager";
 import { DataExportManager } from "@/components/admin/DataExportManager";
+import { AiPromptManager } from "@/components/admin/AiPromptManager";
 
 const AdminPage = () => {
   const { isAdmin, isLoading, error: adminError } = useAdmin();
@@ -41,6 +42,7 @@ const AdminPage = () => {
   const tabBannedWords = getText('admin.tabs.bannedWords', '禁字表');
   const tabLegal = getText('admin.tabs.legal', '條款管理');
   const tabExport = getText('admin.tabs.export', '數據匯出');
+  const tabAi = getText('admin.tabs.ai', 'AI 管理');
 
   useEffect(() => {
     // 檢查管理員權限
@@ -161,6 +163,7 @@ const AdminPage = () => {
           <TabsTrigger value="config">{tabConfig}</TabsTrigger>
           <TabsTrigger value="banned-words">{tabBannedWords}</TabsTrigger>
           <TabsTrigger value="legal">{tabLegal}</TabsTrigger>
+          <TabsTrigger value="ai">{tabAi}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users">
@@ -241,6 +244,10 @@ const AdminPage = () => {
               onUserSelected={() => setSelectedUserIdForRestriction(null)}
             />
           </Card>
+        </TabsContent>
+
+        <TabsContent value="ai">
+          <AiPromptManager />
         </TabsContent>
       </Tabs>
     </div>

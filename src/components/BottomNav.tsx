@@ -17,13 +17,13 @@ export const BottomNav = () => {
   ] as const;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border shadow-lg">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border shadow-lg pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
       <div className="max-w-screen-xl mx-auto px-2">
         <div className="flex justify-around items-end h-16 relative">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
-            
+
             return (
               <Link
                 key={item.path}

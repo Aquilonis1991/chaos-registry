@@ -141,7 +141,8 @@ Deno.serve(async (req) => {
     const openAiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openAiKey) throw new Error("OpenAI API Key not configured");
 
-    const systemPrompt = `
+    // Default Prompt (Fallback)
+    const DEFAULT_SYSTEM_PROMPT = `
       一、系統角色定義（唯一）
       你是一個系統內部的文字處理模組，
       不是創作工具、不是分析工具、不是建議來源。
@@ -182,6 +183,23 @@ Deno.serve(async (req) => {
         "options": ["string", "string", "string"]
       }
     `;
+
+    // Fetch dynamic prompt from system_config
+    let systemPrompt = DEFAULT_SYSTEM_PROMPT;
+    try {
+      const { data: promptConfig } = await supabase
+        .from("system_config")
+        .select("value")
+        .eq("key", "ai_chaos_rewrite_prompt")
+        .single();
+
+      if (promptConfig?.value) {
+        systemPrompt = promptConfig.value;
+        console.log("Using dynamic AI prompt from system_config");
+      }
+    } catch (e) {
+      console.warn("Failed to fetch dynamic prompt, using default:", e);
+    }
 
     const userContent = JSON.stringify({ title, description, options });
 

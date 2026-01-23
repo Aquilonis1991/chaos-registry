@@ -68,7 +68,7 @@ const MissionPage = () => {
       watchAdLimit: configs['mission_watch_ad_limit'] ?? 10,
       dailyLoginReward: configs['mission_daily_login_reward'] ?? configs['daily_login_reward'] ?? 3,
     };
-    
+
     // 調試日誌：檢查觀看廣告獎勵配置
     if (configs['mission_watch_ad_reward'] !== undefined) {
       console.log('[MissionPage] 觀看廣告獎勵配置:', {
@@ -78,14 +78,14 @@ const MissionPage = () => {
         allConfigs: configs
       });
     }
-    
+
     return result;
   }, [configs]);
 
   const localizedMissions = useMemo(() => {
     // 從後台配置讀取任務參數 (使用與 SQL Patch 一致的默認值)
-    const firstVoteReward = typeof missionConfigs.firstVoteReward === 'number' 
-      ? missionConfigs.firstVoteReward 
+    const firstVoteReward = typeof missionConfigs.firstVoteReward === 'number'
+      ? missionConfigs.firstVoteReward
       : Number(missionConfigs.firstVoteReward) || 50;
 
     const voteLoverTarget = typeof missionConfigs.voteLoverTarget === 'number'
@@ -287,8 +287,8 @@ const MissionPage = () => {
     let optimisticUpdateApplied = false;
     try {
       // 使用 missionConfigs 中的配置值，確保與顯示的獎勵一致
-      const AD_REWARD = typeof missionConfigs.watchAdReward === 'number' 
-        ? missionConfigs.watchAdReward 
+      const AD_REWARD = typeof missionConfigs.watchAdReward === 'number'
+        ? missionConfigs.watchAdReward
         : Number(missionConfigs.watchAdReward) || 5;
 
       // 先觀看廣告，只有在廣告觀看成功後才進行樂觀更新
@@ -318,8 +318,8 @@ const MissionPage = () => {
     } catch (error) {
       // 如果出錯且已經進行了樂觀更新，需要回滾
       if (optimisticUpdateApplied) {
-        const AD_REWARD = typeof missionConfigs.watchAdReward === 'number' 
-          ? missionConfigs.watchAdReward 
+        const AD_REWARD = typeof missionConfigs.watchAdReward === 'number'
+          ? missionConfigs.watchAdReward
           : Number(missionConfigs.watchAdReward) || 5;
         updateTokensOptimistically(-AD_REWARD);
       }
@@ -341,7 +341,7 @@ const MissionPage = () => {
     if (loginStreakInfo && !loginStreakInfo.can_claim_today) {
       console.log('[MissionPage] handleDailyLogin: Already claimed today, ignoring');
       toast.info(getText('mission.dailyLogin.alreadyClaimed', '今日已簽到'), {
-        description: getText('mission.dailyLogin.noMoreReward', '今日已簽到，不再發放代幣')
+        description: getText('mission.dailyLogin.noMoreReward', '今日已簽到，不再發放失序值')
       });
       return;
     }
@@ -355,52 +355,39 @@ const MissionPage = () => {
       console.log('[MissionPage] handleDailyLogin: Claim result', loginInfo);
 
       if (loginInfo) {
+        // 無論是新登入還是重複登入，只要返回了 info，就表示今天已處理過
+        // 強制更新 UI 狀態為 "今日不可再領取"
         const normalizedInfo: LoginStreakInfo = {
           current_streak: loginInfo.currentStreak,
           total_login_days: loginInfo.totalDays,
           last_login_date: loginInfo.lastLoginDate,
-          can_claim_today: false, // 簽到後立即設為 false，防止重複點擊
+          can_claim_today: false, // 核心修正：簽到後強制設為 false
           streak_reward_available: loginInfo.streakRewardAvailable,
         };
         applyLoginStreakInfo(normalizedInfo);
 
-        // 如果成功簽到，立即更新 UI 狀態
+        // 如果成功簽到 (新登入)，立即更新 UI 狀態
         if (loginInfo.isNewLogin) {
           console.log('[MissionPage] handleDailyLogin: New login successful, reward tokens:', loginInfo.rewardTokens);
 
           // 樂觀更新代幣（實時訂閱會自動同步）
           updateTokensOptimistically(loginInfo.rewardTokens || 3);
-          console.log('[MissionPage] handleDailyLogin: Optimistic token update applied');
 
-          // 強制刷新 profile 以確保代幣數量正確（實時訂閱可能延遲）
+          // 強制刷新 profile
           setTimeout(async () => {
-            console.log('[MissionPage] handleDailyLogin: Refreshing profile after 1 second');
             await refreshProfile();
-            console.log('[MissionPage] handleDailyLogin: Profile refreshed');
           }, 1000);
 
-          // 刷新任務狀態（確保 daily_login 任務顯示為已完成）
+          // 刷新任務狀態
           void loadUserMissions();
-        } else {
-          console.log('[MissionPage] handleDailyLogin: Not a new login, reward tokens:', loginInfo.rewardTokens);
         }
       }
-
-      // 背景同步資料，避免阻塞 UI（代幣更新由實時訂閱自動處理）
-      void loadLoginStreak({ showLoader: false });
     } catch (error: any) {
       console.error('[MissionPage] handleDailyLogin: Error caught', error);
-      console.error('[MissionPage] handleDailyLogin: Error details', {
-        message: error?.message,
-        stack: error?.stack,
-        name: error?.name,
-        code: error?.code
-      });
-      // Error handled in useMissionOperations
-      // 如果出錯，重新載入狀態以確保 UI 正確
+      // ... error handling ...
+      // 出錯時才重新載入狀態，確認是否真的失敗
       void loadLoginStreak({ showLoader: false });
     } finally {
-      console.log('[MissionPage] handleDailyLogin: Finally block, resetting isClaimingLogin');
       setIsClaimingLogin(false);
     }
   };
@@ -411,6 +398,8 @@ const MissionPage = () => {
       toast.error(missionIdMissingError);
       return;
     }
+
+    if (claimingMissionId) return; // Basic lock
 
     // 防止重複點擊（前端防護）
     if (claimingMissionId === missionId) return;
@@ -444,7 +433,7 @@ const MissionPage = () => {
           description: claimDesc
         });
 
-        // 異步刷新代幣餘額和任務狀態（不阻塞 UI）
+        // 異步刷新失序值餘額和任務狀態（不阻塞 UI）
         Promise.allSettled([
           refreshProfile(),
           loadUserMissions(),
@@ -504,17 +493,18 @@ const MissionPage = () => {
     return () => window.removeEventListener('focus', handleFocus);
   }, [user?.id, loadUserMissions]);
 
-  // 當頁面聚焦時刷新統計（確保數據是最新的）
+  // 當頁面聚焦時刷新統計和簽到狀態（確保數據是最新的）
   useEffect(() => {
     const handleFocus = () => {
       if (user?.id) {
         refreshStats();
+        loadLoginStreak({ showLoader: false });
       }
     };
 
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [user?.id, refreshStats]);
+  }, [user?.id, refreshStats, loadLoginStreak]);
 
   if (uiTextsLoading) {
     return (
@@ -547,8 +537,8 @@ const MissionPage = () => {
 
   // 從 missionConfigs 讀取觀看廣告獎勵，確保與後台配置一致
   // 直接使用配置值顯示，不通過 ui_texts，因為獎勵數量應該從 system_config 讀取
-  const watchAdRewardAmount = typeof missionConfigs.watchAdReward === 'number' 
-    ? missionConfigs.watchAdReward 
+  const watchAdRewardAmount = typeof missionConfigs.watchAdReward === 'number'
+    ? missionConfigs.watchAdReward
     : Number(missionConfigs.watchAdReward) || 5;
   const watchAdReward = `+${watchAdRewardAmount}`;
 
@@ -570,10 +560,10 @@ const MissionPage = () => {
   const watchAdSuccessDescTemplate = getText('mission.toast.watchAdSuccess.desc', '獲得 {{amount}} 代幣');
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background pb-32">
       <LoadingBubble isLoading={isWatchingAd} />
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg">
+      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top))]">
         <div className="max-w-screen-xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">

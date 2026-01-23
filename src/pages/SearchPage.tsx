@@ -63,8 +63,8 @@ const SearchPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <header className="bg-gradient-primary shadow-lg">
+    <div className="min-h-screen bg-background pb-32">
+      <header className="bg-gradient-primary shadow-lg pt-[calc(env(safe-area-inset-top)+1.5rem)]">
         <div className="max-w-screen-xl mx-auto px-4 py-6 flex items-center gap-4">
           <Button
             variant="ghost"

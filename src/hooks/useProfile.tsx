@@ -98,6 +98,21 @@ export const useProfile = () => {
     };
   }, [user]);
 
+  // Revalidate on window focus (to ensure consistency if realtime drops)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user) {
+        // Silent refresh
+        fetchProfile(false);
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [user]);
+
   // 樂觀更新代幣數量（用於立即更新 UI）
   // 注意：此更新會被實時訂閱覆蓋，所以不會導致重複更新
   // 實時訂閱會在數據庫更新時自動同步，確保最終一致性

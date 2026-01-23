@@ -26,7 +26,7 @@ export const DataExportManager = () => {
             setLoading("users");
             const { start, end } = calculateDateRange();
 
-            const { data, error } = await supabase.rpc('admin_export_users_v2', {
+            const { data, error } = await (supabase as any).rpc('admin_export_users_v2', {
                 p_start_date: start,
                 p_end_date: end
             });
@@ -44,7 +44,7 @@ export const DataExportManager = () => {
                 { key: "email", label: "信箱" },
                 { key: "created_at", label: "註冊時間" },
                 { key: "last_sign_in_at", label: "最後登入" },
-                { key: "token_balance", label: "代幣餘額" },
+                { key: "token_balance", label: "失序值餘額" },
                 { key: "is_banned", label: "停權狀態" },
             ], data);
 
@@ -61,7 +61,7 @@ export const DataExportManager = () => {
             setLoading("topics");
             const { start, end } = calculateDateRange();
 
-            const { data, error } = await supabase.rpc('admin_export_topic_stats_v2', {
+            const { data, error } = await (supabase as any).rpc('admin_export_topic_stats_v2', {
                 p_start_date: start,
                 p_end_date: end
             });
@@ -99,7 +99,7 @@ export const DataExportManager = () => {
             setLoading("transactions");
             const { start, end } = calculateDateRange();
 
-            const { data, error } = await supabase.rpc('admin_export_transactions_v2', {
+            const { data, error } = await (supabase as any).rpc('admin_export_transactions_v2', {
                 p_start_date: start,
                 p_end_date: end
             });
@@ -217,7 +217,7 @@ export const DataExportManager = () => {
                             財務交易紀錄
                         </CardTitle>
                         <CardDescription>
-                            匯出所有代幣變動、投票消費與儲值紀錄
+                            匯出所有失序值變動、投票消費與儲值紀錄
                         </CardDescription>
                     </CardHeader>
                     <CardContent>

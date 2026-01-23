@@ -16,6 +16,8 @@ const stringifyError = (error: any) => {
 
 export const useVoteOperations = () => {
   const { updateTokensOptimistically, refreshProfile } = useProfile();
+  const { language } = useLanguage();
+  const { getText } = useUIText(language);
 
   const castVote = useCallback(async (topicId: string, option: string, amount: number) => {
     // 直接使用安全的資料庫函數（不使用 Edge Function）
@@ -46,160 +48,71 @@ export const useVoteOperations = () => {
       // 先進行樂觀更新，立即反映在 UI 上（在投票操作之前）
       updateTokensOptimistically(-amount);
 
-      try {
-        // 使用安全的資料庫函數來更新票數（防止直接操作 options）
-        const { error: functionErr } = await supabase.rpc('increment_option_votes', {
-          p_topic_id: topicId,
-          p_option_id: option,
-          p_vote_amount: amount
-        });
-
-        if (functionErr) {
-          // 如果投票失敗，回滾樂觀更新
-          updateTokensOptimistically(amount);
-          // 函數錯誤可能是因為主題不存在、已結束等
-          if (functionErr.message?.includes('Topic not found')) {
-            throw new Error('主題不存在');
-          } else if (functionErr.message?.includes('Topic has ended')) {
-            throw new Error('投票已結束');
-          } else if (functionErr.message?.includes('Option not found')) {
-            throw new Error('選項不存在');
-          }
-          throw functionErr;
-        }
-
-        // 扣代幣（已通過 RLS 驗證，只能更新自己的）
-        const { error: updateTokensErr } = await supabase
-          .from('profiles')
-          .update({ tokens: (profile.tokens || 0) - amount })
-          .eq('id', user.id);
-        if (updateTokensErr) {
-          // 如果更新失敗，回滾樂觀更新
-          updateTokensOptimistically(amount);
-          throw updateTokensErr;
-        }
-
-        // 後台刷新以確保數據一致性（實時訂閱也會自動更新）
-        void refreshProfile();
-      } catch (error) {
-        // 如果任何步驟失敗，確保回滾樂觀更新
-        // 注意：如果已經在 catch 中回滾過，這裡不會重複回滾
-        // 因為 updateTokensOptimistically 是基於當前 state 的
-        throw error;
-      }
-
-      // 獲取主題標題用於記錄
-      // 獲取主題標題與選項用於記錄
+      // 獲取主題標題與選項用於記錄 (移到前面以便生成描述)
       const { data: topic } = await supabase
         .from('topics')
         .select('title, options')
         .eq('id', topicId)
         .single();
 
-      // 解析選項文字（改進：添加更嚴格的 null 檢查）
+      // 解析選項文字
       let optionLabel = option;
       if (topic?.options && Array.isArray(topic.options) && topic.options.length > 0) {
         const foundOption = topic.options.find((opt: any) => {
-          if (!opt) return false; // 確保 opt 不是 null/undefined
+          if (!opt) return false;
           return (opt.id === option) || (opt.id === undefined && opt === option);
         });
         if (foundOption) {
           if (typeof foundOption === 'string') {
             optionLabel = foundOption;
           } else if (foundOption && typeof foundOption === 'object') {
-            optionLabel = foundOption.text || foundOption.label || option;
+            // Fix TS error: Property 'text' does not exist on type 'Json[]'
+            const optObj = foundOption as any;
+            optionLabel = optObj.text || optObj.label || option;
           }
         }
       }
 
-      // 寫入投票紀錄（使用 upsert 處理重複投票的情況）
-      try {
-        const { error: voteError } = await supabase
-          .from('votes')
-          .upsert({
-            topic_id: topicId,
-            user_id: user.id,
-            option: option,
-            amount,
-          }, {
-            onConflict: 'user_id,topic_id'
-          });
-
-        if (voteError) {
-          console.warn('寫入 votes 紀錄失敗：', voteError);
-        }
-      } catch (e) {
-        console.warn('寫入 votes 紀錄失敗：', e);
-      }
-
-      // 寫入代幣交易記錄（必須成功）
-      console.log('📝 Attempting to log token transaction for vote:', {
-        userId: user.id,
-        amount: -amount,
-        type: 'cast_vote',
-        topicId: topicId,
-        description: `投票：${topic?.title || '未知主題'} - 選項：${optionLabel}`
-      });
+      const description = `投票：${topic?.title || '未知主題'} - 選項：${optionLabel}`;
 
       try {
-        const { data: txId, error: transError } = await (supabase.rpc as any)('log_token_transaction', {
-          p_user_id: user.id,
-          p_amount: -amount,
-          p_transaction_type: 'cast_vote',
-          p_reference_id: topicId,
-          p_description: `投票：${topic?.title || '未知主題'} - 選項：${optionLabel}`
+        // 使用原子化 RPC 進行投票 (包含扣款、記錄、更新)
+        // Fix TS error: Argument of type '"cast_vote_atomic"' is not assignable
+        const { data, error: rpcError } = await (supabase.rpc as any)('cast_vote_atomic', {
+          p_topic_id: topicId,
+          p_option_id: option,
+          p_vote_amount: amount,
+          p_description: description
         });
 
-        if (transError) {
-          console.error('❌ Token transaction logging failed for vote:');
-          console.error('  Error details:', stringifyError(transError));
-          console.error('  Error message:', transError?.message);
-          console.error('  Error code:', transError?.code);
-          console.error('  Error details:', transError?.details);
-          console.error('  Error hint:', transError?.hint);
-          console.error('  User ID:', user.id);
-          console.error('  Amount:', -amount);
-          console.error('  Type:', 'cast_vote');
-          console.error('  Topic ID:', topicId);
-          // 不影響主流程，但記錄錯誤
-        } else {
-          console.log('✅ Token transaction logged successfully for vote:', {
-            transactionId: txId,
-            amount: -amount,
-            type: 'cast_vote',
-            topicId: topicId
-          });
+        if (rpcError) {
+          // 對常見錯誤進行處理
+          if (rpcError.message?.includes('Topic not found')) {
+            throw new Error('主題不存在');
+          } else if (rpcError.message?.includes('Topic has ended')) {
+            throw new Error('投票已結束');
+          } else if (rpcError.message?.includes('Option not found')) {
+            throw new Error('選項不存在');
+          } else if (rpcError.message?.includes('Insufficient tokens')) {
+            throw new Error('代幣不足');
+          }
+          throw rpcError;
         }
-      } catch (txErr: any) {
-        console.error('❌ Token transaction logging exception for vote:');
-        console.error('  Exception details:', stringifyError(txErr));
-        console.error('  Exception message:', txErr?.message);
-        console.error('  Exception stack:', txErr?.stack);
-        console.error('  User ID:', user.id);
-        console.error('  Amount:', -amount);
-        console.error('  Type:', 'cast_vote');
-        console.error('  Topic ID:', topicId);
-        // 不影響主流程，但記錄錯誤
-      }
 
-      // 添加到 topic_participants（如果不存在）
-      try {
-        await supabase
-          .from('topic_participants')
-          .insert({
-            user_id: user.id,
-            topic_id: topicId
-          })
-          .select()
-          .single()
-          .then(({ error }) => {
-            // 忽略重複錯誤
-            if (error && !error.message?.includes('duplicate')) {
-              console.warn('添加到 topic_participants 失敗：', error);
-            }
-          });
-      } catch (e) {
-        // 忽略錯誤
+        // 成功後，後台刷新以確保數據最新
+        void refreshProfile();
+
+        // 記錄日誌 (僅供調試)
+        console.log('✅ Vote cast successfully via atomic RPC:', {
+          topicId,
+          amount,
+          option: optionLabel
+        });
+
+      } catch (error) {
+        // 如果失敗，回滾樂觀更新
+        updateTokensOptimistically(amount);
+        throw error;
       }
 
       return { success: true } as any;
@@ -243,7 +156,8 @@ export const useVoteOperations = () => {
       }
 
       // 使用安全的資料庫函數來處理免費投票（包含所有驗證邏輯）
-      const { error: functionErr } = await supabase.rpc('increment_free_vote', {
+      // Fix TS error: Argument of type '"increment_free_vote"' is not assignable
+      const { error: functionErr } = await (supabase.rpc as any)('increment_free_vote', {
         p_topic_id: topicId,
         p_option_id: option
       });
@@ -281,7 +195,9 @@ export const useVoteOperations = () => {
           if (typeof foundOption === 'string') {
             optionLabel = foundOption;
           } else if (foundOption && typeof foundOption === 'object') {
-            optionLabel = foundOption.text || foundOption.label || option;
+            // Fix TS error
+            const optObj = foundOption as any;
+            optionLabel = optObj.text || optObj.label || option;
           }
         }
       }
@@ -353,12 +269,11 @@ export const useVoteOperations = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return false;
 
-      // 檢查今日是否已使用免費票
-      const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+      // 檢查今日是否已使用免費票 (使用 UTC 時間，與資料庫一致)
+      const startOfDay = new Date().toISOString().split('T')[0] + 'T00:00:00.000Z';
 
-      const { data, error } = await supabase
-        .from('free_votes')
+      // Fix TS error: Argument of type '"free_votes"' is not assignable
+      const { data, error } = await (supabase.from as any)('free_votes')
         .select('id')
         .eq('user_id', user.id)
         .eq('topic_id', topicId)

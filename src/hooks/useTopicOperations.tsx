@@ -112,18 +112,11 @@ export const useTopicOperations = () => {
         totalCost
       });
 
-      // 2. 檢查代幣是否足夠
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tokens')
-        .eq('id', user.id)
-        .single();
+      // 3. Atomically Create Topic & Deduct Tokens
+      // 使用原子化 RPC 替代原本的非原子操作 (Insert Topic -> Update Profile -> Log Transaction)
 
-      if (!profile || profile.tokens < totalCost) {
-        throw new Error('代幣不足');
-      }
+      const createTopicDescription = getText('tokenHistory.description.createTopic', '建立主題：{{title}}').replace('{{title}}', data.title);
 
-      // 3. 建立主題
       // 將選項字串陣列轉換為帶有 id 和 votes 的物件陣列
       const formattedOptions = data.options
         .filter(opt => opt.trim() !== '')
@@ -133,88 +126,42 @@ export const useTopicOperations = () => {
           votes: 0
         }));
 
-      const { data: topic, error: topicError } = await supabase
-        .from('topics')
-        .insert({
-          creator_id: user.id,
-          title: data.title.trim(),
-          description: data.description?.trim() || null,
-          options: formattedOptions,
-          tags: data.tags || [],
-          category: data.category,
-          exposure_level: data.exposure_level,
-          duration_days: data.duration_days,
-          end_at: endDate.toISOString(),
-          status: 'active',
-          votes: {}
-        })
-        .select()
-        .single();
+      const { data: rpcResult, error: rpcError } = await (supabase.rpc as any)('create_topic_atomic', {
+        p_title: data.title.trim(),
+        p_description: data.description?.trim() || null,
+        p_options: formattedOptions,
+        p_category: data.category,
+        p_tags: data.tags || [],
+        p_exposure_level: data.exposure_level,
+        p_duration_days: data.duration_days,
+        p_end_at: endDate.toISOString(),
+        p_total_cost: totalCost,
+        p_description_token_transfer: createTopicDescription
+      });
 
-      if (topicError) {
-        console.error('Topic creation error:', topicError);
-        throw new Error(topicError.message || '建立主題失敗');
-      }
-
-      console.log('Topic created:', topic);
-
-      // 4. 扣除代幣
-      if (totalCost > 0) {
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ tokens: profile.tokens - totalCost })
-          .eq('id', user.id);
-
-        if (updateError) {
-          console.error('Token deduction error:', updateError);
-
-          // 回滾：刪除已建立的主題
-          await supabase
-            .from('topics')
-            .delete()
-            .eq('id', topic.id);
-
-          throw new Error('扣除代幣失敗');
+      if (rpcError) {
+        console.error('Create topic atomic RPC error:', rpcError);
+        // Map common errors
+        if (rpcError.message?.includes('Insufficient tokens')) {
+          throw new Error('代幣不足');
         }
-        console.log('Tokens deducted:', totalCost);
-      } else {
-        console.log('Total cost is 0, skipping deduction.');
+        throw new Error(rpcError.message || '建立主題失敗');
       }
 
-      // 5. 記錄交易（必須成功）
-      // 如果有折扣，可以在描述中註記 (選用，但這裡保持簡潔)
-      const createTopicDescription = getText('tokenHistory.description.createTopic', '建立主題：{{title}}').replace('{{title}}', data.title);
+      const topicId = rpcResult?.topic_id;
 
-      if (Math.abs(totalCost) > 0) {
-        // Log transaction logic (same as before)
-        // ... (Preserving existing logging logic structure)
-        console.log('📝 Attempting to log token transaction:', {
-          userId: user.id,
-          amount: -totalCost,
-          type: 'create_topic',
-          topicId: topic.id,
-          description: createTopicDescription
-        });
+      console.log('Topic created successfully via atomic RPC:', topicId);
 
-        try {
-          const { data: txId, error: txError } = await (supabase.rpc as any)('log_token_transaction', {
-            p_user_id: user.id,
-            p_amount: -totalCost,
-            p_transaction_type: 'create_topic',
-            p_reference_id: topic.id,
-            p_description: createTopicDescription
-          });
+      // 4. Return compatible result structure
+      // 為了保持兼容性，我們構造一個類似的 topic 對象回傳
+      // 注意：這不是完整的 topic 對象，但足夠滿足 UI 需求 (通常 UI 會重新導向或刷新)
+      const mockTopic = {
+        id: topicId,
+        title: data.title.trim(),
+        // 其他字段視需要添加，目前看來前端只要 id 或單純成功即可
+      };
 
-          if (txError) {
-            // Error logging (same as before)
-            console.error('❌ Token transaction logging failed:', txError);
-          }
-        } catch (txErr) {
-          console.error('❌ Token transaction logging exception:', txErr);
-        }
-      }
-
-      return { success: true, topic, cost: totalCost }
+      return { success: true, topic: mockTopic, cost: totalCost };
     } catch (error: any) {
       console.error('Create topic error:', error);
       // Error handling (same as before)

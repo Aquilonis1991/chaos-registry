@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
 
         // 4. Fetch User Behavior Metrics (RPC)
         const { data: metrics, error: metricsError } = await supabase.rpc(
-            "get_user_behavior_metrics",
+            "get_user_detailed_behavior",
             { p_user_id: userId }
         );
 
@@ -107,7 +107,8 @@ Deno.serve(async (req) => {
         // Extract language from request or default to 'zh'
         const { language = 'zh' } = await req.json().catch(() => ({}));
 
-        const systemPrompt = `
+        // Default Prompt (Fallback)
+        const DEFAULT_SYSTEM_PROMPT = `
       🧠 B-1 System Prompt（AI 專用）
       你是一個用於娛樂用途的「不理性行為側寫生成器」，
       專門為投票平台生成有趣、惡搞風格的使用者行為側寫。
@@ -115,8 +116,13 @@ Deno.serve(async (req) => {
       【重要】你的核心任務是生成「有趣、惡搞、幽默」的內容，絕對不要生成系統性、官腔、技術性的標籤或描述。
 
       你的任務是：
-      根據系統提供的「使用者行為統計摘要」，
+      根據系統提供的「使用者行為統計摘要」（包含：投票數、建立主題數、最近建立的主題名稱、最近投票的選項內容），
       產出一組【有趣、惡搞、幽默】的稱號與行為側寫。
+
+      【資料運用指南】
+      - **最近建立的主題 (created_topics)**: 觀察使用者喜歡建立什麼類型的話題（政治？感情？無厘頭？）。
+      - **最近投票的內容 (recent_votes)**: 觀察使用者的選擇傾向（激進？隨波逐流？總是選少數派？）。
+      - **請利用這些具體內容來強化側寫的幽默感與準確度**，例如：「你似乎對『午餐吃什麼』有著異常的執著...」或「你的投票選擇總是像在走鋼索...」。
 
       你不是心理分析工具，
       不是人格分類系統，
@@ -207,6 +213,22 @@ Deno.serve(async (req) => {
       }
     `;
 
+        let systemPrompt = DEFAULT_SYSTEM_PROMPT;
+        try {
+            const { data: promptConfig } = await supabase
+                .from("system_config")
+                .select("value")
+                .eq("key", "ai_chaos_verification_prompt")
+                .single();
+
+            if (promptConfig?.value) {
+                systemPrompt = promptConfig.value;
+                console.log("Using dynamic AI prompt from system_config");
+            }
+        } catch (e) {
+            console.warn("Failed to fetch dynamic prompt, using default:", e);
+        }
+
         // 6. Call OpenAI (Stable v1/chat/completions)
         const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
@@ -226,14 +248,13 @@ Deno.serve(async (req) => {
                                 total_votes: metrics.total_votes,
                                 created_topics: metrics.created_topics,
                                 activity_days: metrics.activity_days,
-                                // Pass dummy data for fields we don't track yet to satisfy the "persona" of the detailed prompt if needed, 
-                                // but the prompt instructions say "According to provided user behavior statistics summary".
-                                // We provide what we have.
+                                recent_created_topics: metrics.recent_created_topics || [],
+                                recent_votes: metrics.recent_votes || []
                             }
                         })
                     }
                 ],
-                temperature: 0.9, // Higher temperature for more creative and humorous outputs
+                temperature: 0.9,
                 response_format: { type: "json_object" }
             }),
         });

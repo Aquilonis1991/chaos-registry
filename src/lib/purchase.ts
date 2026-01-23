@@ -9,9 +9,9 @@ export const PRODUCT_ID_MAP: Record<number, {
   bonus: number;
 }> = {
   1: { android: 'token_pack_small', ios: 'token_pack_small', tokens: 100, bonus: 0 },
-  2: { android: 'token_pack_medium', ios: 'token_pack_medium', tokens: 500, bonus: 50 },
+  2: { android: 'token_pack_medium', ios: 'token_pack_medium', tokens: 500, bonus: 75 },
   3: { android: 'token_pack_large', ios: 'token_pack_large', tokens: 1000, bonus: 150 },
-  4: { android: 'token_pack_xlarge', ios: 'token_pack_xlarge', tokens: 3000, bonus: 500 },
+  4: { android: 'token_pack_xlarge', ios: 'token_pack_xlarge', tokens: 3000, bonus: 600 },
 };
 
 // 購買服務單例
@@ -22,38 +22,67 @@ class PurchaseService {
   /**
    * 初始化購買服務
    */
-  async initialize(): Promise<boolean> {
+  async initialize(): Promise<{ success: boolean; error?: string }> {
     if (!isNative()) {
       console.log('[Purchase] Not a native platform, skipping initialization');
-      return false;
+      return { success: false, error: 'Not a native platform' };
     }
 
     if (this.initialized) {
       console.log('[Purchase] Already initialized');
-      return true;
+      return { success: true };
     }
+
+    console.log('[Purchase] Starting initialization...');
 
     try {
       // 檢查 cordova-plugin-purchase 是否可用
-      if (typeof window === 'undefined' || !(window as any).CdvPurchase) {
-        console.warn('[Purchase] cordova-plugin-purchase not found');
-        return false;
+      // 如果 CdvPurchase 未定義，嘗試等待 deviceready 事件
+      if (typeof window === 'undefined') return { success: false, error: 'Window not defined' };
+
+      if (!(window as any).CdvPurchase) {
+        console.log('[Purchase] CdvPurchase not found immediately, waiting for deviceready...');
+        await new Promise<void>((resolve) => {
+          document.addEventListener('deviceready', () => {
+            console.log('[Purchase] deviceready fired');
+            resolve();
+          }, { once: true });
+
+          // 添加超時，5秒
+          setTimeout(() => {
+            console.warn('[Purchase] deviceready timeout reached (5000ms)');
+            resolve();
+          }, 5000);
+        });
       }
 
-      const { Store, ProductType, Platform } = (window as any).CdvPurchase;
-      if (!Store) {
-        console.warn('[Purchase] Store not available');
-        return false;
+      if (!(window as any).CdvPurchase) {
+        console.warn('[Purchase] cordova-plugin-purchase (CdvPurchase) not found after wait');
+        // 嘗試檢查舊版 store 對象，雖然 v13 應該用 CdvPurchase
+        if ((window as any).store) {
+          console.log('[Purchase] Found legacy window.store, attempting updates...');
+          // 但主要邏輯依賴 CdvPurchase，這是一個嚴重的錯誤
+          return { success: false, error: 'Plugin not loaded correctly (CdvPurchase missing)' };
+        }
+        return { success: false, error: '內購插件未載入 (Timeout)' };
       }
 
-      this.store = Store;
+      const { ProductType, Platform } = (window as any).CdvPurchase;
+      const storeInstance = (window as any).CdvPurchase.store;
+
+      if (!storeInstance) {
+        console.warn('[Purchase] CdvPurchase.store not found');
+        return { success: false, error: 'Store instance missing' };
+      }
+
+      this.store = storeInstance;
       const platform = getPlatform();
       const storePlatform = platform === 'ios' ? Platform.APPLE_APPSTORE : Platform.GOOGLE_PLAY;
 
       console.log('[Purchase] Initializing store for platform:', storePlatform);
 
       // 註冊所有產品
-      const productIds = Object.values(PRODUCT_ID_MAP).map(p => 
+      const productIds = Object.values(PRODUCT_ID_MAP).map(p =>
         platform === 'ios' ? p.ios : p.android
       );
 
@@ -69,24 +98,46 @@ class PurchaseService {
       });
 
       // 初始化商店
-      await this.store.initialize([storePlatform]);
-      console.log('[Purchase] Store initialized');
+      try {
+        console.log('[Purchase] Calling store.initialize...');
+        if (platform === 'ios') {
+          await this.store.initialize([Platform.APPLE_APPSTORE]);
+        } else {
+          await this.store.initialize([Platform.GOOGLE_PLAY]);
+        }
+        console.log('[Purchase] Store initialized successfully');
+      } catch (initError: any) {
+        console.error('[Purchase] Store initialization failed:', initError);
+        // Log detailed error properties
+        if (typeof initError === 'object') {
+          console.error('[Purchase] Error details:', JSON.stringify(initError, Object.getOwnPropertyNames(initError)));
+        }
+        return { success: false, error: `Initialization failed: ${initError.message || initError}` };
+      }
 
       // 更新產品信息
-      await this.store.update();
-      console.log('[Purchase] Products updated');
+      try {
+        await this.store.update();
+        console.log('[Purchase] Products updated');
+      } catch (updateError) {
+        console.warn('[Purchase] Product update failed (non-fatal):', updateError);
+      }
 
       // 設置全局錯誤處理
       this.store.error((error: any) => {
         console.error('[Purchase] Store error:', error);
+        // Log detailed error properties
+        if (typeof error === 'object') {
+          console.error('[Purchase] Store Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+        }
       });
 
       this.initialized = true;
-      console.log('[Purchase] Purchase service initialized successfully');
-      return true;
-    } catch (error) {
-      console.error('[Purchase] Initialization failed:', error);
-      return false;
+      return { success: true };
+
+    } catch (error: any) {
+      console.error('[Purchase] Initialization panic:', error);
+      return { success: false, error: `Panic: ${error.message || error}` };
     }
   }
 

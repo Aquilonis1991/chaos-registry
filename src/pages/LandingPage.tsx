@@ -20,7 +20,7 @@ const LandingPage = () => {
             以虛構、趣味話題為核心的娛樂性投票平台
           </p>
           <p className="text-lg mb-8 opacity-80 max-w-2xl mx-auto">
-            提供輕鬆、有趣的投票體驗，讓使用者可以瀏覽主題、參與投票、發起話題，並使用代幣提高主題曝光度
+            提供輕鬆、有趣的投票體驗，讓使用者可以瀏覽主題、參與投票、發起話題，並使用失序值提高主題曝光度
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/auth">
@@ -66,9 +66,9 @@ const LandingPage = () => {
             <Card>
               <CardContent className="p-6 text-center">
                 <Coins className="w-12 h-12 text-primary mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">代幣系統</h3>
+                <h3 className="text-xl font-semibold mb-2">失序值系統</h3>
                 <p className="text-muted-foreground">
-                  使用代幣參與投票或提高主題曝光度
+                  使用失序值參與投票或提高主題曝光度
                 </p>
               </CardContent>
             </Card>
@@ -96,7 +96,7 @@ const LandingPage = () => {
                 不理性登記處 是一款以虛構、趣味話題為核心的娛樂性投票平台。
               </p>
               <p className="text-muted-foreground mb-4">
-                我們致力於提供一個輕鬆、有趣的投票體驗，讓使用者可以瀏覽主題、參與投票、發起話題，並使用代幣提高主題曝光度。
+                我們致力於提供一個輕鬆、有趣的投票體驗，讓使用者可以瀏覽主題、參與投票、發起話題，並使用失序值提高主題曝光度。
               </p>
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
@@ -130,7 +130,7 @@ const LandingPage = () => {
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-                  <span>代幣系統：用戶可以使用代幣參與投票或提高主題曝光度</span>
+                  <span>失序值系統：用戶可以使用失序值參與投票或提高主題曝光度</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />

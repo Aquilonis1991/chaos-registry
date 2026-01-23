@@ -101,6 +101,16 @@ export const useSystemConfigCache = () => {
       value = value.value;
     }
 
+    // Special handling for duration_costs which might be a JSON string but we need an object
+    if (key === 'duration_costs' && typeof value === 'string') {
+      try {
+        return JSON.parse(value) as T;
+      } catch (e) {
+        console.error('Failed to parse duration_costs:', e);
+        return defaultValue;
+      }
+    }
+
     // 處理字符串數字：如果是字符串形式的數字，轉換為數字
     if (typeof value === 'string' && !isNaN(Number(value)) && value.trim() !== '') {
       const numValue = Number(value);

@@ -88,7 +88,7 @@ export const DeleteAccountDialog = () => {
                     </DialogTitle>
                     <DialogDescription className="space-y-2 pt-2">
                         <p>
-                            {getText('deleteAccount.warning1', '此動作無法復原。您的帳號將被永久刪除，所有代幣與權限將被移除。')}
+                            {getText('deleteAccount.warning1', '此動作無法復原。您的帳號將被永久刪除，所有失序值與權限將被移除。')}
                         </p>
                         <p className="font-semibold text-foreground">
                             {getText('deleteAccount.warning2', '請輸入 "DELETE" 以確認刪除：')}

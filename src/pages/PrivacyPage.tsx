@@ -19,7 +19,7 @@ const PrivacyPage = () => {
   return (
     <div className="min-h-screen bg-background pb-8">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg">
+      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top))]">
         <div className="max-w-screen-xl mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
             <Button
@@ -88,7 +88,7 @@ const DefaultPrivacySections = () => (
       <h4 className="text-lg font-semibold text-foreground mb-2">2. 使用行為資料</h4>
       <ul className="list-disc list-inside space-y-2 text-foreground mb-4">
         <li>投票紀錄、建立主題內容</li>
-        <li>代幣消耗與儲值記錄</li>
+        <li>失序值消耗與儲值記錄</li>
         <li>瀏覽紀錄、點擊行為、停留時間</li>
         <li>裝置資訊（作業系統、App 版本、語言設定）</li>
       </ul>
@@ -104,7 +104,7 @@ const DefaultPrivacySections = () => (
       <h3 className="text-xl font-bold text-foreground mb-3">二、資料使用目的</h3>
       <p className="text-foreground mb-3">本公司收集資料的目的包括：</p>
       <ol className="list-decimal list-inside space-y-2 text-foreground">
-        <li><strong>提供與維護服務</strong>：確保帳號登入、投票功能、代幣系統正常運作。</li>
+        <li><strong>提供與維護服務</strong>：確保帳號登入、投票功能、失序值系統正常運作。</li>
         <li><strong>個人化體驗</strong>：根據使用習慣推薦熱門投票主題。</li>
         <li><strong>統計與分析</strong>：瞭解使用者行為，優化產品功能與介面。</li>
         <li><strong>安全與防詐</strong>：偵測異常行為、防止惡意操作或多帳號灌票。</li>

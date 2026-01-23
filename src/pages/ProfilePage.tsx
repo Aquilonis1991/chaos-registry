@@ -127,7 +127,7 @@ const ProfilePage = () => {
         // Convert back to UTC to compare with DB created_at (which is UTC)
         const startOfWeekUTC = new Date(startOfWeekTaiwan.getTime() - (taiwanOffset * 60000));
 
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from('user_assessments')
           .select('title, description, created_at')
           .eq('user_id', user.id)
@@ -447,14 +447,14 @@ const ProfilePage = () => {
   };
 
   // UI 文字定義
-  const tokensLabel = getText('profile.tokens', '代幣');
+  const tokensLabel = getText('profile.tokens', '失序值');
   const votesCountLabel = getText('profile.stats.votes', '投票次數');
   const topicsCreatedLabel = getText('profile.stats.topicsCreated', '發起主題');
   const freeVotesLabel = getText('profile.stats.freeVotes', '免費票');
   const historySectionLabel = getText('profile.section.history', '歷史紀錄');
   const voteHistoryLabel = getText('profile.menu.voteHistory', '投票紀錄');
   const topicHistoryLabel = getText('profile.menu.topicHistory', '主題發起紀錄');
-  const tokenHistoryLabel = getText('profile.menu.tokenHistory', '代幣使用紀錄');
+  const tokenHistoryLabel = getText('profile.menu.tokenHistory', '失序值使用紀錄');
   const settingsSectionLabel = getText('profile.section.settings', '設定');
   const languageLabel = getText('profile.settings.language', '語言與地區');
   const emailLabel = getText('profile.settings.email', '電子郵件');
@@ -523,7 +523,7 @@ const ProfilePage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <div className="min-h-screen bg-background pb-20">
+      <div className="min-h-screen bg-background pb-32">
         <LoadingBubble
           isLoading={isUpdatingProfile}
           textKey="loading.profile_update"
@@ -535,7 +535,7 @@ const ProfilePage = () => {
           defaultText="正在分析您的行為模式..."
         />
         {/* Header */}
-        <header className="bg-gradient-primary shadow-lg">
+        <header className="bg-gradient-primary shadow-lg pt-[env(safe-area-inset-top)]">
           <div className="max-w-screen-xl mx-auto px-4 py-8">
             <div className="flex flex-col items-center gap-4">
               <div className="pt-8 pb-6 px-4 w-full">
@@ -786,6 +786,8 @@ const ProfilePage = () => {
 
                 <ChangePasswordDialog />
 
+                <Separator />
+
 
 
                 <Link to="/terms">
@@ -832,9 +834,7 @@ const ProfilePage = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       {unreadNotificationCount > 0 && (
-                        <Badge variant="destructive" className="text-xs">
-                          {unreadNotificationCount}
-                        </Badge>
+                        <div className="w-2.5 h-2.5 rounded-full bg-destructive" />
                       )}
                       <ChevronRight className="w-5 h-5 text-muted-foreground" />
                     </div>

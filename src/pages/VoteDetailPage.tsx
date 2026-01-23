@@ -67,9 +67,9 @@ const VoteDetailPage = () => {
   const loginRequiredTitle = getText('vote.detail.error.loginRequired.title', '需要註冊才能投票');
   const loginRequiredDescription = getText('vote.detail.error.loginRequired.description', '請先註冊帳號以參與投票');
   const needLoginText = getText('vote.detail.error.requireLogin', '請先登入');
-  const insufficientTokensText = getText('vote.detail.error.insufficientTokens', '代幣不足！');
+  const insufficientTokensText = getText('vote.detail.error.insufficientTokens', '失序值不足！');
   const invalidDataText = getText('vote.detail.error.invalidData', '投票資料無效');
-  const voteSuccessTemplate = getText('vote.detail.toast.voteSuccess', '成功投票 {{amount}} 代幣！');
+  const voteSuccessTemplate = getText('vote.detail.toast.voteSuccess', '成功投票 {{amount}} 失序值！');
   const voteRecordedDescription = getText('vote.detail.toast.voteSuccessDesc', '你的選擇已記錄');
   const freeVoteSuccessTitle = getText('vote.detail.toast.freeVoteSuccess', '免費票投票成功！');
   const freeVoteSuccessDescription = getText('vote.detail.toast.freeVoteSuccessDesc', '你的選擇已記錄');
@@ -86,18 +86,18 @@ const VoteDetailPage = () => {
   const anonymousButton = getText('vote.detail.anonymous.button', '前往註冊');
   const freeVoteButtonText = getText('vote.detail.freeVote.button', '免費投票');
   const freeVoteNote = getText('vote.detail.freeVote.note', '每日每主題可免費投票一次');
-  const tokenSectionTitle = getText('vote.detail.section.tokens', '投入代幣');
+  const tokenSectionTitle = getText('vote.detail.section.tokens', '投入失序值');
   const customTitle = getText('vote.detail.custom.title', '自訂票數');
   const customPlaceholder = getText('vote.detail.custom.placeholder', '輸入票數（1-1000）');
   const customErrorInvalid = getText('vote.detail.custom.error.invalid', '請輸入有效的票數（至少 1）');
   const customErrorMax = getText('vote.detail.custom.error.max', '單次投票最多 1000 票');
   const customButtonText = getText('vote.detail.custom.button', '投票');
-  const balanceTemplate = getText('vote.detail.custom.balance', '當前持有：{{amount}} 代幣');
+  const balanceTemplate = getText('vote.detail.custom.balance', '當前持有：{{amount}} 失序值');
   const deadlineLabel = getText('vote.detail.info.deadline', '投票截止時間');
   const reportButtonText = getText('vote.detail.report.button', '檢舉');
   const upgradeExposureText = getText('vote.detail.exposure.upgrade', '升級曝光');
-  const confirmDialogTitle = getText('vote.detail.confirm.title', '確認投入代幣');
-  const confirmDialogDescriptionTemplate = getText('vote.detail.confirm.description', '確定要投入 {{amount}} 代幣給此選項？此操作會立即扣除代幣。');
+  const confirmDialogTitle = getText('vote.detail.confirm.title', '確認投入失序值');
+  const confirmDialogDescriptionTemplate = getText('vote.detail.confirm.description', '確定要投入 {{amount}} 失序值給此選項？此操作會立即扣除失序值。');
   const confirmDialogCancelText = getText('vote.detail.confirm.cancel', '取消');
   const confirmDialogConfirmText = getText('vote.detail.confirm.confirm', '確認投入');
 
@@ -270,7 +270,7 @@ const VoteDetailPage = () => {
     <>
       <div className="min-h-screen bg-background pb-6">
         {/* Header */}
-        <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg">
+        <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <div className="max-w-screen-xl mx-auto px-5 sm:px-6 py-4">
             <div className="flex items-center gap-4">
               <Button
@@ -287,10 +287,13 @@ const VoteDetailPage = () => {
               </div>
 
               {!isAnonymous && (
-                <div className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                <button
+                  onClick={() => navigate('/recharge')}
+                  className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-3 py-1.5 rounded-full hover:bg-primary-foreground/30 transition-colors cursor-pointer"
+                >
                   <Coins className="w-4 h-4 text-accent" />
                   <span className="font-bold text-primary-foreground text-sm">{userTokens.toLocaleString()}</span>
-                </div>
+                </button>
               )}
             </div>
           </div>

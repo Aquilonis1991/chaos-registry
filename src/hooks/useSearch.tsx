@@ -129,7 +129,7 @@ export const useSearch = () => {
       }
     } catch (error: any) {
       console.error('Search error:', error);
-      toast.error('搜尋失敗');
+      toast.error(`搜尋失敗: ${error.message || JSON.stringify(error)}`);
       if (!options?.append) {
         setResults([]);
       }
@@ -142,7 +142,7 @@ export const useSearch = () => {
   // 執行搜尋
   const search = async (searchQuery?: string, options?: { skipHistory?: boolean }) => {
     const q = searchQuery !== undefined ? searchQuery : query;
-    
+
     if (!q.trim()) {
       setResults([]);
       setHasMore(false);

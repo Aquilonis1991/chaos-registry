@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { BottomNav } from "@/components/BottomNav";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -35,14 +35,14 @@ import NotFound from "./pages/NotFound";
 import { ErrorLogger } from "@/lib/errorLogger";
 import { isNative } from "@/lib/capacitor";
 import { OAuthCallbackHandler } from "@/components/OAuthCallbackHandler";
+import { App as CapacitorApp } from '@capacitor/app';
+import { useEffect } from "react";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
-      // 確保查詢不會因為 enabled 變化而清除數據
-      keepPreviousData: true,
     },
   },
 });
@@ -64,6 +64,7 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
+              <BackButtonHandler />
               {/* App 版第三方登入 Deep Link 回調處理（votechaos://auth/callback） */}
               <OAuthCallbackHandler />
               <Routes>
@@ -100,5 +101,34 @@ const App = () => (
     </ErrorBoundary>
   </QueryClientProvider>
 );
+
+// Wrapper component to handle Capacitor listeners inside Router context if needed
+// Or just handle it at the top level, but we need access to history or window.history
+const BackButtonHandler = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!isNative()) return;
+
+    CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+      // Logic for back button
+      // 1. If on specific root pages, exit app
+      const rootPaths = ['/', '/home', '/auth'];
+      if (rootPaths.includes(location.pathname)) {
+        CapacitorApp.exitApp();
+      } else {
+        // 2. Otherwise go back
+        window.history.back();
+      }
+    });
+
+    return () => {
+      CapacitorApp.removeAllListeners();
+    };
+  }, [location]);
+
+  return null;
+};
 
 export default App;

@@ -22,9 +22,9 @@ export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, crea
     <Link to={`/vote/${id}`}>
       <Card className={cn(
         "bg-gradient-card shadow-card hover:shadow-glow transition-all duration-300 hover:-translate-y-1 cursor-pointer border",
-        currentExposureLevel === 'medium' && "border-yellow-500/30 bg-gradient-to-br from-yellow-500/5 to-transparent",
-        currentExposureLevel === 'high' && "border-amber-500/60 bg-gradient-to-br from-amber-500/15 via-purple-500/5 to-transparent shadow-lg shadow-amber-500/10",
-        !currentExposureLevel && "border-border/50"
+        currentExposureLevel === 'medium' && "border-yellow-500/50 bg-gradient-to-br from-yellow-500/10 via-yellow-400/5 to-transparent shadow-md shadow-yellow-500/10",
+        currentExposureLevel === 'high' && "border-amber-500/60 bg-gradient-to-br from-amber-500/15 via-purple-500/10 to-transparent shadow-lg shadow-amber-500/20",
+        (!currentExposureLevel || currentExposureLevel === 'normal') && "border-primary/50 bg-gradient-to-br from-primary/5 to-transparent"
       )}>
         <CardContent className="p-5">
           <div className="flex items-start justify-between mb-3">

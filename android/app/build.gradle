@@ -7,8 +7,8 @@ android {
         applicationId "com.votechaos.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 10
-        versionName "1.0.10"
+        versionCode 21
+        versionName "1.0.21"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -35,6 +35,13 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    // Rename output file to include version name
+    applicationVariants.all { variant ->
+        variant.outputs.all {
+            outputFileName = "votechaos-v${defaultConfig.versionName}-${variant.buildType.name}.aab"
         }
     }
 }

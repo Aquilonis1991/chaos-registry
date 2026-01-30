@@ -1,22 +1,43 @@
 import { z } from 'zod';
 
-export const topicSchema = z.object({
-  title: z.string()
-    .trim()
-    .min(5, { message: "標題至少需要 5 個字元" })
-    .max(200, { message: "標題不能超過 200 個字元" }),
-  description: z.string()
-    .trim()
-    .max(150, { message: "主題詳述不能超過 150 個字元" })
-    .optional(),
-  options: z.array(z.string().trim().min(1, { message: "選項不能為空" }))
-    .min(2, { message: "至少需要 2 個選項" })
-    .max(6, { message: "最多只能 6 個選項" }),
-  category: z.string().min(1, { message: "請選擇分類" }),
-  tags: z.array(z.string()).max(5, { message: "最多只能選擇 5 個標籤" }),
-  exposure_level: z.enum(['normal', 'medium', 'high']),
-  duration_days: z.number().min(1).max(30)
-});
+export const createTopicSchema = (limits: {
+  titleMin?: number;
+  titleMax?: number;
+  descriptionMax?: number;
+  optionMin?: number;
+  optionMax?: number;
+  tagsMax?: number;
+} = {}) => {
+  const {
+    titleMin = 5,
+    titleMax = 200,
+    descriptionMax = 250,
+    optionMin = 2,
+    optionMax = 6,
+    tagsMax = 5
+  } = limits;
+
+  return z.object({
+    title: z.string()
+      .trim()
+      .min(titleMin, { message: `標題至少需要 ${titleMin} 個字元` })
+      .max(titleMax, { message: `標題不能超過 ${titleMax} 個字元` }),
+    description: z.string()
+      .trim()
+      .max(descriptionMax, { message: `主題詳述不能超過 ${descriptionMax} 個字元` })
+      .optional(),
+    options: z.array(z.string().trim().min(1, { message: "選項不能為空" }))
+      .min(optionMin, { message: `至少需要 ${optionMin} 個選項` })
+      .max(optionMax, { message: `最多只能 ${optionMax} 個選項` }),
+    category: z.string().min(1, { message: "請選擇分類" }),
+    tags: z.array(z.string()).max(tagsMax, { message: `最多只能選擇 ${tagsMax} 個標籤` }),
+    exposure_level: z.enum(['normal', 'medium', 'high']),
+    duration_days: z.number().min(1).max(30)
+  });
+};
+
+// Deprecated: use createTopicSchema instead for dynamic limits
+export const topicSchema = createTopicSchema();
 
 export const voteSchema = z.object({
   topic_id: z.string().uuid({ message: "無效的主題 ID" }),

@@ -135,7 +135,8 @@ export const useVoteOperations = () => {
       } else if (error.message?.includes('Option not found')) {
         toast.error('選項不存在');
       } else {
-        toast.error('投票失敗');
+        // Show the actual error message for debugging
+        toast.error(`投票失敗: ${error.message || '未知錯誤'}`);
       }
       throw error;
     }
@@ -202,43 +203,11 @@ export const useVoteOperations = () => {
         }
       }
 
-      // 確保免費投票記錄到 token_transactions（如果函數沒有記錄）
-      try {
-        // 使用 UI 文字管理來生成描述（支持多語系）
-        const freeVoteDesc = getText('tokenHistory.description.freeVoteWithOption', '免費投票：{{title}} - 選項：{{option}}')
-          .replace('{{title}}', topic?.title || getText('tokenHistory.description.unknownTopic', '未知主題'))
-          .replace('{{option}}', optionLabel);
-
-        const { data: txId, error: transError } = await (supabase.rpc as any)('log_token_transaction', {
-          p_user_id: user.id,
-          p_amount: 0,
-          p_transaction_type: 'free_vote',
-          p_reference_id: topicId,
-          p_description: freeVoteDesc
-        });
-
-        if (transError && !transError.message?.includes('duplicate')) {
-          console.warn('寫入免費投票 token_transactions 紀錄失敗：');
-          console.warn('  Error details:', stringifyError(transError));
-          console.warn('  Error message:', transError?.message);
-          console.warn('  Error code:', transError?.code);
-          console.warn('  Error details:', transError?.details);
-          console.warn('  User ID:', user.id);
-          console.warn('  Topic ID:', topicId);
-        } else if (txId) {
-          console.log('✅ Free vote transaction logged successfully:', {
-            id: txId,
-            userId: user.id,
-            topicId: topicId
-          });
-        }
-      } catch (e: any) {
-        console.warn('寫入免費投票 token_transactions 紀錄失敗 (exception):');
-        console.warn('  Exception details:', stringifyError(e));
-        console.warn('  Exception message:', e?.message);
-        console.warn('  User ID:', user.id);
-        console.warn('  Topic ID:', topicId);
-      }
+      // 確保免費投票記錄到 token_transactions
+      // 修正：現在由後端 increment_free_vote 函數自動記錄，前端無需重複調用
+      // 這避免了「投票成功但記錄失敗」的雙重步驟風險
+      // (Atomic Transaction handled by RPC)
+      console.log('✅ Free vote cast and recorded atomically by RPC');
 
       return { success: true } as any;
     } catch (error: any) {
@@ -258,7 +227,8 @@ export const useVoteOperations = () => {
       } else if (error.message?.includes('Option not found')) {
         toast.error('選項不存在');
       } else {
-        toast.error('免費票投票失敗');
+        // Show the actual error message for debugging
+        toast.error(`免費票投票失敗: ${error.message || '未知錯誤'}`);
       }
       throw error;
     }

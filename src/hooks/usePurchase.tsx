@@ -98,84 +98,140 @@ export const usePurchase = () => {
 
       // 設置事件監聽
       // 監聽購買已批准 (User has purchased the product)
-      const approvedListener = store.when()
-        .product(productId)
-        .approved(async (transaction: any) => {
-          try {
-            console.log('[Purchase] Transaction approved:', {
-              productId,
-              transactionId: transaction.transactionId,
-              purchaseToken: transaction.purchaseToken || transaction.receipt,
-            });
+      const approvedListener = store.when().approved(async (transaction: any) => {
+        // 檢查此交易是否包含目標產品
+        const hasProduct = transaction.products && transaction.products.some((p: any) => p.id === productId);
+        if (!hasProduct) {
+          return;
+        }
 
-            // 驗證購買 (呼叫後端 Supabase Edge Function)
-            const verifyFunction = platform === 'android'
-              ? 'verify-google-play-purchase'
-              : 'verify-app-store-purchase';
+        try {
+          console.log('[Purchase] Transaction approved:', {
+            productId,
+            transactionId: transaction.transactionId,
+            purchaseToken: transaction.purchaseToken || transaction.receipt,
+          });
 
-            console.log(`[Purchase] Verifying purchase on ${platform} via ${verifyFunction}...`);
 
-            const { data, error } = await supabase.functions.invoke(verifyFunction, {
-              body: {
-                purchaseToken: transaction.purchaseToken || transaction.receipt,
-                transactionId: transaction.transactionId,
-                productId: productId,
-                packageName: 'com.votechaos.app',
-                platform: platform,
-              },
-            });
+          console.log('[Purchase] Transaction object:', JSON.stringify(transaction));
 
-            if (error) {
-              console.error('[Purchase] Verification error:', error);
-              throw error;
+          // Verify purchase token existence
+          // Check multiple possible locations for the token
+          const token =
+            transaction.purchaseToken ||
+            transaction.receipt ||
+            (transaction as any).nativePurchase?.token ||
+            (transaction as any).nativePurchase?.purchaseToken ||
+            (transaction as any).products?.[0]?.token;
+
+          if (!token) {
+            console.error('[Purchase] FATAL: No purchaseToken found in transaction');
+
+            // Detailed Debugging for nativePurchase
+            const nativeObj = (transaction as any).nativePurchase;
+            let nativeDebug = 'undefined';
+            if (nativeObj) {
+              try {
+                nativeDebug = `Keys: [${Object.keys(nativeObj).join(', ')}]`;
+              } catch (e) { nativeDebug = 'Access Error'; }
             }
 
-            if (!data?.success) {
-              throw new Error(data?.error || '驗證失敗');
-            }
-
-            // 完成交易
-            await transaction.finish();
-            console.log('[Purchase] Transaction finished');
-
-            // 顯示成功與刷新
-            const productInfo = PRODUCT_ID_MAP[packageId];
-            const totalTokens = (productInfo.tokens + productInfo.bonus).toLocaleString();
-
-            toast.success(
-              getText('recharge.toast.success.title', '購買成功！'),
-              {
-                description: getText('recharge.toast.success.desc', '已獲得 {{amount}} 代幣')
-                  .replace('{{amount}}', totalTokens),
-              }
-            );
-
-            await refreshProfile();
-
-            // 移除監聽器
-            approvedListener.remove();
-
-          } catch (err: any) {
-            console.error('[Purchase] Verification failed:', err);
-            toast.error(
-              getText('recharge.toast.verificationFailed', '驗證失敗: {{error}}')
-                .replace('{{error}}', err.message || 'Unknown error')
-            );
-            // 不完成交易，讓用戶可以重試
+            const keys = Object.keys(transaction || {}).join(', ');
+            throw new Error(`No Token. TxKeys:[${keys}] Native:[${nativeDebug}]`);
           }
-        });
 
-      // 監聽購買錯誤
-      const errorListener = store.when()
-        .product(productId)
-        .error((error: any) => {
-          console.error('[Purchase] Purchase error:', error);
-          toast.error(
-            getText('recharge.toast.purchaseError', '購買失敗: {{error}}')
-              .replace('{{error}}', error.message || 'Unknown error')
+          // 驗證購買 (呼叫後端 Supabase Edge Function)
+          const verifyFunction = platform === 'android'
+            ? 'verify-google-play-purchase'
+            : 'verify-app-store-purchase';
+
+          const payload = {
+            purchaseToken: token,
+            transactionId: transaction.transactionId,
+            productId: productId,
+            packageName: 'com.votechaos.app',
+            platform: platform,
+          };
+
+          console.log(`[Purchase] Verifying purchase on ${platform} via ${verifyFunction}...`);
+          console.log('[Purchase] Payload:', JSON.stringify(payload));
+
+          const { data, error } = await supabase.functions.invoke(verifyFunction, {
+            body: payload,
+          });
+
+          if (error) {
+            console.error('[Purchase] Verification error:', error);
+
+            // 嘗試從錯誤中提取詳細訊息
+            let detailedMessage = error.message;
+
+            // Supabase FunctionsClient 拋出的錯誤通常包含 context
+            if (error && typeof error === 'object' && 'context' in error) {
+              try {
+                // 嘗試解析 Response JSON
+                const context = (error as any).context;
+                if (context && typeof context.json === 'function') {
+                  const body = await context.json();
+                  console.log('[Purchase] Error body:', body);
+                  if (body.message) detailedMessage = body.message;
+                  if (body.error) detailedMessage = `${body.error}: ${detailedMessage}`;
+                }
+              } catch (e) {
+                console.warn('[Purchase] Failed to parse error context:', e);
+              }
+            }
+
+            throw new Error(detailedMessage);
+          }
+
+          if (!data?.success) {
+            throw new Error(data?.error || '驗證失敗');
+          }
+
+          // 完成交易
+          await transaction.finish();
+          console.log('[Purchase] Transaction finished');
+
+          // 顯示成功與刷新
+          const productInfo = PRODUCT_ID_MAP[packageId];
+          const totalTokens = (productInfo.tokens + productInfo.bonus).toLocaleString();
+
+          toast.success(
+            getText('recharge.toast.success.title', '購買成功！'),
+            {
+              description: getText('recharge.toast.success.desc', '已獲得 {{amount}} 代幣')
+                .replace('{{amount}}', totalTokens),
+            }
           );
-          errorListener.remove();
-        });
+
+          await refreshProfile();
+
+          // 移除監聽器 (Safe check)
+          if (approvedListener && typeof (approvedListener as any).remove === 'function') {
+            (approvedListener as any).remove();
+          }
+
+        } catch (err: any) {
+          console.error('[Purchase] Verification failed:', err);
+          toast.error(
+            getText('recharge.toast.verificationFailed', '驗證失敗: {{error}}')
+              .replace('{{error}}', err.message || 'Unknown error')
+          );
+          // 不完成交易，讓用戶可以重試
+        }
+      });
+
+      // 監聽購買錯誤 - 在 v13 中通常依靠 order() 的 catch 或全局 error 監聽
+      // 因為 store.when().product().error() 已棄用
+      // 我們主要依賴下方的 order() try-catch
+
+      /*
+      const errorListener = store.when().error((error: any) => {
+          console.error('[Purchase] Global Store Error:', error);
+          // 這裡可能會捕捉到不相關的錯誤，所以謹慎顯示
+      });
+      */
 
       // 刷新產品信息
       await purchaseService.refreshProducts();

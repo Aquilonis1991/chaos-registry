@@ -268,7 +268,7 @@ const VoteDetailPage = () => {
 
   return (
     <>
-      <div className="min-h-screen bg-background pb-6">
+      <div className="min-h-screen bg-background pb-32">
         {/* Header */}
         <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <div className="max-w-screen-xl mx-auto px-5 sm:px-6 py-4">

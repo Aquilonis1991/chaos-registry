@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 import { getTagColor } from "@/lib/tagColors";
 import { useProfile } from "@/hooks/useProfile";
 import { useTopicOperations } from "@/hooks/useTopicOperations";
-import { topicSchema } from "@/lib/validationSchemas";
+import { createTopicSchema } from "@/lib/validationSchemas";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 import { checkBannedWords, validateTopicContent, getBannedWordErrorMessage } from "@/lib/bannedWords";
 import { useAuth } from "@/hooks/useAuth";
@@ -458,9 +458,18 @@ const CreateTopicPage = () => {
 
     const sanitizedTags = selectedTags.map(tag => tag.trim());
 
-    // Validate with Zod schema
+    // Validate with Zod schema (Dynamic Limits)
     try {
-      topicSchema.parse({
+      const dynamicSchema = createTopicSchema({
+        titleMin: titleMinLength,
+        titleMax: titleMaxLength,
+        descriptionMax: descMaxLength,
+        optionMin: optionMinCount,
+        optionMax: optionMaxCount,
+        tagsMax: tagsMaxCount
+      });
+
+      dynamicSchema.parse({
         title,
         description,
         options: trimmedOptions,
@@ -648,7 +657,7 @@ const CreateTopicPage = () => {
         </AlertDialogContent>
       </AlertDialog >
 
-      <div className="min-h-screen bg-background pb-20">
+      <div className="min-h-screen bg-background pb-20 pt-8 safe-area-top">
         <LoadingBubble
           isLoading={isRewriting}
           textKey="topic.unstable_rewrite.loading"

@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AdMobService, watchRewardedAd } from "@/lib/admob";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
+import { useProfile } from "@/hooks/useProfile";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 
@@ -18,6 +19,7 @@ interface DailyLoginInfo {
 
 export const useMissionOperations = () => {
   const { getConfig } = useSystemConfigCache();
+  const { refreshProfile } = useProfile();
   const { language } = useLanguage();
   const { getText } = useUIText(language);
 
@@ -111,6 +113,7 @@ export const useMissionOperations = () => {
       throw new Error(errorMsg);
     }
 
+    await refreshProfile();
     return { success: true, reward: missionResult.reward };
   };
 
@@ -334,6 +337,8 @@ export const useMissionOperations = () => {
       // 代幣已經在數據庫中增加，不需要再次查詢驗證
       const remainingAds = MAX_ADS_PER_DAY - (adWatchCount + 1);
 
+      await refreshProfile();
+
       // 注意：toast 訊息將在 MissionPage 中顯示，這裡不顯示以避免重複
       return {
         success: true,
@@ -495,6 +500,8 @@ export const useMissionOperations = () => {
       toast.success(loginSuccessMsg, {
         description: `連續登入 ${loginInfo.currentStreak} 天`
       });
+
+      await refreshProfile();
 
       return loginInfo;
     } catch (error: any) {

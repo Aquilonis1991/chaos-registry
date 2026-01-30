@@ -286,6 +286,17 @@ Deno.serve(async (req) => {
 
         if (insertError) throw insertError;
 
+        // 8. Update Profile Designation (Sync to profile for Home Page display)
+        const { error: profileUpdateError } = await supabase
+            .from("profiles")
+            .update({ designation: result.title })
+            .eq("id", userId);
+
+        if (profileUpdateError) {
+            console.warn("Failed to update profile designation:", profileUpdateError);
+            // Non-blocking error, we still return the assessment result
+        }
+
         return new Response(JSON.stringify({
             success: true,
             data: {

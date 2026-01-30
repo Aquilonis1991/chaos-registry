@@ -272,8 +272,9 @@ const HomePage = () => {
             <div className="flex items-center gap-3">
               <Logo size="md" />
               <div>
-                <h1 className="text-2xl font-bold text-primary-foreground">
+                <h1 className="text-2xl font-bold text-primary-foreground flex items-baseline gap-2">
                   {getText('home.header.title', 'ChaosRegistry')}
+                  <span className="text-xs opacity-50 font-normal">v1.0.21</span>
                 </h1>
                 <p className="text-sm text-primary-foreground/80">
                   {getText('home.header.subtitle', '不理性登記處')}
@@ -508,7 +509,7 @@ const HomePage = () => {
         <Button
           variant="accent"
           size="lg"
-          className="fixed bottom-24 right-6 rounded-full w-14 h-14 shadow-glow"
+          className="fixed bottom-32 right-6 rounded-full w-14 h-14 shadow-glow z-50"
           aria-label={getText('home.fab.create', '發起主題')}
         >
           <PlusCircle className="w-6 h-6" />

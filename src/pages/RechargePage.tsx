@@ -84,7 +84,8 @@ const RechargePage = () => {
     setSelectedPackage(pkg.id);
     try {
       await purchaseTokenPack(pkg.id);
-      // 購買成功後，usePurchase hook 會自動刷新代幣
+      // 購買成功後，手動刷新本頁面的 profile 狀態 (因 useProfile 非全局 Context)
+      await refreshProfile();
     } catch (error) {
       // 錯誤已在 usePurchase 中處理
     } finally {

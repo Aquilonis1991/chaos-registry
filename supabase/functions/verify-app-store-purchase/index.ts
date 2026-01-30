@@ -4,7 +4,7 @@ import { getCorsHeaders, handleCorsPreFlight, validateOrigin } from '../_shared/
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
-const SERVICE_ROLE_KEY = Deno.env.get('SERVICE_ROLE_KEY')!;
+const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY')!;
 const APP_STORE_SHARED_SECRET = Deno.env.get('APP_STORE_SHARED_SECRET');
 
 Deno.serve(async (req) => {
@@ -39,6 +39,14 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (!SERVICE_ROLE_KEY) {
+      console.error('Missing SERVICE_ROLE_KEY');
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error', message: 'Missing SERVICE_ROLE_KEY' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { receiptData, productId } = await req.json();
 
     if (!receiptData || !productId) {
@@ -66,12 +74,12 @@ Deno.serve(async (req) => {
 
     // 使用 App Store Server API 驗證購買
     let verificationResult;
-    
+
     if (APP_STORE_SHARED_SECRET) {
       // 使用 App Store Server API 驗證
       const verifyUrl = 'https://buy.itunes.apple.com/verifyReceipt'; // 生產環境
       // const verifyUrl = 'https://sandbox.itunes.apple.com/verifyReceipt'; // 測試環境
-      
+
       try {
         const response = await fetch(verifyUrl, {
           method: 'POST',
@@ -98,9 +106,9 @@ Deno.serve(async (req) => {
     // 驗證狀態：0 = 成功
     if (verificationResult.status !== 0) {
       return new Response(
-        JSON.stringify({ 
-          error: 'Purchase verification failed', 
-          status: verificationResult.status 
+        JSON.stringify({
+          error: 'Purchase verification failed',
+          status: verificationResult.status
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -133,7 +141,7 @@ Deno.serve(async (req) => {
     if (tokenError) {
       console.error('Error adding tokens:', tokenError);
       return new Response(
-        JSON.stringify({ error: 'Failed to add tokens' }),
+        JSON.stringify({ error: 'Failed to add tokens', details: tokenError, message: tokenError.message }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -154,7 +162,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: true,
         tokens: totalTokens,
         message: 'Purchase verified and tokens added'
@@ -164,7 +172,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Verify App Store purchase error:', error);
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error'
       }),

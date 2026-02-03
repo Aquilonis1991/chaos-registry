@@ -208,13 +208,11 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   const { data: usersData, isLoading } = useQuery({
     queryKey: ['admin-users', searchQuery, page],
     queryFn: async () => {
-      // Use RPC V3 (JSON payload) to avoid signature issues
-      const { data, error } = await (supabase as any).rpc('get_profiles_with_email_for_admin_v3', {
-        p_params: {
-          search_query: searchQuery.trim(),
-          page: Number(page),
-          page_size: Number(pageSize)
-        }
+      // Use RPC V4 (String params) to avoid all type issues
+      const { data, error } = await (supabase as any).rpc('get_admin_user_list', {
+        p_search: searchQuery.trim(),
+        p_page_str: String(page),
+        p_size_str: String(pageSize)
       });
 
       if (error) throw error;

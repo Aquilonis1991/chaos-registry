@@ -462,10 +462,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   };
 
   const handleOpenDeleteDialog = (user: UserProfile) => {
-    if (user.is_deleted) {
-      toast.error(deletedUserActionError);
-      return;
-    }
+    // [MODIFIED] Allow opening dialog even if is_deleted is true (for hard delete)
     setDeleteTarget(user);
     setDeleteReason("");
     setShowDeleteDialog(true);
@@ -488,13 +485,16 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   const deleteMutation = useMutation({
     mutationFn: async () => {
       if (!deleteTarget) throw new Error(noUserSelectedError);
-      const { data, error } = await (supabase as any).rpc('admin_soft_delete_user', {
-        p_target_user_id: deleteTarget.id,
+
+      // [MODIFIED] Use the new unified RPC handling both soft and hard deletes
+      const { data, error } = await (supabase as any).rpc('admin_delete_user', {
+        p_user_id: deleteTarget.id,
         p_reason: deleteReason.trim() || null
       });
+
       if (error) throw error;
       if (!data || !data.success) {
-        throw new Error(data?.error || unknownErrorText);
+        throw new Error(data?.message || data?.error || unknownErrorText);
       }
       return data;
     },
@@ -914,8 +914,11 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{deleteDialogTitle}</DialogTitle>
-            <DialogDescription>
-              {deleteDialogDescriptionTemplate.replace('{{nickname}}', deleteTarget?.nickname || '')}
+            <DialogDescription className={deleteTarget?.is_deleted ? "text-destructive font-bold" : ""}>
+              {deleteTarget?.is_deleted
+                ? `警告：此用戶 ${deleteTarget.nickname} 已處於刪除狀態。再次執行將【永久刪除】此帳號且無法復原！`
+                : deleteDialogDescriptionTemplate.replace('{{nickname}}', deleteTarget?.nickname || '')
+              }
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">

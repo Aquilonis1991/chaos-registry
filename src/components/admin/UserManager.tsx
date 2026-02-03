@@ -66,6 +66,8 @@ interface UserProfile {
   is_deleted?: boolean;
   deleted_at?: string | null;
   deleted_reason?: string | null;
+  email?: string;
+  provider?: string;
 }
 
 interface UserStats {
@@ -206,20 +208,20 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   const { data: usersData, isLoading } = useQuery({
     queryKey: ['admin-users', searchQuery, page],
     queryFn: async () => {
-      let query = supabase
-        .from('profiles')
-        .select('id, nickname, avatar, tokens, created_at, last_login_date, is_deleted, deleted_at, deleted_reason', { count: 'exact' })
-        .order('created_at', { ascending: false });
-
-      if (searchQuery.trim()) {
-        query = query.ilike('nickname', `%${searchQuery.trim()}%`);
-      }
-
-      const { data, error, count } = await query
-        .range((page - 1) * pageSize, page * pageSize - 1);
+      // Use RPC to get email and provider info
+      const { data, error } = await (supabase as any).rpc('get_profiles_with_email_for_admin', {
+        p_search_query: searchQuery.trim(),
+        p_page: page,
+        p_page_size: pageSize
+      });
 
       if (error) throw error;
-      return { users: data as UserProfile[], total: count || 0 };
+
+      // Data structure from RPC: { ..., total_count: 123 }
+      // We need to extract total from the first row or 0 if empty
+      const total = data && data.length > 0 ? Number(data[0].total_count) : 0;
+
+      return { users: data as UserProfile[], total };
     },
   });
 
@@ -652,10 +654,16 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                         <TableRow key={user.id} className={user.is_deleted ? "opacity-60" : ""}>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm">
-                                {user.avatar || '👤'}
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
+                                {user.avatar ? (
+                                  <img src={user.avatar} alt={user.nickname} className="w-full h-full object-cover" onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                                  }} />
+                                ) : null}
+                                <span className={`text-sm ${user.avatar ? 'hidden' : ''}`}>👤</span>
                               </div>
-                              <div>
+                              <div className="min-w-0">
                                 <div className="font-medium flex items-center gap-2 flex-wrap">
                                   {user.nickname}
                                   {user.is_deleted && (
@@ -672,6 +680,14 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                                       return <Badge variant="outline" className="text-xs">管理員</Badge>;
                                     }
                                   })()}
+                                </div>
+                                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                  {user.provider === 'google' && <span title="Google">🇬</span>}
+                                  {user.provider === 'line' && <span title="LINE" className="text-green-600">🇱</span>}
+                                  <span>{user.email || 'No Email'}</span>
+                                  {user.provider && user.provider !== 'email' && (
+                                    <span className="bg-slate-100 px-1 rounded text-[10px] uppercase">{user.provider}</span>
+                                  )}
                                 </div>
                               </div>
                             </div>

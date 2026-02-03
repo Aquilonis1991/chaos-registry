@@ -208,14 +208,18 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   const { data: usersData, isLoading } = useQuery({
     queryKey: ['admin-users', searchQuery, page],
     queryFn: async () => {
-      // Use RPC V4 (String params) to avoid all type issues
-      const { data, error } = await (supabase as any).rpc('get_admin_user_list', {
+      // Use RPC V5 (Safe Mode) - Only verified columns
+      // This helps debug 400 errors caused by missing schema columns
+      const { data, error } = await (supabase as any).rpc('get_admin_user_list_v5', {
         p_search: searchQuery.trim(),
         p_page_str: String(page),
         p_size_str: String(pageSize)
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[AdminRPC Error] Full details:', JSON.stringify(error, null, 2));
+        throw error;
+      }
 
       // Data structure from RPC: { ..., total_count: 123 }
       // We need to extract total from the first row or 0 if empty

@@ -786,7 +786,6 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                                 <DropdownMenuItem
                                   onClick={() => handleOpenDeleteDialog(user)}
                                   className="text-destructive focus:text-destructive"
-                                  disabled={user.is_deleted}
                                 >
                                   <Trash2 className="w-4 h-4 mr-2" />
                                   {dropdownDeleteText}

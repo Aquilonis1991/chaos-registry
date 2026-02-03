@@ -206,6 +206,8 @@ export const usePurchase = () => {
           );
 
           await refreshProfile();
+          // Double check after 1 second to ensure DB consistency
+          setTimeout(() => refreshProfile(), 1000);
 
           // 移除監聽器 (Safe check)
           if (approvedListener && typeof (approvedListener as any).remove === 'function') {
@@ -305,6 +307,8 @@ export const usePurchase = () => {
     );
 
     await refreshProfile();
+    // Double check after 1 second to ensure DB consistency
+    setTimeout(() => refreshProfile(), 1000);
   };
 
   return {

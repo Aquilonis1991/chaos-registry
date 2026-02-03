@@ -1,7 +1,7 @@
 {
   "name": "vite_react_shadcn_ts",
   "private": true,
-  "version": "1.0.21",
+  "version": "1.0.26",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -29,6 +29,7 @@
     "@capacitor/app": "^6.0.1",
     "@capacitor/browser": "^6.0.6",
     "@capacitor/core": "^6.1.2",
+    "@capacitor/device": "^6.0.3",
     "@capacitor/haptics": "^6.0.1",
     "@capacitor/ios": "^6.1.2",
     "@capacitor/keyboard": "^6.0.2",

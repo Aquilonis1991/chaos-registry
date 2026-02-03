@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { Device } from '@capacitor/device';
 import { LoadingBubble } from "@/components/ui/LoadingBubble";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -144,6 +145,8 @@ const AuthPage = () => {
     return null;
   }
 
+
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -158,34 +161,43 @@ const AuthPage = () => {
         return;
       }
 
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
+      // [SECURITY] Use Edge Function for Login (Lockout Logic)
+      const { data, error } = await supabase.functions.invoke('access-control', {
+        body: {
+          action: 'login',
+          email: email.trim(),
+          password: password
+        }
       });
 
-      if (error) {
-        toast.error(error.message);
-        setLoading(false);
-      } else {
-        console.log('[AuthPage] Login successful, waiting for auth state update...');
-        // 登入成功後，不立即導向
-        // onAuthStateChange 會觸發，然後 useEffect 會檢查管理員權限
-        // 如果是網頁版非管理員，會在 useEffect 中被攔截並顯示限制頁面
-        // 如果是原生 App 或管理員，會在 useEffect 中導向首頁
+      if (error || !data?.success) {
+        let errMsg = error?.message || data?.message || '登入失敗';
 
-        // 顯示成功訊息（但導向由 useEffect 處理）
-        if (isNative()) {
-          toast.success(getText('auth_login_success', '登入成功！'));
-        } else {
-          // 網頁版：等待管理員檢查完成後再決定是否顯示成功訊息
-          // 如果非管理員，不會顯示成功訊息（會直接顯示限制頁面）
+        // [DEBUG] Enhanced details
+        if (errMsg.includes('FunctionsHttpError') || errMsg.includes('non-2xx')) {
+          if (error) errMsg += ` | ${JSON.stringify(error)}`;
         }
 
-        // 不設置 loading 為 false，讓 useEffect 處理後續流程
-        // loading 會在 auth state 更新後自動處理
+        toast.error(`Error: ${errMsg}`);
+      } else {
+        // Success - Session is set by Supabase Client automatically if we used signInWithPassword directly, 
+        // BUT since we used Edge Function, we receive the session data back.
+        // We need to manually set the session.
+        const { session, user } = data.data;
+
+        if (session) {
+          const { error: setSessionError } = await supabase.auth.setSession(session);
+          if (setSessionError) throw setSessionError;
+        }
+
+        if (isNative()) {
+          toast.success(getText('auth_login_success', '登入成功！'));
+        }
+        // Redirect handled by useEffect onAuthStateChange
       }
-    } catch (error) {
-      toast.error(getText('auth_login_error', '登入失敗，請稍後再試'));
+    } catch (error: any) {
+      console.error('Login Error:', error);
+      toast.error(error.message || getText('auth_login_error', '登入失敗，請稍後再試'));
     } finally {
       setLoading(false);
     }
@@ -228,29 +240,45 @@ const AuthPage = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: emailRedirectUrl,
-        },
+      // [SECURITY] Get Device ID
+      const deviceId = (await Device.getId()).identifier;
+
+      // [SECURITY] Use Edge Function for Signup (Cooldown Logic)
+      const { data, error } = await supabase.functions.invoke('access-control', {
+        body: {
+          action: 'signup_request',
+          email: email.trim(),
+          password: password,
+          deviceId: deviceId,
+          platform: isNative() ? 'app' : 'web'
+        }
       });
 
-      if (error) {
-        console.error("REGISTRATION_ERROR_FULL:", error);
-        console.error("REGISTRATION_ERROR_MSG:", error.message);
-        if (error.message.includes("already registered")) {
+      if (error || !data?.success) {
+        // [DEBUG] Enhanced error extraction for mobile debugging
+        let errMsg = error?.message || data?.message || '註冊失敗';
+
+        // If the error message is generic, try to append more details
+        if (errMsg.includes('FunctionsHttpError') || errMsg.includes('non-2xx') || errMsg.includes('Failed to send')) {
+          if (error && typeof error === 'object') {
+            errMsg += ` | Details: ${JSON.stringify(error)}`;
+          }
+          if (data) {
+            errMsg += ` | Data: ${JSON.stringify(data)}`;
+          }
+        }
+
+        // Handle specific cases
+        if (errMsg.includes("already registered")) {
           toast.error(getText('auth_email_exists', '此電子郵件已被註冊'));
-        } else if (error.message.includes("Password")) {
-          toast.error(getText('auth_password_invalid', '密碼不符合安全要求'));
         } else {
-          toast.error(error.message);
+          toast.error(`Error: ${errMsg}`); // Prefix with Error for clarity
         }
       } else {
         toast.success(getText('auth_signup_success', '註冊成功！請至信箱完成驗證後再登入'));
       }
-    } catch (error) {
-      toast.error(getText('auth_signup_error', '註冊失敗，請稍後再試'));
+    } catch (error: any) {
+      toast.error(error.message || getText('auth_signup_error', '註冊失敗，請稍後再試'));
     } finally {
       setLoading(false);
     }
@@ -300,37 +328,37 @@ const AuthPage = () => {
     try {
       console.log(`[AuthPage] handleEdgeSocialLogin called for provider: ${provider}`);
       console.log(`[AuthPage] isNative(): ${isNative()}`);
-      
+
       // 只支持 APP 登入（網頁版不支持 LINE 登入）
       if (!isNative()) {
         toast.error('LINE 登入僅支持 APP 版本');
         return;
       }
-      
+
       const platform = 'app'; // 強制使用 'app'
       const functionName = 'line-auth';
-      
+
       console.log(`[AuthPage] Platform: ${platform}, Function: ${functionName}`);
-      
+
       // ✅ 根本修復：不使用 supabase.functions.invoke，而是直接使用 fetch
       // 原因：supabase.functions.invoke 在內部使用 fetch，瀏覽器會發送 OPTIONS 預檢請求
       // 但 Supabase 的路由層可能在我們的代碼執行前就處理了 OPTIONS，導致 CORS 錯誤
       // 直接使用 fetch 可以確保 OPTIONS 請求被我們的 Edge Function 正確處理
       console.log(`[AuthPage] Calling Edge Function via direct fetch: ${functionName}`);
-      
+
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://epyykzxxglkjombvozhr.supabase.co';
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
-      
+
       // 獲取 session token（如果有的話，LINE 登入時可能還沒有 session）
       const { data: { session } } = await supabase.auth.getSession();
       const authToken = session?.access_token || supabaseAnonKey;
-      
+
       // 構建 Edge Function URL
       const edgeFunctionUrl = `${supabaseUrl}/functions/v1/${functionName}`;
-      
+
       console.log(`[AuthPage] Edge Function URL: ${edgeFunctionUrl}`);
       console.log(`[AuthPage] Has session token: ${!!session?.access_token}`);
-      
+
       // 使用 fetch 直接調用 Edge Function
       const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
@@ -344,28 +372,28 @@ const AuthPage = () => {
           platform: platform
         }),
       });
-      
+
       console.log(`[AuthPage] Edge Function response status: ${response.status}`);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`[AuthPage] Edge Function error: ${response.status} - ${errorText}`);
         throw new Error(`Edge Function error: ${response.status} - ${errorText}`);
       }
-      
+
       const data = await response.json();
       console.log(`[AuthPage] Edge Function response received:`, data);
-      
+
       const authUrl = data?.authUrl;
       console.log(`[AuthPage] Auth URL:`, authUrl);
-      
+
       if (!authUrl) {
         console.error(`[AuthPage] Edge Function 未返回 authUrl, data:`, data);
         throw new Error('Edge Function 未返回 authUrl');
       }
 
       console.log(`[AuthPage] Redirecting to OAuth page: ${authUrl}`);
-      
+
       // 在 App 環境中，直接使用 window.location.href 在當前 WebView 中打開
       // WebView 配置已經設置了 setSupportMultipleWindows(false) 和 WebChromeClient
       // 這樣可以防止打開新分頁，並且可以正確處理回調

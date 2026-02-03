@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-ro
 import { BottomNav } from "@/components/BottomNav";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ProfileProvider } from "@/contexts/ProfileContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import ErrorPage from "./pages/ErrorPage";
@@ -59,44 +60,46 @@ const App = () => (
       }}
     >
       <AuthProvider>
-        <LanguageProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <BackButtonHandler />
-              {/* App 版第三方登入 Deep Link 回調處理（votechaos://auth/callback） */}
-              <OAuthCallbackHandler />
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/auth" element={<AuthPage />} />
-                <Route path="/auth/callback" element={<OAuthCallbackPage />} />
-                <Route path="/auth/deep-link-redirect" element={<DeepLinkRedirectPage />} />
-                <Route path="/auth/verify-redirect" element={<VerifyRedirectPage />} />
-                <Route path="/error" element={<ErrorPage />} />
-                <Route path="/network-error" element={<NetworkErrorPage />} />
-                <Route path="/home" element={<ProtectedRoute><HomePage /><BottomNav /></ProtectedRoute>} />
-                <Route path="/search" element={<ProtectedRoute><SearchPage /><BottomNav /></ProtectedRoute>} />
-                <Route path="/vote/:id" element={<ProtectedRoute><VoteDetailPage /></ProtectedRoute>} />
-                <Route path="/create" element={<ProtectedRoute requireAuth><CreateTopicPage /></ProtectedRoute>} />
-                <Route path="/recharge" element={<ProtectedRoute requireAuth><RechargePage /><BottomNav /></ProtectedRoute>} />
-                <Route path="/mission" element={<ProtectedRoute requireAuth><MissionPage /><BottomNav /></ProtectedRoute>} />
-                <Route path="/profile" element={<ProtectedRoute requireAuth><ProfilePage /><BottomNav /></ProtectedRoute>} />
-                <Route path="/history/votes" element={<ProtectedRoute requireAuth><VoteHistoryPage /></ProtectedRoute>} />
-                <Route path="/history/topics" element={<ProtectedRoute requireAuth><TopicHistoryPage /></ProtectedRoute>} />
-                <Route path="/history/token-usage" element={<ProtectedRoute requireAuth><TokenUsageHistoryPage /></ProtectedRoute>} />
-                <Route path="/contact" element={<ProtectedRoute requireAuth><ContactPage /></ProtectedRoute>} />
-                <Route path="/notifications" element={<ProtectedRoute requireAuth><NotificationsPage /></ProtectedRoute>} />
-                <Route path="/terms" element={<TermsPage />} />
-                <Route path="/privacy" element={<PrivacyPage />} />
-                <Route path="/about" element={<AboutPage />} />
-                <Route path="/admin" element={<ProtectedRoute requireAuth><AdminPage /></ProtectedRoute>} />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
-        </LanguageProvider>
+        <ProfileProvider>
+          <LanguageProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <BackButtonHandler />
+                {/* App 版第三方登入 Deep Link 回調處理（votechaos://auth/callback） */}
+                <OAuthCallbackHandler />
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/auth" element={<AuthPage />} />
+                  <Route path="/auth/callback" element={<OAuthCallbackPage />} />
+                  <Route path="/auth/deep-link-redirect" element={<DeepLinkRedirectPage />} />
+                  <Route path="/auth/verify-redirect" element={<VerifyRedirectPage />} />
+                  <Route path="/error" element={<ErrorPage />} />
+                  <Route path="/network-error" element={<NetworkErrorPage />} />
+                  <Route path="/home" element={<ProtectedRoute><HomePage /><BottomNav /></ProtectedRoute>} />
+                  <Route path="/search" element={<ProtectedRoute><SearchPage /><BottomNav /></ProtectedRoute>} />
+                  <Route path="/vote/:id" element={<ProtectedRoute><VoteDetailPage /></ProtectedRoute>} />
+                  <Route path="/create" element={<ProtectedRoute requireAuth><CreateTopicPage /></ProtectedRoute>} />
+                  <Route path="/recharge" element={<ProtectedRoute requireAuth><RechargePage /><BottomNav /></ProtectedRoute>} />
+                  <Route path="/mission" element={<ProtectedRoute requireAuth><MissionPage /><BottomNav /></ProtectedRoute>} />
+                  <Route path="/profile" element={<ProtectedRoute requireAuth><ProfilePage /><BottomNav /></ProtectedRoute>} />
+                  <Route path="/history/votes" element={<ProtectedRoute><VoteHistoryPage /></ProtectedRoute>} />
+                  <Route path="/history/topics" element={<ProtectedRoute><TopicHistoryPage /></ProtectedRoute>} />
+                  <Route path="/history/token-usage" element={<ProtectedRoute><TokenUsageHistoryPage /></ProtectedRoute>} />
+                  <Route path="/contact" element={<ProtectedRoute><ContactPage /></ProtectedRoute>} />
+                  <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+                  <Route path="/terms" element={<TermsPage />} />
+                  <Route path="/privacy" element={<PrivacyPage />} />
+                  <Route path="/about" element={<AboutPage />} />
+                  <Route path="/admin" element={<ProtectedRoute requireAuth><AdminPage /></ProtectedRoute>} />
+                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </TooltipProvider>
+          </LanguageProvider>
+        </ProfileProvider>
       </AuthProvider>
     </ErrorBoundary>
   </QueryClientProvider>

@@ -498,8 +498,12 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
       }
       return data;
     },
-    onSuccess: () => {
-      toast.success(deleteSuccessText);
+    onSuccess: (data: any) => {
+      if (data?.action === 'hard_delete') {
+        toast.success('已永久刪除用戶 (資料已清除)');
+      } else {
+        toast.success(deleteSuccessText);
+      }
       setShowDeleteDialog(false);
       setDeleteTarget(null);
       setDeleteReason("");

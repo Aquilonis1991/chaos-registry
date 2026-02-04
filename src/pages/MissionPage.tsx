@@ -370,8 +370,8 @@ const MissionPage = () => {
         if (loginInfo.isNewLogin) {
           console.log('[MissionPage] handleDailyLogin: New login successful, reward tokens:', loginInfo.rewardTokens);
 
-          // 樂觀更新代幣（實時訂閱會自動同步）
-          updateTokensOptimistically(loginInfo.rewardTokens || 3);
+          // 移除樂觀更新，直接等待 refreshProfile 同步真實餘額
+          // updateTokensOptimistically(loginInfo.rewardTokens || 3);
 
           // 強制刷新 profile
           setTimeout(async () => {

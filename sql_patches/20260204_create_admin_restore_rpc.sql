@@ -1,11 +1,17 @@
--- RPC: admin_restore_user
+-- RPC: admin_restore_user (V2 Refined)
 -- Logic:
 -- 1. Check Admin Permissions
 -- 2. Check if user is deleted
--- 3. Retrieve original_email from metadata
--- 4. Check if original_email is available in auth.users
--- 5. If available -> Restore email, set is_deleted=false
--- 6. If unavailable -> Error
+-- 3. Check if current email matches pattern 'deleted_X_...' (Regex: ^deleted_\d+_)
+-- 4. IF MATCHES:
+--    a. Retrieve original_email from metadata
+--    b. Check collision for original_email
+--    c. If collision -> ERROR (Stop restore)
+--    d. If safe -> Restore email & cleanup metadata
+-- 5. IF NO MATCH:
+--    a. Do NOT touch email
+--    b. Just clear is_deleted status in profiles
+-- 6. Log action
 
 CREATE OR REPLACE FUNCTION public.admin_restore_user(
     p_user_id uuid
@@ -22,6 +28,7 @@ DECLARE
     v_original_email text;
     v_email_taken boolean;
     v_meta jsonb;
+    v_should_restore_email boolean := false;
 BEGIN
     -- 1. SECURITY CHECK
     SELECT EXISTS (
@@ -46,52 +53,56 @@ BEGIN
         RETURN json_build_object('success', false, 'message', 'User is not deleted or not found.');
     END IF;
 
-    -- 3. GET ORIGINAL EMAIL
-    -- Try to find it in metadata (set by our delete RPC)
-    v_original_email := (v_meta->>'original_email')::text;
+    -- 3. CHECK EMAIL PATTERN & PREPARE RESTORE
+    -- Check for "deleted_X_" prefix where X is digits
+    IF v_current_email ~ '^deleted_\d+_' THEN
+        v_original_email := (v_meta->>'original_email')::text;
+        
+        IF v_original_email IS NOT NULL THEN
+            -- Check collision
+            SELECT EXISTS (
+                SELECT 1 FROM auth.users WHERE email = v_original_email AND id != p_user_id
+            ) INTO v_email_taken;
 
-    -- If not in metadata, try to parse from "deleted_X_EMAIL" format if possible, or fail?
-    -- For safety, if we can't find original email, we might have to keep the current "deleted_..." email 
-    -- and just activate the account. But the user probably wants the real email back.
-    -- Let's try to assume if it starts with "deleted_", we try to strip it.
-    IF v_original_email IS NULL THEN
-        -- Fallback: try to extract from deleted_... format
-        -- Pattern: deleted_X_real@email.com or deleted_uuid_real@email.com
-        -- It's risky to guess. Let's just return specific message if we can't find it.
-        RETURN json_build_object('success', false, 'message', 'Original email not found in metadata. Cannot automatically restore email.');
+            IF v_email_taken THEN
+                RETURN json_build_object(
+                    'success', false, 
+                    'message', 'Original email (' || v_original_email || ') is currently in use by another account. Cannot restore.'
+                );
+            END IF;
+            
+            v_should_restore_email := true;
+        ELSE
+            -- Matches pattern but no metadata? 
+            -- We cannot safely restore email directly. Fallback to just status restore?
+            -- Or should we error? User request implies "If not ... don't modify". 
+            -- If it DOES match but missing data, we can't restore email. Treat as "don't modify".
+            v_should_restore_email := false;
+        END IF;
+    ELSE
+        -- Does not match pattern
+        v_should_restore_email := false;
     END IF;
 
-    -- 4. CHECK IF EMAIL IS TAKEN
-    SELECT EXISTS (
-        SELECT 1 FROM auth.users WHERE email = v_original_email AND id != p_user_id
-    ) INTO v_email_taken;
-
-    IF v_email_taken THEN
-        RETURN json_build_object(
-            'success', false, 
-            'message', 'Original email (' || v_original_email || ') is currently in use by another account. Cannot restore.'
-        );
-    END IF;
-
-    -- 5. PERFORM RESTORE
+    -- 4. PERFORM RESTORE
     
-    -- a. Restore auth.users
-    UPDATE auth.users
-    SET 
-        email = v_original_email,
-        -- We DON'T restore password because we don't know it (it was invalidated). 
-        -- User must reset password.
-        raw_user_meta_data = v_meta - 'deleted_at' - 'deleted_reason' - 'original_email', -- Clean up metadata
-        updated_at = now()
-    WHERE id = p_user_id;
+    IF v_should_restore_email THEN
+        -- a. Restore email
+        UPDATE auth.users
+        SET 
+            email = v_original_email,
+            raw_user_meta_data = v_meta - 'deleted_at' - 'deleted_reason' - 'original_email',
+            updated_at = now()
+        WHERE id = p_user_id;
+    END IF;
 
-    -- b. Restore profiles
+    -- b. Always restore profile status
     UPDATE public.profiles
     SET 
         is_deleted = false,
         deleted_at = NULL,
         deleted_reason = NULL,
-        avatar = CASE WHEN avatar = '💀' THEN '' ELSE avatar END -- Reset avatar if it was skeleton? Maybe just leave it.
+        avatar = CASE WHEN avatar = '💀' THEN '' ELSE avatar END
     WHERE id = p_user_id;
 
     -- c. Log action
@@ -107,15 +118,24 @@ BEGIN
         'admin_restore_user',
         'user',
         p_user_id,
-        jsonb_build_object('restored_email', v_original_email)
+        jsonb_build_object(
+            'restored_email', CASE WHEN v_should_restore_email THEN v_original_email ELSE NULL END,
+            'email_change', v_should_restore_email
+        )
     );
 
     RETURN json_build_object(
         'success', true,
-        'message', 'User restored successfully. Email reverted to ' || v_original_email
+        'message', CASE 
+            WHEN v_should_restore_email THEN 'User restored and email reverted to ' || v_original_email 
+            ELSE 'User restored (Status only, email unchanged)' 
+        END
     );
 END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.admin_restore_user(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_restore_user(uuid) TO service_role;
+
+-- Force Schema Cache Refresh
+NOTIFY pgrst, 'reload schema';

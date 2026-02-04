@@ -6,7 +6,7 @@ import { useUIText } from "@/hooks/useUIText";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 
-const DEFAULT_DEEP_LINK = (import.meta.env.VITE_APP_DEEP_LINK as string | undefined)?.trim() || "chaosregistry://auth/verify";
+const DEFAULT_DEEP_LINK = (import.meta.env.VITE_APP_DEEP_LINK as string | undefined)?.trim() || "votechaos://auth/verify";
 const DEFAULT_FALLBACK_URL = (import.meta.env.VITE_APP_DOWNLOAD_URL as string | undefined)?.trim() || "https://chaos-registry.vercel.app/download";
 
 const buildDeepLink = (base: string, token: string, type: string) => {

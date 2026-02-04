@@ -167,7 +167,7 @@ Deno.serve(async (req) => {
                             error: 'Cooldown',
                             message: '請等待 60 秒後再重新註冊或發送驗證信。'
                         }),
-                        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
                     );
                 }
             }
@@ -191,7 +191,7 @@ Deno.serve(async (req) => {
                             error: 'IPLimitExceeded',
                             message: '此 IP 註冊次數過多，請稍後再試。'
                         }),
-                        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
                     );
                 }
             }
@@ -206,9 +206,12 @@ Deno.serve(async (req) => {
             });
 
             if (authError) {
+                // If the error seems to be "User already registered" (Supabase might return this depending on config), handle it.
+                // Usually Supabase returns fake success or specific error.
+                // We return 200 so the client can display the message.
                 return new Response(
                     JSON.stringify({ success: false, error: 'SignupFailed', message: authError.message }),
-                    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
                 );
             }
 

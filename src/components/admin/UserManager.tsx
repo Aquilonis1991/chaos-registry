@@ -20,7 +20,8 @@ import {
   Calendar,
   Clock,
   FileText,
-  Vote
+  Vote,
+  RotateCcw
 } from "lucide-react";
 import {
   Table,
@@ -112,6 +113,8 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   const [deleteReason, setDeleteReason] = useState("");
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [detailUser, setDetailUser] = useState<UserProfile | null>(null);
+  const [showRestoreDialog, setShowRestoreDialog] = useState(false);
+  const [restoreTarget, setRestoreTarget] = useState<UserProfile | null>(null);
 
   // 獲取用戶列表
   const { language } = useLanguage();
@@ -204,6 +207,10 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   const deleteErrorPrefix = getText('admin.userManager.delete.errorPrefix', '刪除失敗：');
   const deletedBadgeText = getText('admin.userManager.badge.deleted', '已刪除');
   const deletedUserActionError = getText('admin.userManager.error.userDeleted', '此用戶已被刪除，無法執行該操作');
+  const restoreDialogTitle = "還原用戶";
+  const restoreDialogDescription = "確定要還原此用戶嗎？這將會嘗試恢復其原始 Email。如果 Email 已被佔用，還原將會失敗。";
+  const restoreSuccessText = "用戶已成功還原";
+  const restoreErrorPrefix = "還原失敗：";
 
   const { data: usersData, isLoading } = useQuery({
     queryKey: ['admin-users', searchQuery, page],
@@ -585,6 +592,38 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
     unsuspendAdminMutation.mutate(userId);
   };
 
+  // 還原用戶 Mutation
+  const restoreMutation = useMutation({
+    mutationFn: async () => {
+      if (!restoreTarget) throw new Error(noUserSelectedError);
+
+      const { data, error } = await (supabase as any).rpc('admin_restore_user', {
+        p_user_id: restoreTarget.id
+      });
+
+      if (error) throw error;
+      if (!data || !data.success) {
+        throw new Error(data?.message || data?.error || unknownErrorText);
+      }
+      return data;
+    },
+    onSuccess: (data: any) => {
+      toast.success(restoreSuccessText);
+      setShowRestoreDialog(false);
+      setRestoreTarget(null);
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    },
+    onError: (error: any) => {
+      const message = error?.message || unknownErrorText;
+      toast.error(restoreErrorPrefix + message);
+    },
+  });
+
+  const handleOpenRestoreDialog = (user: UserProfile) => {
+    setRestoreTarget(user);
+    setShowRestoreDialog(true);
+  };
+
   const totalPages = Math.ceil((usersData?.total || 0) / pageSize);
   const paginationSummary = paginationTemplate
     .replace('{{total}}', (usersData?.total || 0).toLocaleString())
@@ -794,6 +833,18 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                                   <Trash2 className="w-4 h-4 mr-2" />
                                   {dropdownDeleteText}
                                 </DropdownMenuItem>
+                                {user.is_deleted && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() => handleOpenRestoreDialog(user)}
+                                      className="text-primary focus:text-primary"
+                                    >
+                                      <RotateCcw className="w-4 h-4 mr-2" />
+                                      還原用戶
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -1378,6 +1429,37 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDetailDialog(false)}>
               {dialogCancelText}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* 還原確認對話框 */}
+      <Dialog open={showRestoreDialog} onOpenChange={setShowRestoreDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{restoreDialogTitle}</DialogTitle>
+            <DialogDescription>
+              {restoreDialogDescription}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              將會嘗試將 Email 恢復為：
+              <span className="font-mono font-medium text-foreground ml-1">
+                {restoreTarget?.email?.replace(/^deleted_\d+_/, '（原始 Email）') || '未知'}
+              </span>
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRestoreDialog(false)}>
+              {dialogCancelText}
+            </Button>
+            <Button
+              variant="default"
+              onClick={() => restoreMutation.mutate()}
+              disabled={restoreMutation.isPending}
+            >
+              {restoreMutation.isPending ? "還原中..." : "確認還原"}
             </Button>
           </DialogFooter>
         </DialogContent>

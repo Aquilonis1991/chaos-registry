@@ -27,6 +27,22 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="votechaos" android:host="auth" android:pathPrefix="/callback" />
             </intent-filter>
+
+            <!-- Deep Link：votechaos://auth/callback（第三方登入回調） -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="votechaos" android:host="auth" android:pathPrefix="/callback" />
+            </intent-filter>
+
+            <!-- Deep Link：votechaos://auth/verify (Email 驗證回調) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="votechaos" android:host="auth" android:pathPrefix="/verify" />
+            </intent-filter>
         </activity>
 
         <provider

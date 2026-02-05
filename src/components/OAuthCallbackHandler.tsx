@@ -54,10 +54,13 @@ export const OAuthCallbackHandler = () => {
       // 2. Check for Code (Exchange for Tokens)
       if (params.code) {
         // ... Code exchange logic if needed
+        clearPendingOAuthCallback(); // Ensure buffer is cleared
         setIsProcessing(false);
         return;
       }
 
+      // Always clear buffer if we processed an event, to prevent double-handling on remount
+      clearPendingOAuthCallback();
       setIsProcessing(false);
     };
 

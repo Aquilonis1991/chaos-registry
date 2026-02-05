@@ -34,11 +34,17 @@ export const initializeAppLifecycle = () => {
       if (host === 'auth' && path.startsWith('/callback')) {
         const params: Record<string, string> = {};
 
+        // Parse Query Params (Preferred for Deep Links)
         opened.searchParams.forEach((v, k) => params[k] = v);
 
+        // Parse Hash Params (Fallback, often stripped by Android)
         const hash = opened.hash?.startsWith('#') ? opened.hash.slice(1) : '';
         if (hash) {
           new URLSearchParams(hash).forEach((v, k) => params[k] = v);
+        }
+
+        if (params.access_token) {
+          console.log('[app-lifecycle] Tokens detected in Deep Link params');
         }
 
         const paramKeys = Object.keys(params).join(',');

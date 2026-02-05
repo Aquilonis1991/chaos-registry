@@ -295,9 +295,20 @@ const AuthPage = () => {
       // 2. Web App JS executes window.location.href = votechaos://...
       // 3. App Opens.
       // This bypasses the "302 to Custom Scheme" block in modern Android Browsers.
-      const redirectUrl = isNative()
+
+      // FIX for X (Twitter): Twitter is strict about whitelist. Avoid query params if possible.
+      // For other providers, we use ?platform=app to trigger explicit Bridge Mode.
+      // For X, we use standard callback and rely on OAuthCallbackPage to detect tokens.
+      let redirectUrl = isNative()
         ? `${remoteSiteUrl}/auth/callback?platform=app`
         : `${publicSiteUrl}/home`;
+
+      // Special handling for X: Remove query params? Or trust Supabase whitelist allows it?
+      // User reported X fails. Let's try standard URL for X.
+      if (provider === 'x') {
+        // Try exact match with Site URL if possible, or just base callback
+        redirectUrl = isNative() ? `${remoteSiteUrl}/auth/callback` : `${publicSiteUrl}/home`;
+      }
 
       console.log('[AuthPage] Social Login Redirect URL:', redirectUrl);
 
@@ -307,8 +318,9 @@ const AuthPage = () => {
       }
 
       // X (Twitter) 需要簡化 scope，移除 tweet.read（可能需要審核）
+      // AND Twitter is strict about Redirect URLs.
       const oauthOptions: {
-        redirectTo: string;
+        redirectTo?: string;
         scopes?: string;
         skipBrowserRedirect: boolean;
       } = {

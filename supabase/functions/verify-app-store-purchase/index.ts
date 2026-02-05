@@ -56,13 +56,49 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 產品映射
-    const productMap: Record<string, { tokens: number; bonus: number }> = {
-      token_pack_small: { tokens: 100, bonus: 0 },
-      token_pack_medium: { tokens: 500, bonus: 50 },
-      token_pack_large: { tokens: 1000, bonus: 150 },
-      token_pack_xlarge: { tokens: 3000, bonus: 500 },
-    };
+    // 6. Product Mapping (Dynamic from DB)
+    let productMap: Record<string, { tokens: number; bonus: number }> = {};
+    const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+    // Fetch from system_config
+    const { data: configData, error: configError } = await supabaseAdmin
+      .from('system_config')
+      .select('value')
+      .eq('key', 'recharge_amounts')
+      .single();
+
+    if (!configError && configData?.value) {
+      try {
+        const amounts = configData.value as any[];
+        productMap = amounts.reduce((acc: any, curr: any) => {
+          // Map product IDs based on the assumption that ID 1..4 match standard keys
+          let pid = '';
+          if (curr.id === 1) pid = 'token_pack_small';
+          if (curr.id === 2) pid = 'token_pack_medium';
+          if (curr.id === 3) pid = 'token_pack_large';
+          if (curr.id === 4) pid = 'token_pack_xlarge';
+
+          if (pid) {
+            acc[pid] = { tokens: curr.tokens, bonus: curr.bonus };
+          }
+          return acc;
+        }, {});
+        console.log('[Verify] Loaded product map from DB:', productMap);
+      } catch (e) {
+        console.error('[Verify] Failed to parse DB config:', e);
+      }
+    }
+
+    // Fallback if DB empty or parse failed
+    if (Object.keys(productMap).length === 0) {
+      console.warn('[Verify] Using hardcoded fallback map');
+      productMap = {
+        token_pack_small: { tokens: 100, bonus: 0 },
+        token_pack_medium: { tokens: 500, bonus: 50 },
+        token_pack_large: { tokens: 1000, bonus: 150 },
+        token_pack_xlarge: { tokens: 3000, bonus: 500 },
+      };
+    }
 
     const productInfo = productMap[productId];
     if (!productInfo) {
@@ -115,7 +151,8 @@ Deno.serve(async (req) => {
     }
 
     // 檢查是否已經處理過這個購買（防止重複發放）
-    const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+    // supabaseAdmin already initialized
+
     const { data: existingTransaction } = await supabaseAdmin
       .from('token_transactions')
       .select('id')

@@ -87,13 +87,60 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 6. Product Mapping
-    const productMap: Record<string, { tokens: number; bonus: number }> = {
-      token_pack_small: { tokens: 100, bonus: 0 },
-      token_pack_medium: { tokens: 500, bonus: 50 },
-      token_pack_large: { tokens: 1000, bonus: 150 },
-      token_pack_xlarge: { tokens: 3000, bonus: 500 },
-    };
+    // 6. Product Mapping (Dynamic from DB)
+    let productMap: Record<string, { tokens: number; bonus: number }> = {};
+
+    // Fetch from system_config
+    const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+    const { data: configData, error: configError } = await supabaseAdmin
+      .from('system_config')
+      .select('value')
+      .eq('key', 'recharge_amounts')
+      .single();
+
+    if (!configError && configData?.value) {
+      try {
+        const amounts = configData.value as any[];
+        productMap = amounts.reduce((acc: any, curr: any) => {
+          // Map both android and ios IDs if possible, but here we primarily need to match the productId
+          // The config structure: { id: 1, tokens: 100, price: 30, icon: 'Coins', popular: false, bonus: 0 }
+          // We need to map product IDs to this.
+          // Wait, the DB config valid doesn't have the product IDs! 
+          // The PRODUCT_ID_MAP in src/lib/purchase.ts maps ID 1 -> token_pack_small.
+          // We need to know which ID maps to which product ID.
+          // Standard mapping:
+          // 1 -> token_pack_small
+          // 2 -> token_pack_medium
+          // 3 -> token_pack_large
+          // 4 -> token_pack_xlarge
+
+          let pid = '';
+          if (curr.id === 1) pid = 'token_pack_small';
+          if (curr.id === 2) pid = 'token_pack_medium';
+          if (curr.id === 3) pid = 'token_pack_large';
+          if (curr.id === 4) pid = 'token_pack_xlarge';
+
+          if (pid) {
+            acc[pid] = { tokens: curr.tokens, bonus: curr.bonus };
+          }
+          return acc;
+        }, {});
+        console.log('[Verify] Loaded product map from DB:', productMap);
+      } catch (e) {
+        console.error('[Verify] Failed to parse DB config:', e);
+      }
+    }
+
+    // Fallback if DB empty or parse failed
+    if (Object.keys(productMap).length === 0) {
+      console.warn('[Verify] Using hardcoded fallback map');
+      productMap = {
+        token_pack_small: { tokens: 100, bonus: 0 },
+        token_pack_medium: { tokens: 500, bonus: 75 }, // Ensure these match the DB default I inserted (75 not 50)
+        token_pack_large: { tokens: 1000, bonus: 150 },
+        token_pack_xlarge: { tokens: 3000, bonus: 600 }, // DB says 600, checking fallback consistency
+      };
+    }
 
     const productInfo = productMap[productId];
     if (!productInfo) {
@@ -111,34 +158,139 @@ Deno.serve(async (req) => {
     let verificationMethod = 'none';
     const appPackageName = packageName || GOOGLE_PLAY_PACKAGE_NAME;
 
-    // A. Try Google API
+    // A. Verify with Google Publisher API
     if (GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL && GOOGLE_PLAY_PRIVATE_KEY) {
       try {
-        const generateGoogleJWT = async () => {
-          // simplified inline
+        console.log('[Google Play] Initiating Real Server-to-Server Verification...');
+
+        // Helper: Convert PEM to CryptoKey
+        const importGoogleKey = async (pem: string) => {
+          // Remove header/footer and newlines
+          const pemHeader = "-----BEGIN PRIVATE KEY-----";
+          const pemFooter = "-----END PRIVATE KEY-----";
+          const pemContents = pem
+            .replace(pemHeader, "")
+            .replace(pemFooter, "")
+            .replace(/\s/g, "");
+
+          // Base64 decode
+          const binaryDerString = atob(pemContents);
+          const binaryDer = new Uint8Array(binaryDerString.length);
+          for (let i = 0; i < binaryDerString.length; i++) {
+            binaryDer[i] = binaryDerString.charCodeAt(i);
+          }
+
+          return await crypto.subtle.importKey(
+            "pkcs8",
+            binaryDer.buffer,
+            {
+              name: "RSASSA-PKCS1-v1_5",
+              hash: "SHA-256",
+            },
+            true,
+            ["sign"]
+          );
+        };
+
+        // Helper: Get Access Token
+        const getGoogleAccessToken = async () => {
           const now = Math.floor(Date.now() / 1000);
-          const header = { alg: 'RS256', typ: 'JWT' };
+          const key = await importGoogleKey(GOOGLE_PLAY_PRIVATE_KEY);
+
+          const header = { alg: "RS256", typ: "JWT" };
           const payload = {
             iss: GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL,
-            scope: 'https://www.googleapis.com/auth/androidpublisher',
-            aud: 'https://oauth2.googleapis.com/token',
+            scope: "https://www.googleapis.com/auth/androidpublisher",
+            aud: "https://oauth2.googleapis.com/token",
             exp: now + 3600,
             iat: now,
           };
-          // MOCK SIGNING - DENO NATIVE CRYPTO IS HARD WITHOUT PEM PARSER
-          // In production you would use a library or correct WebCrypto implementation
-          console.warn('[Google Play] Using Mock JWT (Real signing require "node-forge" or complex WebCrypto)');
-          return 'mock_jwt_token';
+
+          // Sign JWT using djwt
+          // Dynamic import to ensure it works in Deno env
+          const { create } = await import('https://deno.land/x/djwt@v3.0.2/mod.ts');
+          const jwt = await create(header, payload, key);
+
+          // Exchange for Access Token
+          const tokenResp = await fetch("https://oauth2.googleapis.com/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+              assertion: jwt,
+            }),
+          });
+
+          if (!tokenResp.ok) {
+            const errText = await tokenResp.text();
+            throw new Error(`Auth Failed: ${tokenResp.status} - ${errText}`);
+          }
+
+          const tokenData = await tokenResp.json();
+          return tokenData.access_token;
         };
 
-        const jwt = await generateGoogleJWT();
-        // Since we are mocking JWT, this fetch will fail 401 likely, but let's try
-        if (jwt !== 'mock_jwt_token') {
-          // Real implementation would go here
+        const accessToken = await getGoogleAccessToken();
+        console.log('[Google Play] Access Token obtained.');
+
+        // Call Android Publisher API
+        // GET /androidpublisher/v3/applications/{packageName}/purchases/products/{productId}/tokens/{token}
+        const verifyUrl = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${appPackageName}/purchases/products/${productId}/tokens/${purchaseToken}`;
+
+        const verifyResp = await fetch(verifyUrl, {
+          headers: {
+            "Authorization": `Bearer ${accessToken}`
+          }
+        });
+
+        if (!verifyResp.ok) {
+          const errText = await verifyResp.text();
+          console.error('[Google Play] Verification Failed API Response:', errText);
+          // If 404, it implies invalid token/order.
+          // If 401, server config error.
+          throw new Error(`Google API Error: ${verifyResp.status}`);
         }
-        // Fallback to basic immediately if we know JWT is mock
+
+        const verifyData = await verifyResp.json();
+        console.log('[Google Play] Verification Result:', JSON.stringify(verifyData));
+
+        if (verifyData.purchaseState === 0) { // 0 = Purchased
+          if (verifyData.consumptionState === 1) {
+            // Previously consumed?
+            // Logic: Does the app consume client side or server side? 
+            // Usually server side should acknowledge/consume. 
+            // However, commonly client purchases -> consumes -> verify (for consumables).
+            // Or client purchases -> verify -> consume.
+            // We will accept 1 (Consumed) if it hasn't been recorded in OUR DB yet (checked below).
+            // But generally 0 is safer for "new" purchase if we consume server side.
+            // Let's assume standard flow: If it's valid, it's valid.
+          }
+          verificationMethod = 'google_api';
+          purchaseData = verifyData;
+        } else {
+          // 1 = Canceled, 2 = Pending
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Purchase Invalid',
+              message: `Google status: ${verifyData.purchaseState === 1 ? 'Canceled' : 'Pending'}`
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
       } catch (e) {
-        console.error('Google API Error', e);
+        console.error('[Google Play] API Verification Error:', e);
+        // If API fails (e.g. key issue), DO NOT FALLBACK to basic if we want high security.
+        // User requested "Full version security", so we hard fail on API error.
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Verification System Error',
+            message: 'Validation with Google failed. Please contact support if you were charged.'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
     }
 
@@ -168,7 +320,7 @@ Deno.serve(async (req) => {
     }
 
     // 8. Prevent Duplicate Processing (Idempotency)
-    const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+    // supabaseAdmin is already initialized above
 
     // Check by purchaseToken
     const { data: existingByToken, error: checkError } = await supabaseAdmin

@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { isNative } from "@/lib/capacitor";
 import { toast } from "sonner";
 
+import { getPendingOAuthCallback, clearPendingOAuthCallback } from "@/lib/app-lifecycle";
+
 /**
  * OAuthCallbackHandler - 處理 OAuth 回調（Deep Link）
  * 當 App 透過 Deep Link 返回時，確保 Supabase 正確處理認證狀態
@@ -20,7 +22,7 @@ export const OAuthCallbackHandler = () => {
     const handleOAuthCallback = async (event: CustomEvent<{ url: string; params?: Record<string, string> }>) => {
       console.log('[OAuthCallbackHandler] handleOAuthCallback called, isProcessing:', isProcessing);
       console.log('[OAuthCallbackHandler] Event detail:', JSON.stringify(event.detail));
-      
+
       if (isProcessing) {
         console.log('[OAuthCallbackHandler] Already processing OAuth callback, ignoring duplicate');
         return;
@@ -29,25 +31,25 @@ export const OAuthCallbackHandler = () => {
       setIsProcessing(true);
       const callbackUrl = event.detail.url;
       const params = event.detail.params || {};
-      
+
       // ✅ 改進：生成回調唯一標識（優先使用 access_token，因為它是最終的登入結果）
-      const callbackId = params.access_token 
+      const callbackId = params.access_token
         ? `token-${params.access_token.substring(0, 30)}-${params.refresh_token?.substring(0, 10) || 'none'}`
-        : params.code && params.state 
+        : params.code && params.state
           ? `code-${params.code.substring(0, 10)}-${params.state.substring(0, 10)}`
-          : params.error 
+          : params.error
             ? `error-${params.error}`
             : `url-${event.detail.url.substring(0, 50)}`;
-      
+
       console.log('[OAuthCallbackHandler] Generated callbackId:', callbackId.substring(0, 50));
-      
+
       // ✅ 關鍵修復：檢查是否已經處理過這個回調
       // 特殊情況：如果有 access_token，即使已處理過，也要檢查 session
       // 如果沒有 session，嘗試建立 session（可能是第一次處理失敗了）
       // ⚠️ 重要：即使使用舊的 callbackId（url- 開頭），只要有 access_token，也要檢查並建立 session
       if (processedCallbacksRef.current.has(callbackId)) {
         console.log('[OAuthCallbackHandler] Callback already processed, checking session status:', callbackId.substring(0, 50));
-        
+
         // ✅ 關鍵修復：如果有 access_token，無論 callbackId 是什麼，都要檢查並嘗試建立 session
         // 這樣即使使用舊的 URL-based callbackId，也能正常處理
         if (params.access_token && params.refresh_token) {
@@ -67,7 +69,7 @@ export const OAuthCallbackHandler = () => {
                 access_token: params.access_token,
                 refresh_token: params.refresh_token
               });
-              
+
               if (sessionError) {
                 console.error('[OAuthCallbackHandler] Failed to set session from duplicate callback:', sessionError);
                 toast.error('登入失敗', {
@@ -102,13 +104,13 @@ export const OAuthCallbackHandler = () => {
             }
           }
         }
-        
+
         // ✅ 關鍵修復：如果是 code_already_used 錯誤，積極處理
         // code_already_used 通常意味著第一次請求已經成功，但可能由於處理中斷導致 session 未保存
         // 我們需要更積極地檢查和重試
         if (params.error === 'code_already_used') {
           console.log('[OAuthCallbackHandler] code_already_used error detected on duplicate callback, checking if user is already logged in');
-          
+
           // ✅ 第一次檢查 session
           let { data: { session }, error: sessionError1 } = await supabase.auth.getSession();
           if (session) {
@@ -119,11 +121,11 @@ export const OAuthCallbackHandler = () => {
             return;
           }
           console.log('[OAuthCallbackHandler] ⚠️ First session check: no session, error:', sessionError1);
-          
+
           // ✅ 如果沒有 session，嘗試等待並重試（可能是同步延遲）
           console.log('[OAuthCallbackHandler] ⚠️ No session found immediately, waiting and retrying...');
           await new Promise(resolve => setTimeout(resolve, 1000)); // 等待 1 秒（增加等待時間）
-          
+
           // ✅ 第二次檢查 session
           let { data: { session: session2 }, error: sessionError2 } = await supabase.auth.getSession();
           if (session2) {
@@ -134,7 +136,7 @@ export const OAuthCallbackHandler = () => {
             return;
           }
           console.log('[OAuthCallbackHandler] ⚠️ Second session check: no session, error:', sessionError2);
-          
+
           // ✅ 嘗試刷新 session（可能是緩存問題）
           console.log('[OAuthCallbackHandler] ⚠️ Still no session, attempting to refresh...');
           try {
@@ -150,7 +152,7 @@ export const OAuthCallbackHandler = () => {
           } catch (refreshErr) {
             console.log('[OAuthCallbackHandler] Session refresh failed:', refreshErr);
           }
-          
+
           // ✅ 如果仍然沒有 session，嘗試獲取用戶（可能是 session 檢查的問題）
           console.log('[OAuthCallbackHandler] ⚠️ Still no session, checking user directly...');
           try {
@@ -174,7 +176,7 @@ export const OAuthCallbackHandler = () => {
           } catch (userErr) {
             console.log('[OAuthCallbackHandler] User check failed:', userErr);
           }
-          
+
           // ✅ 關鍵修復：code_already_used 通常意味著授權碼已經被使用
           // 但這可能是因為：
           // 1. 第一次請求已經成功，但 session 沒有被保存（可能是因為應用重啟）
@@ -183,7 +185,7 @@ export const OAuthCallbackHandler = () => {
           console.log('[OAuthCallbackHandler] ⚠️ All recovery attempts failed, clearing processed flag to allow retry');
           processedCallbacksRef.current.delete(callbackId);
           console.log('[OAuthCallbackHandler] Processed flag cleared, user can retry login');
-          
+
           // ✅ 顯示友好的錯誤訊息，並允許用戶重試
           console.log('[OAuthCallbackHandler] ⚠️ No session found after all attempts');
           toast.error('登入失敗', {
@@ -193,7 +195,7 @@ export const OAuthCallbackHandler = () => {
           // 不導航到 /auth，讓用戶可以立即重試
           return;
         }
-        
+
         // ⚠️ 重要：即使沒有 access_token，也要檢查是否有 URL 中包含 access_token（舊版邏輯）
         // 檢查 URL 的 hash fragment 是否包含 access_token
         if (callbackUrl.includes('#access_token=')) {
@@ -233,17 +235,17 @@ export const OAuthCallbackHandler = () => {
             return;
           }
         }
-        
+
         // 其他情況，直接返回
         console.log('[OAuthCallbackHandler] Duplicate callback without tokens or error, ignoring');
         setIsProcessing(false);
         return;
       }
-      
+
       // 標記為已處理
       processedCallbacksRef.current.add(callbackId);
       console.log('[OAuthCallbackHandler] Marking callback as processed:', callbackId);
-      
+
       console.log('[OAuthCallbackHandler] Processing OAuth callback:', callbackUrl);
       console.log('[OAuthCallbackHandler] Callback parameters:', JSON.stringify(params));
       console.log('[OAuthCallbackHandler] Has access_token:', !!params.access_token);
@@ -254,12 +256,12 @@ export const OAuthCallbackHandler = () => {
         // 如果有錯誤參數，顯示錯誤訊息
         if (params.error) {
           console.error('[OAuthCallbackHandler] OAuth error:', params.error, params.error_description);
-          
+
           // ✅ 特殊處理：如果是 code_already_used，可能是重複請求
           // 在這種情況下，第一個請求可能已經成功，檢查是否已經登入
           if (params.error === 'code_already_used') {
             console.log('[OAuthCallbackHandler] code_already_used error detected, checking if user is already logged in');
-            
+
             // ✅ 第一次檢查 session
             let { data: { session }, error: sessionError1 } = await supabase.auth.getSession();
             if (session) {
@@ -270,11 +272,11 @@ export const OAuthCallbackHandler = () => {
               return;
             }
             console.log('[OAuthCallbackHandler] ⚠️ First session check: no session, error:', sessionError1);
-            
+
             // ✅ 如果沒有 session，嘗試等待並重試（可能是同步延遲）
             console.log('[OAuthCallbackHandler] ⚠️ No session found immediately, waiting and retrying...');
             await new Promise(resolve => setTimeout(resolve, 1000)); // 等待 1 秒
-            
+
             // ✅ 第二次檢查 session
             let { data: { session: session2 }, error: sessionError2 } = await supabase.auth.getSession();
             if (session2) {
@@ -285,7 +287,7 @@ export const OAuthCallbackHandler = () => {
               return;
             }
             console.log('[OAuthCallbackHandler] ⚠️ Second session check: no session, error:', sessionError2);
-            
+
             // ✅ 嘗試刷新 session（可能是緩存問題）
             console.log('[OAuthCallbackHandler] ⚠️ Still no session, attempting to refresh...');
             try {
@@ -301,7 +303,7 @@ export const OAuthCallbackHandler = () => {
             } catch (refreshErr) {
               console.log('[OAuthCallbackHandler] Session refresh failed:', refreshErr);
             }
-            
+
             // ✅ 如果仍然沒有 session，嘗試獲取用戶（可能是 session 檢查的問題）
             console.log('[OAuthCallbackHandler] ⚠️ Still no session, checking user directly...');
             try {
@@ -325,14 +327,14 @@ export const OAuthCallbackHandler = () => {
             } catch (userErr) {
               console.log('[OAuthCallbackHandler] User check failed:', userErr);
             }
-            
+
             // ✅ 所有恢復嘗試都失敗，顯示錯誤訊息
             console.log('[OAuthCallbackHandler] ⚠️ No session found after all attempts');
-            
+
             // ✅ 清除已處理的 callback，允許用戶重新嘗試
             processedCallbacksRef.current.delete(callbackId);
             console.log('[OAuthCallbackHandler] Cleared callback from processed list to allow retry:', callbackId.substring(0, 50));
-            
+
             toast.error('登入失敗', {
               description: '授權碼已被使用。請重新嘗試登入。'
             });
@@ -341,7 +343,7 @@ export const OAuthCallbackHandler = () => {
               description: params.error_description || params.error
             });
           }
-          
+
           setIsProcessing(false);
           // ✅ 修復：即使對於 code_already_used，也導航回 /auth
           // 這樣可以確保 WebView 從 LINE 授權頁面返回到應用的登入頁面
@@ -357,20 +359,20 @@ export const OAuthCallbackHandler = () => {
         const code = params.code;
         const state = params.state;
         const provider = params.provider || 'line';
-        
+
         // 只對 LINE 使用 Edge Function，Twitter 使用 Supabase 內建流程
         if (code && state && !params.access_token && !params.refresh_token && provider === 'line') {
           console.log('[OAuthCallbackHandler] Code and state found for LINE, calling Edge Function to exchange tokens');
-          
+
           const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://epyykzxxglkjombvozhr.supabase.co';
           const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
           const functionName = 'line-auth';
           const edgeFunctionUrl = `${supabaseUrl}/functions/v1/${functionName}/callback`;
-          
+
           try {
             console.log('[OAuthCallbackHandler] Calling Edge Function:', edgeFunctionUrl);
             console.log('[OAuthCallbackHandler] Request body:', { code: code?.substring(0, 10) + '...', state, error: params.error });
-            
+
             const response = await fetch(edgeFunctionUrl, {
               method: 'POST',
               headers: {
@@ -384,14 +386,14 @@ export const OAuthCallbackHandler = () => {
                 error: params.error || null,
               }),
             });
-            
+
             console.log('[OAuthCallbackHandler] Edge Function response status:', response.status, response.statusText);
             console.log('[OAuthCallbackHandler] Edge Function response ok:', response.ok);
-            
+
             if (response.ok) {
               const responseText = await response.text();
               console.log('[OAuthCallbackHandler] Edge Function response text (first 200 chars):', responseText.substring(0, 200));
-              
+
               let data: any = null;
               try {
                 data = JSON.parse(responseText);
@@ -400,7 +402,7 @@ export const OAuthCallbackHandler = () => {
                 console.error('[OAuthCallbackHandler] Failed to parse Edge Function response as JSON:', parseError);
                 console.error('[OAuthCallbackHandler] Response text:', responseText);
               }
-              
+
               if (data?.redirectUrl) {
                 console.log('[OAuthCallbackHandler] Edge Function returned redirectUrl:', data.redirectUrl.substring(0, 100) + '...');
                 console.log('[OAuthCallbackHandler] Edge Function returned hashedToken:', !!data.hashedToken, data.hashedToken ? `length: ${data.hashedToken.length}` : 'missing');
@@ -414,7 +416,7 @@ export const OAuthCallbackHandler = () => {
                   deepLinkUrl.searchParams.forEach((v, k) => {
                     deepLinkParams[k] = v;
                   });
-                  
+
                   // 如果有 hash fragment，也解析
                   const hash = deepLinkUrl.hash?.startsWith('#') ? deepLinkUrl.hash.slice(1) : '';
                   if (hash) {
@@ -423,10 +425,10 @@ export const OAuthCallbackHandler = () => {
                       deepLinkParams[k] = v;
                     });
                   }
-                  
+
                   // 派發 oauth-callback 事件（遞迴處理，這次會有 tokens）
-                  window.dispatchEvent(new CustomEvent('oauth-callback', { 
-                    detail: { url: data.redirectUrl, params: deepLinkParams } 
+                  window.dispatchEvent(new CustomEvent('oauth-callback', {
+                    detail: { url: data.redirectUrl, params: deepLinkParams }
                   }));
                   return;
                 } else {
@@ -438,7 +440,7 @@ export const OAuthCallbackHandler = () => {
                     isNative: isNative(),
                     redirectUrl: data.redirectUrl?.substring(0, 100) + '...'
                   });
-                  
+
                   if (isNative() && data.hashedToken) {
                     // 在 App 環境中，使用 hashed_token 直接驗證並創建 session
                     console.log('[OAuthCallbackHandler] Native app detected, verifying token directly with hashed_token');
@@ -448,13 +450,13 @@ export const OAuthCallbackHandler = () => {
                         token_hash: data.hashedToken,
                         type: 'email', // 使用 'email' 類型（Supabase 已棄用 'magiclink' 類型）
                       });
-                      
+
                       console.log('[OAuthCallbackHandler] verifyOtp result:', {
                         hasSession: !!verifyData?.session,
                         hasError: !!verifyError,
                         errorMessage: verifyError?.message
                       });
-                      
+
                       if (verifyError) {
                         console.error('[OAuthCallbackHandler] Failed to verify token:', verifyError);
                         // 如果驗證失敗，嘗試打開 magic link（讓 Supabase 處理）
@@ -462,7 +464,7 @@ export const OAuthCallbackHandler = () => {
                         window.location.href = data.redirectUrl;
                         return;
                       }
-                      
+
                       if (verifyData.session) {
                         console.log('[OAuthCallbackHandler] ✅ Token verified, session created');
                         console.log('[OAuthCallbackHandler] Session details:', {
@@ -470,7 +472,7 @@ export const OAuthCallbackHandler = () => {
                           accessTokenPrefix: verifyData.session.access_token.substring(0, 20) + '...',
                           hasRefreshToken: !!verifyData.session.refresh_token
                         });
-                        
+
                         // ✅ 診斷步驟 5: 確認 session 已正確設置
                         // verifyOtp 應該已經自動設置了 session，但我們再次確認
                         const { data: { session: currentSession } } = await supabase.auth.getSession();
@@ -484,7 +486,7 @@ export const OAuthCallbackHandler = () => {
                             refresh_token: verifyData.session.refresh_token || ''
                           });
                         }
-                        
+
                         // Session 已設置，導航到首頁
                         setIsProcessing(false);
                         navigate('/home', { replace: true });
@@ -552,11 +554,11 @@ export const OAuthCallbackHandler = () => {
             return;
           }
         }
-        
+
         // 手動設置 Supabase session（因為 Deep Link 使用 hash fragment，Supabase 不會自動處理）
         if (params.access_token && params.refresh_token) {
           console.log('[OAuthCallbackHandler] Setting session from OAuth callback tokens');
-          
+
           try {
             const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
               access_token: params.access_token,
@@ -576,7 +578,7 @@ export const OAuthCallbackHandler = () => {
             if (sessionData.session && sessionData.session.user) {
               console.log('[OAuthCallbackHandler] Session set successfully, user authenticated:', sessionData.session.user.email || sessionData.session.user.id);
               toast.success('登入成功！');
-              
+
               // 認證成功，導航到首頁
               setTimeout(() => {
                 navigate('/home', { replace: true });
@@ -594,9 +596,9 @@ export const OAuthCallbackHandler = () => {
         } else if (!code || !state) {
           // 如果沒有 token 也沒有 code/state，嘗試檢查現有 session（後備方案）
           console.log('[OAuthCallbackHandler] No tokens and no code/state, checking existing session...');
-          
+
           const { data: { session }, error } = await supabase.auth.getSession();
-          
+
           if (error) {
             console.error('[OAuthCallbackHandler] Error getting session:', error);
             toast.error('認證處理失敗，請重試');
@@ -608,7 +610,7 @@ export const OAuthCallbackHandler = () => {
           if (session && session.user) {
             console.log('[OAuthCallbackHandler] Existing session found, user authenticated:', session.user.email || session.user.id);
             toast.success('登入成功！');
-            
+
             setTimeout(() => {
               navigate('/home', { replace: true });
               setIsProcessing(false);
@@ -642,6 +644,14 @@ export const OAuthCallbackHandler = () => {
     // 監聽自定義 OAuth 回調事件
     window.addEventListener('oauth-callback', handleOAuthCallback as EventListener);
     window.addEventListener('oauth-error', handleOAuthError as EventListener);
+
+    // 檢查是否有緩衝的 Deep Link (處理 Race Condition)
+    const pendingCallback = getPendingOAuthCallback();
+    if (pendingCallback) {
+      console.log('[OAuthCallbackHandler] Found pending OAuth callback, processing immediately:', pendingCallback.url);
+      window.dispatchEvent(new CustomEvent('oauth-callback', { detail: pendingCallback }));
+      clearPendingOAuthCallback();
+    }
 
     return () => {
       window.removeEventListener('oauth-callback', handleOAuthCallback as EventListener);

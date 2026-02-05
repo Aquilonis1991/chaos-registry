@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Eye, User } from "lucide-react";
+import { Browser } from '@capacitor/browser';
 import { useUIText } from "@/hooks/useUIText";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -286,15 +287,33 @@ const AuthPage = () => {
 
   const handleSocialLogin = async (provider: 'google' | 'apple' | 'discord' | 'x') => {
     try {
+      // Remote Site URL (必須是 Vercel 線上網址，不能是 localhost)
+      const remoteSiteUrl = envPublicSiteUrl || defaultSiteUrl;
+
+      // Native Bridge Strategy:
+      // 1. Redirect to Vercel Web App (Bridge Page)
+      // 2. Web App JS executes window.location.href = votechaos://...
+      // 3. App Opens.
+      // This bypasses the "302 to Custom Scheme" block in modern Android Browsers.
+      const redirectUrl = isNative()
+        ? `${remoteSiteUrl}/auth/verify-redirect?type=oauth`
+        : `${publicSiteUrl}/home`;
+
+      console.log('[AuthPage] Social Login Redirect URL:', redirectUrl);
+
+      // [DEBUG] Show toast to confirm URL
+      if (isNative()) {
+        toast.info(`Redirecting: Bridge\nURL: ${redirectUrl.substring(0, 30)}...`, { duration: 3000 });
+      }
+
       // X (Twitter) 需要簡化 scope，移除 tweet.read（可能需要審核）
       const oauthOptions: {
         redirectTo: string;
         scopes?: string;
+        skipBrowserRedirect: boolean;
       } = {
-        // 回歸原本設計：
-        // - App：使用 Deep Link 回調（由 OAuthCallbackHandler 解析 token 並 setSession）
-        // - Web：回到網站 /home（Supabase 會自動在 hash 建立 session）
-        redirectTo: isNative() ? appDeepLinkCallback : `${publicSiteUrl}/home`,
+        redirectTo: redirectUrl,
+        skipBrowserRedirect: true, // 手動處理瀏覽器開啟，確保使用 Custom Tabs
       };
 
       // 為 X provider 簡化 scope，只使用基本登入權限
@@ -303,24 +322,37 @@ const AuthPage = () => {
         oauthOptions.scopes = 'users.read users.email offline.access';
       }
 
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: provider as any,
         options: oauthOptions,
       });
 
       if (error) {
-        const providerNames: Record<string, string> = {
-          google: 'Google',
-          apple: 'Apple',
-          discord: 'Discord',
-          x: 'X (Twitter)',
-        };
-        const providerName = providerNames[provider] || provider;
-        const socialLoginErrorTemplate = getText('auth_social_login_error', '{{provider}}登入失敗');
-        toast.error(socialLoginErrorTemplate.replace('{{provider}}', providerName));
+        throw error;
       }
-    } catch (error) {
-      toast.error(getText('auth_login_error', '登入失敗，請稍後再試'));
+
+      if (data?.url) {
+        console.log('[AuthPage] Opening OAuth URL:', data.url);
+        if (isNative()) {
+          // 在原生環境使用 Capacitor Browser (Custom Tabs)
+          // 這能確保更好的 UX 和 Cookie 共享，並且正確處理 Deep Link 回調
+          await Browser.open({ url: data.url });
+        } else {
+          // Web 環境只更改 location
+          window.location.href = data.url;
+        }
+      }
+    } catch (error: any) {
+      console.error('Social Login Error:', error);
+      const providerNames: Record<string, string> = {
+        google: 'Google',
+        apple: 'Apple',
+        discord: 'Discord',
+        x: 'X (Twitter)',
+      };
+      const providerName = providerNames[provider] || provider;
+      const socialLoginErrorTemplate = getText('auth_social_login_error', '{{provider}}登入失敗');
+      toast.error(socialLoginErrorTemplate.replace('{{provider}}', providerName));
     }
   };
 

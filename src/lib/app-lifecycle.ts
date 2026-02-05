@@ -1,6 +1,12 @@
 import { App, AppState } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 
+// Buffer to store callback if received before React component is ready
+let pendingOAuthCallback: { url: string; params: Record<string, string> } | null = null;
+
+export const getPendingOAuthCallback = () => pendingOAuthCallback;
+export const clearPendingOAuthCallback = () => { pendingOAuthCallback = null; };
+
 // App 生命週期事件處理
 export const initializeAppLifecycle = () => {
   if (!Capacitor.isNativePlatform()) return;
@@ -8,7 +14,7 @@ export const initializeAppLifecycle = () => {
   // 監聽 App 狀態變化
   App.addListener('appStateChange', (state: AppState) => {
     console.log('App state changed. Is active:', state.isActive);
-    
+
     if (state.isActive) {
       // App 進入前景
       handleAppResume();
@@ -68,10 +74,11 @@ export const initializeAppLifecycle = () => {
         }
 
         console.log('[app-lifecycle] All extracted params:', JSON.stringify(params));
-        console.log('[app-lifecycle] Has code:', !!params.code);
-        console.log('[app-lifecycle] Has state:', !!params.state);
-        console.log('[app-lifecycle] Has access_token:', !!params.access_token);
-        console.log('[app-lifecycle] Has refresh_token:', !!params.refresh_token);
+
+        // BUFFER logic: Store it!
+        pendingOAuthCallback = { url: data.url, params };
+        console.log('[app-lifecycle] Stored pending OAuth callback for later consumption');
+
         console.log('[app-lifecycle] Dispatching oauth-callback event...');
         window.dispatchEvent(new CustomEvent('oauth-callback', { detail: { url: data.url, params } }));
         console.log('[app-lifecycle] oauth-callback event dispatched');
@@ -92,7 +99,7 @@ export const initializeAppLifecycle = () => {
   // 監聽返回按鈕（Android）
   App.addListener('backButton', ({ canGoBack }) => {
     console.log('Back button pressed, canGoBack:', canGoBack);
-    
+
     if (!canGoBack) {
       // 如果已經在首頁，詢問是否退出
       if (window.location.pathname === '/home' || window.location.pathname === '/') {
@@ -115,14 +122,14 @@ const handleAppResume = () => {
   console.log('[app-lifecycle] Current pathname:', window.location.pathname);
   console.log('[app-lifecycle] Current search:', window.location.search);
   console.log('[app-lifecycle] Current hash:', window.location.hash);
-  
+
   // 檢查是否有 OAuth 回調參數（如果 Twitter 重定向到 WebView 而不是 Deep Link）
   const urlParams = new URLSearchParams(window.location.search);
   const hashParams = new URLSearchParams(window.location.hash.substring(1));
   const code = urlParams.get('code') || hashParams.get('code');
   const state = urlParams.get('state') || hashParams.get('state');
   const error = urlParams.get('error') || hashParams.get('error');
-  
+
   if (code || state || error) {
     console.log('[app-lifecycle] OAuth callback parameters detected in URL after resume:', {
       code: code ? 'present' : 'missing',
@@ -130,7 +137,7 @@ const handleAppResume = () => {
       error: error || 'none',
       pathname: window.location.pathname
     });
-    
+
     // 如果是在 /auth/callback 路徑，讓 OAuthCallbackPage 處理
     if (window.location.pathname.includes('/auth/callback')) {
       console.log('[app-lifecycle] Already on /auth/callback, OAuthCallbackPage should handle it');
@@ -139,10 +146,10 @@ const handleAppResume = () => {
       window.location.href = `/auth/callback${window.location.search}${window.location.hash}`;
     }
   }
-  
+
   // 觸發自定義事件，讓各組件知道 App 恢復了
   window.dispatchEvent(new CustomEvent('app-resume'));
-  
+
   // 可以在這裡刷新重要資料
   // 例如：重新獲取用戶資料、檢查新通知等
 };
@@ -151,10 +158,10 @@ const handleAppResume = () => {
 const handleAppPause = () => {
   // 保存狀態
   console.log('App paused - saving state');
-  
+
   // 觸發自定義事件
   window.dispatchEvent(new CustomEvent('app-pause'));
-  
+
   // 可以在這裡保存重要資料到 localStorage
 };
 
@@ -168,7 +175,7 @@ export const getAppInfo = async () => {
       platform: 'web'
     };
   }
-  
+
   try {
     const info = await App.getInfo();
     return {
@@ -186,7 +193,7 @@ export const getAppInfo = async () => {
 // 退出 App
 export const exitApp = async () => {
   if (!Capacitor.isNativePlatform()) return;
-  
+
   try {
     await App.exitApp();
   } catch (error) {
@@ -199,7 +206,7 @@ export const getAppState = async () => {
   if (!Capacitor.isNativePlatform()) {
     return { isActive: true };
   }
-  
+
   try {
     const state = await App.getState();
     return state;

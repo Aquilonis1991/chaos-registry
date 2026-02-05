@@ -7,12 +7,25 @@ console.log('Starting ChaosRegistry App...');
 createRoot(document.getElementById("root")!).render(<App />);
 console.log('React rendered');
 
+// 3. 初始化 App 生命週期（優先級最高，確保 Deep Link 監聽器盡早設置）
+// 必須立即執行，不能在 setTimeout 中，否則會錯過應用啟動時的 Deep Link 事件
+// 使用 IIFE 避免 Top-level await 導致的編譯錯誤
+(async () => {
+  try {
+    const { initializeAppLifecycle } = await import("./lib/app-lifecycle");
+    initializeAppLifecycle();
+    console.log('App lifecycle ready - Deep Link listener registered');
+  } catch (error) {
+    console.error('App lifecycle initialization failed:', error);
+  }
+})();
+
 // 延遲初始化其他服務（完全非阻塞）
 setTimeout(async () => {
   console.log('Starting service initialization...');
 
   try {
-    // 1. 設置錯誤處理器（改進：保存清理函數）
+    // 1. 設置錯誤處理器
     let cleanupErrorHandlers: (() => void) | undefined;
     try {
       const { setupGlobalErrorHandlers } = await import("./lib/errorLogger");
@@ -21,9 +34,6 @@ setTimeout(async () => {
     } catch (error) {
       console.error('Error handler setup failed:', error);
     }
-    
-    // 在應用卸載時清理（雖然這在 SPA 中不常見，但為了完整性）
-    // 注意：實際清理會在頁面卸載時自動發生
 
     // 2. 初始化 Capacitor
     try {
@@ -57,19 +67,6 @@ setTimeout(async () => {
     } catch (error) {
       console.error('Capacitor initialization failed:', error);
     }
-
-    // 3. 初始化 App 生命週期（優先級最高，確保 Deep Link 監聽器盡早設置）
-    try {
-      const { initializeAppLifecycle } = await import("./lib/app-lifecycle");
-      initializeAppLifecycle();
-      console.log('App lifecycle ready - Deep Link listener registered');
-    } catch (error) {
-      console.error('App lifecycle initialization failed:', error);
-    }
-
-
-
-    // 注意：AdMob 初始化已在步驟 2.1 處理
 
   } catch (error) {
     console.error('Service initialization error:', error);

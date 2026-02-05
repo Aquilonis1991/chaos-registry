@@ -21,14 +21,27 @@ const VerifyRedirectPage = () => {
   const { language } = useLanguage();
   const { getText, isLoading } = useUIText(language);
 
-  const deepLink = token ? buildDeepLink(DEFAULT_DEEP_LINK, token, type) : null;
+  // 計算 Deep Link
+  let deepLink: string | null = null;
+
+  if (type === 'oauth') {
+    // Client-Side Redirect Bridge for OAuth (Bypass 302 Block)
+    // 構造: votechaos://auth/callback + current search + current hash
+    // (我們會保留 ?type=oauth 但這無害)
+    const currentHash = typeof window !== 'undefined' ? window.location.hash : '';
+    const currentSearch = typeof window !== 'undefined' ? window.location.search : '';
+    deepLink = `votechaos://auth/callback${currentSearch}${currentHash}`;
+  } else if (token) {
+    // Email Verification
+    deepLink = buildDeepLink(DEFAULT_DEEP_LINK, token, type);
+  }
 
   useEffect(() => {
-    if (!deepLink || !token) return;
+    if (!deepLink) return; // oauth 模式下 deepLink 總是存在，如果不存則不需要等待 token
 
     const openTimer = setTimeout(() => {
       if (typeof window !== "undefined") {
-        window.location.href = deepLink;
+        window.location.href = deepLink!;
       }
     }, 200);
 
@@ -42,9 +55,10 @@ const VerifyRedirectPage = () => {
       clearTimeout(openTimer);
       clearTimeout(fallbackTimer);
     };
-  }, [deepLink, token]);
+  }, [deepLink]);
 
-  if (!token) {
+  // 如果不是 oauth 且沒有 token，轉導回首頁
+  if (type !== 'oauth' && !token) {
     return <Navigate to="/auth" replace />;
   }
 

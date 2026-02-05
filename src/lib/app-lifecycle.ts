@@ -20,7 +20,6 @@ export const initializeAppLifecycle = () => {
   // 監聽深層連結
   App.addListener('appUrlOpen', (data) => {
     console.log('[app-lifecycle] Deep Link:', data.url);
-    toast.info(`Deep Link: ${data.url.substring(0, 50)}...`, { duration: 5000 });
 
     try {
       const opened = new URL(data.url);
@@ -47,27 +46,19 @@ export const initializeAppLifecycle = () => {
           console.log('[app-lifecycle] Tokens detected in Deep Link params');
         }
 
-        const paramKeys = Object.keys(params).join(',');
-        toast.success(`Params Found: ${paramKeys}`, { duration: 5000 });
         console.log('[app-lifecycle] Params:', params);
 
         // BUFFER logic
         pendingOAuthCallback = { url: data.url, params };
 
         // Dispatch
-        const dispatched = window.dispatchEvent(new CustomEvent('oauth-callback', { detail: { url: data.url, params } }));
-        if (dispatched) {
-          toast.success('Event Dispatched to UI', { duration: 3000 });
-        } else {
-          toast.warning('Event Dispatch Failed (No Listeners?)', { duration: 3000 });
-        }
+        window.dispatchEvent(new CustomEvent('oauth-callback', { detail: { url: data.url, params } }));
         return;
       }
 
       // ... Route handling ...
     } catch (e: any) {
-      toast.error(`Deep Link Error: ${e.message}`);
-      console.error(e);
+      console.error('[app-lifecycle] Deep Link Error:', e);
     }
   });
   // ... rest of file ...

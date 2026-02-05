@@ -299,8 +299,9 @@ const AuthPage = () => {
       // FIX for X (Twitter): Twitter is strict about whitelist. Avoid query params if possible.
       // For other providers, we use ?platform=app to trigger explicit Bridge Mode.
       // For X, we use standard callback and rely on OAuthCallbackPage to detect tokens.
+      // Standard redirect URL without platform param
       let redirectUrl = isNative()
-        ? `${remoteSiteUrl}/auth/callback?platform=app`
+        ? `${remoteSiteUrl}/auth/callback`
         : `${publicSiteUrl}/home`;
 
       // Special handling for X: Remove query params? Or trust Supabase whitelist allows it?
@@ -311,11 +312,6 @@ const AuthPage = () => {
       }
 
       console.log('[AuthPage] Social Login Redirect URL:', redirectUrl);
-
-      // [DEBUG] Show toast to confirm URL
-      if (isNative()) {
-        toast.info(`Redirecting: Bridge\nURL: ${redirectUrl.substring(0, 30)}...`, { duration: 3000 });
-      }
 
       // X (Twitter) 需要簡化 scope，移除 tweet.read（可能需要審核）
       // AND Twitter is strict about Redirect URLs.

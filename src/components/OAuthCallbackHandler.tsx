@@ -14,14 +14,10 @@ export const OAuthCallbackHandler = () => {
   useEffect(() => {
     if (!isNative()) return;
 
-    toast.info('RC: Handler Mounted', { duration: 2000 }); // Flight Recorder
-
     const handleOAuthCallback = async (event: CustomEvent<{ url: string; params?: Record<string, string> }>) => {
-      toast.info('RC: Event Received', { duration: 3000 });
       console.log('[OAuthCallbackHandler] Event:', event.detail);
 
       if (isProcessing) {
-        toast.warning('RC: Busy (Processing)', { duration: 2000 });
         return;
       }
 
@@ -30,8 +26,6 @@ export const OAuthCallbackHandler = () => {
 
       // 1. Check for Tokens
       if (params.access_token && params.refresh_token) {
-        toast.info('RC: Tokens Found. Setting Session...', { duration: 4000 });
-
         try {
           const { data, error } = await supabase.auth.setSession({
             access_token: params.access_token,
@@ -40,29 +34,29 @@ export const OAuthCallbackHandler = () => {
 
           if (error) {
             console.error(error);
-            toast.error(`RC: Session Error: ${error.message}`);
+            toast.error(`Login Error: ${error.message}`);
             setIsProcessing(false);
             return;
           }
 
           if (data.session) {
-            toast.success('RC: Login Success! Redirecting...', { duration: 3000 });
+            toast.success('Login Success!');
             setTimeout(() => navigate('/home', { replace: true }), 500);
-          } else {
-            toast.error('RC: SetSession done but No Session?');
           }
         } catch (e: any) {
-          toast.error(`RC: Exception: ${e.message}`);
+          console.error(e);
+          toast.error(`Login Exception: ${e.message}`);
         }
         setIsProcessing(false);
         return;
       }
 
-      // 2. Check for Code (Twitter/Supabase PKCE flow usually returns code to Deep Link?)
-      // Note: If using implicit flow, we expect tokens.
-
-      toast.warning('RC: No Tokens in Params. Checking Code...');
-      // ... (Existing logic for Code exchange if needed, but for now we focus on Token flow from Bridge)
+      // 2. Check for Code (Exchange for Tokens)
+      if (params.code) {
+        // ... Code exchange logic if needed
+        setIsProcessing(false);
+        return;
+      }
 
       setIsProcessing(false);
     };
@@ -71,11 +65,9 @@ export const OAuthCallbackHandler = () => {
 
     const pendingCallback = getPendingOAuthCallback();
     if (pendingCallback) {
-      toast.info(`RC: Buffer Found! ${pendingCallback.url.substring(0, 20)}...`, { duration: 4000 });
+      console.log('[OAuthCallbackHandler] Processing Pending Buffer');
       window.dispatchEvent(new CustomEvent('oauth-callback', { detail: pendingCallback }));
       clearPendingOAuthCallback();
-    } else {
-      toast.info('RC: No Buffer', { duration: 2000 });
     }
 
     return () => {

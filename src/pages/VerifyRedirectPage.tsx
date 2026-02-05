@@ -24,14 +24,7 @@ const VerifyRedirectPage = () => {
   // 計算 Deep Link
   let deepLink: string | null = null;
 
-  if (type === 'oauth') {
-    // Client-Side Redirect Bridge for OAuth (Bypass 302 Block)
-    // 構造: votechaos://auth/callback + current search + current hash
-    // (我們會保留 ?type=oauth 但這無害)
-    const currentHash = typeof window !== 'undefined' ? window.location.hash : '';
-    const currentSearch = typeof window !== 'undefined' ? window.location.search : '';
-    deepLink = `votechaos://auth/callback${currentSearch}${currentHash}`;
-  } else if (token) {
+  if (token) {
     // Email Verification
     deepLink = buildDeepLink(DEFAULT_DEEP_LINK, token, type);
   }
@@ -101,13 +94,7 @@ const VerifyRedirectPage = () => {
             {getText("auth_verifyRedirect_footer", "若沒有自動跳轉，請點擊上方按鈕。")}
           </p>
 
-          {/* Debug Info for User/Dev */}
-          <div className="mt-4 p-2 bg-black/20 rounded text-[10px] text-left overflow-hidden">
-            <p className="font-bold text-gray-400">DEBUG INFO (v1.0.33):</p>
-            <p>Hash Present: {typeof window !== 'undefined' && window.location.hash ? 'YES' : 'NO'}</p>
-            <p>Search Present: {typeof window !== 'undefined' && window.location.search ? 'YES' : 'NO'}</p>
-            <p className="truncate text-gray-500 mt-1">Link: {deepLink || 'Generating...'}</p>
-          </div>
+
         </div>
       </div>
     </div>

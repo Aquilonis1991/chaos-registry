@@ -107,6 +107,8 @@ const App = () => (
 
 // Wrapper component to handle Capacitor listeners inside Router context if needed
 // Or just handle it at the top level, but we need access to history or window.history
+// Wrapper component to handle Capacitor listeners inside Router context if needed
+// Or just handle it at the top level, but we need access to history or window.history
 const BackButtonHandler = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -114,20 +116,28 @@ const BackButtonHandler = () => {
   useEffect(() => {
     if (!isNative()) return;
 
-    CapacitorApp.addListener('backButton', ({ canGoBack }) => {
-      // Logic for back button
-      // 1. If on specific root pages, exit app
-      const rootPaths = ['/', '/home', '/auth'];
-      if (rootPaths.includes(location.pathname)) {
-        CapacitorApp.exitApp();
-      } else {
-        // 2. Otherwise go back
-        window.history.back();
-      }
-    });
+    let listenerHandle: Promise<any> | null = null;
+
+    const setupListener = () => {
+      listenerHandle = CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+        // Logic for back button
+        // 1. If on specific root pages, exit app
+        const rootPaths = ['/', '/home', '/auth'];
+        if (rootPaths.includes(location.pathname)) {
+          CapacitorApp.exitApp();
+        } else {
+          // 2. Otherwise go back
+          window.history.back();
+        }
+      });
+    };
+
+    setupListener();
 
     return () => {
-      CapacitorApp.removeAllListeners();
+      if (listenerHandle) {
+        listenerHandle.then(handle => handle.remove()).catch(console.error);
+      }
     };
   }, [location]);
 

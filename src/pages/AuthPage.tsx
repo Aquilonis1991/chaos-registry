@@ -296,7 +296,7 @@ const AuthPage = () => {
       // 3. App Opens.
       // This bypasses the "302 to Custom Scheme" block in modern Android Browsers.
       const redirectUrl = isNative()
-        ? `${remoteSiteUrl}/auth/verify-redirect?type=oauth`
+        ? `${remoteSiteUrl}/auth/callback?platform=app`
         : `${publicSiteUrl}/home`;
 
       console.log('[AuthPage] Social Login Redirect URL:', redirectUrl);

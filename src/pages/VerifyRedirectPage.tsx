@@ -86,9 +86,9 @@ const VerifyRedirectPage = () => {
         </p>
 
         <div className="flex flex-col gap-3">
-          <Button className="w-full h-12 text-base" onClick={handleOpenApp}>
-            <Smartphone className="w-4 h-4 mr-2" />
-            {getText("auth_verifyRedirect_openApp", "立即開啟 App")}
+          <Button className="w-full h-14 text-lg font-bold animate-pulse shadow-lg bg-primary hover:bg-primary/90" onClick={handleOpenApp}>
+            <Smartphone className="w-6 h-6 mr-2" />
+            {getText("auth_verifyRedirect_openApp", "點擊此處開啟 App")}
           </Button>
           <Button variant="outline" className="w-full h-12 text-base" onClick={handleDownload}>
             <ExternalLink className="w-4 h-4 mr-2" />
@@ -98,13 +98,16 @@ const VerifyRedirectPage = () => {
 
         <div className="mt-6">
           <p className="text-xs text-muted-foreground mb-3">
-            {getText("auth_verifyRedirect_footer", "若仍無法開啟，請確認 App 已安裝，或使用下方按鈕重試。")}
+            {getText("auth_verifyRedirect_footer", "若沒有自動跳轉，請點擊上方按鈕。")}
           </p>
-          <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span>{getText("auth_verifyRedirect_waiting", "正在等待 App 回應...")}</span>
+
+          {/* Debug Info for User/Dev */}
+          <div className="mt-4 p-2 bg-black/20 rounded text-[10px] text-left overflow-hidden">
+            <p className="font-bold text-gray-400">DEBUG INFO (v1.0.33):</p>
+            <p>Hash Present: {typeof window !== 'undefined' && window.location.hash ? 'YES' : 'NO'}</p>
+            <p>Search Present: {typeof window !== 'undefined' && window.location.search ? 'YES' : 'NO'}</p>
+            <p className="truncate text-gray-500 mt-1">Link: {deepLink || 'Generating...'}</p>
           </div>
-          <p className="text-[10px] text-gray-300 mt-2">v1.0.32 Bridge Active</p>
         </div>
       </div>
     </div>

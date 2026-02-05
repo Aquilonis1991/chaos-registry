@@ -104,6 +104,7 @@ const VerifyRedirectPage = () => {
             <Loader2 className="w-4 h-4 animate-spin" />
             <span>{getText("auth_verifyRedirect_waiting", "正在等待 App 回應...")}</span>
           </div>
+          <p className="text-[10px] text-gray-300 mt-2">v1.0.32 Bridge Active</p>
         </div>
       </div>
     </div>

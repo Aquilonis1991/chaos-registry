@@ -316,11 +316,10 @@ const AuthPage = () => {
         skipBrowserRedirect: true, // 手動處理瀏覽器開啟，確保使用 Custom Tabs
       };
 
-      // 為 X provider 簡化 scope，只使用基本登入權限
-      if (provider === 'x') {
-        // 移除 tweet.read（可能需要審核），只保留基本登入所需權限
-        oauthOptions.scopes = 'users.read users.email offline.access';
-      }
+      // 為 X provider 簡化 scope -> Reverted to default to fix "Cannot grant access" error
+      // if (provider === 'x') {
+      //   oauthOptions.scopes = 'users.read users.email offline.access';
+      // }
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: provider as any,

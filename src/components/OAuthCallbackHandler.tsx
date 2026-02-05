@@ -17,19 +17,28 @@ export const OAuthCallbackHandler = () => {
     const handleOAuthCallback = async (event: CustomEvent<{ url: string; params?: Record<string, string> }>) => {
       console.log('[OAuthCallbackHandler] Event:', event.detail);
 
-      if (isProcessing) {
+      const { url: eventUrl, params: eventParams = {} } = event.detail;
+
+      // 0. Prevent Duplicate Processing
+      const tokenSignature = eventParams.access_token || eventParams.code || eventUrl;
+      if (processedCallbacksRef.current.has(tokenSignature)) {
+        console.log('[OAuthCallbackHandler] Duplicate event ignored:', tokenSignature.substring(0, 10));
         return;
       }
 
       setIsProcessing(true);
-      const { url, params = {} } = event.detail;
 
       // 1. Check for Tokens
-      if (params.access_token && params.refresh_token) {
+      if (eventParams.access_token && eventParams.refresh_token) {
+        processedCallbacksRef.current.add(tokenSignature); // Mark as processed
+
         try {
+          // Clear buffer immediately if we seek to process this
+          clearPendingOAuthCallback();
+
           const { data, error } = await supabase.auth.setSession({
-            access_token: params.access_token,
-            refresh_token: params.refresh_token,
+            access_token: eventParams.access_token,
+            refresh_token: eventParams.refresh_token,
           });
 
           if (error) {
@@ -52,8 +61,10 @@ export const OAuthCallbackHandler = () => {
       }
 
       // 2. Check for Code (Exchange for Tokens)
-      if (params.code) {
+      if (eventParams.code) {
+        processedCallbacksRef.current.add(tokenSignature);
         // ... Code exchange logic if needed
+        clearPendingOAuthCallback();
         setIsProcessing(false);
         return;
       }

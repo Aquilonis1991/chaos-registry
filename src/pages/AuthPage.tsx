@@ -324,10 +324,11 @@ const AuthPage = () => {
         skipBrowserRedirect: true, // 手動處理瀏覽器開啟，確保使用 Custom Tabs
       };
 
-      // 為 X provider 簡化 scope -> Reverted to default to fix "Cannot grant access" error
-      // if (provider === 'x') {
-      //   oauthOptions.scopes = 'users.read users.email offline.access';
-      // }
+      // 為 X provider 簡化 scope. 預設的 tweet.read 經常導致 "Cannot grant access" 錯誤
+      // 我們只需要讀取使用者資料和 Email
+      if (provider === 'x' || provider === 'twitter') {
+        oauthOptions.scopes = 'users.read users.email offline.access';
+      }
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: provider as any,

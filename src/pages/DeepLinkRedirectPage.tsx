@@ -65,11 +65,12 @@ export const DeepLinkRedirectPage = () => {
 
   // 顯示載入中訊息
   return (
-    <div style={{
+    <div className="pt-[env(safe-area-inset-top,0px)] min-h-screen flex flex-col">
+      <div style={{
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
-      height: '100vh',
+      flex: 1,
       flexDirection: 'column',
       gap: '1.5rem',
       padding: '20px',
@@ -118,6 +119,7 @@ export const DeepLinkRedirectPage = () => {
       >
         開啟 VoteChaos
       </button>
+    </div>
     </div>
   );
 };

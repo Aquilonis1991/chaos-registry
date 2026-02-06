@@ -14,19 +14,27 @@ interface TopicCardProps {
   creatorName: string;
   isHot?: boolean;
   createdAt?: string;
-  currentExposureLevel?: 'normal' | 'medium' | 'high' | null;
+  currentExposureLevel?: 'normal' | 'medium' | 'high' | string | null;
 }
 
 export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, createdAt, currentExposureLevel }: TopicCardProps) => {
+  // 首頁主題卡片曝光等級樣式（與發起主題頁一致）
+  // Card 預設有 bg-card，需用 ! 覆蓋才能顯示底色
+  // 普通：無邊 + 接近白的灰；中等：黃邊 + 淡黃白漸層；高度：橘邊 + 淡黃紫漸層
+  const level = typeof currentExposureLevel === 'string' ? currentExposureLevel.trim().toLowerCase() : '';
+  const exposureStyles = (level === 'high')
+    ? "border-amber-500/60 !bg-gradient-to-br from-amber-500/15 via-purple-500/10 to-transparent shadow-lg shadow-amber-500/20"
+    : (level === 'medium')
+      ? "border-yellow-500/50 !bg-gradient-to-br from-yellow-500/10 via-yellow-400/5 to-transparent shadow-md shadow-yellow-500/10"
+      : (level === 'normal')
+        ? "border-0 !bg-gradient-to-br from-gray-100 to-transparent dark:from-gray-800/50 dark:to-transparent"
+        : "border-primary/50 !bg-gradient-to-br from-primary/5 to-transparent shadow-card";
+
   return (
     <Link to={`/vote/${id}`}>
       <Card className={cn(
-        "transition-all duration-300 border cursor-pointer", // Removed hover effects
-        (currentExposureLevel?.toLowerCase() === 'medium')
-          ? "border-yellow-500/50 bg-gradient-to-br from-yellow-500/10 via-yellow-400/5 to-transparent shadow-md shadow-yellow-500/10"
-          : (currentExposureLevel?.toLowerCase() === 'high')
-            ? "border-amber-500/60 bg-gradient-to-br from-amber-500/15 via-purple-500/10 to-transparent shadow-lg shadow-amber-500/20"
-            : "border-primary/50 bg-gradient-to-br from-primary/5 to-transparent shadow-card"
+        "border cursor-pointer active:scale-100 transition-none",
+        exposureStyles
       )}>
         <CardContent className="p-5">
           <div className="flex items-start justify-between mb-3">

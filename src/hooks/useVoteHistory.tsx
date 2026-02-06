@@ -66,7 +66,7 @@ export const useVoteHistory = (userId: string | undefined, options?: { timeFilte
 
       // 計算時間篩選條件
       const startDate = getStartDateFromFilter(timeFilter);
-
+      
       // 如果不是管理員，限制查詢範圍在1年內
       const oneYearAgo = new Date();
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
@@ -94,7 +94,7 @@ export const useVoteHistory = (userId: string | undefined, options?: { timeFilte
       if (startDate) {
         votesQuery = votesQuery.gte('created_at', startDate.toISOString());
       }
-
+      
       // 如果不是管理員，限制在1年內
       if (minDate) {
         const effectiveMinDate = startDate && startDate > minDate ? startDate : minDate;
@@ -129,7 +129,7 @@ export const useVoteHistory = (userId: string | undefined, options?: { timeFilte
       if (startDate) {
         freeVotesQuery = freeVotesQuery.gte('used_at', startDate.toISOString());
       }
-
+      
       // 如果不是管理員，限制在1年內
       if (minDate) {
         const effectiveMinDate = startDate && startDate > minDate ? startDate : minDate;
@@ -145,11 +145,11 @@ export const useVoteHistory = (userId: string | undefined, options?: { timeFilte
 
       // 組合代幣投票歷史
       const voteHistory: VoteHistory[] = (votes || [])
-        //.filter(vote => vote.topics) // Don't filter, show even if topic deleted
+        .filter(vote => vote.topics) // 只保留主題還存在的投票
         .map(vote => ({
           id: vote.id,
           topic_id: vote.topic_id,
-          topic_title: (vote.topics as any)?.title || '已刪除的主題',
+          topic_title: (vote.topics as any)?.title || '未知主題',
           option_selected: resolveOptionText((vote.topics as any)?.options, vote.option),
           tokens_used: vote.amount || 0,
           is_free_vote: false,
@@ -160,11 +160,11 @@ export const useVoteHistory = (userId: string | undefined, options?: { timeFilte
 
       // 組合免費投票歷史
       const freeVoteHistory: VoteHistory[] = (freeVotes || [])
-        //.filter(vote => vote.topics) // Don't filter
+        .filter(vote => vote.topics) // 只保留主題還存在的投票
         .map(vote => ({
           id: vote.id,
           topic_id: vote.topic_id,
-          topic_title: (vote.topics as any)?.title || '已刪除的主題',
+          topic_title: (vote.topics as any)?.title || '未知主題',
           option_selected: resolveOptionText((vote.topics as any)?.options, vote.option),
           tokens_used: 0,
           is_free_vote: true,

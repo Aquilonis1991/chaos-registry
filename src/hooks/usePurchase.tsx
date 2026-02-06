@@ -66,12 +66,12 @@ export const usePurchase = () => {
     platform: string
   ) => {
     try {
-      // 確保購買服務已初始化
+      // 確保購買服務已初始化（內建重試，因 Cordova 插件可能較晚注入）
       if (!purchaseService.isInitialized()) {
         console.log('[Purchase] Service not initialized, initializing now...');
-        const initResult = await purchaseService.initialize();
-        if (!initResult.success) {
-          throw new Error(initResult.error || '無法初始化購買服務，請確認已安裝內購插件');
+        const initialized = await purchaseService.initialize();
+        if (!initialized) {
+          throw new Error('無法初始化購買服務。請稍後再試或重新開啟 App 後再點選購買。');
         }
       }
 
@@ -96,144 +96,97 @@ export const usePurchase = () => {
         throw new Error('產品目前無法購買，請稍後再試');
       }
 
-      // 設置事件監聽
-      // 監聽購買已批准 (User has purchased the product)
-      const approvedListener = store.when().approved(async (transaction: any) => {
-        // 檢查此交易是否包含目標產品
-        const hasProduct = transaction.products && transaction.products.some((p: any) => p.id === productId);
-        if (!hasProduct) {
-          return;
-        }
-
+      // 設置事件監聽（cordova-plugin-purchase v13：when() 無 .product()，用 approved/error 並在回調內過濾 productId）
+      const approvedCallback = async (transaction: any) => {
+        const txProductId = transaction.products?.[0]?.id;
+        if (txProductId !== productId) return;
+        store.off(approvedCallback);
         try {
+          // Google Play (v13)：purchaseToken 在 transaction.parentReceipt.purchaseToken，不在 transaction 上
+          const purchaseToken =
+            transaction.parentReceipt?.purchaseToken ??
+            transaction.purchaseToken ??
+            transaction.receipt ??
+            '';
+          const transactionId =
+            transaction.transactionId ??
+            transaction.parentReceipt?.orderId ??
+            '';
+
           console.log('[Purchase] Transaction approved:', {
             productId,
-            transactionId: transaction.transactionId,
-            purchaseToken: transaction.purchaseToken || transaction.receipt,
+            transactionId,
+            purchaseToken: purchaseToken ? `${purchaseToken.slice(0, 20)}...` : '(empty)',
           });
 
-
-          console.log('[Purchase] Transaction object:', JSON.stringify(transaction));
-
-          // Verify purchase token existence
-          // Check multiple possible locations for the token
-          const token =
-            transaction.purchaseToken ||
-            transaction.receipt ||
-            (transaction as any).nativePurchase?.token ||
-            (transaction as any).nativePurchase?.purchaseToken ||
-            (transaction as any).products?.[0]?.token;
-
-          if (!token) {
-            console.error('[Purchase] FATAL: No purchaseToken found in transaction');
-
-            // Detailed Debugging for nativePurchase
-            const nativeObj = (transaction as any).nativePurchase;
-            let nativeDebug = 'undefined';
-            if (nativeObj) {
-              try {
-                nativeDebug = `Keys: [${Object.keys(nativeObj).join(', ')}]`;
-              } catch (e) { nativeDebug = 'Access Error'; }
-            }
-
-            const keys = Object.keys(transaction || {}).join(', ');
-            throw new Error(`No Token. TxKeys:[${keys}] Native:[${nativeDebug}]`);
+          if (!purchaseToken) {
+            console.error('[Purchase] No purchaseToken in transaction:', transaction);
+            throw new Error('購買資料不完整，無法驗證');
           }
 
-          // 驗證購買 (呼叫後端 Supabase Edge Function)
           const verifyFunction = platform === 'android'
             ? 'verify-google-play-purchase'
             : 'verify-app-store-purchase';
 
-          const payload = {
-            purchaseToken: token,
-            transactionId: transaction.transactionId,
-            productId: productId,
-            packageName: 'com.votechaos.app',
-            platform: platform,
-          };
-
           console.log(`[Purchase] Verifying purchase on ${platform} via ${verifyFunction}...`);
-          console.log('[Purchase] Payload:', JSON.stringify(payload));
 
           const { data, error } = await supabase.functions.invoke(verifyFunction, {
-            body: payload,
+            body: {
+              purchaseToken,
+              transactionId: transactionId || undefined,
+              productId,
+              packageName: 'com.votechaos.app',
+              platform,
+            },
           });
 
           if (error) {
             console.error('[Purchase] Verification error:', error);
-
-            // 嘗試從錯誤中提取詳細訊息
-            let detailedMessage = error.message;
-
-            // Supabase FunctionsClient 拋出的錯誤通常包含 context
-            if (error && typeof error === 'object' && 'context' in error) {
-              try {
-                // 嘗試解析 Response JSON
-                const context = (error as any).context;
-                if (context && typeof context.json === 'function') {
-                  const body = await context.json();
-                  console.log('[Purchase] Error body:', body);
-                  if (body.message) detailedMessage = body.message;
-                  if (body.error) detailedMessage = `${body.error}: ${detailedMessage}`;
-                }
-              } catch (e) {
-                console.warn('[Purchase] Failed to parse error context:', e);
-              }
-            }
-
-            throw new Error(detailedMessage);
+            throw error;
           }
 
           if (!data?.success) {
             throw new Error(data?.error || '驗證失敗');
           }
 
-          // 完成交易
           await transaction.finish();
           console.log('[Purchase] Transaction finished');
 
-          // 顯示成功與刷新
-          const productInfo = PRODUCT_ID_MAP[packageId];
-          const totalTokens = (productInfo.tokens + productInfo.bonus).toLocaleString();
+          // 顯示數量以後端回傳的 data.tokens 為準（與 recharge_amounts 一致）
+          const totalTokens =
+            data?.tokens != null
+              ? Number(data.tokens).toLocaleString()
+              : (PRODUCT_ID_MAP[packageId].tokens + PRODUCT_ID_MAP[packageId].bonus).toLocaleString();
 
           toast.success(
             getText('recharge.toast.success.title', '購買成功！'),
             {
-              description: getText('recharge.toast.success.desc', '已獲得 {{amount}} 代幣')
+              description: getText('recharge.toast.success.desc', '已獲得 {{amount}} 失序值')
                 .replace('{{amount}}', totalTokens),
             }
           );
 
           await refreshProfile();
-          // Double check after 1 second to ensure DB consistency
-          setTimeout(() => refreshProfile(), 1000);
-
-          // 移除監聽器 (Safe check)
-          if (approvedListener && typeof (approvedListener as any).remove === 'function') {
-            (approvedListener as any).remove();
-          }
-
         } catch (err: any) {
           console.error('[Purchase] Verification failed:', err);
           toast.error(
             getText('recharge.toast.verificationFailed', '驗證失敗: {{error}}')
               .replace('{{error}}', err.message || 'Unknown error')
           );
-          // 不完成交易，讓用戶可以重試
         }
-      });
+      };
+      store.when().approved(approvedCallback);
 
-      // 監聽購買錯誤 - 在 v13 中通常依靠 order() 的 catch 或全局 error 監聽
-      // 因為 store.when().product().error() 已棄用
-      // 我們主要依賴下方的 order() try-catch
-
-      /*
-      const errorListener = store.when().error((error: any) => {
-          console.error('[Purchase] Global Store Error:', error);
-          // 這裡可能會捕捉到不相關的錯誤，所以謹慎顯示
-      });
-      */
+      const errorCallback = (error: any) => {
+        if (error?.productId != null && error.productId !== productId) return;
+        store.off(errorCallback);
+        console.error('[Purchase] Purchase error:', error);
+        toast.error(
+          getText('recharge.toast.purchaseError', '購買失敗: {{error}}')
+            .replace('{{error}}', error?.message || 'Unknown error')
+        );
+      };
+      store.error(errorCallback);
 
       // 刷新產品信息
       await purchaseService.refreshProducts();
@@ -245,10 +198,10 @@ export const usePurchase = () => {
 
     } catch (error: any) {
       console.error('[Purchase] Native purchase error:', error);
-
+      
       // 詳細錯誤處理
       let errorMessage = error.message || getText('recharge.toast.failure.desc', '購買失敗，請稍後再試');
-
+      
       // 處理常見的購買錯誤
       if (error.code === 6777001 || error.code === 'USER_CANCELLED' || error.message?.includes('cancelled')) {
         errorMessage = getText('recharge.toast.userCancelled', '使用者取消了購買');
@@ -263,7 +216,7 @@ export const usePurchase = () => {
       } else if (error.message?.includes('not initialized') || error.message?.includes('Store not initialized')) {
         errorMessage = getText('recharge.toast.storeNotReady', '購買服務未就緒，請稍後再試');
       }
-
+      
       toast.error(errorMessage);
       throw error;
     }
@@ -301,14 +254,12 @@ export const usePurchase = () => {
     toast.success(
       getText('recharge.toast.success.title', '購買成功！'),
       {
-        description: getText('recharge.toast.success.desc', '已獲得 {{amount}} 代幣')
+        description: getText('recharge.toast.success.desc', '已獲得 {{amount}} 失序值')
           .replace('{{amount}}', totalTokens.toLocaleString()),
       }
     );
 
     await refreshProfile();
-    // Double check after 1 second to ensure DB consistency
-    setTimeout(() => refreshProfile(), 1000);
   };
 
   return {

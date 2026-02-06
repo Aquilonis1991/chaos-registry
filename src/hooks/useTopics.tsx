@@ -197,6 +197,10 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         const isHot = totalVotes > 1000 || (createdAt > oneDayAgo && totalVotes > 100);
 
+        const rawExposure = topic.current_exposure_level ?? topic.exposure_level ?? null;
+        const currentExposure = rawExposure && ['normal', 'medium', 'high'].includes(String(rawExposure).toLowerCase())
+          ? (String(rawExposure).toLowerCase() as 'normal' | 'medium' | 'high')
+          : null;
         return {
           ...topic,
           creator_name: topic.profiles?.nickname || '匿名用戶',
@@ -204,7 +208,7 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
           total_votes: totalVotes,
           is_hot: isHot,
           time_remaining: timeRemaining,
-          current_exposure_level: topic.current_exposure_level || null,
+          current_exposure_level: currentExposure,
           exposure_expires_at: topic.exposure_expires_at || null,
         };
       });
@@ -335,13 +339,21 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
           (sum: number, opt: any) => sum + (opt.votes || 0),
           0
         ) || 0;
-
+        const rawExposure = topic.exposure_level ?? null;
+        const currentExposure = rawExposure && ['normal', 'medium', 'high'].includes(String(rawExposure).toLowerCase())
+          ? (String(rawExposure).toLowerCase() as 'normal' | 'medium' | 'high')
+          : null;
+        const createdAt = new Date(topic.created_at);
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const isHot = totalVotes > 1000 || (createdAt > oneDayAgo && totalVotes > 100);
         return {
           ...topic,
           creator_name: topic.profiles?.nickname || '匿名用戶',
           creator_avatar: topic.profiles?.avatar || '👤',
           total_votes: totalVotes,
           time_remaining: getTimeRemaining(topic.end_at),
+          current_exposure_level: currentExposure,
+          is_hot: isHot,
         };
       });
 

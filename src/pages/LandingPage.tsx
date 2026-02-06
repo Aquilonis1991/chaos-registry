@@ -1,14 +1,14 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Vote, Users, Coins, Shield, ArrowRight, Check } from "lucide-react";
+import { Vote, Users, Activity, Shield, ArrowRight, Check } from "lucide-react";
 import { Logo } from "@/components/Logo";
 
 const LandingPage = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pt-[env(safe-area-inset-top,0px)]">
       {/* Hero Section */}
-      <section className="bg-gradient-primary text-primary-foreground py-16 px-4">
+      <section className="bg-gradient-primary text-primary-foreground px-4 pt-[calc(4rem+env(safe-area-inset-top,0px))] pb-16">
         <div className="max-w-screen-xl mx-auto text-center">
           <div className="mb-6">
             <Logo className="mx-auto" />
@@ -65,7 +65,7 @@ const LandingPage = () => {
 
             <Card>
               <CardContent className="p-6 text-center">
-                <Coins className="w-12 h-12 text-primary mx-auto mb-4" />
+                <Activity className="w-12 h-12 text-primary mx-auto mb-4" />
                 <h3 className="text-xl font-semibold mb-2">失序值系統</h3>
                 <p className="text-muted-foreground">
                   使用失序值參與投票或提高主題曝光度

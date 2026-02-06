@@ -7,25 +7,20 @@ console.log('Starting ChaosRegistry App...');
 createRoot(document.getElementById("root")!).render(<App />);
 console.log('React rendered');
 
-// 3. 初始化 App 生命週期（優先級最高，確保 Deep Link 監聽器盡早設置）
-// 必須立即執行，不能在 setTimeout 中，否則會錯過應用啟動時的 Deep Link 事件
-// 使用 IIFE 避免 Top-level await 導致的編譯錯誤
-(async () => {
-  try {
-    const { initializeAppLifecycle } = await import("./lib/app-lifecycle");
-    initializeAppLifecycle();
-    console.log('App lifecycle ready - Deep Link listener registered');
-  } catch (error) {
-    console.error('App lifecycle initialization failed:', error);
-  }
-})();
+// 盡早註冊 Deep Link 監聽器（原生時），避免 LINE 回調因 500ms 延遲而遺失；app-lifecycle 內會判斷 isNative 並 no-op 於網頁
+import("./lib/app-lifecycle").then(({ initializeAppLifecycle }) => {
+  initializeAppLifecycle();
+  console.log('App lifecycle ready (early) - Deep Link listener registered');
+}).catch((e) => {
+  console.error('App lifecycle early init failed:', e);
+});
 
 // 延遲初始化其他服務（完全非阻塞）
 setTimeout(async () => {
   console.log('Starting service initialization...');
 
   try {
-    // 1. 設置錯誤處理器
+    // 1. 設置錯誤處理器（改進：保存清理函數）
     let cleanupErrorHandlers: (() => void) | undefined;
     try {
       const { setupGlobalErrorHandlers } = await import("./lib/errorLogger");
@@ -42,8 +37,8 @@ setTimeout(async () => {
       console.log('Capacitor ready');
 
       // 2.1 在原生平台初始化 AdMob
-      const { isNative } = await import("./lib/capacitor");
-      if (isNative()) {
+      const { isNative: isNativePlatform } = await import("./lib/capacitor");
+      if (isNativePlatform()) {
         try {
           const { AdMobService } = await import("./lib/admob");
           await AdMobService.initialize();

@@ -73,7 +73,7 @@ const AdminPage = () => {
   // 如果只是 UI 文字載入中，允許先顯示後台（使用默認文字）
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen pt-[env(safe-area-inset-top,0px)]">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
           <p className="text-sm text-muted-foreground">
@@ -146,7 +146,7 @@ const AdminPage = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
+    <div className="container mx-auto p-6 max-w-7xl pt-[calc(1.5rem+env(safe-area-inset-top,0px))]">
       <h1 className="text-3xl font-bold mb-6">{headerTitle}</h1>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

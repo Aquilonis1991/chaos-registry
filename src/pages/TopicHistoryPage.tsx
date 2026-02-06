@@ -21,7 +21,7 @@ const TopicHistoryPage = () => {
   const { user } = useAuth();
   const { isAdmin } = useAdmin();
   const [timeFilter, setTimeFilter] = useState<TimeFilterOption | null>(null);
-  const { topics, loading, refreshHistory } = useTopicHistory(user?.id, { timeFilter, isAdmin: isAdmin || false });
+  const { topics, loading, refetch } = useTopicHistory(user?.id, { timeFilter, isAdmin: isAdmin || false });
   const { language } = useLanguage();
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
 
@@ -50,7 +50,7 @@ const TopicHistoryPage = () => {
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top))]">
+      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
         <div className="max-w-screen-xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -95,10 +95,10 @@ const TopicHistoryPage = () => {
           <div className="space-y-3">
             {topics.map((topic) => {
               const isActive = topic.status === 'active' && new Date(topic.end_at) > new Date();
-              const timeRemaining = isActive
+              const timeRemaining = isActive 
                 ? formatRemainingTime(new Date(topic.end_at), getText)
                 : timeEnded;
-
+              
               return (
                 <Link key={topic.id} to={`/vote/${topic.id}`} className="block">
                   <Card className="hover:shadow-md transition-shadow cursor-pointer">
@@ -121,14 +121,14 @@ const TopicHistoryPage = () => {
                             ))}
                           </div>
                         </div>
-                        <Badge
+                        <Badge 
                           variant={isActive ? 'default' : 'secondary'}
                           className="ml-4"
                         >
                           {isActive ? statusActive : statusEnded}
                         </Badge>
                       </div>
-
+                      
                       <div className="grid grid-cols-3 gap-4 mb-3 text-sm">
                         <div className="flex items-center gap-1 text-muted-foreground">
                           <Users className="w-4 h-4" />
@@ -143,12 +143,12 @@ const TopicHistoryPage = () => {
                           <span>{timeRemaining}</span>
                         </div>
                       </div>
-
+                      
                       {topic.options.length > 0 && (
                         <div className="space-y-2">
                           {topic.options.slice(0, 2).map((option) => {
-                            const percentage = topic.total_votes > 0
-                              ? ((option.votes || 0) / topic.total_votes) * 100
+                            const percentage = topic.total_votes > 0 
+                              ? ((option.votes || 0) / topic.total_votes) * 100 
                               : 0;
                             return (
                               <div key={option.id} className="space-y-1">
@@ -169,7 +169,7 @@ const TopicHistoryPage = () => {
                           )}
                         </div>
                       )}
-
+                      
                       <div className="mt-3 pt-3 border-t space-y-2">
                         <div className="flex items-center text-xs text-muted-foreground">
                           <Calendar className="w-3 h-3" />
@@ -185,13 +185,13 @@ const TopicHistoryPage = () => {
                               currentDescription={topic.description}
                               currentOptions={topic.options.map(opt => opt.text)}
                               createdAt={topic.created_at}
-                              onEditSuccess={refreshHistory}
+                              onEditSuccess={refetch}
                             />
                             <DeleteTopicDialog
                               topicId={topic.id}
                               topicTitle={topic.title}
                               navigateAfterDelete={false}
-                              onDeleteSuccess={refreshHistory}
+                              onDeleteSuccess={refetch}
                             />
                           </div>
                         )}

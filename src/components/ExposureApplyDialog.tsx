@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Loader2, Coins, Sparkles, AlertCircle } from "lucide-react";
+import { Loader2, Activity, Sparkles, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
@@ -186,28 +186,32 @@ export const ExposureApplyDialog = ({
     }
   };
 
+  // 與發起主題頁曝光方案一致：高度=淡黃紫漸層+橘邊、中等=淡黃白漸層+黃邊、普通=接近白的灰+沒邊
   const getLevelInfo = (level: string) => {
     switch (level) {
       case 'normal':
         return {
           label: getText('exposure.dialog.level.normal.label', '普通曝光'),
-          color: 'bg-gray-500/20 text-gray-300 border-gray-500/50',
+          color: 'border-0 bg-gradient-to-br from-gray-100 to-transparent dark:from-gray-800/50 dark:to-transparent text-foreground',
+          badgeColor: 'bg-gray-200/80 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border-0',
           description: getText('exposure.dialog.level.normal.description', '基礎曝光方案，適合測試新主題'),
         };
       case 'medium':
         return {
           label: getText('exposure.dialog.level.medium.label', '中等曝光'),
-          color: 'bg-silver-500/20 text-silver-300 border-silver-500/50',
+          color: 'border-yellow-500/50 bg-gradient-to-br from-yellow-500/10 via-yellow-400/5 to-transparent shadow-md shadow-yellow-500/10 text-foreground',
+          badgeColor: 'bg-yellow-500/25 text-yellow-800 dark:text-yellow-200 border-0',
           description: getText('exposure.dialog.level.medium.description', '提升中等排序權重，適合準熱門主題'),
         };
       case 'high':
         return {
           label: getText('exposure.dialog.level.high.label', '高度曝光'),
-          color: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50',
+          color: 'border-amber-500/60 bg-gradient-to-br from-amber-500/15 via-purple-500/10 to-transparent shadow-lg shadow-amber-500/20 text-foreground',
+          badgeColor: 'bg-amber-500/25 text-amber-800 dark:text-amber-200 border-0',
           description: getText('exposure.dialog.level.high.description', '強力曝光方案，置頂時間長達兩小時'),
         };
       default:
-        return { label: '', color: '', description: '' };
+        return { label: '', color: '', badgeColor: '', description: '' };
     }
   };
 
@@ -255,7 +259,7 @@ export const ExposureApplyDialog = ({
           {/* 用戶狀態 */}
           <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
             <div className="flex items-center gap-2">
-              <Coins className="w-5 h-5 text-accent" />
+              <Activity className="w-5 h-5 text-accent" />
               <span className="font-semibold">{getText('exposure.dialog.tokenBalance', '失序值餘額：')}{userTokens.toLocaleString()}</span>
             </div>
             <div className="text-sm text-muted-foreground">
@@ -303,10 +307,8 @@ export const ExposureApplyDialog = ({
                     <Label
                       key={limit.exposure_level}
                       className={cn(
-                        "flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors",
-                        selectedLevel === limit.exposure_level
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/50",
+                        "flex items-start gap-3 p-4 border rounded-lg cursor-pointer",
+                        info.color,
                         (!canAfford || !hasEnoughVotes || priceDiff <= 0) && "opacity-50 cursor-not-allowed"
                       )}
                     >
@@ -319,7 +321,7 @@ export const ExposureApplyDialog = ({
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
-                            <Badge className={cn("text-xs", info.color)}>
+                            <Badge className={cn("text-xs", info.badgeColor)}>
                               {info.label}
                             </Badge>
                             <span className="text-sm font-medium">

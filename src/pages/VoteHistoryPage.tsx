@@ -40,7 +40,7 @@ const VoteHistoryPage = () => {
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top))]">
+      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
         <div className="max-w-screen-xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -93,11 +93,11 @@ const VoteHistoryPage = () => {
                           {vote.topic_title}
                         </h3>
                         <div className="flex flex-wrap gap-2 mb-2">
-                          {vote.topic_tags && vote.topic_tags.map((tag) => (
-                            <Badge key={tag} variant="secondary" className="text-xs">
-                              #{tag}
-                            </Badge>
-                          ))}
+                        {vote.topic_tags && vote.topic_tags.map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-xs">
+                            #{tag}
+                          </Badge>
+                        ))}
                         </div>
                       </div>
                       <div className="text-right ml-4">
@@ -119,7 +119,7 @@ const VoteHistoryPage = () => {
                         )}
                       </div>
                     </div>
-
+                    
                     <div className="flex items-center justify-between text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
@@ -127,7 +127,7 @@ const VoteHistoryPage = () => {
                           {formatRelativeTime(new Date(vote.voted_at), getText)}
                         </span>
                       </div>
-                      <Badge
+                      <Badge 
                         variant={vote.topic_status === 'active' ? 'default' : 'secondary'}
                         className="text-xs"
                       >

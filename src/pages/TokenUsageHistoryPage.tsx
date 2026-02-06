@@ -54,7 +54,7 @@ const TokenUsageHistoryPage = () => {
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top))]">
+      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
         <div className="max-w-screen-xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -99,7 +99,7 @@ const TokenUsageHistoryPage = () => {
           <div className="space-y-3">
             {history.map((transaction) => {
               const isIncome = transaction.amount > 0;
-
+              
               return (
                 <Card key={transaction.id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-4">
@@ -123,10 +123,11 @@ const TokenUsageHistoryPage = () => {
                           </div>
                         </div>
                       </div>
-
+                      
                       <div className="text-right ml-4">
-                        <div className={`flex items-center gap-1 font-bold text-lg ${isIncome ? 'text-green-600' : 'text-red-600'
-                          }`}>
+                        <div className={`flex items-center gap-1 font-bold text-lg ${
+                          isIncome ? 'text-green-600' : 'text-red-600'
+                        }`}>
                           {isIncome ? (
                             <TrendingUp className="w-5 h-5" />
                           ) : (
@@ -136,7 +137,7 @@ const TokenUsageHistoryPage = () => {
                             {isIncome ? '+' : ''}{typeof transaction.amount === 'number' ? transaction.amount : parseFloat(String(transaction.amount)) || 0}
                           </span>
                         </div>
-                        <Badge
+                        <Badge 
                           variant={isIncome ? 'default' : 'secondary'}
                           className="text-xs mt-1"
                         >

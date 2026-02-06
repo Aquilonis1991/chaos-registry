@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TopicCard } from "@/components/TopicCard";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Coins, Loader2 } from "lucide-react";
+import { PlusCircle, Activity, Loader2 } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { AnnouncementCarousel } from "@/components/AnnouncementCarousel";
 import { SearchBar } from "@/components/SearchBar";
@@ -16,6 +16,9 @@ import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 import { formatRelativeTime } from "@/lib/relativeTime";
 import { insertAdsIntoList } from "@/lib/adInsertion";
 
+/** 首頁各分頁一次下拉／初次載入時取得的卡片數量（熱門、最新、參與過皆為此數量） */
+const TOPICS_PAGE_SIZE = 20;
+
 const HomePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -25,50 +28,57 @@ const HomePage = () => {
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
   const { getConfig, loading: configLoading, configs } = useSystemConfigCache();
   const [currentTab, setCurrentTab] = useState<'hot' | 'latest' | 'joined'>('hot');
-
+  
   // 當從其他頁面回到首頁時，確保 Intersection Observer 重新設置
   useEffect(() => {
     // 當 location.pathname 變為 /home 時，表示回到了首頁
     // 這會觸發 Intersection Observer 的重新設置
   }, [location.pathname]);
-
+  
   // 注意：配置緩存會在首次加載時自動獲取，不需要每次掛載都刷新
   // 如果需要強制刷新配置，可以在特定場景下手動調用 refreshConfigs()
-
+  
   // 根據當前標籤獲取主題（啟用無限滾動）
-  const {
-    topics: hotTopics,
-    loading: hotLoading,
+  const { 
+    topics: hotTopics, 
+    loading: hotLoading, 
     loadingMore: hotLoadingMore,
     hasMore: hotHasMore,
-    loadMore: hotLoadMore
-  } = useTopics({
-    filter: 'hot',
-    limit: 20,
+    loadMore: hotLoadMore 
+  } = useTopics({ 
+    filter: 'hot', 
+    limit: TOPICS_PAGE_SIZE,
     enableInfiniteScroll: true
   });
-  const {
-    topics: latestTopics,
+  const { 
+    topics: latestTopics, 
     loading: latestLoading,
     loadingMore: latestLoadingMore,
     hasMore: latestHasMore,
     loadMore: latestLoadMore
-  } = useTopics({
-    filter: 'latest',
-    limit: 20,
+  } = useTopics({ 
+    filter: 'latest', 
+    limit: TOPICS_PAGE_SIZE,
     enableInfiniteScroll: true
   });
-  const {
-    topics: joinedTopics,
+  const { 
+    topics: joinedTopics, 
     loading: joinedLoading,
     loadingMore: joinedLoadingMore,
     hasMore: joinedHasMore,
     loadMore: joinedLoadMore
-  } = useTopics({
-    filter: 'joined',
+  } = useTopics({ 
+    filter: 'joined', 
     userId: user?.id,
+    limit: TOPICS_PAGE_SIZE,
     enableInfiniteScroll: true
   });
+
+  /** 當前分頁是否正在初次載入（載入完成前阻擋操作） */
+  const isCurrentTabLoading =
+    (currentTab === 'hot' && hotLoading) ||
+    (currentTab === 'latest' && latestLoading) ||
+    (currentTab === 'joined' && joinedLoading);
 
   const promotedLimitConfig = getConfig('home_promoted_limit', 30);
   const promotedLimit = Number(promotedLimitConfig) || 30;
@@ -89,16 +99,16 @@ const HomePage = () => {
   // 廣告配置（從系統配置讀取，完全由後台控制）
   const adInsertionIntervalRaw = getConfig('ad_insertion_interval', 10);
   const adInsertionInterval = Number(adInsertionIntervalRaw) || 10;
-
+  
   const adInsertionSkipFirstRaw = getConfig('ad_insertion_skip_first', 10);
   const adInsertionSkipFirst = Number(adInsertionSkipFirstRaw) || 10;
-
+  
   const adUnitIdConfig = getConfig('admob_native_ad_unit_id', 'ca-app-pub-3940256099942544/2247696110');
   const adUnitId = typeof adUnitIdConfig === 'string' ? adUnitIdConfig : String(adUnitIdConfig || '');
-
+  
   const adInsertionEnabledValue = getConfig('ad_insertion_enabled', true);
   const adInsertionEnabled = adInsertionEnabledValue === true || adInsertionEnabledValue === 'true' || String(adInsertionEnabledValue).toLowerCase() === 'true';
-
+  
   // 調試：輸出實際讀取到的配置值
   useEffect(() => {
     console.log('[HomePage] 讀取的配置值:');
@@ -107,7 +117,7 @@ const HomePage = () => {
     console.log('  - ad_insertion_enabled (原始):', adInsertionEnabledValue, '→ (解析後):', adInsertionEnabled);
     console.log('  - admob_native_ad_unit_id:', adUnitIdConfig ? 'SET' : 'MISSING');
   }, [adInsertionIntervalRaw, adInsertionSkipFirstRaw, adInsertionEnabledValue, adUnitIdConfig, adInsertionInterval, adInsertionSkipFirst, adInsertionEnabled]);
-
+  
   const adConfig = {
     interval: adInsertionInterval,
     skipFirst: adInsertionSkipFirst,
@@ -263,30 +273,32 @@ const HomePage = () => {
 
   const formatCreatedAt = (dateString: string) => formatRelativeTime(new Date(dateString), getText);
 
+  // 底部工具列高度 + 安全區域，供列表最下方空白區塊使用，避免最後一張卡片被遮住
+  const bottomSpacerClass = "min-h-[calc(5rem+env(safe-area-inset-bottom,0px))]";
+
   return (
-    <div className="min-h-screen bg-background pb-32">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[env(safe-area-inset-top)]">
+    <div className="min-h-screen bg-background pb-[calc(5rem+env(safe-area-inset-bottom,0px))]">
+      {/* Header：預留頂部空間給狀態列與鏡頭（劉海/挖孔） */}
+      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
         <div className="max-w-screen-xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Logo size="md" />
               <div>
-                <h1 className="text-2xl font-bold text-primary-foreground flex items-baseline gap-2">
+                <h1 className="text-2xl font-bold text-primary-foreground">
                   {getText('home.header.title', 'ChaosRegistry')}
-                  <span className="text-xs opacity-50 font-normal">v1.0.21</span>
                 </h1>
                 <p className="text-sm text-primary-foreground/80">
                   {getText('home.header.subtitle', '不理性登記處')}
                 </p>
               </div>
             </div>
-
-            <button
+            
+            <button 
               onClick={() => navigate('/recharge')}
               className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-4 py-2 rounded-full hover:bg-primary-foreground/30 transition-colors cursor-pointer"
             >
-              <Coins className="w-5 h-5 text-accent" />
+              <Activity className="w-5 h-5 text-accent" />
               <span className="font-bold text-primary-foreground">{userTokens.toLocaleString()}</span>
             </button>
           </div>
@@ -305,20 +317,35 @@ const HomePage = () => {
           <SearchBar onSubmit={handleSearchSubmit} showHistory={true} />
         </div>
 
-        <Tabs value={currentTab} onValueChange={(v) => setCurrentTab(v as any)} className="w-full">
-          <TabsList className="w-full grid grid-cols-3 mb-6 bg-muted h-12">
-            <TabsTrigger value="hot" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              {getText('home.tab.hot', '🔥 熱門')}
-            </TabsTrigger>
-            <TabsTrigger value="latest" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              {getText('home.tab.latest', '⚡ 最新')}
-            </TabsTrigger>
-            <TabsTrigger value="joined" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              {getText('home.tab.joined', '✅ 參與過')}
-            </TabsTrigger>
-          </TabsList>
+        <div className="relative min-h-[12rem]">
+          <Tabs value={currentTab} onValueChange={(v) => setCurrentTab(v as any)} className="w-full">
+            <TabsList className="w-full grid grid-cols-3 mb-6 bg-muted h-12">
+              <TabsTrigger value="hot" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                {getText('home.tab.hot', '🔥 熱門')}
+              </TabsTrigger>
+              <TabsTrigger value="latest" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                {getText('home.tab.latest', '⚡ 最新')}
+              </TabsTrigger>
+              <TabsTrigger value="joined" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                {getText('home.tab.joined', '✅ 參與過')}
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="hot" className="space-y-4 mt-0">
+            {/* 初次載入時覆蓋整個分頁區，阻擋操作直到載入完成 */}
+            {isCurrentTabLoading && (
+              <div
+                className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/90 min-h-[12rem]"
+                aria-live="polite"
+                aria-busy="true"
+              >
+                <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground">
+                  {getText('common.state.loading', '載入中...')}
+                </span>
+              </div>
+            )}
+
+            <TabsContent value="hot" className="space-y-4 mt-0">
             {hotLoading ? (
               <div className="flex justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -345,7 +372,7 @@ const HomePage = () => {
                     <div className="space-y-4">
                       {promotedHotTopics.map((topic) => (
                         <div key={topic.id}>
-                          <TopicCard
+                          <TopicCard 
                             id={topic.id}
                             title={topic.title}
                             tags={topic.tags}
@@ -353,14 +380,14 @@ const HomePage = () => {
                             creatorName={topic.creator_name || getText('common.anonymous', '匿名')}
                             isHot={topic.is_hot}
                             createdAt={formatCreatedAt(topic.created_at)}
-                            currentExposureLevel={topic.current_exposure_level || null}
+                            currentExposureLevel={topic.current_exposure_level ?? topic.exposure_level ?? null}
                           />
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
-
+                
                 {/* 一般主題列表 */}
                 {regularHotTopics.length > 0 && (
                   <div className="space-y-4">
@@ -368,7 +395,7 @@ const HomePage = () => {
                       regularHotTopics,
                       (topic, index) => (
                         <div key={topic.id}>
-                          <TopicCard
+                          <TopicCard 
                             id={topic.id}
                             title={topic.title}
                             tags={topic.tags}
@@ -376,7 +403,7 @@ const HomePage = () => {
                             creatorName={topic.creator_name || getText('common.anonymous', '匿名')}
                             isHot={topic.is_hot}
                             createdAt={formatCreatedAt(topic.created_at)}
-                            currentExposureLevel={topic.current_exposure_level || null}
+                            currentExposureLevel={topic.current_exposure_level ?? topic.exposure_level ?? null}
                           />
                         </div>
                       ),
@@ -399,6 +426,16 @@ const HomePage = () => {
                     )}
                   </div>
                 )}
+                {/* 拉到底、沒有更多時顯示提示 */}
+                {!hotHasMore && hotTopics.length > 0 && (
+                  <div className="py-4 text-center">
+                    <span className="text-sm text-muted-foreground">
+                      {getText('home.list.noMore', '已經到底了')}
+                    </span>
+                  </div>
+                )}
+                {/* 最下方空白區塊，避免最後一張卡片被底部工具列遮住 */}
+                <div className={bottomSpacerClass} aria-hidden="true" />
               </>
             )}
           </TabsContent>
@@ -423,7 +460,7 @@ const HomePage = () => {
                   latestTopics,
                   (topic) => (
                     <div key={topic.id}>
-                      <TopicCard
+                      <TopicCard 
                         id={topic.id}
                         title={topic.title}
                         tags={topic.tags}
@@ -431,7 +468,7 @@ const HomePage = () => {
                         creatorName={topic.creator_name || getText('common.anonymous', '匿名')}
                         isHot={topic.is_hot}
                         createdAt={formatCreatedAt(topic.created_at)}
-                        currentExposureLevel={topic.current_exposure_level || null}
+                        currentExposureLevel={topic.current_exposure_level ?? topic.exposure_level ?? null}
                       />
                     </div>
                   ),
@@ -448,6 +485,16 @@ const HomePage = () => {
                     )}
                   </div>
                 )}
+                {/* 拉到底、沒有更多時顯示提示 */}
+                {!latestHasMore && latestTopics.length > 0 && (
+                  <div className="py-4 text-center">
+                    <span className="text-sm text-muted-foreground">
+                      {getText('home.list.noMore', '已經到底了')}
+                    </span>
+                  </div>
+                )}
+                {/* 最下方空白區塊，避免最後一張卡片被底部工具列遮住 */}
+                <div className={bottomSpacerClass} aria-hidden="true" />
               </div>
             )}
           </TabsContent>
@@ -472,7 +519,7 @@ const HomePage = () => {
                   joinedTopics,
                   (topic) => (
                     <div key={topic.id}>
-                      <TopicCard
+                      <TopicCard 
                         id={topic.id}
                         title={topic.title}
                         tags={topic.tags}
@@ -480,7 +527,7 @@ const HomePage = () => {
                         creatorName={topic.creator_name || getText('common.anonymous', '匿名')}
                         isHot={topic.is_hot}
                         createdAt={formatCreatedAt(topic.created_at)}
-                        currentExposureLevel={topic.current_exposure_level || null}
+                        currentExposureLevel={topic.current_exposure_level ?? topic.exposure_level ?? null}
                       />
                     </div>
                   ),
@@ -497,19 +544,30 @@ const HomePage = () => {
                     )}
                   </div>
                 )}
+                {/* 拉到底、沒有更多時顯示提示 */}
+                {!joinedHasMore && joinedTopics.length > 0 && (
+                  <div className="py-4 text-center">
+                    <span className="text-sm text-muted-foreground">
+                      {getText('home.list.noMore', '已經到底了')}
+                    </span>
+                  </div>
+                )}
+                {/* 最下方空白區塊，避免最後一張卡片被底部工具列遮住 */}
+                <div className={bottomSpacerClass} aria-hidden="true" />
               </div>
             )}
           </TabsContent>
 
-        </Tabs>
+          </Tabs>
+        </div>
       </div>
 
-      {/* Floating Action Button */}
+      {/* Floating Action Button：高於底部工具列，避免被遮住 */}
       <Link to="/create">
         <Button
           variant="accent"
           size="lg"
-          className="fixed bottom-32 right-6 rounded-full w-14 h-14 shadow-glow z-50"
+          className="fixed right-6 rounded-full w-14 h-14 shadow-glow bottom-[calc(5rem+env(safe-area-inset-bottom))]"
           aria-label={getText('home.fab.create', '發起主題')}
         >
           <PlusCircle className="w-6 h-6" />

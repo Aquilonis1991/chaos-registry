@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   User,
-  Coins,
+  Activity,
   Trophy,
   FileText,
   History,
@@ -402,7 +402,7 @@ const ProfilePage = () => {
 
       // Basic check for token error string from backend
       if (errorMessage.includes("PAYMENT_ERROR") || errorMessage.includes("insufficient")) {
-        errorMessage = getText('profile.error.insufficientTokens', '代幣不足');
+        errorMessage = getText('profile.error.insufficientTokens', '失序值不足');
       }
 
       toast.error(errorMessage);
@@ -509,7 +509,7 @@ const ProfilePage = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>{getAssessText('profile.assessment.payment_title', '確認進行鑑定？')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {getAssessText('profile.assessment.payment_message', '本次鑑定將消耗 {{amount}} 代幣。').replace('{{amount}}', irrationalAssessmentCost)}
+              {getAssessText('profile.assessment.payment_message', '本次鑑定將消耗 {{amount}} 失序值。').replace('{{amount}}', irrationalAssessmentCost)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -535,7 +535,7 @@ const ProfilePage = () => {
           defaultText="正在分析您的行為模式..."
         />
         {/* Header */}
-        <header className="bg-gradient-primary shadow-lg pt-[env(safe-area-inset-top)]">
+        <header className="bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
           <div className="max-w-screen-xl mx-auto px-4 py-8">
             <div className="flex flex-col items-center gap-4">
               <div className="pt-8 pb-6 px-4 w-full">
@@ -604,7 +604,7 @@ const ProfilePage = () => {
                 onClick={() => navigate('/recharge')}
                 className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-6 py-3 rounded-full hover:bg-primary-foreground/30 transition-colors cursor-pointer"
               >
-                <Coins className="w-6 h-6 text-accent" />
+                <Activity className="w-6 h-6 text-accent" />
                 <span className="font-bold text-primary-foreground text-xl">
                   {userStats.tokens.toLocaleString()}
                 </span>
@@ -684,7 +684,7 @@ const ProfilePage = () => {
                     ) : (
                       <span className="whitespace-nowrap">
                         {weeklyAssessmentDone
-                          ? (getAssessText('profile.assessment.button_paid', '再次鑑定 ({{amount}} 代幣)').replace('{{amount}}', irrationalAssessmentCost))
+                          ? (getAssessText('profile.assessment.button_paid', '再次鑑定 ({{amount}} 失序值)').replace('{{amount}}', irrationalAssessmentCost))
                           : (getAssessText('profile.assessment.button_free', '本週免費鑑定'))
                         }
                       </span>
@@ -733,7 +733,7 @@ const ProfilePage = () => {
                 <Link to="/history/token-usage">
                   <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
                     <div className="flex items-center gap-3">
-                      <Coins className="w-5 h-5 text-accent" />
+                      <Activity className="w-5 h-5 text-accent" />
                       <span className="font-medium">{tokenHistoryLabel}</span>
                     </div>
                     <ChevronRight className="w-5 h-5 text-muted-foreground" />
@@ -864,9 +864,9 @@ const ProfilePage = () => {
             <ErrorFeedback triggerText={reportIssueLabel} triggerVariant="ghost" />
           </div>
 
-          {/* Version */}
+          {/* Version：與 package.json 同步，封包時更新 package.json 即可 */}
           <div className="text-center text-sm text-muted-foreground py-4">
-            ChaosRegistry v1.0.0
+            ChaosRegistry v{__APP_VERSION__}
           </div>
         </div>
       </div>

@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Coins, X, Plus, Loader2, Gift, Sparkles } from "lucide-react";
+import { ArrowLeft, Activity, X, Plus, Loader2, Gift, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -638,8 +638,8 @@ const CreateTopicPage = () => {
                     </span>
                   ) : (
                     <span className="text-orange-500 font-bold flex items-center gap-1">
-                      <Coins className="w-4 h-4" />
-                      {getText('topic.unstable_rewrite.cost_prompt', '本次改寫消耗 {{amount}} 代幣').replace('{{amount}}', String(rewriteUsage.cost))}
+                      <Activity className="w-4 h-4" />
+                      {getText('topic.unstable_rewrite.cost_prompt', '本次改寫消耗 {{amount}} 失序值').replace('{{amount}}', String(rewriteUsage.cost))}
                     </span>
                   )}
                 </div>
@@ -669,7 +669,7 @@ const CreateTopicPage = () => {
           defaultText="正在建立主題..."
         />
         {/* Header */}
-        <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg">
+        <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
           <div className="max-w-screen-xl mx-auto px-4 py-4">
             <div className="flex items-center gap-4">
               <Button
@@ -692,7 +692,7 @@ const CreateTopicPage = () => {
                 onClick={() => navigate('/recharge')}
                 className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-3 py-1.5 rounded-full hover:bg-primary-foreground/30 transition-colors cursor-pointer"
               >
-                <Coins className="w-4 h-4 text-accent" />
+                <Activity className="w-4 h-4 text-accent" />
                 <span className="font-bold text-primary-foreground text-sm">{userTokens}</span>
               </button>
             </div>
@@ -894,12 +894,12 @@ const CreateTopicPage = () => {
           <div className="space-y-3">
             <Label className="text-base font-semibold">{getText('topic.exposure.label', '曝光方案')}</Label>
             <RadioGroup value={exposure} onValueChange={setExposure}>
-              {/* Normal Exposure - 普通曝光 */}
+              {/* Normal Exposure - 普通曝光：接近白的灰色+沒邊 */}
               <Card className={cn(
-                "cursor-pointer hover:shadow-card transition-all border",
+                "cursor-pointer hover:shadow-card transition-all",
                 exposure === "normal"
-                  ? "border-primary/50 bg-gradient-to-br from-primary/5 to-transparent"
-                  : "border-border/50"
+                  ? "border-0 bg-gradient-to-br from-gray-100 to-transparent dark:from-gray-800/50 dark:to-transparent"
+                  : "border border-border/50"
               )}>
                 <CardContent className="p-4">
                   <div className="flex items-center space-x-3">
@@ -911,7 +911,7 @@ const CreateTopicPage = () => {
                           <div className="text-sm text-muted-foreground">{getText('topic.exposure.normalDesc', '標準推薦')}</div>
                         </div>
                         <div className="flex items-center gap-1 text-primary font-bold">
-                          <Coins className="w-4 h-4" />
+                          <Activity className="w-4 h-4" />
                           <span>{formatTokenAmount(normalExposureCost)}</span>
                         </div>
                       </div>
@@ -937,7 +937,7 @@ const CreateTopicPage = () => {
                           <div className="text-sm text-muted-foreground">{getText('topic.exposure.mediumDesc', '優先顯示')}</div>
                         </div>
                         <div className="flex items-center gap-1 text-yellow-600 dark:text-yellow-500 font-bold">
-                          <Coins className="w-4 h-4" />
+                          <Activity className="w-4 h-4" />
                           <span>{formatTokenAmount(mediumExposureCost)}</span>
                         </div>
                       </div>
@@ -963,7 +963,7 @@ const CreateTopicPage = () => {
                           <div className="text-sm text-muted-foreground">{getText('topic.exposure.highDesc', '置頂與優先推薦')}</div>
                         </div>
                         <div className="flex items-center gap-1 text-amber-600 dark:text-amber-500 font-bold">
-                          <Coins className="w-4 h-4" />
+                          <Activity className="w-4 h-4" />
                           <span>{formatTokenAmount(highExposureCost)}</span>
                         </div>
                       </div>
@@ -1006,7 +1006,7 @@ const CreateTopicPage = () => {
                     <span className="text-lg font-bold">{getText('topic.freeCreate.title', '免費發起資格')}</span>
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {getText('topic.freeCreate.description', '您擁有免費發起主題的資格，本次建立不消耗代幣')}
+                    {getText('topic.freeCreate.description', '您擁有免費發起主題的資格，本次建立不消耗失序值')}
                   </div>
                 </div>
               ) : (
@@ -1036,14 +1036,14 @@ const CreateTopicPage = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="text-accent-foreground">
-                      <div className="text-sm opacity-90">{getText('topic.costSummary.totalCost', '總消耗代幣')}</div>
+                      <div className="text-sm opacity-90">{getText('topic.costSummary.totalCost', '總消耗失序值')}</div>
                       <div className="text-2xl font-bold flex items-center gap-2">
-                        <Coins className="w-6 h-6" />
+                        <Activity className="w-6 h-6" />
                         {totalCost}
                       </div>
                     </div>
                     <div className="text-right text-accent-foreground">
-                      <div className="text-sm opacity-90">{getText('topic.costSummary.remainingTokens', '剩餘代幣')}</div>
+                      <div className="text-sm opacity-90">{getText('topic.costSummary.remainingTokens', '剩餘失序值')}</div>
                       <div className="text-xl font-bold">{userTokens - totalCost}</div>
                     </div>
                   </div>

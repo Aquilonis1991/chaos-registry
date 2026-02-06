@@ -26,7 +26,7 @@ const translations: Record<BaseLanguage, Record<string, string>> = {
     // Header
     "app.name": "ChaosRegistry",
     "app.slogan": "不理性登記處",
-    "tokens": "代幣",
+    "tokens": "失序值",
 
     // Tabs
     "tab.hot": "🔥 熱門",
@@ -39,7 +39,7 @@ const translations: Record<BaseLanguage, Record<string, string>> = {
     "profile.history": "歷史紀錄",
     "profile.voteHistory": "投票紀錄",
     "profile.topicHistory": "主題發起紀錄",
-    "profile.tokenHistory": "代幣使用紀錄",
+    "profile.tokenHistory": "失序值使用紀錄",
     "profile.settings": "設定",
     "profile.language": "語言與地區",
     "profile.notifications": "通知設定",

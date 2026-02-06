@@ -143,7 +143,7 @@ export const useTopicOperations = () => {
         console.error('Create topic atomic RPC error:', rpcError);
         // Map common errors
         if (rpcError.message?.includes('Insufficient tokens')) {
-          throw new Error('代幣不足');
+          throw new Error('失序值不足');
         }
         throw new Error(rpcError.message || '建立主題失敗');
       }
@@ -166,7 +166,7 @@ export const useTopicOperations = () => {
       console.error('Create topic error:', error);
       // Error handling (same as before)
       if (error.message?.includes('Insufficient tokens')) {
-        toast.error('代幣不足！');
+        toast.error('失序值不足！');
       } else {
         toast.error(error.message || '建立主題失敗');
       }

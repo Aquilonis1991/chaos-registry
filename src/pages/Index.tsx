@@ -21,7 +21,7 @@ const Index = () => {
   if (loading || adminLoading) {
     console.log(`[Index] Still loading... (Auth: ${loading}, Admin: ${adminLoading})`);
     return (
-      <div className="min-h-screen bg-gradient-primary flex items-center justify-center flex-col gap-4">
+      <div className="min-h-screen bg-gradient-primary flex items-center justify-center flex-col gap-4 pt-[env(safe-area-inset-top,0px)]">
         <div className="text-primary-foreground text-xl">Loading...</div>
         <div className="text-primary-foreground/70 text-sm">
           {loading ? 'Authenticating...' : 'Checking permissions...'}
@@ -38,7 +38,7 @@ const Index = () => {
     if (isAdmin === undefined && adminLoading) {
       console.log('[Index] Admin status still loading, waiting...');
       return (
-        <div className="min-h-screen bg-gradient-primary flex items-center justify-center">
+        <div className="min-h-screen bg-gradient-primary flex items-center justify-center pt-[env(safe-area-inset-top,0px)]">
           <div className="text-primary-foreground text-xl">Loading...</div>
         </div>
       );
@@ -56,7 +56,7 @@ const Index = () => {
       // 如果還不確定，繼續等待
       console.log('[Index] Admin status uncertain, waiting...');
       return (
-        <div className="min-h-screen bg-gradient-primary flex items-center justify-center">
+        <div className="min-h-screen bg-gradient-primary flex items-center justify-center pt-[env(safe-area-inset-top,0px)]">
           <div className="text-primary-foreground text-xl">Loading...</div>
         </div>
       );

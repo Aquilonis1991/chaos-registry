@@ -111,6 +111,23 @@ export const useSystemConfigCache = () => {
       }
     }
 
+    // recharge_amounts 從 DB 可能為 JSON 字串（Supabase 依環境有時回傳字串），需解析為陣列
+    if (key === 'recharge_amounts') {
+      if (typeof value === 'string') {
+        try {
+          const parsed = JSON.parse(value);
+          return (Array.isArray(parsed) ? parsed : defaultValue) as T;
+        } catch (e) {
+          console.warn('[getConfig] Failed to parse recharge_amounts:', e);
+          return defaultValue;
+        }
+      }
+      if (!Array.isArray(value)) {
+        return defaultValue;
+      }
+      return value as T;
+    }
+
     // 處理字符串數字：如果是字符串形式的數字，轉換為數字
     if (typeof value === 'string' && !isNaN(Number(value)) && value.trim() !== '') {
       const numValue = Number(value);

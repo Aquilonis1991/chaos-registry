@@ -94,9 +94,9 @@ Deno.serve(async (req) => {
       console.warn('[Verify] Using hardcoded fallback map');
       productMap = {
         token_pack_small: { tokens: 100, bonus: 0 },
-        token_pack_medium: { tokens: 500, bonus: 50 },
-        token_pack_large: { tokens: 1000, bonus: 150 },
-        token_pack_xlarge: { tokens: 3000, bonus: 500 },
+        token_pack_medium: { tokens: 575, bonus: 0 },
+        token_pack_large: { tokens: 1150, bonus: 0 },
+        token_pack_xlarge: { tokens: 3600, bonus: 0 },
       };
     }
 

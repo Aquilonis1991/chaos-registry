@@ -3,7 +3,7 @@ import { LoadingBubble } from "@/components/ui/LoadingBubble";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Gift, Coins, Video, CheckCircle, Clock, Loader2, Calendar } from "lucide-react";
+import { Gift, Activity, Video, CheckCircle, Clock, Loader2, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { useMissionOperations } from "@/hooks/useMissionOperations";
 import { useProfile } from "@/hooks/useProfile";
@@ -515,7 +515,7 @@ const MissionPage = () => {
   }
 
   const headerTitle = getText('mission.header.title', '任務與獎勵');
-  const headerSubtitle = getText('mission.header.subtitle', '完成任務賺代幣');
+  const headerSubtitle = getText('mission.header.subtitle', '完成任務賺失序值');
   const dailyCheckInTitle = getText('mission.daily.title', '每日簽到');
   const dailyCheckInLoading = getText('mission.daily.loading', '載入中...');
   const dailyCheckInPending = getText('mission.daily.pending', '今日還未簽到');
@@ -533,7 +533,7 @@ const MissionPage = () => {
       ? '+0'
       : `+${dailyLoginRewardAmount}`;
   const watchAdTitle = getText('mission.ad.title', '觀看廣告');
-  const watchAdSubtitle = getText('mission.ad.subtitle', '輕鬆賺取代幣');
+  const watchAdSubtitle = getText('mission.ad.subtitle', '輕鬆賺取失序值');
 
   // 從 missionConfigs 讀取觀看廣告獎勵，確保與後台配置一致
   // 直接使用配置值顯示，不通過 ui_texts，因為獎勵數量應該從 system_config 讀取
@@ -553,17 +553,17 @@ const MissionPage = () => {
   const missionAlreadyClaimedInfo = getText('mission.toast.alreadyClaimed', '任務獎勵已領取');
   const missionIdMissingError = getText('mission.toast.missionMissing', '任務 ID 不存在');
   const claimSuccessTitle = getText('mission.toast.claimSuccess.title', '獎勵領取成功！');
-  const claimSuccessDescTemplate = getText('mission.toast.claimSuccess.desc', '獲得 {{amount}} 代幣');
+  const claimSuccessDescTemplate = getText('mission.toast.claimSuccess.desc', '獲得 {{amount}} 失序值');
   const claimErrorTitle = getText('mission.toast.claimError.title', '領取獎勵失敗');
   const genericTryAgain = getText('mission.toast.tryAgain', '請稍後再試');
   const watchAdSuccessTitle = getText('mission.toast.watchAdSuccess.title', '觀看廣告完成！');
-  const watchAdSuccessDescTemplate = getText('mission.toast.watchAdSuccess.desc', '獲得 {{amount}} 代幣');
+  const watchAdSuccessDescTemplate = getText('mission.toast.watchAdSuccess.desc', '獲得 {{amount}} 失序值');
 
   return (
     <div className="min-h-screen bg-background pb-32">
       <LoadingBubble isLoading={isWatchingAd} />
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top))]">
+      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
         <div className="max-w-screen-xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -577,7 +577,7 @@ const MissionPage = () => {
               onClick={() => navigate('/recharge')}
               className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-4 py-2 rounded-full hover:bg-primary-foreground/30 transition-colors cursor-pointer"
             >
-              <Coins className="w-5 h-5 text-accent" />
+              <Activity className="w-5 h-5 text-accent" />
               <span className="font-bold text-primary-foreground">{userTokens.toLocaleString()}</span>
             </button>
           </div>
@@ -603,7 +603,7 @@ const MissionPage = () => {
               </div>
               <div className="text-right text-white">
                 <div className="text-2xl font-bold flex items-center gap-1">
-                  <Coins className="w-6 h-6" />
+                  <Activity className="w-6 h-6" />
                   {dailyCheckInReward}
                 </div>
               </div>
@@ -651,7 +651,7 @@ const MissionPage = () => {
               </div>
               <div className="text-right text-accent-foreground">
                 <div className="text-2xl font-bold flex items-center gap-1">
-                  <Coins className="w-6 h-6" />
+                  <Activity className="w-6 h-6" />
                   {watchAdReward}
                 </div>
               </div>
@@ -721,7 +721,7 @@ const MissionPage = () => {
 
                     <div className="flex flex-col items-end gap-1 ml-4">
                       <div className="flex items-center gap-1 text-accent font-bold text-lg">
-                        <Coins className="w-5 h-5" />
+                        <Activity className="w-5 h-5" />
                         {mission.reward}
                       </div>
                       {!isCompleted && !isClaimed && (

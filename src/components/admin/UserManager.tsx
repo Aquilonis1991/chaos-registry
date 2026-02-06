@@ -12,7 +12,7 @@ import {
   Gift,
   Ban,
   MoreVertical,
-  Coins,
+  Activity,
   TrendingUp,
   Trash2,
   Eye,
@@ -741,7 +741,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1">
-                              <Coins className="w-4 h-4 text-yellow-500" />
+                              <Activity className="w-4 h-4 text-yellow-500" />
                               <span className="font-semibold">{user.tokens || 0}</span>
                             </div>
                           </TableCell>
@@ -1112,8 +1112,8 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                     </div>
                     <div>
                       <div className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
-                        <Coins className="w-3 h-3" />
-                        {getText('admin.userManager.detail.tokens', '代幣餘額')}
+                        <Activity className="w-3 h-3" />
+                        {getText('admin.userManager.detail.tokens', '失序值餘額')}
                       </div>
                       <div className="font-semibold text-lg">{detailUser.tokens || 0}</div>
                     </div>
@@ -1184,12 +1184,12 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                           {(detailUserStats.total_votes || 0) + (detailUserStats.total_free_votes || 0)}
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
-                          {getText('admin.userManager.detail.tokenVotes', '代幣投票')}: {detailUserStats.total_votes || 0} | {getText('admin.userManager.detail.freeVotes', '免費投票')}: {detailUserStats.total_free_votes || 0}
+                          {getText('admin.userManager.detail.tokenVotes', '失序值投票')}: {detailUserStats.total_votes || 0} | {getText('admin.userManager.detail.freeVotes', '免費投票')}: {detailUserStats.total_free_votes || 0}
                         </div>
                       </div>
                       <div>
                         <div className="text-sm text-muted-foreground mb-1">
-                          {getText('admin.userManager.detail.totalTokens', '累計代幣')}
+                          {getText('admin.userManager.detail.totalTokens', '累計失序值')}
                         </div>
                         <div className="text-2xl font-bold">{detailUserStats.total_tokens || 0}</div>
                       </div>
@@ -1252,8 +1252,8 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                 <Card>
                   <CardContent className="p-4">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <Coins className="w-5 h-5" />
-                      {getText('admin.userManager.detail.tokenTransactions', '代幣交易記錄')}
+                      <Activity className="w-5 h-5" />
+                      {getText('admin.userManager.detail.tokenTransactions', '失序值交易記錄')}
                     </h3>
                     <div className="text-center text-destructive py-4">
                       {getText('admin.userManager.detail.transactionsError', '載入交易記錄失敗')}: {transactionsError.message}
@@ -1264,8 +1264,8 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                 <Card>
                   <CardContent className="p-4">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <Coins className="w-5 h-5" />
-                      {getText('admin.userManager.detail.tokenTransactions', '代幣交易記錄')} ({tokenTransactions.length})
+                      <Activity className="w-5 h-5" />
+                      {getText('admin.userManager.detail.tokenTransactions', '失序值交易記錄')} ({tokenTransactions.length})
                     </h3>
 
                     {/* 分類統計 */}
@@ -1351,8 +1351,8 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                 <Card>
                   <CardContent className="p-4">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <Coins className="w-5 h-5" />
-                      {getText('admin.userManager.detail.tokenTransactions', '代幣交易記錄')}
+                      <Activity className="w-5 h-5" />
+                      {getText('admin.userManager.detail.tokenTransactions', '失序值交易記錄')}
                     </h3>
                     <div className="text-center text-muted-foreground py-4">
                       {getText('admin.userManager.detail.noTransactions', '該用戶尚無交易記錄')}
@@ -1398,7 +1398,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                                 {getText('admin.userManager.detail.votes', '投票')}:
                                 {` ${topic.total_votes ?? 0} `}
                                 <span className="text-muted-foreground">
-                                  ({getText('admin.userManager.detail.tokenVotes', '代幣投票')}: {topic.token_votes ?? 0} / {getText('admin.userManager.detail.freeVotes', '免費投票')}: {topic.free_votes ?? 0})
+                                  ({getText('admin.userManager.detail.tokenVotes', '失序值投票')}: {topic.token_votes ?? 0} / {getText('admin.userManager.detail.freeVotes', '免費投票')}: {topic.free_votes ?? 0})
                                 </span>
                               </span>
                               <span>•</span>

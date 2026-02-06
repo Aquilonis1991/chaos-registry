@@ -213,7 +213,7 @@ export const UITextManager = () => {
 
   const createMutation = useMutation({
     mutationFn: async (payload: typeof newText) => {
-      const { error } = await supabase.from('ui_texts').insert({
+      const row = {
         key: payload.key.trim(),
         category: (payload.category || 'general').trim(),
         value: payload.zh.trim(),
@@ -221,7 +221,11 @@ export const UITextManager = () => {
         en: payload.en.trim() || null,
         ja: payload.ja.trim() || null,
         description: payload.description.trim() || null,
-      });
+      };
+      // 使用 upsert：key 已存在時更新該筆，避免 duplicate key 錯誤
+      const { error } = await supabase
+        .from('ui_texts')
+        .upsert(row, { onConflict: 'key' });
 
       if (error) throw error;
     },

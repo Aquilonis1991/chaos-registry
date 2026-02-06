@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, User, Clock, Coins, Loader2, Gift, Flag, Sparkles } from "lucide-react";
+import { ArrowLeft, User, Clock, Activity, Loader2, Gift, Flag, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useProfile } from "@/hooks/useProfile";
 import { useVoteOperations } from "@/hooks/useVoteOperations";
@@ -101,22 +101,32 @@ const VoteDetailPage = () => {
   const confirmDialogCancelText = getText('vote.detail.confirm.cancel', '取消');
   const confirmDialogConfirmText = getText('vote.detail.confirm.confirm', '確認投入');
 
-  // Check free vote availability when component mounts
+  // Check free vote availability when component mounts（僅依賴 user/id，避免 checkFreeVote 引用變動導致 effect 重複執行、一直顯示讀取中）
   useEffect(() => {
-    if (user && !isAnonymous && id) {
-      setCheckingFreeVote(true);
-      checkFreeVoteAvailable(id)
-        .then(setFreeVoteAvailable)
-        .catch((error) => {
-          console.error('Error checking free vote:', error);
-          setFreeVoteAvailable(false);
-        })
-        .finally(() => setCheckingFreeVote(false));
-    } else {
+    if (!user || isAnonymous || !id) {
       setFreeVoteAvailable(false);
       setCheckingFreeVote(false);
+      return;
     }
-  }, [user, isAnonymous, id, checkFreeVoteAvailable]);
+    let cancelled = false;
+    setCheckingFreeVote(true);
+    const FREE_VOTE_CHECK_TIMEOUT_MS = 8000;
+    const timeoutPromise = new Promise<boolean>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), FREE_VOTE_CHECK_TIMEOUT_MS)
+    );
+    Promise.race([checkFreeVoteAvailable(id), timeoutPromise])
+      .then((available) => {
+        if (!cancelled) setFreeVoteAvailable(available);
+      })
+      .catch((error) => {
+        console.error('Error checking free vote:', error);
+        if (!cancelled) setFreeVoteAvailable(false);
+      })
+      .finally(() => {
+        if (!cancelled) setCheckingFreeVote(false);
+      });
+    return () => { cancelled = true; };
+  }, [user?.id, isAnonymous, id]);
 
   const handleVote = async (tokenAmount: number) => {
     if (!selectedOption) {
@@ -268,9 +278,9 @@ const VoteDetailPage = () => {
 
   return (
     <>
-      <div className="min-h-screen bg-background pb-32">
+      <div className="min-h-screen bg-background pb-6">
         {/* Header */}
-        <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top))]">
+        <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
           <div className="max-w-screen-xl mx-auto px-5 sm:px-6 py-4">
             <div className="flex items-center gap-4">
               <Button
@@ -287,13 +297,10 @@ const VoteDetailPage = () => {
               </div>
 
               {!isAnonymous && (
-                <button
-                  onClick={() => navigate('/recharge')}
-                  className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-3 py-1.5 rounded-full hover:bg-primary-foreground/30 transition-colors cursor-pointer"
-                >
-                  <Coins className="w-4 h-4 text-accent" />
+                <div className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                  <Activity className="w-4 h-4 text-accent" />
                   <span className="font-bold text-primary-foreground text-sm">{userTokens.toLocaleString()}</span>
-                </button>
+                </div>
               )}
             </div>
           </div>
@@ -506,13 +513,13 @@ const VoteDetailPage = () => {
             </Card>
           ) : (
             <>
-              {/* Free Vote Button */}
+              {/* Free Vote Button — 規格：accent（暖黃橙） */}
               <div className="mb-4">
                 <Button
-                  variant="default"
+                  variant="accent"
                   size="lg"
                   onClick={handleFreeVote}
-                  className="w-full h-16 text-lg bg-gradient-accent"
+                  className="w-full h-16 text-lg"
                   disabled={isVoting || !selectedOption || checkingFreeVote || !freeVoteAvailable}
                 >
                   {isVoting ? (
@@ -536,7 +543,7 @@ const VoteDetailPage = () => {
                 {voteButtonAmounts.map((amount) => (
                   <Button
                     key={amount}
-                    variant={amount >= 100 ? "accent" : "vote"}
+                    variant={Number(amount) >= 100 ? "accent" : "vote"}
                     size="lg"
                     onClick={() => openVoteConfirmDialog(amount, 'quick')}
                     className="h-16 text-lg"
@@ -544,7 +551,7 @@ const VoteDetailPage = () => {
                   >
                     {isVoting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
                       <>
-                        <Coins className="w-5 h-5 mr-2" />
+                        <Activity className="w-5 h-5 mr-2" />
                         +{amount}
                       </>
                     )}
@@ -588,7 +595,7 @@ const VoteDetailPage = () => {
                   >
                     {isVoting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
                       <>
-                        <Coins className="w-5 h-5 mr-2" />
+                        <Activity className="w-5 h-5 mr-2" />
                         {customButtonText}
                       </>
                     )}

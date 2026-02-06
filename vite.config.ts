@@ -3,8 +3,23 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
+// 從 package.json 讀取版號，封包時與個人頁、Android 同步
+import { readFileSync } from "fs";
+
+function getAppVersion(): string {
+  try {
+    const pkg = JSON.parse(readFileSync(path.join(path.resolve(__dirname), "package.json"), "utf-8"));
+    return pkg?.version || "1.0.38";
+  } catch {
+    return "1.0.38";
+  }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.npm_package_version || getAppVersion()),
+  },
   server: {
     host: "::",
     port: 8080,

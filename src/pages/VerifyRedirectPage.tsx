@@ -66,7 +66,7 @@ const VerifyRedirectPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-primary flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-primary flex items-center justify-center p-6 pt-[calc(1rem+env(safe-area-inset-top,0px))]">
       <div className="w-full max-w-md bg-card shadow-glow rounded-3xl p-8 text-center">
         <div className="flex justify-center mb-4">
           <Logo size="lg" />

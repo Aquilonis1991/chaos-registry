@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Mail, Globe, Users, Vote, Coins, Shield } from "lucide-react";
+import { ArrowLeft, Mail, Globe, Users, Vote, Activity, Shield } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
@@ -13,7 +13,7 @@ const AboutPage = () => {
   return (
     <div className="min-h-screen bg-background pb-8">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top))]">
+      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
         <div className="max-w-screen-xl mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
             <Button
@@ -95,7 +95,7 @@ const AboutPage = () => {
                 </div>
 
                 <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg">
-                  <Coins className="w-6 h-6 text-primary flex-shrink-0 mt-1" />
+                  <Activity className="w-6 h-6 text-primary flex-shrink-0 mt-1" />
                   <div>
                     <h4 className="font-semibold text-foreground mb-1">失序值系統</h4>
                     <p className="text-sm text-muted-foreground">

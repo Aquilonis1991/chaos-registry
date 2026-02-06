@@ -1,5 +1,17 @@
 apply plugin: 'com.android.application'
 
+// 與 package.json 同步版號：封包時只改 package.json version 即可（versionCode 取 patch，如 1.0.38 → 38）
+def getVersionFromPackageJson() {
+    def pkgFile = file("${rootDir}/../package.json")
+    if (!pkgFile.exists()) return [38, "1.0.38"]
+    def pkg = new groovy.json.JsonSlurper().parseText(pkgFile.text)
+    def versionName = pkg.version ?: "1.0.38"
+    def parts = versionName.tokenize(".")
+    def versionCode = parts.size() >= 3 ? parts[2].toInteger() : 38
+    return [versionCode, versionName]
+}
+def (versionCodeFromPkg, versionNameFromPkg) = getVersionFromPackageJson()
+
 android {
     namespace "com.votechaos.app"
     compileSdk rootProject.ext.compileSdkVersion
@@ -7,8 +19,8 @@ android {
         applicationId "com.votechaos.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 38
-        versionName "1.0.38"
+        versionCode versionCodeFromPkg
+        versionName versionNameFromPkg
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

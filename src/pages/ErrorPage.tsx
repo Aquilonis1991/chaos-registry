@@ -18,7 +18,7 @@ export const ErrorPage = () => {
   console.error('Route error:', error);
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top,0px))]">
       <Card className="max-w-lg w-full">
         <CardHeader>
           <div className="flex items-center gap-3 mb-2">

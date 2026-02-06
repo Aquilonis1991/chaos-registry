@@ -3,7 +3,7 @@ import { LoadingBubble } from "@/components/ui/LoadingBubble";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Coins, Wallet, Zap, Crown, Star, Gift, Loader2 } from "lucide-react";
+import { Activity, Wallet, Zap, Crown, Star, Gift, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,19 +21,6 @@ const RechargePage = () => {
   const { language } = useLanguage();
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
   const { purchaseTokenPack, isProcessing } = usePurchase();
-  /* IAP Initialization Check */
-  useEffect(() => {
-    const initStore = async () => {
-      console.log('[RechargePage] Checking store readiness...');
-      // Ensure purchase hook has done its job, but double check here if needed
-      if (window.CdvPurchase && window.CdvPurchase.store) {
-        if (window.CdvPurchase.store.verbosity === undefined) {
-          window.CdvPurchase.store.verbosity = window.CdvPurchase.LogLevel.INFO;
-        }
-      }
-    };
-    initStore();
-  }, []);
 
   const [selectedPackage, setSelectedPackage] = useState<number | null>(null);
 
@@ -65,19 +52,35 @@ const RechargePage = () => {
 
   /* Configs */
   const { getConfig } = useSystemConfigCache();
-  const rechargeAmounts = getConfig('recharge_amounts', [
+  const defaultPackages = [
     { id: 1, tokens: 100, price: 30, icon: 'Coins', popular: false, bonus: 0 },
-    { id: 2, tokens: 500, price: 150, icon: 'Zap', popular: true, bonus: 75 },
-    { id: 3, tokens: 1000, price: 280, icon: 'Star', popular: false, bonus: 150 },
-    { id: 4, tokens: 3000, price: 800, icon: 'Crown', popular: false, bonus: 600 },
-  ]);
+    { id: 2, tokens: 575, price: 150, icon: 'Zap', popular: true, bonus: 0 },
+    { id: 3, tokens: 1150, price: 280, icon: 'Star', popular: false, bonus: 0 },
+    { id: 4, tokens: 3600, price: 720, icon: 'Crown', popular: false, bonus: 0 },
+  ];
+
+  const rawRecharge = getConfig('recharge_amounts', defaultPackages);
+  // 防呆：DB 可能回傳字串或舊格式，一律正規化為陣列且 id 對應 PRODUCT_ID_MAP (1–4)
+  const rechargeAmounts = (() => {
+    if (Array.isArray(rawRecharge)) return rawRecharge;
+    if (typeof rawRecharge === 'string') {
+      try {
+        const parsed = JSON.parse(rawRecharge);
+        return Array.isArray(parsed) ? parsed : defaultPackages;
+      } catch {
+        return defaultPackages;
+      }
+    }
+    return defaultPackages;
+  })();
 
   // Map icon strings to components
-  const iconMap: Record<string, any> = { Coins, Zap, Star, Crown };
+  const iconMap: Record<string, any> = { Activity, Coins: Activity, Zap, Star, Crown };
 
-  const tokenPackages = (Array.isArray(rechargeAmounts) ? rechargeAmounts : []).map((pkg: any) => ({
+  const tokenPackages = rechargeAmounts.map((pkg: any) => ({
     ...pkg,
-    icon: iconMap[pkg.icon] || Coins
+    id: Number(pkg.id) || pkg.id,
+    icon: iconMap[pkg.icon] || Activity
   }));
 
   const handlePurchase = async (pkg: typeof tokenPackages[0]) => {
@@ -109,7 +112,7 @@ const RechargePage = () => {
         defaultText="正在安全處理您的交易..."
       />
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top))]">
+      <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
         <div className="max-w-screen-xl mx-auto px-4 py-4">
           <div className="flex items-center gap-3">
             <Wallet className="w-7 h-7 text-accent" />
@@ -130,7 +133,7 @@ const RechargePage = () => {
               <div>
                 <p className="text-sm text-muted-foreground mb-1">{balanceLabel}</p>
                 <div className="flex items-center gap-2">
-                  <Coins className="w-6 h-6 text-accent" />
+                  <Activity className="w-6 h-6 text-accent" />
                   <span className="text-3xl font-bold text-foreground">{userTokens.toLocaleString()}</span>
                 </div>
               </div>

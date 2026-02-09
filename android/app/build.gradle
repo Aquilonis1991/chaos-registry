@@ -50,12 +50,9 @@ android {
         }
     }
 
-    // Rename output file to include version name
-    applicationVariants.all { variant ->
-        variant.outputs.all {
-            outputFileName = "votechaos-v${defaultConfig.versionName}-${variant.buildType.name}.aab"
-        }
-    }
+    // AAB 請用 bundleRelease，輸出在 android/app/build/outputs/bundle/release/app-release.aab
+    // APK 請用 assembleRelease，輸出在 android/app/build/outputs/apk/release/app-release.apk
+    // 不再統一改副檔名為 .aab，避免 APK 被誤存成 .aab 導致 Play 上傳報錯（BundleConfig.pb not found）
 }
 
 repositories {

@@ -894,11 +894,11 @@ const CreateTopicPage = () => {
           <div className="space-y-3">
             <Label className="text-base font-semibold">{getText('topic.exposure.label', '曝光方案')}</Label>
             <RadioGroup value={exposure} onValueChange={setExposure}>
-              {/* Normal Exposure - 普通曝光：接近白的灰色+沒邊 */}
+              {/* Normal Exposure - 普通：無邊 + 灰底 */}
               <Card className={cn(
                 "cursor-pointer hover:shadow-card transition-all",
                 exposure === "normal"
-                  ? "border-0 bg-gradient-to-br from-gray-100 to-transparent dark:from-gray-800/50 dark:to-transparent"
+                  ? "border-0 !bg-gradient-to-br from-gray-100 to-transparent dark:from-gray-800/50 dark:to-transparent"
                   : "border border-border/50"
               )}>
                 <CardContent className="p-4">
@@ -920,11 +920,11 @@ const CreateTopicPage = () => {
                 </CardContent>
               </Card>
 
-              {/* Medium Exposure - 中等曝光 */}
+              {/* Medium Exposure - 中等：普通樣式 + 黃框（灰底 + 黃邊） */}
               <Card className={cn(
                 "cursor-pointer hover:shadow-card transition-all border",
                 exposure === "medium"
-                  ? "border-yellow-500/50 bg-gradient-to-br from-yellow-500/10 via-yellow-400/5 to-transparent shadow-md shadow-yellow-500/10"
+                  ? "border-yellow-500/50 !bg-gradient-to-br from-gray-100 to-transparent dark:from-gray-800/50 dark:to-transparent"
                   : "border-border/50"
               )}>
                 <CardContent className="p-4">
@@ -946,11 +946,11 @@ const CreateTopicPage = () => {
                 </CardContent>
               </Card>
 
-              {/* High Exposure - 高度曝光 */}
+              {/* High Exposure - 高級：黃邊 + 淡黃白漸層（原中等樣式） */}
               <Card className={cn(
                 "cursor-pointer hover:shadow-card transition-all border",
                 exposure === "high"
-                  ? "border-amber-500/60 bg-gradient-to-br from-amber-500/15 via-purple-500/10 to-transparent shadow-lg shadow-amber-500/20"
+                  ? "border-yellow-500/50 !bg-gradient-to-br from-yellow-500/10 via-yellow-400/5 to-transparent shadow-md shadow-yellow-500/10"
                   : "border-border/50"
               )}>
                 <CardContent className="p-4">

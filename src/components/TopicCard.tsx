@@ -18,14 +18,13 @@ interface TopicCardProps {
 }
 
 export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, createdAt, currentExposureLevel }: TopicCardProps) => {
-  // 首頁主題卡片曝光等級樣式（與發起主題頁一致）
-  // Card 預設有 bg-card，需用 ! 覆蓋才能顯示底色
-  // 普通：無邊 + 接近白的灰；中等：黃邊 + 淡黃白漸層；高度：橘邊 + 淡黃紫漸層
+  // 首頁主題卡片曝光等級樣式
+  // 普通：無邊 + 接近白的灰；中等：普通樣式 + 黃框；高級：黃邊 + 淡黃白漸層（原中等樣式）
   const level = typeof currentExposureLevel === 'string' ? currentExposureLevel.trim().toLowerCase() : '';
   const exposureStyles = (level === 'high')
-    ? "border-amber-500/60 !bg-gradient-to-br from-amber-500/15 via-purple-500/10 to-transparent shadow-lg shadow-amber-500/20"
+    ? "border-yellow-500/50 !bg-gradient-to-br from-yellow-500/10 via-yellow-400/5 to-transparent shadow-md shadow-yellow-500/10"
     : (level === 'medium')
-      ? "border-yellow-500/50 !bg-gradient-to-br from-yellow-500/10 via-yellow-400/5 to-transparent shadow-md shadow-yellow-500/10"
+      ? "border-yellow-500/50 !bg-gradient-to-br from-gray-100 to-transparent dark:from-gray-800/50 dark:to-transparent"
       : (level === 'normal')
         ? "border-0 !bg-gradient-to-br from-gray-100 to-transparent dark:from-gray-800/50 dark:to-transparent"
         : "border-primary/50 !bg-gradient-to-br from-primary/5 to-transparent shadow-card";

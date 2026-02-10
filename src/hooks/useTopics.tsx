@@ -198,8 +198,9 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
         const isHot = totalVotes > 1000 || (createdAt > oneDayAgo && totalVotes > 100);
 
         const rawExposure = topic.current_exposure_level ?? topic.exposure_level ?? null;
-        const currentExposure = rawExposure && ['normal', 'medium', 'high'].includes(String(rawExposure).toLowerCase())
-          ? (String(rawExposure).toLowerCase() as 'normal' | 'medium' | 'high')
+        const normalized = rawExposure ? String(rawExposure).trim().toLowerCase() : '';
+        const currentExposure = (normalized === 'low' || normalized === 'normal' || normalized === 'medium' || normalized === 'high')
+          ? (normalized === 'low' ? 'normal' : (normalized as 'normal' | 'medium' | 'high'))
           : null;
         return {
           ...topic,
@@ -339,9 +340,10 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
           (sum: number, opt: any) => sum + (opt.votes || 0),
           0
         ) || 0;
-        const rawExposure = topic.exposure_level ?? null;
-        const currentExposure = rawExposure && ['normal', 'medium', 'high'].includes(String(rawExposure).toLowerCase())
-          ? (String(rawExposure).toLowerCase() as 'normal' | 'medium' | 'high')
+        const rawExposure = topic.exposure_level ?? topic.current_exposure_level ?? null;
+        const normalized = rawExposure ? String(rawExposure).trim().toLowerCase() : '';
+        const currentExposure = (normalized === 'low' || normalized === 'normal' || normalized === 'medium' || normalized === 'high')
+          ? (normalized === 'low' ? 'normal' : (normalized as 'normal' | 'medium' | 'high'))
           : null;
         const createdAt = new Date(topic.created_at);
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);

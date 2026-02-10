@@ -657,7 +657,7 @@ const CreateTopicPage = () => {
         </AlertDialogContent>
       </AlertDialog >
 
-      <div className="min-h-screen bg-background pb-20 pt-8 safe-area-top">
+      <div className="min-h-screen bg-background pb-20 pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
         <LoadingBubble
           isLoading={isRewriting}
           textKey="topic.unstable_rewrite.loading"

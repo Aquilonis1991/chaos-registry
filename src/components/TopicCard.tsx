@@ -21,13 +21,12 @@ export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, crea
   // 首頁主題卡片曝光等級樣式
   // 普通：無邊 + 接近白的灰；中等：普通樣式 + 黃框；高級：黃邊 + 淡黃白漸層（原中等樣式）
   const level = typeof currentExposureLevel === 'string' ? currentExposureLevel.trim().toLowerCase() : '';
-  const exposureStyles = (level === 'high')
+  const normalizedLevel = level === 'low' ? 'normal' : level;
+  const exposureStyles = (normalizedLevel === 'high')
     ? "border-yellow-500/50 !bg-gradient-to-br from-yellow-500/10 via-yellow-400/5 to-transparent shadow-md shadow-yellow-500/10"
-    : (level === 'medium')
+    : (normalizedLevel === 'medium')
       ? "border-yellow-500/50 !bg-gradient-to-br from-gray-100 to-transparent dark:from-gray-800/50 dark:to-transparent"
-      : (level === 'normal')
-        ? "border-0 !bg-gradient-to-br from-gray-100 to-transparent dark:from-gray-800/50 dark:to-transparent"
-        : "border-primary/50 !bg-gradient-to-br from-primary/5 to-transparent shadow-card";
+      : "border-0 !bg-gradient-to-br from-gray-100 to-transparent dark:from-gray-800/50 dark:to-transparent";
 
   return (
     <Link to={`/vote/${id}`}>

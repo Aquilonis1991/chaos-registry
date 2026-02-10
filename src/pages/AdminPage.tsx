@@ -191,7 +191,7 @@ const AdminPage = () => {
 
         <TabsContent value="reports">
           <Card className="p-6">
-            <ReportManager />
+            <ReportManager onJumpToTopic={() => setActiveTab("topics")} />
           </Card>
         </TabsContent>
 

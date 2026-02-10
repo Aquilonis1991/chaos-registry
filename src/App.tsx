@@ -36,6 +36,7 @@ import NotFound from "./pages/NotFound";
 import { ErrorLogger } from "@/lib/errorLogger";
 import { isNative } from "@/lib/capacitor";
 import { OAuthCallbackHandler } from "@/components/OAuthCallbackHandler";
+import { ForceUpdateGate } from "@/components/ForceUpdateGate";
 import { App as CapacitorApp } from '@capacitor/app';
 import { useEffect } from "react";
 
@@ -65,6 +66,7 @@ const App = () => (
             <TooltipProvider>
               <Toaster />
               <Sonner />
+              <ForceUpdateGate>
               <BrowserRouter>
                 <BackButtonHandler />
                 {/* App 版第三方登入 Deep Link 回調處理（votechaos://auth/callback） */}
@@ -97,6 +99,7 @@ const App = () => (
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </BrowserRouter>
+              </ForceUpdateGate>
             </TooltipProvider>
           </LanguageProvider>
         </ProfileProvider>

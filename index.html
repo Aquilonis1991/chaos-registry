@@ -12,8 +12,13 @@
   <meta name="author" content="ChaosRegistry" />
   <meta name="format-detection" content="telephone=no" />
   <meta name="msapplication-tap-highlight" content="no" />
+  <!-- 以 App 模式執行，減少瀏覽器感（PWA / 加到主畫面 / Capacitor） -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ChaosRegistry" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#1a2332" />
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f1419" />
 
   <!-- Open Graph / Facebook -->
   <meta property="og:title" content="ChaosRegistry - 不理性登記處" />
@@ -268,15 +273,31 @@
     })();
   </script>
 
-  <!-- Critical CSS for Loading Skeleton -->
+  <!-- 減少 Web App 感的全域樣式（載入時即生效） -->
   <style>
-    body {
+    html {
+      -webkit-text-size-adjust: 100%;
+      overscroll-behavior: none;
+    }
+    html, body {
       margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      touch-action: manipulation;
+    }
+    body {
       background-color: #000;
       color: #fff;
-      font-family: sans-serif;
+      font-family: system-ui, -apple-system, sans-serif;
     }
-
+    input, textarea, [contenteditable="true"] {
+      user-select: text;
+      -webkit-user-select: text;
+    }
+  </style>
+  <!-- Critical CSS for Loading Skeleton -->
+  <style>
     #app-skeleton {
       display: flex;
       flex-direction: column;

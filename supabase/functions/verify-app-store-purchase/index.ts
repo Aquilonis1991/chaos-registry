@@ -47,7 +47,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { receiptData, productId } = await req.json();
+    const body = await req.json();
+    const receiptData = body.receiptData ?? body.purchaseToken; // 前端 usePurchase 送 purchaseToken（iOS 收據字串）
+    const productId = body.productId;
 
     if (!receiptData || !productId) {
       return new Response(

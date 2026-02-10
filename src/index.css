@@ -195,6 +195,32 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
   }
+
+  /* 長文、條款等可選取文字（與 index.html 的 user-select: none 搭配） */
+  .prose,
+  [data-allow-select],
+  .allow-select {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  /* 原生殼內：減少捲動鏈、避免整頁橡皮筋感；按鈕/卡片不選取，更像 App */
+  html.capacitor-native {
+    overscroll-behavior: none;
+  }
+  html.capacitor-native body {
+    overscroll-behavior-y: contain;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  html.capacitor-native .prose,
+  html.capacitor-native [data-allow-select],
+  html.capacitor-native .allow-select,
+  html.capacitor-native input,
+  html.capacitor-native textarea {
+    user-select: text;
+    -webkit-user-select: text;
+  }
 }
 
 /* 強制彈窗位置在底部工具列上方 */

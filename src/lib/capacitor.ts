@@ -19,9 +19,12 @@ export const initializeCapacitor = async () => {
   console.log('Running in native mode:', getPlatform());
 
   try {
-    // 配置狀態欄
+    // 標記為原生殼，供 CSS 做「不像網頁」的樣式（overscroll、選取等）
+    document.documentElement.classList.add('capacitor-native');
+
+    // 配置狀態欄（與 Splash 背景一致，減少閃爍）
     await StatusBar.setStyle({ style: Style.Dark });
-    await StatusBar.setBackgroundColor({ color: '#000000' });
+    await StatusBar.setBackgroundColor({ color: '#1a2332' });
 
     // 隱藏啟動畫面
     await SplashScreen.hide();

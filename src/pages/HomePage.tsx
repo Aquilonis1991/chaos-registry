@@ -15,6 +15,7 @@ import { useUIText } from "@/hooks/useUIText";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 import { formatRelativeTime } from "@/lib/relativeTime";
 import { insertAdsIntoList } from "@/lib/adInsertion";
+import { getNativeAdUnitId } from "@/lib/admob";
 
 /** 首頁各分頁一次下拉／初次載入時取得的卡片數量（熱門、最新、參與過皆為此數量） */
 const TOPICS_PAGE_SIZE = 20;
@@ -103,8 +104,8 @@ const HomePage = () => {
   const adInsertionSkipFirstRaw = getConfig('ad_insertion_skip_first', 10);
   const adInsertionSkipFirst = Number(adInsertionSkipFirstRaw) || 10;
   
-  const adUnitIdConfig = getConfig('admob_native_ad_unit_id', 'ca-app-pub-3940256099942544/2247696110');
-  const adUnitId = typeof adUnitIdConfig === 'string' ? adUnitIdConfig : String(adUnitIdConfig || '');
+  const adUnitIdConfig = getConfig('admob_native_ad_unit_id', '');
+  const adUnitId = getNativeAdUnitId(adUnitIdConfig ?? '');
   
   const adInsertionEnabledValue = getConfig('ad_insertion_enabled', true);
   const adInsertionEnabled = adInsertionEnabledValue === true || adInsertionEnabledValue === 'true' || String(adInsertionEnabledValue).toLowerCase() === 'true';

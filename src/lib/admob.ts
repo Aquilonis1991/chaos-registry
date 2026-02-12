@@ -10,11 +10,13 @@ export const TEST_AD_IDS = {
     banner: 'ca-app-pub-3940256099942544/6300978111',
     interstitial: 'ca-app-pub-3940256099942544/1033173712',
     rewarded: 'ca-app-pub-3940256099942544/5224354917',
+    native: 'ca-app-pub-3940256099942544/2247696110',
   },
   ios: {
     banner: 'ca-app-pub-3940256099942544/2934735716',
     interstitial: 'ca-app-pub-3940256099942544/4411468910',
     rewarded: 'ca-app-pub-3940256099942544/1712485313',
+    native: 'ca-app-pub-3940256099942544/3986624511',
   }
 };
 
@@ -55,6 +57,35 @@ const getAdId = (type: 'banner' | 'interstitial' | 'rewarded', configValue?: str
   
   // Web 平台返回 Android ID（不會實際使用）
   return TEST_AD_IDS.android[type];
+};
+
+/**
+ * 取得當前平台的原生廣告單元 ID
+ * 配置格式與 getAdId 相同：
+ * 1. 字串：單一 ID（兩平台共用）
+ * 2. 物件：{ "android": "...", "ios": "..." }（依平台區分）
+ */
+export const getNativeAdUnitId = (configValue?: string | { android?: string; ios?: string } | null): string => {
+  const platform = Capacitor.getPlatform();
+
+  if (configValue) {
+    if (typeof configValue === 'string' && configValue.trim()) {
+      return configValue.trim();
+    }
+    if (typeof configValue === 'object' && configValue !== null) {
+      if (platform === 'ios' && configValue.ios) {
+        return String(configValue.ios).trim();
+      }
+      if ((platform === 'android' || platform === 'web') && configValue.android) {
+        return String(configValue.android).trim();
+      }
+    }
+  }
+
+  if (platform === 'ios') {
+    return TEST_AD_IDS.ios.native;
+  }
+  return TEST_AD_IDS.android.native;
 };
 
 /**

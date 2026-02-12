@@ -100,6 +100,55 @@ const SystemConfigManager = () => {
     return typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
   };
 
+  // 廣告單元 ID 依平台區分：key 為 admob_native_ad_unit_id 或 admob_rewarded_ad_unit_id 時，顯示 Android / iOS 兩欄
+  const AD_UNIT_IDS_BY_PLATFORM = ['admob_native_ad_unit_id', 'admob_rewarded_ad_unit_id'];
+
+  const getPlatformAdUnitValue = (config: { id: string; value: any }, platform: 'android' | 'ios') => {
+    const editKey = `${config.id}_${platform}`;
+    if (editedValues[editKey] !== undefined) return editedValues[editKey];
+    const v = config.value;
+    if (v == null) return '';
+    if (typeof v === 'string') return v.trim();
+    if (typeof v === 'object' && v !== null) return String(v[platform] ?? '').trim();
+    return '';
+  };
+
+  const handlePlatformAdUnitChange = (configId: string, platform: 'android' | 'ios', value: string) => {
+    setEditedValues(prev => ({ ...prev, [`${configId}_${platform}`]: value }));
+  };
+
+  const handleSavePlatformAdUnit = async (config: { id: string; key: string; value: any }) => {
+    const androidVal = getPlatformAdUnitValue(config, 'android');
+    const iosVal = getPlatformAdUnitValue(config, 'ios');
+    setSaving(config.id);
+    try {
+      const payload = { android: androidVal, ios: iosVal };
+      const success = await updateConfig(config.id, payload);
+      if (success) {
+        setEditedValues(prev => {
+          const next = { ...prev };
+          delete next[`${config.id}_android`];
+          delete next[`${config.id}_ios`];
+          return next;
+        });
+        invalidateConfigCache();
+        toast.success('已儲存');
+      }
+    } catch (e) {
+      toast.error('更新失敗');
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const isPlatformAdUnitChanged = (config: { id: string; value: any }) => {
+    const curAndroid = config.value && typeof config.value === 'object' ? String(config.value.android ?? '').trim() : (typeof config.value === 'string' ? config.value.trim() : '');
+    const curIos = config.value && typeof config.value === 'object' ? String(config.value.ios ?? '').trim() : (typeof config.value === 'string' ? config.value.trim() : '');
+    const editAndroid = editedValues[`${config.id}_android`];
+    const editIos = editedValues[`${config.id}_ios`];
+    return (editAndroid !== undefined && editAndroid !== curAndroid) || (editIos !== undefined && editIos !== curIos);
+  };
+
   // 測試廣告插入位置
   const testAdInsertion = () => {
     // 獲取當前值（優先使用編輯中的值，否則使用原始值）
@@ -245,8 +294,9 @@ const SystemConfigManager = () => {
                   </div>
                 ) : (
                   categoryConfigs.map((config) => {
+                    const isPlatformAdUnit = AD_UNIT_IDS_BY_PLATFORM.includes(config.key);
                     const currentValue = getValue(config.id, config.value);
-                    const hasChanged = editedValues[config.id] !== undefined;
+                    const hasChanged = isPlatformAdUnit ? isPlatformAdUnitChanged(config) : editedValues[config.id] !== undefined;
                     const isObject = typeof config.value === 'object';
                     const isAdConfig = config.key === 'ad_insertion_interval' ||
                       config.key === 'ad_insertion_skip_first' ||
@@ -258,6 +308,64 @@ const SystemConfigManager = () => {
                       config.key.includes('prompt') ||
                       config.key.includes('content')
                     );
+
+                    // 廣告單元 ID：Android / iOS 分開輸入（與 admob_rewarded_ad_unit_id 同形式）
+                    if (isPlatformAdUnit) {
+                      return (
+                        <div key={config.id} className="space-y-2 border-b pb-4 last:border-0">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <Label className="font-semibold">{config.key}</Label>
+                              {config.description && (
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  {config.description}
+                                </p>
+                              )}
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={() => handleSavePlatformAdUnit(config)}
+                              disabled={!hasChanged || saving === config.id}
+                              variant={hasChanged ? "default" : "outline"}
+                            >
+                              {saving === config.id ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                  儲存中
+                                </>
+                              ) : (
+                                <>
+                                  <Save className="w-4 h-4 mr-1" />
+                                  儲存
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor={`${config.id}_android`} className="text-muted-foreground">Android</Label>
+                              <Input
+                                id={`${config.id}_android`}
+                                value={getPlatformAdUnitValue(config, 'android')}
+                                onChange={(e) => handlePlatformAdUnitChange(config.id, 'android', e.target.value)}
+                                placeholder="ca-app-pub-XXXX/YYYY"
+                                className="font-mono text-sm"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor={`${config.id}_ios`} className="text-muted-foreground">iOS</Label>
+                              <Input
+                                id={`${config.id}_ios`}
+                                value={getPlatformAdUnitValue(config, 'ios')}
+                                onChange={(e) => handlePlatformAdUnitChange(config.id, 'ios', e.target.value)}
+                                placeholder="ca-app-pub-XXXX/YYYY"
+                                className="font-mono text-sm"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
 
                     return (
                       <div key={config.id} className="space-y-2 border-b pb-4 last:border-0">

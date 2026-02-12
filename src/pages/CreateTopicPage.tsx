@@ -657,7 +657,7 @@ const CreateTopicPage = () => {
         </AlertDialogContent>
       </AlertDialog >
 
-      <div className="min-h-screen bg-background pb-20 pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
+      <div className="min-h-screen bg-background pb-20">
         <LoadingBubble
           isLoading={isRewriting}
           textKey="topic.unstable_rewrite.loading"
@@ -668,8 +668,8 @@ const CreateTopicPage = () => {
           textKey="loading.create_topic"
           defaultText="正在建立主題..."
         />
-        {/* Header */}
-        <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
+        {/* 固定標題列：發起主題與代幣餘額不隨捲動移動 */}
+        <header className="fixed top-0 left-0 right-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
           <div className="max-w-screen-xl mx-auto px-4 py-4">
             <div className="flex items-center gap-4">
               <Button
@@ -685,8 +685,6 @@ const CreateTopicPage = () => {
                 <h1 className="text-lg font-bold text-primary-foreground">{headerTitle}</h1>
               </div>
 
-
-
               <button
                 type="button"
                 onClick={() => navigate('/recharge')}
@@ -698,6 +696,9 @@ const CreateTopicPage = () => {
             </div>
           </div>
         </header>
+
+        {/* 預留標題列高度（safe area + 0.75rem + py-4 + 一行），避免內容被擋住 */}
+        <div className="h-[calc(5.25rem+env(safe-area-inset-top,0px))]" aria-hidden="true" />
 
         {/* Content */}
         <div className="max-w-screen-xl mx-auto px-4 py-6 space-y-6">

@@ -1,7 +1,7 @@
 {
   "name": "vite_react_shadcn_ts",
   "private": true,
-  "version": "1.0.48",
+  "version": "1.0.49",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -21,7 +21,8 @@
     "cap:run:android": "npm run cap:sync:android && npx cap run android",
     "cap:run:ios": "npm run cap:sync:ios && npx cap run ios",
     "android": "npm run cap:sync:android && npx cap open android",
-    "ios": "npm run cap:sync:ios && npx cap open ios"
+    "ios": "npm run cap:sync:ios && npx cap open ios",
+    "sql:force-update": "node scripts/print-force-update-sql.cjs"
   },
   "dependencies": {
     "@capacitor-community/admob": "^6.0.0",

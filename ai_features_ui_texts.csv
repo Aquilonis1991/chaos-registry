@@ -25,3 +25,7 @@ profile.assessment.payment_message,本次鑑定將消耗 {{amount}} 代幣。,Th
 official_summary.title,📄 官方結語（混亂等級 {{level}}）,📄 Official Summary (Chaos Level {{level}}),📄 公式結び (カオスレベル {{level}})
 official_summary.footer,系統已完成資料彙整。,System data compilation completed.,システムデータの集計が完了しました。
 official_summary.loading,系統正在彙整數據...,System compiling data...,システムがデータを集計中...
+chaos_closing.title,⚡ 混亂結語,⚡ Chaos Closing,⚡ カオス結語
+chaos_closing.loading,系統正在生成混亂結語...,Generating chaos closing...,カオス結語を生成中...
+chaos_closing.copySuccess,已複製到剪貼簿,Copied to clipboard,クリップボードにコピーしました
+chaos_closing.copy,複製,Copy,コピー

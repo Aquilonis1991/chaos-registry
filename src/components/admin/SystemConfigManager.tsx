@@ -209,7 +209,8 @@ const SystemConfigManager = () => {
     'legal_terms_content',
     'legal_privacy_content',
     'ai_chaos_rewrite_prompt',
-    'ai_chaos_verification_prompt'
+    'ai_chaos_verification_prompt',
+    'ai_closing_prompt'
   ];
 
   const groupedConfigs = configs

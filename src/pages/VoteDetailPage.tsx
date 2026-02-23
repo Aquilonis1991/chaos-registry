@@ -34,7 +34,9 @@ import { useUIText } from "@/hooks/useUIText";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 import { formatRelativeTime, formatRemainingTime } from "@/lib/relativeTime";
 import { OfficialSummaryCard } from "@/components/OfficialSummaryCard";
+import { ChaosClosingCard } from "@/components/ChaosClosingCard";
 import { useOfficialSummary } from "@/hooks/useOfficialSummary";
+import { useAiClosingStatement } from "@/hooks/useAiClosingStatement";
 
 const VoteDetailPage = () => {
   const { id } = useParams();
@@ -51,7 +53,9 @@ const VoteDetailPage = () => {
 
   // Official Summary Hook
   const { summary, isLoading: summaryLoading } = useOfficialSummary(topic);
-  const isTopicEnded = topic?.status === 'ended' || (!!topic?.end_at && new Date(topic.end_at) <= new Date());
+  // AI 混亂結語（主題結束後一次性生成）
+  const { statement: aiClosing, isLoading: aiClosingLoading } = useAiClosingStatement(topic);
+  const isTopicEnded = topic ? (topic.status === 'ended' || new Date(topic.end_at || 0) <= new Date()) : false;
 
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isVoting, setIsVoting] = useState(false);
@@ -490,11 +494,18 @@ const VoteDetailPage = () => {
         {/* Vote Actions or Official Summary */}
         <div className="space-y-3 mb-6 max-w-3xl mx-auto w-full px-4 sm:px-6">
           {isTopicEnded ? (
-            <OfficialSummaryCard
-              summary={summary}
-              isLoading={summaryLoading}
-              language={language}
-            />
+            <>
+              <OfficialSummaryCard
+                summary={summary}
+                isLoading={summaryLoading}
+                language={language}
+              />
+              <ChaosClosingCard
+                statement={aiClosing}
+                isLoading={aiClosingLoading}
+                language={language}
+              />
+            </>
           ) : isAnonymous ? (
             <Card className="bg-muted/50 border-muted">
               <CardContent className="p-4 text-center">

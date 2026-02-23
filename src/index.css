@@ -38,6 +38,7 @@ All colors MUST be HSL.
 
     /* 輔色：#E3B431 暖黃橙 - 荒謬閃光／人性衝突 */
     --accent: 43 76% 54%;
+    --accent-glow: 43 80% 60%;
     --accent-foreground: 220 26% 15%;
 
     --destructive: 0 84% 60%;
@@ -139,6 +140,7 @@ All colors MUST be HSL.
 
     --gradient-primary: linear-gradient(135deg, hsl(220 26% 50%), hsl(220 26% 60%));
     --gradient-accent: linear-gradient(135deg, hsl(43 76% 60%), hsl(43 80% 65%));
+    --accent-glow: 43 80% 65%;
     --gradient-card: linear-gradient(180deg, hsl(220 20% 16%), hsl(220 20% 12%));
     
     --shadow-glow: 0 8px 32px hsl(252 100% 70% / 0.3);
@@ -224,18 +226,6 @@ All colors MUST be HSL.
   html.capacitor-native textarea {
     user-select: text;
     -webkit-user-select: text;
-  }
-}
-
-/* 投票按鈕漸層 fallback（Android WebView 相容） */
-@layer components {
-  [data-variant="vote"] {
-    background-color: hsl(var(--primary));
-    background-image: var(--gradient-primary);
-  }
-  [data-variant="accent"] {
-    background-color: hsl(var(--accent));
-    background-image: var(--gradient-accent);
   }
 }
 

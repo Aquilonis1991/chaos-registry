@@ -9,6 +9,14 @@ interface TopicData {
     options: any[];
     total_votes?: number;
     status: string;
+    end_at?: string;
+}
+
+function isTopicEnded(topic: TopicData | null): boolean {
+    if (!topic) return false;
+    if (topic.status === 'ended') return true;
+    if (topic.end_at && new Date(topic.end_at) <= new Date()) return true;
+    return false;
 }
 
 export const useOfficialSummary = (topic: TopicData | null) => {
@@ -17,8 +25,8 @@ export const useOfficialSummary = (topic: TopicData | null) => {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // Only proceed if topic exists and is ended
-        if (!topic || topic.status !== 'ended') {
+        // Only proceed if topic exists and is ended (by status or end_at passed)
+        if (!isTopicEnded(topic)) {
             return;
         }
 
@@ -94,7 +102,7 @@ export const useOfficialSummary = (topic: TopicData | null) => {
         return () => {
             isMounted = false;
         };
-    }, [topic?.id, topic?.status]); // Re-run only if topic ID or status changes
+    }, [topic?.id, topic?.status, topic?.end_at]); // Re-run when topic ID, status, or end_at changes
 
     return { summary, isLoading, error };
 };

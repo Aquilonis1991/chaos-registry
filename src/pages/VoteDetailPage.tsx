@@ -51,7 +51,7 @@ const VoteDetailPage = () => {
 
   // Official Summary Hook
   const { summary, isLoading: summaryLoading } = useOfficialSummary(topic);
-  const isTopicEnded = topic?.status === 'ended';
+  const isTopicEnded = topic?.status === 'ended' || (!!topic?.end_at && new Date(topic.end_at) <= new Date());
 
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isVoting, setIsVoting] = useState(false);

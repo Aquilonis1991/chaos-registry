@@ -227,6 +227,18 @@ All colors MUST be HSL.
   }
 }
 
+/* 投票按鈕漸層 fallback（Android WebView 相容） */
+@layer components {
+  [data-variant="vote"] {
+    background-color: hsl(var(--primary));
+    background-image: var(--gradient-primary);
+  }
+  [data-variant="accent"] {
+    background-color: hsl(var(--accent));
+    background-image: var(--gradient-accent);
+  }
+}
+
 /* 強制彈窗位置在底部工具列上方 */
 @layer utilities {
   [data-radix-toast-viewport] {

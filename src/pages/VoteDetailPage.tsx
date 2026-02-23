@@ -442,13 +442,20 @@ const VoteDetailPage = () => {
               return (
                 <Card
                   key={optionId}
+                  role="button"
+                  tabIndex={0}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('Option clicked:', { optionId, option, selectedOption });
                     setSelectedOption(optionId);
                   }}
-                  className={`cursor-pointer transition-all hover:shadow-glow ${isSelected ? "ring-2 ring-primary shadow-glow bg-primary/5" : "hover:bg-muted/50"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedOption(optionId);
+                    }
+                  }}
+                  className={`cursor-pointer transition-all select-none focus:outline-none hover:bg-muted/50 ${isSelected ? "border-2 border-primary bg-primary/10 shadow-md" : "hover:bg-muted/50 border border-border"
                     }`}
                 >
                   <CardContent className="p-4">
@@ -463,7 +470,7 @@ const VoteDetailPage = () => {
                       {percentage.toFixed(1)}%
                     </div>
                     {isSelected && (
-                      <div className="text-xs text-primary mt-2">{selectedMark}</div>
+                      <div className="text-xs text-primary font-medium mt-2">{selectedMark}</div>
                     )}
                   </CardContent>
                 </Card>
@@ -491,8 +498,8 @@ const VoteDetailPage = () => {
           })()}
         </div>
 
-        {/* Vote Actions or Official Summary */}
-        <div className="space-y-3 mb-6 max-w-3xl mx-auto w-full px-4 sm:px-6">
+        {/* Vote Actions or Official Summary（relative z-10 避免被選項卡陰影/層疊遮住） */}
+        <div className="relative z-10 space-y-3 mb-6 max-w-3xl mx-auto w-full px-4 sm:px-6">
           {isTopicEnded ? (
             <>
               <OfficialSummaryCard

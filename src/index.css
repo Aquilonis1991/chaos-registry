@@ -227,6 +227,15 @@ All colors MUST be HSL.
     user-select: text;
     -webkit-user-select: text;
   }
+
+  /* 避免點擊時出現白色/灰色 tap highlight 遮住按鈕（Android WebView 常見） */
+  html.capacitor-native button,
+  html.capacitor-native [role="button"],
+  html.capacitor-native a,
+  html.capacitor-native [tabindex]:not([tabindex="-1"]) {
+    -webkit-tap-highlight-color: transparent;
+    tap-highlight-color: transparent;
+  }
 }
 
 /* 強制彈窗位置在底部工具列上方 */

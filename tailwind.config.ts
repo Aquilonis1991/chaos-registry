@@ -3,6 +3,32 @@ import type { Config } from "tailwindcss";
 export default {
   darkMode: ["class"],
   content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
+  // 主題卡片曝光等級樣式（高級/中級）避免 production 被 purge 掉，含 dark 與 border-2
+  safelist: [
+    "border-0",
+    "border-2",
+    "border-yellow-500/50",
+    "border-amber-500/70",
+    "border-amber-500/60",
+    "dark:border-amber-400/60",
+    "dark:border-amber-400/50",
+    "!bg-gradient-to-br",
+    "from-yellow-500/10",
+    "via-yellow-400/5",
+    "from-amber-500/15",
+    "via-amber-400/8",
+    "dark:from-amber-500/25",
+    "dark:via-amber-400/12",
+    "to-transparent",
+    "dark:to-transparent",
+    "shadow-md",
+    "shadow-yellow-500/10",
+    "shadow-amber-500/20",
+    "dark:shadow-amber-400/15",
+    "from-gray-100",
+    "dark:from-gray-800/50",
+    "dark:from-gray-800/60",
+  ],
   prefix: "",
   theme: {
     container: {

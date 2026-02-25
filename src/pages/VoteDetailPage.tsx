@@ -531,8 +531,8 @@ const VoteDetailPage = () => {
             </Card>
           ) : (
             <>
-              {/* Free Vote Button — 規格：accent（暖黃橙） */}
-              <div className="mb-4">
+              {/* Free Vote Button — 規格：accent（暖黃橙）；relative z-10 避免實機被白層遮住 */}
+              <div className="mb-4 relative z-10">
                 <Button
                   variant="accent"
                   size="lg"
@@ -557,7 +557,7 @@ const VoteDetailPage = () => {
               </div>
 
               <h3 className="text-lg font-semibold text-foreground mb-3">{tokenSectionTitle}</h3>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-3 relative z-10">
                 {voteButtonAmounts.map((amount) => (
                   <Button
                     key={amount}
@@ -577,11 +577,11 @@ const VoteDetailPage = () => {
                 ))}
               </div>
 
-              {/* Custom Amount Input */}
-              <div className="mt-4 space-y-3">
+              {/* Custom Amount Input（按鈕用獨立層 z-20，Input 區 z-0 避免原生白底蓋住按鈕） */}
+              <div className="mt-4 space-y-3 relative z-10">
                 <h4 className="text-sm font-semibold text-muted-foreground">{customTitle}</h4>
-                <div className="flex gap-2">
-                  <div className="flex-1">
+                <div className="flex gap-2 items-stretch relative">
+                  <div className="flex-1 min-w-0 relative z-0">
                     <Input
                       type="number"
                       placeholder={customPlaceholder}
@@ -589,13 +589,15 @@ const VoteDetailPage = () => {
                       onChange={(e) => setCustomAmount(e.target.value)}
                       min="1"
                       max="1000"
-                      className="h-12 text-lg"
+                      className="vote-page-custom-input h-12 text-lg bg-background"
                       disabled={isVoting || !selectedOption}
                     />
                   </div>
-                  <Button
-                    variant="vote"
-                    size="lg"
+                  <div className="relative z-[20] shrink-0">
+                    <Button
+                      variant="vote"
+                      size="lg"
+                      className="h-12 px-6"
                     onClick={() => {
                       const amount = parseInt(customAmount);
                       if (isNaN(amount) || amount < 1) {
@@ -608,16 +610,16 @@ const VoteDetailPage = () => {
                       }
                       openVoteConfirmDialog(amount, 'custom');
                     }}
-                    className="h-12 px-6"
-                    disabled={isVoting || !selectedOption || !customAmount}
-                  >
-                    {isVoting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
-                      <>
-                        <Activity className="w-5 h-5 mr-2" />
-                        {customButtonText}
-                      </>
-                    )}
-                  </Button>
+                      disabled={isVoting || !selectedOption || !customAmount}
+                    >
+                      {isVoting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                        <>
+                          <Activity className="w-5 h-5 mr-2" />
+                          {customButtonText}
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {balanceTemplate.replace('{{amount}}', userTokens.toLocaleString())}

@@ -236,6 +236,23 @@ All colors MUST be HSL.
     -webkit-tap-highlight-color: transparent;
     tap-highlight-color: transparent;
   }
+
+  /* 表單元件避免原生白底覆蓋相鄰按鈕（自訂票數旁的投票按鈕） */
+  html.capacitor-native input,
+  html.capacitor-native select,
+  html.capacitor-native textarea {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  /* 投票頁自訂票數輸入框：縮小 focus 外框、避免 ring-offset 蓋到右側按鈕 */
+  html.capacitor-native .vote-page-custom-input {
+    --tw-ring-offset-width: 1px;
+  }
+  html.capacitor-native .vote-page-custom-input:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 1px hsl(var(--ring));
+  }
 }
 
 /* 強制彈窗位置在底部工具列上方 */

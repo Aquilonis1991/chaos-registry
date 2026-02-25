@@ -19,21 +19,24 @@ interface TopicCardProps {
 
 export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, createdAt, currentExposureLevel }: TopicCardProps) => {
   // 首頁主題卡片曝光等級樣式
-  // 普通：無邊 + 接近白的灰；中等：普通樣式 + 黃框；高級：黃邊 + 淡黃白漸層（原中等樣式）
+  // 普通：無邊 + 接近白的灰；中等：黃框；高級：黃邊 + 淡黃漸層（含 dark 模式以利實機顯示）
   const level = typeof currentExposureLevel === 'string' ? currentExposureLevel.trim().toLowerCase() : '';
   const normalizedLevel = level === 'low' ? 'normal' : level;
   const exposureStyles = (normalizedLevel === 'high')
-    ? "border-yellow-500/50 !bg-gradient-to-br from-yellow-500/10 via-yellow-400/5 to-transparent shadow-md shadow-yellow-500/10"
+    ? "border-2 border-amber-500/70 dark:border-amber-400/60 !bg-gradient-to-br from-amber-500/15 via-amber-400/8 to-transparent dark:from-amber-500/25 dark:via-amber-400/12 dark:to-transparent shadow-md shadow-amber-500/20 dark:shadow-amber-400/15"
     : (normalizedLevel === 'medium')
-      ? "border-yellow-500/50 !bg-gradient-to-br from-gray-100 to-transparent dark:from-gray-800/50 dark:to-transparent"
+      ? "border-2 border-amber-500/60 dark:border-amber-400/50 !bg-gradient-to-br from-gray-100 to-transparent dark:from-gray-800/60 dark:to-transparent"
       : "border-0 !bg-gradient-to-br from-gray-100 to-transparent dark:from-gray-800/50 dark:to-transparent";
 
   return (
     <Link to={`/vote/${id}`}>
-      <Card className={cn(
-        "border cursor-pointer active:scale-100 transition-none",
-        exposureStyles
-      )}>
+      <Card
+        className={cn(
+          "border cursor-pointer active:scale-100 transition-none",
+          exposureStyles
+        )}
+        data-exposure-level={normalizedLevel || 'normal'}
+      >
         <CardContent className="p-5">
           <div className="flex items-start justify-between mb-3">
             <h3 className="text-lg font-bold text-foreground flex-1 line-clamp-2">

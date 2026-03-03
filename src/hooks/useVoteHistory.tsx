@@ -21,6 +21,13 @@ interface UseVoteHistoryOptions {
   isAdmin?: boolean;
 }
 
+/** 依 status 或 end_at 判斷主題是否已結束（DB 的 status 可能尚未更新為 ended） */
+const resolveTopicStatus = (status: string | undefined, endAt: string | undefined): string => {
+  if (status === 'ended') return 'ended';
+  if (endAt && new Date(endAt) <= new Date()) return 'ended';
+  return status === 'active' ? 'active' : 'unknown';
+};
+
 const resolveOptionText = (topicOptions: any[] | undefined, selectedOption: string | null) => {
   if (!selectedOption) return '未知選項';
   if (!Array.isArray(topicOptions)) return selectedOption;
@@ -84,6 +91,7 @@ export const useVoteHistory = (userId: string | undefined, options?: { timeFilte
           topics (
             title,
             status,
+            end_at,
             tags,
             options
           )
@@ -119,6 +127,7 @@ export const useVoteHistory = (userId: string | undefined, options?: { timeFilte
           topics (
             title,
             status,
+            end_at,
             tags,
             options
           )
@@ -146,32 +155,38 @@ export const useVoteHistory = (userId: string | undefined, options?: { timeFilte
       // 組合代幣投票歷史
       const voteHistory: VoteHistory[] = (votes || [])
         .filter(vote => vote.topics) // 只保留主題還存在的投票
-        .map(vote => ({
-          id: vote.id,
-          topic_id: vote.topic_id,
-          topic_title: (vote.topics as any)?.title || '未知主題',
-          option_selected: resolveOptionText((vote.topics as any)?.options, vote.option),
-          tokens_used: vote.amount || 0,
-          is_free_vote: false,
-          voted_at: vote.created_at,
-          topic_status: (vote.topics as any)?.status || 'unknown',
-          topic_tags: (vote.topics as any)?.tags || [],
-        }));
+        .map(vote => {
+          const t = vote.topics as any;
+          return {
+            id: vote.id,
+            topic_id: vote.topic_id,
+            topic_title: t?.title || '未知主題',
+            option_selected: resolveOptionText(t?.options, vote.option),
+            tokens_used: vote.amount || 0,
+            is_free_vote: false,
+            voted_at: vote.created_at,
+            topic_status: resolveTopicStatus(t?.status, t?.end_at),
+            topic_tags: t?.tags || [],
+          };
+        });
 
       // 組合免費投票歷史
       const freeVoteHistory: VoteHistory[] = (freeVotes || [])
         .filter(vote => vote.topics) // 只保留主題還存在的投票
-        .map(vote => ({
-          id: vote.id,
-          topic_id: vote.topic_id,
-          topic_title: (vote.topics as any)?.title || '未知主題',
-          option_selected: resolveOptionText((vote.topics as any)?.options, vote.option),
-          tokens_used: 0,
-          is_free_vote: true,
-          voted_at: vote.used_at,
-          topic_status: (vote.topics as any)?.status || 'unknown',
-          topic_tags: (vote.topics as any)?.tags || [],
-        }));
+        .map(vote => {
+          const t = vote.topics as any;
+          return {
+            id: vote.id,
+            topic_id: vote.topic_id,
+            topic_title: t?.title || '未知主題',
+            option_selected: resolveOptionText(t?.options, vote.option),
+            tokens_used: 0,
+            is_free_vote: true,
+            voted_at: vote.used_at,
+            topic_status: resolveTopicStatus(t?.status, t?.end_at),
+            topic_tags: t?.tags || [],
+          };
+        });
 
       // 合併並按時間排序
       const allHistory = [...voteHistory, ...freeVoteHistory]

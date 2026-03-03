@@ -17,6 +17,7 @@ export interface AiClosingStatement {
   created_at: string;
 }
 
+/** 從 DB 讀取結語：topic_ai_summary 為永久留存、所有用戶（含匿名）皆可讀取 */
 const fetchClosing = async (topicId: string) => {
   const { data, error } = await supabase
     .from("topic_ai_summary")

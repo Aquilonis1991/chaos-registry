@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -57,6 +57,8 @@ const VoteDetailPage = () => {
   // AI 混亂結語（主題結束後一次性生成）
   const { statement: aiClosing, isLoading: aiClosingLoading, isGenerating: aiClosingGenerating, triggerGenerate: triggerAiClosing } = useAiClosingStatement(topic);
   const isTopicEnded = topic ? (topic.status === 'ended' || new Date(topic.end_at || 0) <= new Date()) : false;
+  /** 已自動觸發過產生結語的 topic id 集合（避免重複呼叫） */
+  const autoClosingTriggeredRef = useRef<Set<string>>(new Set());
 
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isVoting, setIsVoting] = useState(false);
@@ -132,6 +134,17 @@ const VoteDetailPage = () => {
       });
     return () => { cancelled = true; };
   }, [user?.id, isAnonymous, id]);
+
+  // 已結束且尚無結語時，自動在背景觸發產生結語（補足排程未跑或延遲的情況）
+  useEffect(() => {
+    if (!topic?.id || !isTopicEnded || aiClosing || aiClosingLoading || aiClosingGenerating) return;
+    if (!user || isAnonymous) return;
+    if (autoClosingTriggeredRef.current.has(topic.id)) return;
+    autoClosingTriggeredRef.current.add(topic.id);
+    triggerAiClosing().then((r) => {
+      if (r.success) toast.success(getText("chaos_closing.generateSuccess", "結語已產生"));
+    });
+  }, [topic?.id, isTopicEnded, aiClosing, aiClosingLoading, aiClosingGenerating, user, isAnonymous, triggerAiClosing, getText]);
 
   const handleVote = async (tokenAmount: number) => {
     if (!selectedOption) {

@@ -19,6 +19,8 @@ CREATE POLICY "Everyone can read topic ai summary"
 
 CREATE INDEX IF NOT EXISTS idx_topic_ai_summary_topic_id ON public.topic_ai_summary(topic_id);
 
+COMMENT ON TABLE public.topic_ai_summary IS '主題結束後的 AI 混亂結語（娛樂性、一次性生成）。已產生的結語對所有用戶可見並永久留存。';
+
 -- RPC: 回傳「已結束且尚未有混亂結語」的主題 id 列表，供 process-ended-topics-closing 排程使用。
 -- 條件：end_at <= now()、且 (ai_summary_generated = false OR ai_summary_generated IS NULL)、且 topic_ai_summary 尚無該 topic_id。
 CREATE OR REPLACE FUNCTION public.get_ended_topics_without_closing()

@@ -33,6 +33,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 import { formatRelativeTime, formatRemainingTime } from "@/lib/relativeTime";
+import { cn } from "@/lib/utils";
 import { OfficialSummaryCard } from "@/components/OfficialSummaryCard";
 import { ChaosClosingCard } from "@/components/ChaosClosingCard";
 import { useOfficialSummary } from "@/hooks/useOfficialSummary";
@@ -54,7 +55,7 @@ const VoteDetailPage = () => {
   // Official Summary Hook
   const { summary, isLoading: summaryLoading } = useOfficialSummary(topic);
   // AI 混亂結語（主題結束後一次性生成）
-  const { statement: aiClosing, isLoading: aiClosingLoading } = useAiClosingStatement(topic);
+  const { statement: aiClosing, isLoading: aiClosingLoading, isGenerating: aiClosingGenerating, triggerGenerate: triggerAiClosing } = useAiClosingStatement(topic);
   const isTopicEnded = topic ? (topic.status === 'ended' || new Date(topic.end_at || 0) <= new Date()) : false;
 
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -507,11 +508,49 @@ const VoteDetailPage = () => {
                 isLoading={summaryLoading}
                 language={language}
               />
-              <ChaosClosingCard
-                statement={aiClosing}
-                isLoading={aiClosingLoading}
-                language={language}
-              />
+              {/* 混亂結語：已有則顯示；尚未產生且非載入中則顯示「手動產生」按鈕 */}
+              {aiClosing ? (
+                <section
+                  aria-label={getText("chaos_closing.sectionLabel", "混亂結語")}
+                  className="w-full space-y-2"
+                >
+                  <h2 className="text-lg font-semibold text-foreground sr-only">
+                    {getText("chaos_closing.title", "⚡ 混亂結語")}
+                  </h2>
+                  <ChaosClosingCard
+                    statement={aiClosing}
+                    isLoading={false}
+                    language={language}
+                  />
+                </section>
+              ) : !aiClosingLoading && (
+                <section aria-label={getText("chaos_closing.sectionLabel", "混亂結語")} className="w-full">
+                  <Card className="border-2 border-dashed border-muted-foreground/30 bg-muted/20">
+                    <CardContent className="flex flex-col items-center justify-center py-6">
+                      <p className="text-sm text-muted-foreground mb-3">
+                        {getText("chaos_closing.notYet", "混亂結語尚未生成")}
+                      </p>
+                      {user && !isAnonymous && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => triggerAiClosing().then((r) => {
+                            if (r.success) toast.success(getText("chaos_closing.generateSuccess", "結語已產生"));
+                            else if (r.error) toast.error(r.error);
+                          })}
+                          disabled={aiClosingGenerating}
+                        >
+                          {aiClosingGenerating ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            getText("chaos_closing.generateButton", "產生混亂結語")
+                          )}
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                </section>
+              )}
             </>
           ) : isAnonymous ? (
             <Card className="bg-muted/50 border-muted">
@@ -531,13 +570,16 @@ const VoteDetailPage = () => {
             </Card>
           ) : (
             <>
-              {/* Free Vote Button — 規格：accent（暖黃橙）；relative z-10 避免實機被白層遮住 */}
+              {/* Free Vote Button — 規格：accent（暖黃橙）；使用過後轉灰階 */}
               <div className="mb-4 relative z-10">
                 <Button
                   variant="accent"
                   size="lg"
                   onClick={handleFreeVote}
-                  className="w-full h-16 text-lg"
+                  className={cn(
+                    "w-full h-16 text-lg",
+                    !freeVoteAvailable && !checkingFreeVote && "grayscale opacity-90"
+                  )}
                   disabled={isVoting || !selectedOption || checkingFreeVote || !freeVoteAvailable}
                 >
                   {isVoting ? (

@@ -54,17 +54,17 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
   // 當 filter、limit、userId 或 expiredGraceDays 改變時，重置並重新載入
   useEffect(() => {
     if (enableInfiniteScroll) {
-      // 無限滾動模式：重置狀態
-      setTopics([]);
       setOffset(0);
       setHasMore(true);
       setLoadingMore(false);
       if (filter === 'joined') {
-        setAllJoinedTopicIds([]); // 清除緩存的 IDs
+        setTopics([]);
+        setAllJoinedTopicIds([]);
       }
+      // 熱門/最新：不先清空列表，等 fetch 完成再更新，避免高級卡樣式一瞬間跑掉
     }
     if (filter !== 'joined') {
-      fetchTopics(0, true); // 重新載入，不累積
+      fetchTopics(0, true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter, limit, userId, expiredGraceDays]);
@@ -218,23 +218,28 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
       const hasMoreData = processedTopics.length === limit;
       setHasMore(hasMoreData);
 
-      // 更新主題列表（累積或重置）
-      // 嚴格去重：確保同一主題不會重複顯示
+      // 更新主題列表：保留既有主題的 current_exposure_level，避免二次 fetch 後樣式跑掉
+      const mergeExposure = (prevList: Topic[]) => {
+        const prevById = new Map(prevList.map(t => [t.id, t]));
+        return processedTopics.map(t => ({
+          ...t,
+          current_exposure_level: t.current_exposure_level ?? prevById.get(t.id)?.current_exposure_level ?? null,
+        }));
+      };
       if (reset || currentOffset === 0) {
-        // 重置時也要去重（防止初始載入時有重複）
         setTopics(prev => {
+          const merged = mergeExposure(prev);
           const existingIds = new Set(prev.map(t => t.id));
-          const newTopics = processedTopics.filter(t => !existingIds.has(t.id));
-          return newTopics.length > 0 ? newTopics : processedTopics;
+          const newTopics = merged.filter(t => !existingIds.has(t.id));
+          return newTopics.length > 0 ? newTopics : merged;
         });
         setOffset(processedTopics.length);
       } else {
-        // 累積模式：嚴格避免重複
         setTopics(prev => {
+          const merged = mergeExposure(prev);
           const existingIds = new Set(prev.map(t => t.id));
-          const newTopics = processedTopics.filter(t => !existingIds.has(t.id));
+          const newTopics = merged.filter(t => !existingIds.has(t.id));
           if (newTopics.length === 0) {
-            // 如果所有新主題都已存在，可能是分頁問題，停止載入更多
             setHasMore(false);
             return prev;
           }

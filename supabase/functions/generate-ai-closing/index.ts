@@ -15,7 +15,12 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const { topic_id } = await req.json();
+    let body: { topic_id?: string } = {};
+    try {
+      body = await req.json();
+    } catch (_) {}
+
+    const topic_id = body?.topic_id;
     if (!topic_id) throw new Error("topic_id is required");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
@@ -24,13 +29,17 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Unauthorized");
-    const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
-    if (authError || !user) throw new Error("Unauthorized");
+    const cronSecret = req.headers.get("x-cron-secret");
+    const isCron = !!cronSecret && cronSecret === Deno.env.get("CRON_SECRET");
+    if (!isCron) {
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader) throw new Error("Unauthorized");
+      const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user }, error: authError } = await userClient.auth.getUser();
+      if (authError || !user) throw new Error("Unauthorized");
+    }
 
     // 1. Lock and fetch topic (use RPC for FOR UPDATE to prevent race)
     const { data: topicRow, error: topicErr } = await supabase

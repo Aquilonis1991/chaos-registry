@@ -1,0 +1,8 @@
+key,category,zh,en,ja,description
+chaos_closing.sectionLabel,chaos_closing,混亂結語,Chaos Closing,混沌クロージング,區塊無障礙標籤／區段標題
+chaos_closing.title,chaos_closing,⚡ 混亂結語,⚡ Chaos Closing,⚡ 混沌クロージング,結語卡片主標題
+chaos_closing.loading,chaos_closing,系統正在生成混亂結語...,Generating chaos closing...,混沌クロージングを生成中...,載入中顯示文字
+chaos_closing.generatedAt,chaos_closing,生成於,Generated at,生成日時,結語生成時間標籤前綴
+chaos_closing.notYet,chaos_closing,混亂結語尚未生成,Chaos closing not yet generated,混沌クロージングはまだ生成されていません,尚未產生結語時的說明
+chaos_closing.generateButton,chaos_closing,產生混亂結語,Generate chaos closing,混沌クロージングを生成,手動觸發產生結語按鈕文字
+chaos_closing.generateSuccess,chaos_closing,結語已產生,Closing generated,クロージングを生成しました,產生成功時的 toast 訊息

@@ -5,11 +5,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const FALLBACK_TEMPLATES = [
-  "ChaosRegistry 已完成紀錄。",
-  "本次混亂已存檔。",
-  "請冷靜地參與下一場混亂。",
-];
+const FALLBACK_ZH = "ChaosRegistry 已完成紀錄。";
+const FALLBACK_EN = "ChaosRegistry has recorded this session.";
+const FALLBACK_JA = "ChaosRegistry は記録を完了しました。";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -66,10 +64,10 @@ Deno.serve(async (req) => {
       await supabase.from("topics").update({ status: "ended" }).eq("id", topic_id);
     }
 
-    // 3. Check if already generated
+    // 3. Check if already generated（回傳含三語欄位供前端依語言顯示）
     const { data: existing } = await supabase
       .from("topic_ai_summary")
-      .select("id, content, created_at")
+      .select("id, content, content_zh, content_en, content_ja, created_at")
       .eq("topic_id", topic_id)
       .maybeSingle();
 
@@ -82,7 +80,7 @@ Deno.serve(async (req) => {
     if (topicRow.ai_summary_generated === true) {
       const { data: existing2 } = await supabase
         .from("topic_ai_summary")
-        .select("id, content, created_at")
+        .select("id, content, content_zh, content_en, content_ja, created_at")
         .eq("topic_id", topic_id)
         .maybeSingle();
       if (existing2) {
@@ -145,56 +143,61 @@ Deno.serve(async (req) => {
       console.warn("Failed to fetch dynamic prompt, using default:", e);
     }
 
-    const userPrompt = `根據以下投票結果生成混亂結語：\n${JSON.stringify(aiInput, null, 2)}\n\n特別處理：若 total_votes 為 0，生成「群眾沉默」版本；若為 1，生成「孤獨決議」版本。`;
+    const userPromptBase = `根據以下投票結果生成混亂結語：\n${JSON.stringify(aiInput, null, 2)}\n\n特別處理：若 total_votes 為 0，生成「群眾沉默」版本；若為 1，生成「孤獨決議」版本。`;
 
-    let content = "";
+    const langInstructions: { lang: "zh" | "en" | "ja"; instruction: string; fallback: string }[] = [
+      { lang: "zh", instruction: "請用繁體中文輸出，不可使用英文或日文。", fallback: FALLBACK_ZH },
+      { lang: "en", instruction: "Output in English only.", fallback: FALLBACK_EN },
+      { lang: "ja", instruction: "日本語のみで出力してください。", fallback: FALLBACK_JA },
+    ];
 
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const res = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${openAiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "gpt-4o-mini",
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userPrompt },
-            ],
-            temperature: 0.7,
-          }),
-        });
-        const data = await res.json();
-        if (data.error) throw new Error(data.error.message);
-        const text = data.choices?.[0]?.message?.content?.trim();
-        if (!text) throw new Error("Empty AI response");
-        content = text;
-        break;
-      } catch (_e) {
-        if (attempt === 1) {
-          content = FALLBACK_TEMPLATES[Math.floor(Math.random() * FALLBACK_TEMPLATES.length)];
+    const generateOne = async (instruction: string, fallback: string): Promise<string> => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const res = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${openAiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: `${userPromptBase}\n\n${instruction}` },
+              ],
+              temperature: 0.7,
+            }),
+          });
+          const data = await res.json();
+          if (data.error) throw new Error(data.error.message);
+          const text = data.choices?.[0]?.message?.content?.trim();
+          if (!text) throw new Error("Empty AI response");
+          return text;
+        } catch (_e) {
+          if (attempt === 1) return fallback;
         }
       }
-    }
+      return fallback;
+    };
 
-    if (!content) {
-      content = FALLBACK_TEMPLATES[0];
-    }
+    const [content_zh, content_en, content_ja] = await Promise.all(
+      langInstructions.map(({ instruction, fallback }) => generateOne(instruction, fallback))
+    );
+    const content = content_zh || content_en || content_ja || FALLBACK_ZH;
 
     // 6. Insert (handle unique conflict - another request might have inserted)
     const { data: inserted, error: insertErr } = await supabase
       .from("topic_ai_summary")
-      .insert({ topic_id, content })
-      .select("id, content, created_at")
+      .insert({ topic_id, content, content_zh, content_en, content_ja })
+      .select("id, content, content_zh, content_en, content_ja, created_at")
       .single();
 
     if (insertErr) {
       if (insertErr.code === "23505") {
         const { data: existing3 } = await supabase
           .from("topic_ai_summary")
-          .select("id, content, created_at")
+          .select("id, content, content_zh, content_en, content_ja, created_at")
           .eq("topic_id", topic_id)
           .single();
         if (existing3) {

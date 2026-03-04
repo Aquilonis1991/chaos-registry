@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { BaseLanguage } from "@/contexts/LanguageContext";
 
 interface TopicData {
   id: string;
@@ -17,18 +18,44 @@ export interface AiClosingStatement {
   created_at: string;
 }
 
-/** 從 DB 讀取結語：topic_ai_summary 為永久留存、所有用戶（含匿名）皆可讀取 */
-const fetchClosing = async (topicId: string) => {
+type RawRow = {
+  id: string;
+  topic_id: string;
+  content: string | null;
+  content_zh?: string | null;
+  content_en?: string | null;
+  content_ja?: string | null;
+  created_at: string;
+};
+
+/** 依 UI 語言選出要顯示的結語內文（三語欄位優先，無則 fallback content） */
+function resolveContentByLanguage(row: RawRow, lang: BaseLanguage): string {
+  const zh = row.content_zh ?? row.content;
+  const en = row.content_en ?? row.content;
+  const ja = row.content_ja ?? row.content;
+  const byLang = { zh, en, ja };
+  return byLang[lang] || zh || en || ja || "";
+}
+
+/** 從 DB 讀取結語（含三語欄位），並依語言回傳單一 content */
+const fetchClosing = async (topicId: string, language: BaseLanguage) => {
   const { data, error } = await supabase
     .from("topic_ai_summary")
-    .select("id, topic_id, content, created_at")
+    .select("id, topic_id, content, content_zh, content_en, content_ja, created_at")
     .eq("topic_id", topicId)
     .maybeSingle();
   if (error && error.code !== "PGRST116") throw error;
-  return data as AiClosingStatement | null;
+  if (!data) return null;
+  const row = data as RawRow;
+  return {
+    id: row.id,
+    topic_id: row.topic_id,
+    content: resolveContentByLanguage(row, language),
+    created_at: row.created_at,
+  } as AiClosingStatement;
 };
 
-export const useAiClosingStatement = (topic: TopicData | null) => {
+export const useAiClosingStatement = (topic: TopicData | null, language: BaseLanguage = "zh") => {
   const [statement, setStatement] = useState<AiClosingStatement | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -38,9 +65,9 @@ export const useAiClosingStatement = (topic: TopicData | null) => {
     if (!topic?.id) return;
     const isEnded = topic.status === "ended" || (topic.end_at && new Date(topic.end_at) <= new Date());
     if (!isEnded) return;
-    const data = await fetchClosing(topic.id);
+    const data = await fetchClosing(topic.id, language);
     setStatement(data);
-  }, [topic?.id, topic?.status, topic?.end_at]);
+  }, [topic?.id, topic?.status, topic?.end_at, language]);
 
   useEffect(() => {
     if (!topic) return;
@@ -53,7 +80,7 @@ export const useAiClosingStatement = (topic: TopicData | null) => {
       try {
         setIsLoading(true);
         setError(null);
-        const data = await fetchClosing(topic.id);
+        const data = await fetchClosing(topic.id, language);
         if (mounted) setStatement(data);
       } catch (e: any) {
         console.error("AI closing statement error:", e);
@@ -65,13 +92,14 @@ export const useAiClosingStatement = (topic: TopicData | null) => {
 
     load();
     return () => { mounted = false; };
-  }, [topic?.id, topic?.status]);
+  }, [topic?.id, topic?.status, language]);
 
-  /** 手動觸發產生混亂結語（已結束主題且尚無結語時可用，不需等排程） */
+  /** 手動觸發產生混亂結語（已結束主題且尚無結語時可用，不需等排程）。已產生結語則不再呼叫 API。 */
   const triggerGenerate = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
     if (!topic?.id) return { success: false, error: "No topic" };
     const isEnded = topic.status === "ended" || (topic.end_at && new Date(topic.end_at) <= new Date());
     if (!isEnded) return { success: false, error: "Topic not ended" };
+    if (statement) return { success: true };
     try {
       setIsGenerating(true);
       setError(null);
@@ -88,10 +116,16 @@ export const useAiClosingStatement = (topic: TopicData | null) => {
         return { success: false, error: data.error };
       }
       if (data?.success && data?.data) {
-        setStatement(data.data as AiClosingStatement);
+        const raw = data.data as RawRow;
+        setStatement({
+          id: raw.id,
+          topic_id: raw.topic_id,
+          content: resolveContentByLanguage(raw, language),
+          created_at: raw.created_at,
+        });
         return { success: true };
       }
-      const refreshed = await fetchClosing(topic.id);
+      const refreshed = await fetchClosing(topic.id, language);
       setStatement(refreshed);
       return { success: !!refreshed };
     } catch (e: any) {
@@ -101,7 +135,7 @@ export const useAiClosingStatement = (topic: TopicData | null) => {
     } finally {
       setIsGenerating(false);
     }
-  }, [topic?.id, topic?.status, topic?.end_at]);
+  }, [topic?.id, topic?.status, topic?.end_at, statement, language]);
 
   return { statement, isLoading, isGenerating, error, triggerGenerate, refetch };
 };

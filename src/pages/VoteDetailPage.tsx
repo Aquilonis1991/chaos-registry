@@ -29,7 +29,7 @@ import { EditTopicDialog } from "@/components/EditTopicDialog";
 import { DeleteTopicDialog } from "@/components/DeleteTopicDialog";
 import { ExposureApplyDialog } from "@/components/ExposureApplyDialog";
 import { useUserStats } from "@/hooks/useUserStats";
-import { useLanguage } from "@/contexts/LanguageContext";
+import { useLanguage, resolveBaseLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 import { formatRelativeTime, formatRemainingTime } from "@/lib/relativeTime";
@@ -55,7 +55,7 @@ const VoteDetailPage = () => {
   // Official Summary Hook
   const { summary, isLoading: summaryLoading } = useOfficialSummary(topic);
   // AI 混亂結語（主題結束後一次性生成）
-  const { statement: aiClosing, isLoading: aiClosingLoading, isGenerating: aiClosingGenerating, triggerGenerate: triggerAiClosing } = useAiClosingStatement(topic);
+  const { statement: aiClosing, isLoading: aiClosingLoading, isGenerating: aiClosingGenerating, triggerGenerate: triggerAiClosing } = useAiClosingStatement(topic, resolveBaseLanguage(language));
   const isTopicEnded = topic ? (topic.status === 'ended' || new Date(topic.end_at || 0) <= new Date()) : false;
   /** 已自動觸發過產生結語的 topic id 集合（避免重複呼叫） */
   const autoClosingTriggeredRef = useRef<Set<string>>(new Set());
@@ -442,8 +442,8 @@ const VoteDetailPage = () => {
           </div>
         </div>
 
-        {/* Vote Options */}
-        <div className="space-y-3 mb-6 max-w-3xl mx-auto w-full px-4 sm:px-6">
+        {/* Vote Options（z-0 確保在按鈕區下方，避免 Card 的 bg-card 蓋住按鈕） */}
+        <div className="relative z-0 space-y-3 mb-6 max-w-3xl mx-auto w-full px-4 sm:px-6">
           <h3 className="text-lg font-semibold text-foreground mb-3">{chooseAnswerTitle}</h3>
           {topic.options && topic.options.length > 0 ? (
             topic.options.map((option, index) => {
@@ -512,8 +512,8 @@ const VoteDetailPage = () => {
           })()}
         </div>
 
-        {/* Vote Actions or Official Summary（relative z-10 避免被選項卡陰影/層疊遮住） */}
-        <div className="relative z-10 space-y-3 mb-6 max-w-3xl mx-auto w-full px-4 sm:px-6">
+        {/* Vote Actions：獨立堆疊層 + 背景，避免被選項卡或其它白色層蓋住按鈕顏色 */}
+        <div className="relative z-20 isolate bg-background space-y-3 mb-6 max-w-3xl mx-auto w-full px-4 sm:px-6 pt-1">
           {isTopicEnded ? (
             <>
               <OfficialSummaryCard
@@ -583,16 +583,14 @@ const VoteDetailPage = () => {
             </Card>
           ) : (
             <>
-              {/* Free Vote Button — 規格：accent（暖黃橙）；使用過後轉灰階 */}
+              {/* Free Vote Button — 規格：accent；當日額度用畢改灰階（inline style 避免被 disabled 樣式覆蓋） */}
               <div className="mb-4 relative z-10">
                 <Button
                   variant="accent"
                   size="lg"
                   onClick={handleFreeVote}
-                  className={cn(
-                    "w-full h-16 text-lg",
-                    !freeVoteAvailable && !checkingFreeVote && "grayscale opacity-90"
-                  )}
+                  className="w-full h-16 text-lg"
+                  style={!freeVoteAvailable && !checkingFreeVote ? { filter: "grayscale(1)", opacity: 0.9 } : undefined}
                   disabled={isVoting || !selectedOption || checkingFreeVote || !freeVoteAvailable}
                 >
                   {isVoting ? (

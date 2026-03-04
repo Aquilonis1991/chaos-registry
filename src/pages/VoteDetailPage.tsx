@@ -87,7 +87,6 @@ const VoteDetailPage = () => {
   const chooseAnswerTitle = getText('vote.detail.section.answers', '選擇你的答案');
   const noOptionsText = getText('vote.detail.options.empty', '此主題暫無選項');
   const selectedMark = getText('vote.detail.option.selected', '✓ 已選擇');
-  const selectedLabelTemplate = getText('vote.detail.option.selectedLabel', '✓ 已選擇：{{option}}');
   const unknownOptionText = getText('vote.detail.option.unknown', '未知選項');
   const anonymousCardDescription = getText('vote.detail.anonymous.description', '匿名瀏覽模式下無法投票，請註冊帳號以參與投票活動');
   const anonymousButton = getText('vote.detail.anonymous.button', '前往註冊');
@@ -497,19 +496,6 @@ const VoteDetailPage = () => {
               </CardContent>
             </Card>
           )}
-          {/* Debug info - 顯示已選擇的選項文字 */}
-          {selectedOption && (() => {
-            const selected = topic.options?.find((opt, idx) => {
-              const optId = opt?.id || opt?.id || (typeof opt === 'string' ? `option-${idx}` : `option-${idx}`);
-              return optId === selectedOption;
-            });
-            const selectedText = selected?.text || (typeof selected === 'string' ? selected : unknownOptionText);
-            return selectedText ? (
-              <div className="text-xs text-primary mt-2 font-medium">
-                {selectedLabelTemplate.replace('{{option}}', selectedText)}
-              </div>
-            ) : null;
-          })()}
         </div>
 
         {/* Vote Actions：獨立堆疊層 + 背景，避免被選項卡或其它白色層蓋住按鈕顏色 */}

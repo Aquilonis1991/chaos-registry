@@ -15,6 +15,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
 import { isNative } from "@/lib/capacitor";
+import { devLog } from "@/lib/devLog";
 import { signupSchema, loginSchema } from "@/lib/validationSchemas";
 import { Logo } from "@/components/Logo";
 import WebAdminOnlyPage from "./WebAdminOnlyPage";
@@ -38,7 +39,7 @@ const AuthPage = () => {
   const emailRedirectUrl = `${publicSiteUrl}/auth/verify-redirect`;
   const appDeepLinkCallback = "votechaos://auth/callback";
 
-  console.log('[AuthPage] Configured redirect URL:', emailRedirectUrl);
+  devLog('[AuthPage] Configured redirect URL:', emailRedirectUrl);
 
   // 檢查已登入用戶的管理員權限（僅網頁版）
   useEffect(() => {
@@ -328,8 +329,8 @@ const AuthPage = () => {
       // 構建 Edge Function URL
       const edgeFunctionUrl = `${supabaseUrl}/functions/v1/${functionName}`;
       
-      console.log(`[AuthPage] Edge Function URL: ${edgeFunctionUrl}`);
-      console.log(`[AuthPage] Has session token: ${!!session?.access_token}`);
+      devLog(`[AuthPage] Edge Function URL: ${edgeFunctionUrl}`);
+      devLog(`[AuthPage] Has session token: ${!!session?.access_token}`);
       
       // 使用 fetch 直接調用 Edge Function
       const response = await fetch(edgeFunctionUrl, {
@@ -364,7 +365,7 @@ const AuthPage = () => {
         throw new Error('Edge Function 未返回 authUrl');
       }
 
-      console.log(`[AuthPage] Redirecting to OAuth page: ${authUrl}`);
+      devLog(`[AuthPage] Redirecting to OAuth page: ${authUrl}`);
       
       // 在 App 環境中，直接使用 window.location.href 在當前 WebView 中打開
       // WebView 配置已經設置了 setSupportMultipleWindows(false) 和 WebChromeClient

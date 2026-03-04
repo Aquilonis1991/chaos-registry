@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { isNative } from "@/lib/capacitor";
+import { devLog } from "@/lib/devLog";
 import { toast } from "sonner";
 
 /**
@@ -18,8 +19,8 @@ export const OAuthCallbackHandler = () => {
     if (!isNative()) return;
 
     const handleOAuthCallback = async (event: CustomEvent<{ url: string; params?: Record<string, string> }>) => {
-      console.log('[OAuthCallbackHandler] handleOAuthCallback called, isProcessing:', isProcessing);
-      console.log('[OAuthCallbackHandler] Event detail:', JSON.stringify(event.detail));
+      devLog('[OAuthCallbackHandler] handleOAuthCallback called, isProcessing:', isProcessing);
+      devLog('[OAuthCallbackHandler] Event detail:', JSON.stringify(event.detail));
       
       if (isProcessing) {
         console.log('[OAuthCallbackHandler] Already processing OAuth callback, ignoring duplicate');
@@ -39,7 +40,7 @@ export const OAuthCallbackHandler = () => {
             ? `error-${params.error}`
             : `url-${event.detail.url.substring(0, 50)}`;
       
-      console.log('[OAuthCallbackHandler] Generated callbackId:', callbackId.substring(0, 50));
+      devLog('[OAuthCallbackHandler] Generated callbackId:', callbackId.substring(0, 50));
       
       // ✅ 關鍵修復：檢查是否已經處理過這個回調
       // 特殊情況：如果有 access_token，即使已處理過，也要檢查 session
@@ -51,7 +52,7 @@ export const OAuthCallbackHandler = () => {
         // ✅ 關鍵修復：如果有 access_token，無論 callbackId 是什麼，都要檢查並嘗試建立 session
         // 這樣即使使用舊的 URL-based callbackId，也能正常處理
         if (params.access_token && params.refresh_token) {
-          console.log('[OAuthCallbackHandler] Duplicate callback with tokens, checking if session exists');
+          devLog('[OAuthCallbackHandler] Duplicate callback with tokens, checking if session exists');
           const { data: { session } } = await supabase.auth.getSession();
           if (session) {
             console.log('[OAuthCallbackHandler] ✅ Session exists, login was successful');
@@ -197,7 +198,7 @@ export const OAuthCallbackHandler = () => {
         // ⚠️ 重要：即使沒有 access_token，也要檢查是否有 URL 中包含 access_token（舊版邏輯）
         // 檢查 URL 的 hash fragment 是否包含 access_token
         if (callbackUrl.includes('#access_token=')) {
-          console.log('[OAuthCallbackHandler] ⚠️ Old callbackId format detected, but URL contains access_token');
+          devLog('[OAuthCallbackHandler] ⚠️ Old callbackId format detected, but URL contains access_token');
           // 即使 callbackId 是舊格式，只要 URL 中有 access_token，就應該處理
           // 但由於已經被標記為已處理，我們需要檢查 session
           const { data: { session } } = await supabase.auth.getSession();
@@ -244,11 +245,11 @@ export const OAuthCallbackHandler = () => {
       processedCallbacksRef.current.add(callbackId);
       console.log('[OAuthCallbackHandler] Marking callback as processed:', callbackId);
       
-      console.log('[OAuthCallbackHandler] Processing OAuth callback:', callbackUrl);
-      console.log('[OAuthCallbackHandler] Callback parameters:', JSON.stringify(params));
-      console.log('[OAuthCallbackHandler] Has access_token:', !!params.access_token);
-      console.log('[OAuthCallbackHandler] Has refresh_token:', !!params.refresh_token);
-      console.log('[OAuthCallbackHandler] Has error:', !!params.error);
+      devLog('[OAuthCallbackHandler] Processing OAuth callback:', callbackUrl);
+      devLog('[OAuthCallbackHandler] Callback parameters:', JSON.stringify(params));
+      devLog('[OAuthCallbackHandler] Has access_token:', !!params.access_token);
+      devLog('[OAuthCallbackHandler] Has refresh_token:', !!params.refresh_token);
+      devLog('[OAuthCallbackHandler] Has error:', !!params.error);
 
       try {
         // 如果有錯誤參數，顯示錯誤訊息
@@ -360,7 +361,7 @@ export const OAuthCallbackHandler = () => {
         
         // 只對 LINE 使用 Edge Function，Twitter 使用 Supabase 內建流程
         if (code && state && !params.access_token && !params.refresh_token && provider === 'line') {
-          console.log('[OAuthCallbackHandler] Code and state found for LINE, calling Edge Function to exchange tokens');
+          devLog('[OAuthCallbackHandler] Code and state found for LINE, calling Edge Function to exchange tokens');
           
           const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://epyykzxxglkjombvozhr.supabase.co';
           const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -368,8 +369,8 @@ export const OAuthCallbackHandler = () => {
           const edgeFunctionUrl = `${supabaseUrl}/functions/v1/${functionName}/callback`;
           
           try {
-            console.log('[OAuthCallbackHandler] Calling Edge Function:', edgeFunctionUrl);
-            console.log('[OAuthCallbackHandler] Request body:', { code: code?.substring(0, 10) + '...', state, error: params.error });
+            devLog('[OAuthCallbackHandler] Calling Edge Function:', edgeFunctionUrl);
+            devLog('[OAuthCallbackHandler] Request body:', { code: code?.substring(0, 10) + '...', state, error: params.error });
             
             const response = await fetch(edgeFunctionUrl, {
               method: 'POST',
@@ -402,8 +403,8 @@ export const OAuthCallbackHandler = () => {
               }
               
               if (data?.redirectUrl) {
-                console.log('[OAuthCallbackHandler] Edge Function returned redirectUrl:', data.redirectUrl.substring(0, 100) + '...');
-                console.log('[OAuthCallbackHandler] Edge Function returned hashedToken:', !!data.hashedToken, data.hashedToken ? `length: ${data.hashedToken.length}` : 'missing');
+                devLog('[OAuthCallbackHandler] Edge Function returned redirectUrl:', data.redirectUrl.substring(0, 100) + '...');
+                devLog('[OAuthCallbackHandler] Edge Function returned hashedToken:', !!data.hashedToken, data.hashedToken ? `length: ${data.hashedToken.length}` : 'missing');
                 // Edge Function 返回 magic link 或 Deep Link
                 // 如果是 Deep Link，直接觸發 appUrlOpen 事件
                 if (data.redirectUrl.startsWith('votechaos://')) {
@@ -441,15 +442,15 @@ export const OAuthCallbackHandler = () => {
                   
                   if (isNative() && data.hashedToken) {
                     // 在 App 環境中，使用 hashed_token 直接驗證並創建 session
-                    console.log('[OAuthCallbackHandler] Native app detected, verifying token directly with hashed_token');
-                    console.log('[OAuthCallbackHandler] Hashed token length:', data.hashedToken?.length || 0);
+                    devLog('[OAuthCallbackHandler] Native app detected, verifying token directly with hashed_token');
+                    devLog('[OAuthCallbackHandler] Hashed token length:', data.hashedToken?.length || 0);
                     try {
                       const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
                         token_hash: data.hashedToken,
                         type: 'email', // 使用 'email' 類型（Supabase 已棄用 'magiclink' 類型）
                       });
                       
-                      console.log('[OAuthCallbackHandler] verifyOtp result:', {
+                      devLog('[OAuthCallbackHandler] verifyOtp result:', {
                         hasSession: !!verifyData?.session,
                         hasError: !!verifyError,
                         errorMessage: verifyError?.message
@@ -458,14 +459,14 @@ export const OAuthCallbackHandler = () => {
                       if (verifyError) {
                         console.error('[OAuthCallbackHandler] Failed to verify token:', verifyError);
                         // 如果驗證失敗，嘗試打開 magic link（讓 Supabase 處理）
-                        console.log('[OAuthCallbackHandler] Token verification failed, falling back to opening magic link');
+                        devLog('[OAuthCallbackHandler] Token verification failed, falling back to opening magic link');
                         window.location.href = data.redirectUrl;
                         return;
                       }
                       
                       if (verifyData.session) {
-                        console.log('[OAuthCallbackHandler] ✅ Token verified, session created');
-                        console.log('[OAuthCallbackHandler] Session details:', {
+                        devLog('[OAuthCallbackHandler] ✅ Token verified, session created');
+                        devLog('[OAuthCallbackHandler] Session details:', {
                           userId: verifyData.session.user.id,
                           accessTokenPrefix: verifyData.session.access_token.substring(0, 20) + '...',
                           hasRefreshToken: !!verifyData.session.refresh_token
@@ -555,7 +556,7 @@ export const OAuthCallbackHandler = () => {
         
         // 手動設置 Supabase session（因為 Deep Link 使用 hash fragment，Supabase 不會自動處理）
         if (params.access_token && params.refresh_token) {
-          console.log('[OAuthCallbackHandler] Setting session from OAuth callback tokens');
+          devLog('[OAuthCallbackHandler] Setting session from OAuth callback tokens');
           
           try {
             const { data: sessionData, error: sessionError } = await supabase.auth.setSession({

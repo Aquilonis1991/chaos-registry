@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { isNative } from '@/lib/capacitor';
+import { devLog } from '@/lib/devLog';
 
 /**
  * DeepLinkRedirectPage - 中間重定向頁面
@@ -18,18 +19,18 @@ export const DeepLinkRedirectPage = () => {
     const refreshToken = hashParams.get('refresh_token');
     const type = hashParams.get('type');
 
-    console.log('[DeepLinkRedirectPage] Processing redirect to Deep Link');
-    console.log('[DeepLinkRedirectPage] Hash:', hash);
-    console.log('[DeepLinkRedirectPage] Has access_token:', !!accessToken);
-    console.log('[DeepLinkRedirectPage] Has refresh_token:', !!refreshToken);
-    console.log('[DeepLinkRedirectPage] Type:', type);
+    devLog('[DeepLinkRedirectPage] Processing redirect to Deep Link');
+    devLog('[DeepLinkRedirectPage] Hash:', hash);
+    devLog('[DeepLinkRedirectPage] Has access_token:', !!accessToken);
+    devLog('[DeepLinkRedirectPage] Has refresh_token:', !!refreshToken);
+    devLog('[DeepLinkRedirectPage] Type:', type);
 
     // 如果是 magic link 回調，構建 Deep Link URL
     if (type === 'magiclink' && accessToken && refreshToken) {
       const deepLinkUrl = `votechaos://auth/callback#access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}&type=magiclink`;
-      console.log('[DeepLinkRedirectPage] Redirecting to Deep Link:', deepLinkUrl);
-      console.log('[DeepLinkRedirectPage] User agent:', navigator.userAgent);
-      console.log('[DeepLinkRedirectPage] Is native:', isNative());
+      devLog('[DeepLinkRedirectPage] Redirecting to Deep Link:', deepLinkUrl);
+      devLog('[DeepLinkRedirectPage] User agent:', navigator.userAgent);
+      devLog('[DeepLinkRedirectPage] Is native:', isNative());
 
       // 立即重定向到 Deep Link
       // 使用多種方法確保 Deep Link 被觸發

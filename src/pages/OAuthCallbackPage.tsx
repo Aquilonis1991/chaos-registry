@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { isNative } from '@/lib/capacitor';
+import { devLog } from '@/lib/devLog';
 
 /**
  * OAuthCallbackPage - 處理 Web URL OAuth 回調
@@ -17,12 +18,11 @@ export const OAuthCallbackPage = () => {
 
   // 處理重定向 URL（magic link 或 Deep Link）
   const handleRedirectUrl = (redirectUrl: string) => {
-    console.log('[OAuthCallbackPage] handleRedirectUrl called with:', redirectUrl);
+    devLog('[OAuthCallbackPage] handleRedirectUrl called with:', redirectUrl);
     
     // 檢查是否為 Deep Link
     if (redirectUrl.startsWith('votechaos://')) {
-      // 直接是 Deep Link，使用 window.location.href 觸發 appUrlOpen 事件
-      console.log('[OAuthCallbackPage] Deep Link detected, using window.location.href');
+      devLog('[OAuthCallbackPage] Deep Link detected, using window.location.href');
       window.location.href = redirectUrl;
       return;
     }
@@ -33,35 +33,24 @@ export const OAuthCallbackPage = () => {
         const urlObj = new URL(redirectUrl);
         const redirectTo = urlObj.searchParams.get('redirect_to');
         
-        console.log('[OAuthCallbackPage] Parsed redirectTo from magic link:', redirectTo);
+        devLog('[OAuthCallbackPage] Parsed redirectTo from magic link:', redirectTo);
         
         if (redirectTo && redirectTo.startsWith('votechaos://') && isNative()) {
-          // Magic link 中包含 Deep Link，在 App 環境中需要特殊處理
-          // 直接訪問 magic link URL，讓 Supabase 驗證 token 並重定向到 Deep Link
-          console.log('[OAuthCallbackPage] Magic link with Deep Link redirect_to detected, opening magic link for verification');
+          devLog('[OAuthCallbackPage] Magic link with Deep Link redirect_to detected, opening magic link for verification');
           
-          // 提取 token 參數
           const token = urlObj.searchParams.get('token');
           const type = urlObj.searchParams.get('type');
           
           if (token && type === 'magiclink') {
-            // 在 App 環境中，直接訪問 magic link URL
-            // Supabase 會驗證 token 並重定向到 Deep Link，Deep Link 會觸發 appUrlOpen 事件
-            // 然後 OAuthCallbackHandler 會處理 Deep Link 中的 tokens
-            console.log('[OAuthCallbackPage] Opening magic link, Supabase will verify token and redirect to Deep Link');
-            console.log('[OAuthCallbackPage] Magic link URL:', redirectUrl);
-            
-            // 使用 window.location.href 打開 magic link
-            // Supabase 會驗證 token 並重定向到 votechaos://auth/callback#access_token=...&refresh_token=...
+            devLog('[OAuthCallbackPage] Opening magic link, Supabase will verify token and redirect to Deep Link');
+            devLog('[OAuthCallbackPage] Magic link URL:', redirectUrl);
             window.location.href = redirectUrl;
           } else {
-            // 沒有 token 或 type 不正確，直接打開 magic link
-            console.log('[OAuthCallbackPage] No token or invalid type, opening magic link');
+            devLog('[OAuthCallbackPage] No token or invalid type, opening magic link');
             window.location.href = redirectUrl;
           }
         } else {
-          // 普通的 HTTP/HTTPS URL 或 magic link 不包含 Deep Link
-          console.log('[OAuthCallbackPage] Opening URL (no Deep Link):', redirectUrl);
+          devLog('[OAuthCallbackPage] Opening URL (no Deep Link):', redirectUrl);
           window.location.href = redirectUrl;
         }
       } catch (e) {
@@ -69,8 +58,7 @@ export const OAuthCallbackPage = () => {
         window.location.href = redirectUrl;
       }
     } else {
-      // 其他情況，直接使用 window.location.href
-      console.log('[OAuthCallbackPage] Opening URL (other format):', redirectUrl);
+      devLog('[OAuthCallbackPage] Opening URL (other format):', redirectUrl);
       window.location.href = redirectUrl;
     }
   };
@@ -81,11 +69,11 @@ export const OAuthCallbackPage = () => {
   useEffect(() => {
     // 同步檢查並立即轉發（在 Supabase 處理之前）
     // 這必須在 React 渲染之前就執行，所以放在 useEffect 的最開始
-    console.log('[OAuthCallbackPage] useEffect triggered');
-    console.log('[OAuthCallbackPage] Current URL:', window.location.href);
-    console.log('[OAuthCallbackPage] Current pathname:', window.location.pathname);
-    console.log('[OAuthCallbackPage] Current search:', window.location.search);
-    console.log('[OAuthCallbackPage] Current hash:', window.location.hash);
+    devLog('[OAuthCallbackPage] useEffect triggered');
+    devLog('[OAuthCallbackPage] Current URL:', window.location.href);
+    devLog('[OAuthCallbackPage] Current pathname:', window.location.pathname);
+    devLog('[OAuthCallbackPage] Current search:', window.location.search);
+    devLog('[OAuthCallbackPage] Current hash:', window.location.hash);
     
     const urlParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
@@ -95,7 +83,7 @@ export const OAuthCallbackPage = () => {
     const provider = urlParams.get('provider') || hashParams.get('provider');
     const platform = urlParams.get('platform') || hashParams.get('platform'); // 檢查 platform 參數
     
-    console.log('[OAuthCallbackPage] Extracted parameters:', {
+    devLog('[OAuthCallbackPage] Extracted parameters:', {
       code: code ? 'present' : 'missing',
       state: state ? 'present' : 'missing',
       error: error || 'none',
@@ -119,7 +107,7 @@ export const OAuthCallbackPage = () => {
       if (callbackId) {
         processedRef.current = callbackId;
       }
-      console.log('[OAuthCallbackPage] Code and state found for LINE, no access_token - forwarding to Edge Function');
+      devLog('[OAuthCallbackPage] Code and state found for LINE, no access_token - forwarding to Edge Function');
       // 只對 LINE 使用 Edge Function，Twitter 使用 Supabase 內建流程
       const functionName = 'line-auth';
       
@@ -171,13 +159,13 @@ export const OAuthCallbackPage = () => {
             
             if (data?.redirectUrl) {
               const redirectUrl = data.redirectUrl;
-              console.log('[OAuthCallbackPage] Edge Function returned redirect URL (LINE):', redirectUrl.substring(0, 100) + '...');
-              console.log('[OAuthCallbackPage] Edge Function returned hashedToken:', !!data.hashedToken, data.hashedToken ? `length: ${data.hashedToken.length}` : 'missing');
+              devLog('[OAuthCallbackPage] Edge Function returned redirect URL (LINE):', redirectUrl.substring(0, 100) + '...');
+              devLog('[OAuthCallbackPage] Edge Function returned hashedToken:', !!data.hashedToken, data.hashedToken ? `length: ${data.hashedToken.length}` : 'missing');
               
               // 在 App 環境中，如果有 hashedToken，直接驗證並創建 session
               if (isNative() && data.hashedToken) {
-                console.log('[OAuthCallbackPage] Native app detected, verifying token directly with hashed_token');
-                console.log('[OAuthCallbackPage] Hashed token length:', data.hashedToken.length);
+                devLog('[OAuthCallbackPage] Native app detected, verifying token directly with hashed_token');
+                devLog('[OAuthCallbackPage] Hashed token length:', data.hashedToken.length);
                 try {
                   const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
                     token_hash: data.hashedToken,
@@ -200,14 +188,14 @@ export const OAuthCallbackPage = () => {
                       status: verifyError.status
                     });
                     // 如果驗證失敗，嘗試打開 magic link（讓 Supabase 處理）
-                    console.log('[OAuthCallbackPage] Token verification failed, falling back to opening magic link');
+                    devLog('[OAuthCallbackPage] Token verification failed, falling back to opening magic link');
                     handleRedirectUrl(redirectUrl);
                     return;
                   }
                   
                   if (verifyData.session) {
-                    console.log('[OAuthCallbackPage] ✅ Token verified, session created');
-                    console.log('[OAuthCallbackPage] Session details:', {
+                    devLog('[OAuthCallbackPage] ✅ Token verified, session created');
+                    devLog('[OAuthCallbackPage] Session details:', {
                       userId: verifyData.session.user.id,
                       accessTokenPrefix: verifyData.session.access_token.substring(0, 20) + '...',
                       hasRefreshToken: !!verifyData.session.refresh_token
@@ -279,8 +267,8 @@ export const OAuthCallbackPage = () => {
     
     const handleCallback = async () => {
       try {
-        console.log('[OAuthCallbackPage] Processing OAuth callback');
-        console.log('[OAuthCallbackPage] Current URL:', window.location.href);
+        devLog('[OAuthCallbackPage] Processing OAuth callback');
+        devLog('[OAuthCallbackPage] Current URL:', window.location.href);
         
         // 檢查是否為 magic link 驗證後的回調（URL hash 中包含 access_token 和 refresh_token）
         const urlParams = new URLSearchParams(window.location.search);
@@ -291,7 +279,7 @@ export const OAuthCallbackPage = () => {
         const platform = urlParams.get('platform') || hashParams.get('platform'); // 從 URL 參數或 hash 中提取 platform
         const deepLink = urlParams.get('deep_link'); // 從 URL 參數中提取 deep_link（Edge Function 傳遞的）
         
-        console.log('[OAuthCallbackPage] Hash parameters:', {
+        devLog('[OAuthCallbackPage] Hash parameters:', {
           hasAccessToken: !!accessToken,
           hasRefreshToken: !!refreshToken,
           type: type || 'none',
@@ -304,7 +292,7 @@ export const OAuthCallbackPage = () => {
         if (deepLink && type === 'magiclink' && accessToken && refreshToken) {
           console.log('[OAuthCallbackPage] Deep link parameter detected, redirecting to Deep Link immediately');
           const deepLinkUrl = `${deepLink}#access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}&type=magiclink`;
-          console.log('[OAuthCallbackPage] Redirecting to Deep Link:', deepLinkUrl);
+          devLog('[OAuthCallbackPage] Redirecting to Deep Link:', deepLinkUrl);
           window.location.href = deepLinkUrl;
           return;
         }
@@ -326,7 +314,7 @@ export const OAuthCallbackPage = () => {
             if (platform === 'app' || isMobile) {
               console.log('[OAuthCallbackPage] External browser (platform=app or mobile device) detected, redirecting to Deep Link');
               const deepLinkUrl = `votechaos://auth/callback#access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}&type=magiclink`;
-              console.log('[OAuthCallbackPage] Redirecting to Deep Link:', deepLinkUrl);
+              devLog('[OAuthCallbackPage] Redirecting to Deep Link:', deepLinkUrl);
               
               // 嘗試重定向到 Deep Link
               // 如果應用已安裝，Android 系統會打開應用；否則，會顯示錯誤或忽略

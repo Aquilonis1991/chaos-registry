@@ -1,5 +1,6 @@
 import { App, AppState } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
+import { devLog } from '@/lib/devLog';
 
 // App 生命週期事件處理
 export const initializeAppLifecycle = () => {
@@ -20,68 +21,68 @@ export const initializeAppLifecycle = () => {
 
   // 監聽深層連結
   App.addListener('appUrlOpen', (data) => {
-    console.log('[app-lifecycle] ========== DEEP LINK RECEIVED ==========');
-    console.log('[app-lifecycle] App opened with URL:', data.url);
-    console.log('[app-lifecycle] Full URL data:', JSON.stringify(data));
-    console.log('[app-lifecycle] Timestamp:', new Date().toISOString());
+    devLog('[app-lifecycle] ========== DEEP LINK RECEIVED ==========');
+    devLog('[app-lifecycle] App opened with URL:', data.url);
+    devLog('[app-lifecycle] Full URL data:', JSON.stringify(data));
+    devLog('[app-lifecycle] Timestamp:', new Date().toISOString());
 
     try {
       const opened = new URL(data.url);
       // 例：votechaos://auth/callback#access_token=...&refresh_token=...
       const scheme = opened.protocol.replace(':', '');
-      console.log('[app-lifecycle] URL scheme:', scheme);
-      console.log('[app-lifecycle] URL hostname:', opened.hostname);
-      console.log('[app-lifecycle] URL pathname:', opened.pathname);
-      console.log('[app-lifecycle] URL search:', opened.search);
-      console.log('[app-lifecycle] URL hash:', opened.hash);
+      devLog('[app-lifecycle] URL scheme:', scheme);
+      devLog('[app-lifecycle] URL hostname:', opened.hostname);
+      devLog('[app-lifecycle] URL pathname:', opened.pathname);
+      devLog('[app-lifecycle] URL search:', opened.search);
+      devLog('[app-lifecycle] URL hash:', opened.hash);
 
       // 只處理我們的 Deep Link scheme
       if (scheme !== 'votechaos') {
-        console.log('[app-lifecycle] Ignoring non-votechaos deep link:', scheme);
+        devLog('[app-lifecycle] Ignoring non-votechaos deep link:', scheme);
         return;
       }
 
       const host = opened.hostname; // 例如 auth / vote / home ...
       const path = opened.pathname || '';
-      console.log('[app-lifecycle] Processing deep link - host:', host, 'path:', path);
+      devLog('[app-lifecycle] Processing deep link - host:', host, 'path:', path);
 
       // OAuth callback：派發事件給 OAuthCallbackHandler 處理（setSession + 導向 /home）
       if (host === 'auth' && path.startsWith('/callback')) {
-        console.log('[app-lifecycle] OAuth callback detected, extracting parameters...');
+        devLog('[app-lifecycle] OAuth callback detected, extracting parameters...');
         const params: Record<string, string> = {};
 
         // query params（Deep Link 使用 query 參數，例如：votechaos://auth/callback?code=...&state=...）
         opened.searchParams.forEach((v, k) => {
           params[k] = v;
-          console.log('[app-lifecycle] Query param:', k, '=', v);
+          devLog('[app-lifecycle] Query param:', k, '=', v);
         });
 
         // hash params（Supabase magic link / OAuth 回調常用，例如：votechaos://auth/callback#access_token=...）
         const hash = opened.hash?.startsWith('#') ? opened.hash.slice(1) : '';
         if (hash) {
-          console.log('[app-lifecycle] Hash fragment found:', hash);
+          devLog('[app-lifecycle] Hash fragment found:', hash);
           const hashParams = new URLSearchParams(hash);
           hashParams.forEach((v, k) => {
             params[k] = v;
-            console.log('[app-lifecycle] Hash param:', k, '=', v);
+            devLog('[app-lifecycle] Hash param:', k, '=', v);
           });
         }
 
-        console.log('[app-lifecycle] All extracted params:', JSON.stringify(params));
-        console.log('[app-lifecycle] Has code:', !!params.code);
-        console.log('[app-lifecycle] Has state:', !!params.state);
-        console.log('[app-lifecycle] Has access_token:', !!params.access_token);
-        console.log('[app-lifecycle] Has refresh_token:', !!params.refresh_token);
-        console.log('[app-lifecycle] Dispatching oauth-callback event...');
+        devLog('[app-lifecycle] All extracted params:', JSON.stringify(params));
+        devLog('[app-lifecycle] Has code:', !!params.code);
+        devLog('[app-lifecycle] Has state:', !!params.state);
+        devLog('[app-lifecycle] Has access_token:', !!params.access_token);
+        devLog('[app-lifecycle] Has refresh_token:', !!params.refresh_token);
+        devLog('[app-lifecycle] Dispatching oauth-callback event...');
         window.dispatchEvent(new CustomEvent('oauth-callback', { detail: { url: data.url, params } }));
-        console.log('[app-lifecycle] oauth-callback event dispatched');
+        devLog('[app-lifecycle] oauth-callback event dispatched');
         return;
       }
 
       // 其他 deep link：轉成 app 內路由（例如 votechaos://vote/123 → /vote/123）
-      console.log('[app-lifecycle] Non-OAuth deep link, converting to route...');
+      devLog('[app-lifecycle] Non-OAuth deep link, converting to route...');
       const slug = `/${host}${path}${opened.search}`;
-      console.log('[app-lifecycle] Redirecting to:', slug);
+      devLog('[app-lifecycle] Redirecting to:', slug);
       window.location.href = slug;
     } catch (e) {
       console.error('[app-lifecycle] Failed to parse deep link URL:', e);
@@ -110,11 +111,11 @@ export const initializeAppLifecycle = () => {
 // App 恢復到前景時執行
 const handleAppResume = () => {
   // 刷新資料
-  console.log('[app-lifecycle] App resumed - refreshing data');
-  console.log('[app-lifecycle] Current URL:', window.location.href);
-  console.log('[app-lifecycle] Current pathname:', window.location.pathname);
-  console.log('[app-lifecycle] Current search:', window.location.search);
-  console.log('[app-lifecycle] Current hash:', window.location.hash);
+  devLog('[app-lifecycle] App resumed - refreshing data');
+  devLog('[app-lifecycle] Current URL:', window.location.href);
+  devLog('[app-lifecycle] Current pathname:', window.location.pathname);
+  devLog('[app-lifecycle] Current search:', window.location.search);
+  devLog('[app-lifecycle] Current hash:', window.location.hash);
   
   // 檢查是否有 OAuth 回調參數（如果 Twitter 重定向到 WebView 而不是 Deep Link）
   const urlParams = new URLSearchParams(window.location.search);
@@ -124,7 +125,7 @@ const handleAppResume = () => {
   const error = urlParams.get('error') || hashParams.get('error');
   
   if (code || state || error) {
-    console.log('[app-lifecycle] OAuth callback parameters detected in URL after resume:', {
+    devLog('[app-lifecycle] OAuth callback parameters detected in URL after resume:', {
       code: code ? 'present' : 'missing',
       state: state ? 'present' : 'missing',
       error: error || 'none',
@@ -133,9 +134,9 @@ const handleAppResume = () => {
     
     // 如果是在 /auth/callback 路徑，讓 OAuthCallbackPage 處理
     if (window.location.pathname.includes('/auth/callback')) {
-      console.log('[app-lifecycle] Already on /auth/callback, OAuthCallbackPage should handle it');
+      devLog('[app-lifecycle] Already on /auth/callback, OAuthCallbackPage should handle it');
     } else {
-      console.log('[app-lifecycle] Not on /auth/callback, redirecting...');
+      devLog('[app-lifecycle] Not on /auth/callback, redirecting...');
       window.location.href = `/auth/callback${window.location.search}${window.location.hash}`;
     }
   }

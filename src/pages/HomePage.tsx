@@ -279,7 +279,6 @@ const HomePage = () => {
 
   return (
     <div className="min-h-screen bg-background pb-[calc(5rem+env(safe-area-inset-bottom,0px))]">
-      {/* Header：z-[100] 確保永遠高於中/高級主題半透明區塊與其他內容，新增主題按鈕不被遮住 */}
       <header className="sticky top-0 z-[100] bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
         <div className="max-w-screen-xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -294,27 +293,17 @@ const HomePage = () => {
                 </p>
               </div>
             </div>
-            
-            <div className="flex items-center gap-2">
-              <Button variant="accent" size="sm" className="rounded-full shadow-glow" asChild>
-                <Link to="/create" aria-label={getText('home.fab.create', '發起主題')}>
-                  <PlusCircle className="w-5 h-5" />
-                  <span className="ml-1.5 font-medium">{getText('home.fab.create', '發起主題')}</span>
-                </Link>
-              </Button>
-              <button 
-                onClick={() => navigate('/recharge')}
-                className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-4 py-2 rounded-full hover:bg-primary-foreground/30 transition-colors cursor-pointer"
-              >
-                <Activity className="w-5 h-5 text-accent" />
-                <span className="font-bold text-primary-foreground">{userTokens.toLocaleString()}</span>
-              </button>
-            </div>
+            <button 
+              onClick={() => navigate('/recharge')}
+              className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-4 py-2 rounded-full hover:bg-primary-foreground/30 transition-colors cursor-pointer"
+            >
+              <Activity className="w-5 h-5 text-accent" />
+              <span className="font-bold text-primary-foreground">{userTokens.toLocaleString()}</span>
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Content：z-0 與 relative 讓 header (z-[100]) 恆在之上，不被曝光卡半透明區塊遮住 */}
       <div className="relative z-0 max-w-screen-xl mx-auto px-4 py-6">
         {/* Announcements */}
         <div className="mb-6">
@@ -571,6 +560,18 @@ const HomePage = () => {
         </div>
       </div>
 
+      {/* 發起主題浮動按鈕：z-[100] 確保不被主題卡、導覽列或其它內容遮擋 */}
+      <Button
+        variant="accent"
+        size="lg"
+        className="fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] z-[100] rounded-full shadow-glow h-14 px-6 gap-2"
+        asChild
+      >
+        <Link to="/create" aria-label={getText('home.fab.create', '發起主題')}>
+          <PlusCircle className="w-6 h-6" />
+          <span className="font-medium">{getText('home.fab.create', '發起主題')}</span>
+        </Link>
+      </Button>
     </div>
   );
 };

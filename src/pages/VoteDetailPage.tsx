@@ -134,14 +134,14 @@ const VoteDetailPage = () => {
     return () => { cancelled = true; };
   }, [user?.id, isAnonymous, id]);
 
-  // 已結束且尚無結語時，自動在背景觸發產生結語（補足排程未跑或延遲的情況）
+  // 已結束且尚無結語時，自動在背景觸發產生結語（補足排程未跑或延遲的情況）。僅在「實際新產生」時才顯示 toast，已有結語進入頁面不彈窗
   useEffect(() => {
     if (!topic?.id || !isTopicEnded || aiClosing || aiClosingLoading || aiClosingGenerating) return;
     if (!user || isAnonymous) return;
     if (autoClosingTriggeredRef.current.has(topic.id)) return;
     autoClosingTriggeredRef.current.add(topic.id);
     triggerAiClosing().then((r) => {
-      if (r.success) toast.success(getText("chaos_closing.generateSuccess", "結語已產生"));
+      if (r.success && r.generated) toast.success(getText("chaos_closing.generateSuccess", "結語已產生"));
     });
   }, [topic?.id, isTopicEnded, aiClosing, aiClosingLoading, aiClosingGenerating, user, isAnonymous, triggerAiClosing, getText]);
 
@@ -534,7 +534,7 @@ const VoteDetailPage = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => triggerAiClosing().then((r) => {
-                            if (r.success) toast.success(getText("chaos_closing.generateSuccess", "結語已產生"));
+                            if (r.success && r.generated) toast.success(getText("chaos_closing.generateSuccess", "結語已產生"));
                             else if (r.error) toast.error(r.error);
                           })}
                           disabled={aiClosingGenerating}

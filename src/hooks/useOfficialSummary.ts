@@ -26,10 +26,8 @@ export const useOfficialSummary = (topic: TopicData | null) => {
 
         const fetchOrGenerateSummary = async () => {
             try {
-                setIsLoading(true);
                 setError(null);
-
-                // 1. Check if summary exists in DB
+                // 1. Check if summary exists in DB（先不設 loading，已有總結時不顯示「等待系統回應」）
                 const { data: existingData, error: dbError } = await supabase
                     .from('topic_summaries' as any)
                     .select('*')
@@ -38,18 +36,17 @@ export const useOfficialSummary = (topic: TopicData | null) => {
 
                 if (dbError && dbError.code !== 'PGRST116') {
                     console.error('Error fetching summary:', dbError);
-                    // Don't throw here, try to generate? No, DB error usually fatal.
                 }
 
                 if (existingData) {
                     if (isMounted) {
                         setSummary(existingData as unknown as TopicSummary);
-                        setIsLoading(false);
                     }
                     return;
                 }
 
-                // 2. If not exists, triggering AI generation
+                // 2. 尚無總結時才顯示 loading 並觸發 AI 產生
+                if (isMounted) setIsLoading(true);
                 const { data: aiData, error: aiError } = await supabase.functions.invoke('ai-topic-summary', {
                     body: {
                         topic_id: topic.id,

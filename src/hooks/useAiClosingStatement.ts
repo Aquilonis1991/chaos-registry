@@ -78,8 +78,8 @@ export const useAiClosingStatement = (topic: TopicData | null, language: BaseLan
 
     const load = async () => {
       try {
-        setIsLoading(true);
         setError(null);
+        // 僅讀取已有結語時不顯示 loading，避免「等待系統回應」
         const data = await fetchClosing(topic.id, language);
         if (mounted) setStatement(data);
       } catch (e: any) {
@@ -95,11 +95,11 @@ export const useAiClosingStatement = (topic: TopicData | null, language: BaseLan
   }, [topic?.id, topic?.status, language]);
 
   /** 手動觸發產生混亂結語（已結束主題且尚無結語時可用，不需等排程）。已產生結語則不再呼叫 API。 */
-  const triggerGenerate = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
-    if (!topic?.id) return { success: false, error: "No topic" };
+  const triggerGenerate = useCallback(async (): Promise<{ success: boolean; generated?: boolean; error?: string }> => {
+    if (!topic?.id) return { success: false, generated: false, error: "No topic" };
     const isEnded = topic.status === "ended" || (topic.end_at && new Date(topic.end_at) <= new Date());
-    if (!isEnded) return { success: false, error: "Topic not ended" };
-    if (statement) return { success: true };
+    if (!isEnded) return { success: false, generated: false, error: "Topic not ended" };
+    if (statement) return { success: true, generated: false };
     try {
       setIsGenerating(true);
       setError(null);
@@ -109,11 +109,11 @@ export const useAiClosingStatement = (topic: TopicData | null, language: BaseLan
       });
       if (invokeErr) {
         setError(invokeErr.message);
-        return { success: false, error: invokeErr.message };
+        return { success: false, generated: false, error: invokeErr.message };
       }
       if (data?.error) {
         setError(data.error);
-        return { success: false, error: data.error };
+        return { success: false, generated: false, error: data.error };
       }
       if (data?.success && data?.data) {
         const raw = data.data as RawRow;
@@ -123,15 +123,15 @@ export const useAiClosingStatement = (topic: TopicData | null, language: BaseLan
           content: resolveContentByLanguage(raw, language),
           created_at: raw.created_at,
         });
-        return { success: true };
+        return { success: true, generated: true };
       }
       const refreshed = await fetchClosing(topic.id, language);
       setStatement(refreshed);
-      return { success: !!refreshed };
+      return { success: !!refreshed, generated: !!refreshed };
     } catch (e: any) {
       const msg = e?.message ?? "Failed to generate";
       setError(msg);
-      return { success: false, error: msg };
+      return { success: false, generated: false, error: msg };
     } finally {
       setIsGenerating(false);
     }

@@ -53,9 +53,9 @@ const VoteDetailPage = () => {
   const voteButtonAmounts = getConfig('vote_button_amounts', [1, 10, 100]) as number[];
 
   // Official Summary Hook
-  const { summary, isLoading: summaryLoading } = useOfficialSummary(topic);
+  const { summary, isLoading: summaryLoading, hasFetched: summaryHasFetched } = useOfficialSummary(topic);
   // AI 混亂結語（主題結束後一次性生成）
-  const { statement: aiClosing, isLoading: aiClosingLoading, isGenerating: aiClosingGenerating, triggerGenerate: triggerAiClosing } = useAiClosingStatement(topic, resolveBaseLanguage(language));
+  const { statement: aiClosing, isLoading: aiClosingLoading, isGenerating: aiClosingGenerating, hasFetched: aiClosingHasFetched, triggerGenerate: triggerAiClosing } = useAiClosingStatement(topic, resolveBaseLanguage(language));
   const isTopicEnded = topic ? (topic.status === 'ended' || new Date(topic.end_at || 0) <= new Date()) : false;
   /** 已自動觸發過產生結語的 topic id 集合（避免重複呼叫） */
   const autoClosingTriggeredRef = useRef<Set<string>>(new Set());
@@ -134,16 +134,16 @@ const VoteDetailPage = () => {
     return () => { cancelled = true; };
   }, [user?.id, isAnonymous, id]);
 
-  // 已結束且尚無結語時，自動在背景觸發產生結語（補足排程未跑或延遲的情況）。僅在「實際新產生」時才顯示 toast，已有結語進入頁面不彈窗
+  // 已結束且「已取回結語狀態」後，若確定尚無結語才自動觸發產生（已產生結語的主題不再跑產生流程）。僅在實際新產生時才顯示 toast
   useEffect(() => {
-    if (!topic?.id || !isTopicEnded || aiClosing || aiClosingLoading || aiClosingGenerating) return;
+    if (!topic?.id || !isTopicEnded || !aiClosingHasFetched || aiClosing || aiClosingLoading || aiClosingGenerating) return;
     if (!user || isAnonymous) return;
     if (autoClosingTriggeredRef.current.has(topic.id)) return;
     autoClosingTriggeredRef.current.add(topic.id);
     triggerAiClosing().then((r) => {
       if (r.success && r.generated) toast.success(getText("chaos_closing.generateSuccess", "結語已產生"));
     });
-  }, [topic?.id, isTopicEnded, aiClosing, aiClosingLoading, aiClosingGenerating, user, isAnonymous, triggerAiClosing, getText]);
+  }, [topic?.id, isTopicEnded, aiClosingHasFetched, aiClosing, aiClosingLoading, aiClosingGenerating, user, isAnonymous, triggerAiClosing, getText]);
 
   const handleVote = async (tokenAmount: number) => {
     if (!selectedOption) {
@@ -502,11 +502,13 @@ const VoteDetailPage = () => {
         <div className="relative z-20 isolate bg-background space-y-3 mb-6 max-w-3xl mx-auto w-full px-4 sm:px-6 pt-1">
           {isTopicEnded ? (
             <>
-              <OfficialSummaryCard
-                summary={summary}
-                isLoading={summaryLoading}
-                language={language}
-              />
+              {summaryHasFetched ? (
+                <OfficialSummaryCard
+                  summary={summary}
+                  isLoading={summaryLoading}
+                  language={language}
+                />
+              ) : null}
               {/* 混亂結語：已有則顯示；尚未產生且非載入中則顯示「手動產生」按鈕 */}
               {aiClosing ? (
                 <section
@@ -522,7 +524,7 @@ const VoteDetailPage = () => {
                     language={language}
                   />
                 </section>
-              ) : !aiClosingLoading && (
+              ) : aiClosingHasFetched && !aiClosingLoading ? (
                 <section aria-label={getText("chaos_closing.sectionLabel", "混亂結語")} className="w-full">
                   <Card className="border-2 border-dashed border-muted-foreground/30 bg-muted/20">
                     <CardContent className="flex flex-col items-center justify-center py-6">
@@ -549,7 +551,7 @@ const VoteDetailPage = () => {
                     </CardContent>
                   </Card>
                 </section>
-              )}
+              ) : null}
             </>
           ) : isAnonymous ? (
             <Card className="bg-muted/50 border-muted">

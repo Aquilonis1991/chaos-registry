@@ -14,6 +14,7 @@ interface TopicData {
 export const useOfficialSummary = (topic: TopicData | null) => {
     const [summary, setSummary] = useState<TopicSummary | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [hasFetched, setHasFetched] = useState(false); // 完成首次讀取後為 true，已有總結時不顯示 loading 區塊
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -41,12 +42,16 @@ export const useOfficialSummary = (topic: TopicData | null) => {
                 if (existingData) {
                     if (isMounted) {
                         setSummary(existingData as unknown as TopicSummary);
+                        setHasFetched(true);
                     }
                     return;
                 }
 
                 // 2. 尚無總結時才顯示 loading 並觸發 AI 產生
-                if (isMounted) setIsLoading(true);
+                if (isMounted) {
+                    setHasFetched(true);
+                    setIsLoading(true);
+                }
                 const { data: aiData, error: aiError } = await supabase.functions.invoke('ai-topic-summary', {
                     body: {
                         topic_id: topic.id,
@@ -86,6 +91,7 @@ export const useOfficialSummary = (topic: TopicData | null) => {
             }
         };
 
+        setHasFetched(false); // 切換主題時重置
         fetchOrGenerateSummary();
 
         return () => {
@@ -93,5 +99,5 @@ export const useOfficialSummary = (topic: TopicData | null) => {
         };
     }, [topic?.id, topic?.status]); // Re-run only if topic ID or status changes
 
-    return { summary, isLoading, error };
+    return { summary, isLoading, hasFetched, error };
 };

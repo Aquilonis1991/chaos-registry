@@ -254,16 +254,23 @@ export const useVoteOperations = () => {
       });
 
       if (functionErr) {
-        // 函數已包含所有驗證：主題存在、選項存在、是否已使用免費票等
-        if (functionErr.message?.includes('Topic not found')) {
+        const msg = functionErr.message ?? '';
+        if (msg.includes('Topic not found')) {
           throw new Error('主題不存在');
-        } else if (functionErr.message?.includes('Topic has ended')) {
+        }
+        if (msg.includes('Topic has ended')) {
           throw new Error('投票已結束');
-        } else if (functionErr.message?.includes('Free vote already used')) {
+        }
+        if (msg.includes('Free vote already used') || msg.includes('already used today')) {
           toast.error('今日免費票已使用完畢');
           throw new Error('Free vote already used');
-        } else if (functionErr.message?.includes('Option not found')) {
+        }
+        if (msg.includes('Option not found')) {
           throw new Error('選項不存在');
+        }
+        if (msg.includes('Rate limit exceeded')) {
+          toast.error('操作過於頻繁，請稍後再試');
+          throw new Error('Rate limit exceeded');
         }
         throw functionErr;
       }
@@ -346,8 +353,10 @@ export const useVoteOperations = () => {
         toast.error('投票已結束');
       } else if (error.message?.includes('Option not found')) {
         toast.error('選項不存在');
+      } else if (error.message?.includes('Rate limit exceeded')) {
+        toast.error('操作過於頻繁，請稍後再試');
       } else {
-        toast.error('免費票投票失敗');
+        toast.error(error.message || '免費票投票失敗');
       }
       throw error;
     }

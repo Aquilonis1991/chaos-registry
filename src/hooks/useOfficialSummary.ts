@@ -11,18 +11,21 @@ interface TopicData {
     status: string;
 }
 
-export const useOfficialSummary = (topic: TopicData | null) => {
-    const [summary, setSummary] = useState<TopicSummary | null>(null);
+export const useOfficialSummary = (topic: TopicData | null, initialSummary?: TopicSummary | null) => {
+    const [summary, setSummary] = useState<TopicSummary | null>(initialSummary ?? null);
     const [isLoading, setIsLoading] = useState(false);
-    const [hasFetched, setHasFetched] = useState(false); // 完成首次讀取後為 true，已有總結時不顯示 loading 區塊
+    const [hasFetched, setHasFetched] = useState(!!(initialSummary && topic?.id && initialSummary.topic_id === topic.id));
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // Only proceed if topic exists and is ended
-        if (!topic || topic.status !== 'ended') {
+        if (!topic || topic.status !== 'ended') return;
+        if (initialSummary && initialSummary.topic_id === topic.id) {
+            setSummary(initialSummary as TopicSummary);
+            setHasFetched(true);
             return;
         }
-
+        setSummary(null);
+        setHasFetched(false);
         let isMounted = true;
 
         const fetchOrGenerateSummary = async () => {
@@ -94,10 +97,8 @@ export const useOfficialSummary = (topic: TopicData | null) => {
         setHasFetched(false); // 切換主題時重置
         fetchOrGenerateSummary();
 
-        return () => {
-            isMounted = false;
-        };
-    }, [topic?.id, topic?.status]); // Re-run only if topic ID or status changes
+        return () => { isMounted = false; };
+    }, [topic?.id, topic?.status, initialSummary?.topic_id]);
 
     return { summary, isLoading, hasFetched, error };
 };

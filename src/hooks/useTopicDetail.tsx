@@ -28,6 +28,8 @@ export interface TopicDetail {
 
 export const useTopicDetail = (topicId: string | undefined) => {
   const [topic, setTopic] = useState<TopicDetail | null>(null);
+  const [summaryInitial, setSummaryInitial] = useState<any>(null);
+  const [closingInitial, setClosingInitial] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,34 +48,26 @@ export const useTopicDetail = (topicId: string | undefined) => {
     try {
       setLoading(true);
       setError(null);
+      setSummaryInitial(null);
+      setClosingInitial(null);
 
-      const { data, error: fetchError } = await supabase
-        .from('topics')
-        .select(`
-          *,
-          profiles:creator_id (
-            nickname,
-            avatar
-          )
-        `)
-        .eq('id', topicId)
-        .single();
+      // 已結束主題：並行取得 topic + summary + closing，減少讀取延遲
+      const [topicRes, summaryRes, closingRes] = await Promise.all([
+        supabase
+          .from('topics')
+          .select(`*, profiles:creator_id (nickname, avatar)`)
+          .eq('id', topicId)
+          .single(),
+        supabase.from('topic_summaries' as any).select('*').eq('topic_id', topicId).maybeSingle(),
+        supabase.from('topic_ai_summary').select('id, topic_id, content, content_zh, content_en, content_ja, created_at').eq('topic_id', topicId).maybeSingle(),
+      ]);
 
+      const { data, error: fetchError } = topicRes;
       if (fetchError) throw fetchError;
+      if (!data) throw new Error('主題不存在');
 
-      if (!data) {
-        throw new Error('主題不存在');
-      }
-
-      // 計算總投票數
-      const totalVotes = data.options?.reduce(
-        (sum: number, opt: any) => sum + (opt.votes || 0), 
-        0
-      ) || 0;
-
-      // 計算剩餘時間
+      const totalVotes = data.options?.reduce((sum: number, opt: any) => sum + (opt.votes || 0), 0) || 0;
       const timeRemaining = getTimeRemaining(data.end_at);
-
       const processedTopic: TopicDetail = {
         ...data,
         creator_name: data.profiles?.nickname || '匿名用戶',
@@ -83,6 +77,8 @@ export const useTopicDetail = (topicId: string | undefined) => {
       };
 
       setTopic(processedTopic);
+      setSummaryInitial(summaryRes.data ?? null);
+      setClosingInitial(closingRes.data ?? null);
     } catch (err: any) {
       console.error('Error fetching topic detail:', err);
       setError(err.message || '獲取主題詳情失敗');
@@ -109,6 +105,8 @@ export const useTopicDetail = (topicId: string | undefined) => {
 
   return {
     topic,
+    summaryInitial,
+    closingInitial,
     loading,
     error,
     refreshTopic,

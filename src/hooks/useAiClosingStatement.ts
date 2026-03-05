@@ -48,11 +48,11 @@ const fetchClosingRaw = async (topicId: string): Promise<RawRow | null> => {
   return (data as RawRow) ?? null;
 };
 
-export const useAiClosingStatement = (topic: TopicData | null, language: BaseLanguage = "zh") => {
-  const [statementRaw, setStatementRaw] = useState<RawRow | null>(null);
+export const useAiClosingStatement = (topic: TopicData | null, language: BaseLanguage = "zh", initialClosingRaw?: RawRow | null) => {
+  const [statementRaw, setStatementRaw] = useState<RawRow | null>(initialClosingRaw ?? null);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [hasFetched, setHasFetched] = useState(false);
+  const [hasFetched, setHasFetched] = useState(!!(initialClosingRaw && topic?.id && initialClosingRaw.topic_id === topic.id));
   const [error, setError] = useState<string | null>(null);
 
   /** 依目前 UI 語言即時解析顯示內容，切換語言不需重新請求 */
@@ -77,9 +77,14 @@ export const useAiClosingStatement = (topic: TopicData | null, language: BaseLan
     if (!topic) return;
     const isEnded = topic.status === "ended" || (topic.end_at && new Date(topic.end_at) <= new Date());
     if (!isEnded) return;
-
-    let mounted = true;
+    if (initialClosingRaw && initialClosingRaw.topic_id === topic.id) {
+      setStatementRaw(initialClosingRaw);
+      setHasFetched(true);
+      return;
+    }
+    setStatementRaw(null);
     setHasFetched(false);
+    let mounted = true;
 
     const load = async () => {
       try {
@@ -99,7 +104,7 @@ export const useAiClosingStatement = (topic: TopicData | null, language: BaseLan
 
     load();
     return () => { mounted = false; };
-  }, [topic?.id, topic?.status]);
+  }, [topic?.id, topic?.status, initialClosingRaw?.topic_id]);
 
   /** 手動觸發產生混亂結語（已結束主題且尚無結語時可用，不需等排程）。已產生結語則不再呼叫 API。 */
   const triggerGenerate = useCallback(async (): Promise<{ success: boolean; generated?: boolean; error?: string }> => {

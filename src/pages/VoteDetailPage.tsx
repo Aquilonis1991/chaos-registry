@@ -45,17 +45,15 @@ const VoteDetailPage = () => {
   const { profile, loading: profileLoading, refreshProfile } = useProfile();
   const { user, isAnonymous } = useAuth();
   const { castVote, castFreeVote, checkFreeVoteAvailable } = useVoteOperations();
-  const { topic, loading: topicLoading, refreshTopic } = useTopicDetail(id);
+  const { topic, summaryInitial, closingInitial, loading: topicLoading, refreshTopic } = useTopicDetail(id);
   const { refreshStats } = useUserStats(user?.id);
   const { language } = useLanguage();
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
   const { getConfig } = useSystemConfigCache();
   const voteButtonAmounts = getConfig('vote_button_amounts', [1, 10, 100]) as number[];
 
-  // Official Summary Hook
-  const { summary, isLoading: summaryLoading, hasFetched: summaryHasFetched } = useOfficialSummary(topic);
-  // AI 混亂結語（主題結束後一次性生成）
-  const { statement: aiClosing, isLoading: aiClosingLoading, isGenerating: aiClosingGenerating, hasFetched: aiClosingHasFetched, triggerGenerate: triggerAiClosing } = useAiClosingStatement(topic, resolveBaseLanguage(language));
+  const { summary, isLoading: summaryLoading, hasFetched: summaryHasFetched } = useOfficialSummary(topic, summaryInitial);
+  const { statement: aiClosing, isLoading: aiClosingLoading, isGenerating: aiClosingGenerating, hasFetched: aiClosingHasFetched, triggerGenerate: triggerAiClosing } = useAiClosingStatement(topic, resolveBaseLanguage(language), closingInitial);
   const isTopicEnded = topic ? (topic.status === 'ended' || new Date(topic.end_at || 0) <= new Date()) : false;
   /** 已自動觸發過產生結語的 topic id 集合（避免重複呼叫） */
   const autoClosingTriggeredRef = useRef<Set<string>>(new Set());
@@ -446,8 +444,9 @@ const VoteDetailPage = () => {
           <h3 className="text-lg font-semibold text-foreground mb-3">{chooseAnswerTitle}</h3>
           {topic.options && topic.options.length > 0 ? (
             topic.options.map((option, index) => {
-              // 確保選項有 id（兼容舊格式）
-              const optionId = option.id || option?.id || (typeof option === 'string' ? `option-${index}` : `option-${index}`);
+              const optionId = (option != null && typeof option === 'object' && (option.id !== undefined && option.id !== null))
+                ? String(option.id)
+                : `option-${index}`;
               const optionText = option?.text || (typeof option === 'string' ? option : unknownOptionText);
               const percentage = totalVotes > 0 ? ((option?.votes || 0) / totalVotes) * 100 : 0;
               const isSelected = selectedOption === optionId;

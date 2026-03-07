@@ -45,15 +45,15 @@ const VoteDetailPage = () => {
   const { profile, loading: profileLoading, refreshProfile } = useProfile();
   const { user, isAnonymous } = useAuth();
   const { castVote, castFreeVote, checkFreeVoteAvailable } = useVoteOperations();
-  const { topic, summaryInitial, closingInitial, loading: topicLoading, refreshTopic } = useTopicDetail(id);
+  const { topic, summaryInitial, closingInitial, loading: topicLoading, summaryClosingLoading, refreshTopic } = useTopicDetail(id);
   const { refreshStats } = useUserStats(user?.id);
   const { language } = useLanguage();
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
   const { getConfig } = useSystemConfigCache();
   const voteButtonAmounts = getConfig('vote_button_amounts', [1, 10, 100]) as number[];
 
-  const { summary, isLoading: summaryLoading, hasFetched: summaryHasFetched } = useOfficialSummary(topic, summaryInitial);
-  const { statement: aiClosing, isLoading: aiClosingLoading, isGenerating: aiClosingGenerating, hasFetched: aiClosingHasFetched, triggerGenerate: triggerAiClosing } = useAiClosingStatement(topic, resolveBaseLanguage(language), closingInitial);
+  const { summary, isLoading: summaryLoading, hasFetched: summaryHasFetched } = useOfficialSummary(topic, summaryInitial, summaryClosingLoading);
+  const { statement: aiClosing, isLoading: aiClosingLoading, isGenerating: aiClosingGenerating, hasFetched: aiClosingHasFetched, triggerGenerate: triggerAiClosing } = useAiClosingStatement(topic, resolveBaseLanguage(language), closingInitial, summaryClosingLoading);
   const isTopicEnded = topic ? (topic.status === 'ended' || new Date(topic.end_at || 0) <= new Date()) : false;
   /** 已自動觸發過產生結語的 topic id 集合（避免重複呼叫） */
   const autoClosingTriggeredRef = useRef<Set<string>>(new Set());
@@ -263,11 +263,36 @@ const VoteDetailPage = () => {
   };
 
   const userTokens = profile?.tokens || 0;
+  const waitingForTopic = !topic && (topicLoading || profileLoading || uiTextsLoading);
 
-  if (profileLoading || topicLoading || uiTextsLoading) {
+  // 等待主題資料時：只顯示頁面骨架（Header），內容區留白，不顯示任何讀取動畫/彈窗
+  if (waitingForTopic) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-background pb-6">
+        <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
+          <div className="max-w-screen-xl mx-auto px-5 sm:px-6 py-4">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(-1)}
+                className="text-primary-foreground hover:bg-primary-foreground/20"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </Button>
+              <div className="flex-1">
+                <h1 className="text-lg font-bold text-primary-foreground">{headerTitle}</h1>
+              </div>
+              {!isAnonymous && (
+                <div className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                  <Activity className="w-4 h-4 text-accent" />
+                  <span className="font-bold text-primary-foreground text-sm">{userTokens.toLocaleString()}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+        <div className="max-w-screen-xl mx-auto px-5 sm:px-6 py-6" aria-busy="true" />
       </div>
     );
   }
@@ -294,7 +319,7 @@ const VoteDetailPage = () => {
   return (
     <>
       <div className="min-h-screen bg-background pb-6">
-        {/* Header */}
+        {/* Header：進入詳情即顯示，不擋全螢幕 */}
         <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
           <div className="max-w-screen-xl mx-auto px-5 sm:px-6 py-4">
             <div className="flex items-center gap-4">
@@ -439,8 +464,8 @@ const VoteDetailPage = () => {
           </div>
         </div>
 
-        {/* Vote Options（z-0 確保在按鈕區下方，避免 Card 的 bg-card 蓋住按鈕） */}
-        <div className="relative z-0 space-y-3 mb-6 max-w-3xl mx-auto w-full px-4 sm:px-6">
+        {/* Vote Options（z-0 確保在按鈕區下方；已結束時縮小與總結區間距，避免上方白塊） */}
+        <div className={`relative z-0 space-y-3 max-w-3xl mx-auto w-full px-4 sm:px-6 ${isTopicEnded ? 'mb-4' : 'mb-6'}`}>
           <h3 className="text-lg font-semibold text-foreground mb-3">{chooseAnswerTitle}</h3>
           {topic.options && topic.options.length > 0 ? (
             topic.options.map((option, index) => {
@@ -497,20 +522,31 @@ const VoteDetailPage = () => {
           )}
         </div>
 
-        {/* Vote Actions：獨立堆疊層 + 背景，避免被選項卡或其它白色層蓋住按鈕顏色 */}
-        <div className="relative z-20 isolate bg-background space-y-3 mb-6 max-w-3xl mx-auto w-full px-4 sm:px-6 pt-1">
+        {/* Vote Actions：已結束且無總結/結語內容時不渲染此區，避免讀取時結語上方留白 */}
+        {(function () {
+          const hasEndedContent = isTopicEnded && (
+            (summaryHasFetched && summary) ||
+            !!aiClosing ||
+            (aiClosingHasFetched && !aiClosingLoading)
+          );
+          if (isTopicEnded && !hasEndedContent) return null;
+          return (
+        <div className={`relative z-20 isolate bg-background mb-6 max-w-3xl mx-auto w-full px-4 sm:px-6 ${isTopicEnded ? '' : 'pt-1'} ${!isTopicEnded ? 'space-y-3' : ''}`}>
           {isTopicEnded ? (
             <>
-              {summaryHasFetched ? (
-                <OfficialSummaryCard
-                  summary={summary}
-                  isLoading={summaryLoading}
-                  language={language}
-                />
+              {summaryHasFetched && summary ? (
+                <div className={aiClosing || (aiClosingHasFetched && !aiClosingLoading) ? 'mb-3' : ''}>
+                  <OfficialSummaryCard
+                    summary={summary}
+                    isLoading={false}
+                    language={language}
+                  />
+                </div>
               ) : null}
-              {/* 混亂結語：已有則顯示；尚未產生且非載入中則顯示「手動產生」按鈕 */}
+              {/* 混亂結語：有 initial 或已取回則直接顯示，不顯示讀取遮罩；僅有結語時上方不留白 */}
               {aiClosing ? (
                 <section
+                  key={`closing-${resolveBaseLanguage(language)}`}
                   aria-label={getText("chaos_closing.sectionLabel", "混亂結語")}
                   className="w-full space-y-2"
                 >
@@ -668,6 +704,7 @@ const VoteDetailPage = () => {
             </>
           )}
         </div>
+          ); })()}
 
         {/* Info Card */}
         <div className="max-w-3xl mx-auto w-full px-4 sm:px-6">

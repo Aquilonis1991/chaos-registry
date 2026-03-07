@@ -1,6 +1,7 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
+import { devLog } from "@/lib/devLog";
 import { useCallback, useMemo, useEffect, useRef, useState } from "react";
 
 // 本地快取鍵名
@@ -59,40 +60,23 @@ export const useAdmin = () => {
   // 從快取讀取初始值
   const cachedStatus = useMemo(() => getCachedAdminStatus(user?.id), [user?.id]);
 
-  // 強制輸出日誌（即使被壓縮也會保留）
-  if (typeof window !== 'undefined') {
-    window.console?.log?.('[useAdmin] Hook called:', {
-      hasUser: !!user,
-      userId: user?.id,
-      authLoading,
-      cachedStatus
-    });
-  }
+  devLog('[useAdmin] Hook called:', { hasUser: !!user, userId: user?.id, authLoading, cachedStatus });
 
   const { data: isAdmin, isLoading, error } = useQuery({
     queryKey: ['admin-status', user?.id],
     queryFn: async () => {
-      // 強制輸出日誌
-      if (typeof window !== 'undefined') {
-        window.console?.log?.('[useAdmin] Query function called for user:', user?.id);
-      }
-
+      devLog('[useAdmin] Query function called for user:', user?.id);
       if (!user?.id) {
-        if (typeof window !== 'undefined') {
-          window.console?.log?.('[useAdmin] No user ID, returning false');
-        }
+        devLog('[useAdmin] No user ID, returning false');
         return false;
       }
-
-      if (typeof window !== 'undefined') {
-        window.console?.log?.('[useAdmin] Checking admin status for user:', user.id);
-      }
+      devLog('[useAdmin] Checking admin status for user:', user.id);
 
       // 快速查詢策略：先嘗試 RPC，如果失敗立即使用直接查詢，不等待超時
       try {
         // 方法1：嘗試 RPC 函數（5秒超時，快速失敗）
         try {
-          console.log('[useAdmin] Attempting RPC call...');
+          devLog('[useAdmin] Attempting RPC call...');
 
           const rpcPromise = supabase.rpc('is_admin', { check_user_id: user.id });
           const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) =>
@@ -112,11 +96,11 @@ export const useAdmin = () => {
 
           const { data: rpcData, error: rpcError } = rpcResult || { data: null, error: null };
 
-          console.log('[useAdmin] RPC response:', { rpcData, rpcError });
+          devLog('[useAdmin] RPC response:', { rpcData, rpcError });
 
           if (!rpcError && rpcData !== null && rpcData !== undefined) {
             const result = !!rpcData;
-            console.log('[useAdmin] Admin status (via RPC):', result);
+            devLog('[useAdmin] Admin status (via RPC):', result);
             // 保存到快取
             setCachedAdminStatus(user.id, result);
             return result;
@@ -130,7 +114,7 @@ export const useAdmin = () => {
         }
 
         // 方法2：直接查詢 admin_users 表（15秒超時，快速失敗）
-        console.log('[useAdmin] Attempting direct query...');
+        devLog('[useAdmin] Attempting direct query...');
 
         const queryPromise = supabase
           .from('admin_users')
@@ -152,7 +136,7 @@ export const useAdmin = () => {
           console.error('[useAdmin] Direct query timeout:', timeoutError);
           // 查詢超時時，使用快取值（如果存在）
           if (cachedStatus !== null) {
-            console.log('[useAdmin] Using cached admin status due to timeout:', cachedStatus);
+            devLog('[useAdmin] Using cached admin status due to timeout:', cachedStatus);
             return cachedStatus;
           }
           // 沒有快取時，預設為非管理員（更安全）
@@ -161,13 +145,13 @@ export const useAdmin = () => {
 
         const { data, error: queryError } = queryResult;
 
-        console.log('[useAdmin] Direct query response:', { data, queryError });
+        devLog('[useAdmin] Direct query response:', { data, queryError });
 
         if (queryError) {
           console.error('[useAdmin] Direct query error:', queryError);
           // 查詢失敗時，使用快取值（如果存在）
           if (cachedStatus !== null) {
-            console.log('[useAdmin] Using cached admin status due to query error:', cachedStatus);
+            devLog('[useAdmin] Using cached admin status due to query error:', cachedStatus);
             return cachedStatus;
           }
           // 查詢失敗時，預設為非管理員（更安全）
@@ -175,7 +159,7 @@ export const useAdmin = () => {
         }
 
         const result = !!data;
-        console.log('[useAdmin] Admin status result (direct query):', result);
+        devLog('[useAdmin] Admin status result (direct query):', result);
         // 保存到快取
         setCachedAdminStatus(user.id, result);
         return result;
@@ -183,7 +167,7 @@ export const useAdmin = () => {
         console.error('[useAdmin] Exception checking admin status:', err);
         // 發生異常時，使用快取值（如果存在）
         if (cachedStatus !== null) {
-          console.log('[useAdmin] Using cached admin status due to exception:', cachedStatus);
+          devLog('[useAdmin] Using cached admin status due to exception:', cachedStatus);
           return cachedStatus;
         }
         // 發生異常時，預設為非管理員（更安全）
@@ -202,7 +186,7 @@ export const useAdmin = () => {
     placeholderData: cachedStatus !== null ? cachedStatus : undefined,
   });
 
-  console.log('[useAdmin] Query state:', {
+  devLog('[useAdmin] Query state:', {
     isAdmin,
     isLoading,
     error,
@@ -221,7 +205,7 @@ export const useAdmin = () => {
   if (isLoading && cachedStatus !== null) {
     // 查詢中但有快取，使用快取（優化體驗）
     result = cachedStatus;
-    console.log('[useAdmin] Using cached status while querying:', cachedStatus);
+    devLog('[useAdmin] Using cached status while querying:', cachedStatus);
   } else if (isLoading) {
     result = undefined; // 還在載入中且無快取
   } else if (isAdmin !== undefined) {
@@ -235,9 +219,7 @@ export const useAdmin = () => {
     } else {
       // 在網頁版，預設為非管理員（更安全）
       result = false;
-      if (typeof window !== 'undefined') {
-        window.console?.warn?.('[useAdmin] Query completed but result is undefined, defaulting to false (non-admin)');
-      }
+      devLog('[useAdmin] Query completed but result is undefined, defaulting to false (non-admin)');
     }
   }
 
@@ -246,17 +228,17 @@ export const useAdmin = () => {
   const finalIsAdmin = useMemo(() => {
     // 優先使用查詢結果
     if (isAdmin === true) {
-      console.log('[useAdmin] finalIsAdmin: isAdmin=true, returning true');
+      devLog('[useAdmin] finalIsAdmin: isAdmin=true, returning true');
       return true;
     } else if (isAdmin === false) {
-      console.log('[useAdmin] finalIsAdmin: isAdmin=false, returning false');
+      devLog('[useAdmin] finalIsAdmin: isAdmin=false, returning false');
       return false;
     } else if (result === true) {
       // 如果 isAdmin 是 undefined 但 result 是 true（來自快取）
-      console.log('[useAdmin] finalIsAdmin: isAdmin=undefined, result=true, returning true');
+      devLog('[useAdmin] finalIsAdmin: isAdmin=undefined, result=true, returning true');
       return true;
     } else {
-      console.log('[useAdmin] finalIsAdmin: no admin status, returning false');
+      devLog('[useAdmin] finalIsAdmin: no admin status, returning false');
       return false;
     }
   }, [isAdmin, result]);
@@ -266,7 +248,7 @@ export const useAdmin = () => {
   const isSuperAdminQueryEnabled = useMemo(() => {
     // 確保用戶已登入、auth 已載入、isAdmin 查詢已完成且結果為 true
     const enabled = !!user?.id && !authLoading && !isLoading && (isAdmin === true || result === true);
-    console.log('[useAdmin] 🔧 isSuperAdminQueryEnabled calculation:', {
+    devLog('[useAdmin] 🔧 isSuperAdminQueryEnabled calculation:', {
       hasUserId: !!user?.id,
       userId: user?.id,
       notAuthLoading: !authLoading,
@@ -295,11 +277,11 @@ export const useAdmin = () => {
     queryKey: ['super-admin-status', user?.id],
     queryFn: async () => {
       if (!user?.id) {
-        console.log('[useAdmin] 🔍 No user ID, returning false');
+        devLog('[useAdmin] 🔍 No user ID, returning false');
         return false;
       }
 
-      console.log('[useAdmin] 🔍 Checking super admin status for user:', user.id);
+      devLog('[useAdmin] 🔍 Checking super admin status for user:', user.id);
 
       try {
         // @ts-ignore
@@ -313,13 +295,13 @@ export const useAdmin = () => {
         }
 
         const isSuper = !!data;
-        console.log('[useAdmin] ✅ Super admin status result:', isSuper, 'Raw data:', data);
+        devLog('[useAdmin] ✅ Super admin status result:', isSuper, 'Raw data:', data);
 
         // 立即更新 ref 和 state
         if (isSuper) {
           isSuperAdminRef.current = true;
           setIsSuperAdminState(true);
-          console.log('[useAdmin] 🔄 Immediately set isSuperAdmin to true');
+          devLog('[useAdmin] 🔄 Immediately set isSuperAdmin to true');
         }
 
         return isSuper;
@@ -342,16 +324,16 @@ export const useAdmin = () => {
   // 當查詢數據更新時，更新 ref 和 state
   useEffect(() => {
     if (isSuperAdminData === true) {
-      console.log('[useAdmin] 🔄 isSuperAdminData updated to true');
+      devLog('[useAdmin] 🔄 isSuperAdminData updated to true');
       isSuperAdminRef.current = true;
       setIsSuperAdminState(true);
     } else if (isSuperAdminData === false) {
       // 只有在 ref 也是 false 時才更新，避免覆蓋之前的 true
       if (isSuperAdminRef.current === false) {
-        console.log('[useAdmin] 🔄 isSuperAdminData updated to false (ref was already false)');
+        devLog('[useAdmin] 🔄 isSuperAdminData updated to false (ref was already false)');
         setIsSuperAdminState(false);
       } else {
-        console.log('[useAdmin] 🔄 isSuperAdminData is false but ref is true, keeping true');
+        devLog('[useAdmin] 🔄 isSuperAdminData is false but ref is true, keeping true');
       }
     }
   }, [isSuperAdminData]);
@@ -405,17 +387,7 @@ export const useAdmin = () => {
     console.warn('[useAdmin] ⚠️ isSuperAdmin should be enabled but query not running. Status:', isSuperAdminStatus, 'FetchStatus:', isSuperAdminFetchStatus);
   }
 
-  // 強制輸出最終結果
-  if (typeof window !== 'undefined' && user?.id) {
-    window.console?.log?.('[useAdmin] Final result:', {
-      userId: user.id,
-      isAdmin: result,
-      isLoading: finalLoading,
-      queryEnabled: !!user?.id && !authLoading,
-      cachedStatus,
-      isSuperAdmin
-    });
-  }
+  devLog('[useAdmin] Final result:', user?.id ? { userId: user.id, isAdmin: result, isLoading: finalLoading, queryEnabled: !!user?.id && !authLoading, cachedStatus, isSuperAdmin } : null);
 
   return {
     isAdmin: result,

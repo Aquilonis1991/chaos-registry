@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { devLog } from "@/lib/devLog";
 
 const parseTransactionAmount = (value: number | string | null | undefined): number => {
   if (typeof value === 'number') return value;
@@ -89,9 +90,9 @@ export const useUserStats = (userId: string | undefined) => {
       if (votesError) {
         console.warn('⚠️ Error fetching votes:', votesError);
       } else {
-        console.log('✅ Votes fetched:', votesData?.length || 0, 'votes');
+        devLog('✅ Votes fetched:', votesData?.length || 0, 'votes');
         if (votesData && votesData.length > 0) {
-          console.log('📋 Vote topic IDs:', votesData.map((v: any) => v.topic_id));
+          devLog('📋 Vote topic IDs:', votesData.map((v: any) => v.topic_id));
         }
       }
 
@@ -99,14 +100,14 @@ export const useUserStats = (userId: string | undefined) => {
       if (freeVotesError) {
         console.warn('⚠️ Error fetching free votes:', freeVotesError);
       } else {
-        console.log('✅ Free votes fetched:', freeVotesData?.length || 0, 'free votes');
+        devLog('✅ Free votes fetched:', freeVotesData?.length || 0, 'free votes');
         if (freeVotesData && freeVotesData.length > 0) {
-          console.log('📋 Free vote topic IDs:', freeVotesData.map((v: any) => v.topic_id));
+          devLog('📋 Free vote topic IDs:', freeVotesData.map((v: any) => v.topic_id));
         }
       }
 
       const freeVoteCount = freeVotesData?.length || 0;
-      console.log('📊 Free vote count:', freeVoteCount);
+      devLog('📊 Free vote count:', freeVoteCount);
 
       // 從 votes 表計算代幣投票次數（僅作為診斷用途）
       let tokenVoteCountFromVotes = 0;
@@ -116,7 +117,7 @@ export const useUserStats = (userId: string | undefined) => {
           const amount = typeof v.amount === 'number' ? v.amount : parseFloat(String(v.amount)) || 0;
           return sum + amount;
         }, 0);
-        console.log('📊 Token vote count from votes table (diagnostic only):', {
+        devLog('📊 Token vote count from votes table (diagnostic only):', {
           totalVotes: votesData.length,
           votesWithAmount: votesWithAmount.length,
           tokenVoteCount: tokenVoteCountFromVotes
@@ -129,13 +130,13 @@ export const useUserStats = (userId: string | undefined) => {
         ...(freeVotesData?.map((v: any) => v.topic_id) || [])
       ]);
       const uniqueTopicVotesCount = voteTopicIds.size;
-      console.log('📊 Unique topic votes:', uniqueTopicVotesCount, 'topics:', Array.from(voteTopicIds));
+      devLog('📊 Unique topic votes:', uniqueTopicVotesCount, 'topics:', Array.from(voteTopicIds));
 
       // 處理主題數量錯誤
       if (topicsError) {
         console.warn('Error fetching topics count:', topicsError);
       } else {
-        console.log('✅ Topics created:', topicsCount || 0);
+        devLog('✅ Topics created:', topicsCount || 0);
       }
 
       // 計算代幣使用統計
@@ -152,7 +153,7 @@ export const useUserStats = (userId: string | undefined) => {
           (t: any) => t.transaction_type === 'cast_vote'
         );
 
-        console.log('🔍 Token transactions for votes:', {
+        devLog('🔍 Token transactions for votes:', {
           totalTransactions: allTransactions?.length || 0,
           voteTransactions: voteTransactions?.length || 0,
           voteTransactionsData: voteTransactions?.map((t: any) => ({
@@ -165,7 +166,7 @@ export const useUserStats = (userId: string | undefined) => {
         tokenVoteCountFromTransactions = voteTransactions?.reduce((sum: number, t: any) => {
           const amountValue = parseTransactionAmount(t.amount);
           const absAmount = Math.abs(amountValue);
-          console.log('🔍 Processing vote transaction:', {
+          devLog('🔍 Processing vote transaction:', {
             amount: t.amount,
             parsedAmount: amountValue,
             absAmount: absAmount,
@@ -174,7 +175,7 @@ export const useUserStats = (userId: string | undefined) => {
           return sum + absAmount;
         }, 0) || 0;
 
-        console.log('✅ Calculated tokenVoteCount from transactions:', tokenVoteCountFromTransactions);
+        devLog('✅ Calculated tokenVoteCount from transactions:', tokenVoteCountFromTransactions);
 
         tokensSpent = allTransactions
           ?.filter((t: any) => parseTransactionAmount(t.amount) < 0)
@@ -234,7 +235,7 @@ export const useUserStats = (userId: string | undefined) => {
         uniqueTopicVotes: uniqueTopicVotesCount,
       };
 
-      console.log('📊 Final User Stats:', finalStats);
+      devLog('📊 Final User Stats:', finalStats);
       setStats(finalStats);
     } catch (error) {
       console.error('❌ Critical error fetching user stats:', error);

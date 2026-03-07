@@ -11,7 +11,8 @@ interface TopicData {
     status: string;
 }
 
-export const useOfficialSummary = (topic: TopicData | null, initialSummary?: TopicSummary | null) => {
+/** 當 true 表示父層（如 useTopicDetail）正在取得 summary，不要重複請求 */
+export const useOfficialSummary = (topic: TopicData | null, initialSummary?: TopicSummary | null, initialSummaryPending?: boolean) => {
     const [summary, setSummary] = useState<TopicSummary | null>(initialSummary ?? null);
     const [isLoading, setIsLoading] = useState(false);
     const [hasFetched, setHasFetched] = useState(!!(initialSummary && topic?.id && initialSummary.topic_id === topic.id));
@@ -19,11 +20,12 @@ export const useOfficialSummary = (topic: TopicData | null, initialSummary?: Top
 
     useEffect(() => {
         if (!topic || topic.status !== 'ended') return;
-        if (initialSummary && initialSummary.topic_id === topic.id) {
+        if (initialSummary && String(initialSummary.topic_id) === String(topic.id)) {
             setSummary(initialSummary as TopicSummary);
             setHasFetched(true);
             return;
         }
+        if (initialSummaryPending) return;
         setSummary(null);
         setHasFetched(false);
         let isMounted = true;
@@ -98,7 +100,11 @@ export const useOfficialSummary = (topic: TopicData | null, initialSummary?: Top
         fetchOrGenerateSummary();
 
         return () => { isMounted = false; };
-    }, [topic?.id, topic?.status, initialSummary?.topic_id]);
+    }, [topic?.id, topic?.status, initialSummary?.topic_id, initialSummaryPending]);
 
-    return { summary, isLoading, hasFetched, error };
+    const topicMatch = topic?.id && initialSummary && String(initialSummary.topic_id) === String(topic.id);
+    const summaryDisplay = topicMatch ? (initialSummary as TopicSummary) : summary;
+    const hasFetchedDisplay = hasFetched || !!topicMatch;
+
+    return { summary: summaryDisplay, isLoading, hasFetched: hasFetchedDisplay, error };
 };

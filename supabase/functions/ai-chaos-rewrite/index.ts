@@ -5,6 +5,30 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+type DetectedLang = "zh" | "ja" | "en";
+
+const detectLanguageFromText = (text: string): DetectedLang => {
+  const s = (text || "").trim();
+  if (!s) return "zh";
+
+  // Japanese: Hiragana / Katakana
+  const hasJapaneseKana = /[\u3040-\u30ff]/.test(s);
+  if (hasJapaneseKana) return "ja";
+
+  // Chinese (CJK Unified Ideographs)
+  const hasCjk = /[\u4e00-\u9fff]/.test(s);
+  if (hasCjk) return "zh";
+
+  // Default to English for Latin/others
+  return "en";
+};
+
+const langLabel = (lang: DetectedLang): string => {
+  if (lang === "ja") return "日本語";
+  if (lang === "en") return "English";
+  return "繁體中文";
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -200,6 +224,22 @@ Deno.serve(async (req) => {
     } catch (e) {
       console.warn("Failed to fetch dynamic prompt, using default:", e);
     }
+
+    // 強制：依輸入文字語言輸出同語言（不依 UI 語言）
+    const combinedInput = [
+      String(title ?? ""),
+      String(description ?? ""),
+      ...(Array.isArray(options) ? options.map((o) => String(o ?? "")) : []),
+    ].join("\n");
+    const detected = detectLanguageFromText(combinedInput);
+    const languageConstraint = `
+
+四、輸出語言規則（強制，不能忽略）
+- 你必須使用「與使用者輸入相同的語言」輸出 JSON 欄位值（rewritten_title / rewritten_description / options）。
+- 已偵測使用者輸入主要語言為：${langLabel(detected)}（代碼：${detected}）。
+- 禁止混用其他語言；若原文中包含少量外語片段，保留片段但整體語言仍以偵測語言為主。
+`;
+    systemPrompt = `${systemPrompt}${languageConstraint}`;
 
     const userContent = JSON.stringify({ title, description, options });
 

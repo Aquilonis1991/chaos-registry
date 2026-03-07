@@ -2,6 +2,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
 import { isNative } from "@/lib/capacitor";
+import { devLog } from "@/lib/devLog";
 import { Loader2 } from "lucide-react";
 import WebAdminOnlyPage from "@/pages/WebAdminOnlyPage";
 
@@ -13,6 +14,8 @@ interface ProtectedRouteProps {
 export const ProtectedRoute = ({ children, requireAuth = false }: ProtectedRouteProps) => {
   const { user, isAnonymous, loading } = useAuth();
   const { isAdmin, isLoading: adminLoading } = useAdmin();
+  const native = isNative();
+  const shouldCheckAdmin = !native && !!user && !isAnonymous;
 
   // 強制輸出日誌（即使被壓縮也會保留）
   if (typeof window !== 'undefined') {
@@ -22,14 +25,15 @@ export const ProtectedRoute = ({ children, requireAuth = false }: ProtectedRoute
       loading, 
       isAdmin, 
       adminLoading,
-      isNative: isNative(),
+      isNative: native,
       requireAuth
     });
   }
 
   // 載入中顯示載入畫面
-  if (loading || adminLoading) {
-    console.log('[ProtectedRoute] Still loading...');
+  // 注意：adminLoading 只在「網頁版 + 已登入(非匿名) + 需要檢查管理員」時才應該擋住整頁
+  if (loading || (shouldCheckAdmin && adminLoading)) {
+    devLog('[ProtectedRoute] Still loading...');
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -38,7 +42,7 @@ export const ProtectedRoute = ({ children, requireAuth = false }: ProtectedRoute
   }
 
   // 網頁版管理員檢查 - 必須明確處理所有情況
-  if (!isNative() && user && !isAnonymous) {
+  if (shouldCheckAdmin) {
     if (typeof window !== 'undefined') {
       window.console?.log?.('[ProtectedRoute] Web version, user logged in, checking admin status:', { 
         isAdmin, 
@@ -47,18 +51,6 @@ export const ProtectedRoute = ({ children, requireAuth = false }: ProtectedRoute
         isFalse: isAdmin === false,
         isTrue: isAdmin === true
       });
-    }
-    
-    // 如果管理員狀態還在載入中（undefined），繼續等待
-    if (isAdmin === undefined && adminLoading) {
-      if (typeof window !== 'undefined') {
-        window.console?.log?.('[ProtectedRoute] Admin status still loading, waiting...');
-      }
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-background">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      );
     }
     
     // 重要：如果查詢完成但結果是 undefined，或者明確是 false，都視為非管理員
@@ -72,10 +64,7 @@ export const ProtectedRoute = ({ children, requireAuth = false }: ProtectedRoute
     
     // 只有明確是 true 時才允許訪問
     if (isAdmin !== true) {
-      // 如果還不確定，繼續等待
-      if (typeof window !== 'undefined') {
-        window.console?.log?.('[ProtectedRoute] Admin status uncertain, waiting...');
-      }
+      devLog('[ProtectedRoute] Admin status uncertain, waiting...');
       return (
         <div className="min-h-screen flex items-center justify-center bg-background">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -83,9 +72,7 @@ export const ProtectedRoute = ({ children, requireAuth = false }: ProtectedRoute
       );
     }
     
-    if (typeof window !== 'undefined') {
-      window.console?.log?.('[ProtectedRoute] Admin user confirmed, allowing access');
-    }
+    devLog('[ProtectedRoute] Admin user confirmed, allowing access');
   }
 
   // 如果需要正式登入但用戶是匿名的，重定向到認證頁面

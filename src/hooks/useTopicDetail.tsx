@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -31,7 +31,9 @@ export const useTopicDetail = (topicId: string | undefined) => {
   const [summaryInitial, setSummaryInitial] = useState<any>(null);
   const [closingInitial, setClosingInitial] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [summaryClosingLoading, setSummaryClosingLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fetchForTopicIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!topicId) {
@@ -45,22 +47,21 @@ export const useTopicDetail = (topicId: string | undefined) => {
   const fetchTopicDetail = async () => {
     if (!topicId) return;
 
+    const thisFetchId = topicId;
+    fetchForTopicIdRef.current = thisFetchId;
     try {
       setLoading(true);
       setError(null);
       setSummaryInitial(null);
       setClosingInitial(null);
+      setSummaryClosingLoading(false);
 
-      // 已結束主題：並行取得 topic + summary + closing，減少讀取延遲
-      const [topicRes, summaryRes, closingRes] = await Promise.all([
-        supabase
-          .from('topics')
-          .select(`*, profiles:creator_id (nickname, avatar)`)
-          .eq('id', topicId)
-          .single(),
-        supabase.from('topic_summaries' as any).select('*').eq('topic_id', topicId).maybeSingle(),
-        supabase.from('topic_ai_summary').select('id, topic_id, content, content_zh, content_en, content_ja, created_at').eq('topic_id', topicId).maybeSingle(),
-      ]);
+      // 先只取 topic，讓頁面盡快顯示，不讓「判斷是否有結語」拖慢首屏
+      const topicRes = await supabase
+        .from('topics')
+        .select(`*, profiles:creator_id (nickname, avatar)`)
+        .eq('id', topicId)
+        .single();
 
       const { data, error: fetchError } = topicRes;
       if (fetchError) throw fetchError;
@@ -77,8 +78,21 @@ export const useTopicDetail = (topicId: string | undefined) => {
       };
 
       setTopic(processedTopic);
-      setSummaryInitial(summaryRes.data ?? null);
-      setClosingInitial(closingRes.data ?? null);
+      setLoading(false);
+
+      const isEnded = processedTopic.status === 'ended' || new Date(processedTopic.end_at || 0) <= new Date();
+      if (!isEnded) return;
+
+      setSummaryClosingLoading(true);
+      const [summaryRes, closingRes] = await Promise.all([
+        supabase.from('topic_summaries' as any).select('*').eq('topic_id', topicId).maybeSingle(),
+        supabase.from('topic_ai_summary').select('id, topic_id, content, content_zh, content_en, content_ja, created_at').eq('topic_id', topicId).maybeSingle(),
+      ]);
+      if (fetchForTopicIdRef.current === thisFetchId) {
+        setSummaryInitial(summaryRes.data ?? null);
+        setClosingInitial(closingRes.data ?? null);
+        setSummaryClosingLoading(false);
+      }
     } catch (err: any) {
       console.error('Error fetching topic detail:', err);
       setError(err.message || '獲取主題詳情失敗');
@@ -108,6 +122,8 @@ export const useTopicDetail = (topicId: string | undefined) => {
     summaryInitial,
     closingInitial,
     loading,
+    /** 已結束主題時，正在背景取得 summary/closing；子 hook 可據此不重複請求 */
+    summaryClosingLoading,
     error,
     refreshTopic,
   };

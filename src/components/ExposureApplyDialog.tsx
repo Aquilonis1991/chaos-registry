@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Loader2, Activity, Sparkles, AlertCircle } from "lucide-react";
+import { Loader2, Coins, Sparkles, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
@@ -259,7 +259,7 @@ export const ExposureApplyDialog = ({
           {/* 用戶狀態 */}
           <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
             <div className="flex items-center gap-2">
-              <Activity className="w-5 h-5 text-accent" />
+              <Coins className="w-5 h-5 text-accent" />
               <span className="font-semibold">{getText('exposure.dialog.tokenBalance', '失序值餘額：')}{userTokens.toLocaleString()}</span>
             </div>
             <div className="text-sm text-muted-foreground">

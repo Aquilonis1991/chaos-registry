@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   User,
-  Activity,
+  Coins,
   Trophy,
   FileText,
   History,
@@ -604,7 +604,7 @@ const ProfilePage = () => {
                 onClick={() => navigate('/recharge')}
                 className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-6 py-3 rounded-full hover:bg-primary-foreground/30 transition-colors cursor-pointer"
               >
-                <Activity className="w-6 h-6 text-accent" />
+                <Coins className="w-6 h-6 text-accent" />
                 <span className="font-bold text-primary-foreground text-xl">
                   {userStats.tokens.toLocaleString()}
                 </span>
@@ -733,7 +733,7 @@ const ProfilePage = () => {
                 <Link to="/history/token-usage">
                   <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
                     <div className="flex items-center gap-3">
-                      <Activity className="w-5 h-5 text-accent" />
+                      <Coins className="w-5 h-5 text-accent" />
                       <span className="font-medium">{tokenHistoryLabel}</span>
                     </div>
                     <ChevronRight className="w-5 h-5 text-muted-foreground" />

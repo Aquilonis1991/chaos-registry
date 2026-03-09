@@ -2,11 +2,13 @@ import { useRef } from "react";
 import type { CSSProperties } from "react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Flame, Clock, User } from "lucide-react";
+import { Flame, Clock, User, CheckCircle2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getTagColor } from "@/lib/tagColors";
 import { cn } from "@/lib/utils";
 import { formatCompactNumber } from "@/lib/numberFormat";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useUIText } from "@/hooks/useUIText";
 
 interface TopicCardProps {
   id: string;
@@ -15,6 +17,7 @@ interface TopicCardProps {
   voteCount: number;
   creatorName: string;
   isHot?: boolean;
+  isEnded?: boolean;
   createdAt?: string;
   currentExposureLevel?: 'normal' | 'medium' | 'high' | string | null;
 }
@@ -61,6 +64,7 @@ function TopicCardContent({
   voteCount,
   creatorName,
   isHot,
+  isEnded,
   createdAt,
   getTagColor,
 }: {
@@ -69,15 +73,23 @@ function TopicCardContent({
   voteCount: number;
   creatorName: string;
   isHot?: boolean;
+  isEnded?: boolean;
+  endedLabel?: string;
   createdAt?: string;
   getTagColor: (tag: string) => string;
 }) {
+  const label = endedLabel ?? '已結束';
   return (
     <>
       <div className="p-5">
         <div className="flex items-start justify-between mb-3">
           <h3 className="text-lg font-bold text-foreground flex-1 line-clamp-2">{title}</h3>
-          {isHot && <Flame className="w-5 h-5 text-accent ml-2 flex-shrink-0" />}
+          <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
+            {isEnded && (
+              <CheckCircle2 className="w-5 h-5 text-muted-foreground" title={label} aria-label={label} />
+            )}
+            {isHot && <Flame className="w-5 h-5 text-accent" />}
+          </div>
         </div>
         <div className="flex flex-wrap gap-2 mb-3">
           {tags.map((tag) => (
@@ -109,7 +121,11 @@ function TopicCardContent({
   );
 }
 
-export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, createdAt, currentExposureLevel }: TopicCardProps) => {
+export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, isEnded, createdAt, currentExposureLevel }: TopicCardProps) => {
+  const { language } = useLanguage();
+  const { getText } = useUIText(language);
+  const endedLabel = getText('home.topicCard.ended', '已結束');
+
   const level = typeof currentExposureLevel === 'string' ? currentExposureLevel.trim().toLowerCase() : '';
   const normalizedLevel = level === 'low' ? 'normal' : level;
   if (normalizedLevel === 'high' || normalizedLevel === 'medium') exposureLevelByTopicId.set(id, normalizedLevel);
@@ -127,6 +143,8 @@ export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, crea
       voteCount={voteCount}
       creatorName={creatorName}
       isHot={isHot}
+      isEnded={isEnded}
+      endedLabel={endedLabel}
       createdAt={createdAt}
       getTagColor={getTagColor}
     />
@@ -152,7 +170,12 @@ export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, crea
           <CardContent className="p-5">
             <div className="flex items-start justify-between mb-3">
               <h3 className="text-lg font-bold text-foreground flex-1 line-clamp-2">{title}</h3>
-              {isHot && <Flame className="w-5 h-5 text-accent ml-2 flex-shrink-0" />}
+              <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
+                {isEnded && (
+                  <CheckCircle2 className="w-5 h-5 text-muted-foreground" title={endedLabel} aria-label={endedLabel} />
+                )}
+                {isHot && <Flame className="w-5 h-5 text-accent" />}
+              </div>
             </div>
             <div className="flex flex-wrap gap-2 mb-3">
               {tags.map((tag) => (

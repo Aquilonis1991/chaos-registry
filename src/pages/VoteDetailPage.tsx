@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, User, Clock, Activity, Loader2, Gift, Flag, Sparkles } from "lucide-react";
+import { ArrowLeft, User, Clock, Coins, Loader2, Gift, Flag, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useProfile } from "@/hooks/useProfile";
 import { useVoteOperations } from "@/hooks/useVoteOperations";
@@ -285,7 +285,7 @@ const VoteDetailPage = () => {
               </div>
               {!isAnonymous && (
                 <div className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                  <Activity className="w-4 h-4 text-accent" />
+                  <Coins className="w-4 h-4 text-accent" />
                   <span className="font-bold text-primary-foreground text-sm">{userTokens.toLocaleString()}</span>
                 </div>
               )}
@@ -338,7 +338,7 @@ const VoteDetailPage = () => {
 
               {!isAnonymous && (
                 <div className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                  <Activity className="w-4 h-4 text-accent" />
+                  <Coins className="w-4 h-4 text-accent" />
                   <span className="font-bold text-primary-foreground text-sm">{userTokens.toLocaleString()}</span>
                 </div>
               )}
@@ -645,7 +645,7 @@ const VoteDetailPage = () => {
                   >
                     {isVoting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
                       <>
-                        <Activity className="w-5 h-5 mr-2" />
+                        <Coins className="w-5 h-5 mr-2" />
                         +{amount}
                       </>
                     )}
@@ -690,7 +690,7 @@ const VoteDetailPage = () => {
                     >
                       {isVoting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
                         <>
-                          <Activity className="w-5 h-5 mr-2" />
+                          <Coins className="w-5 h-5 mr-2" />
                           {customButtonText}
                         </>
                       )}

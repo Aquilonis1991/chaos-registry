@@ -50,25 +50,29 @@ BEGIN
     t.status,
     COALESCE(t.total_votes, 0) AS total_votes,
     COALESCE(tp.unique_count, 0) AS topic_unique_voters,
-    opt.value->>'label' AS option_label,
+    COALESCE(opt.value->>'text', opt.value->>'label', '')::TEXT AS option_label,
     (opt.value->>'votes')::INTEGER AS option_votes,
     COALESCE(fv.unique_count, 0) AS option_free_unique_voters
   FROM public.topics t
-  CROSS JOIN LATERAL jsonb_array_elements(t.options) AS opt
+  CROSS JOIN LATERAL jsonb_array_elements(t.options) WITH ORDINALITY AS opt(value, ord)
   LEFT JOIN (
-    SELECT topic_id, COUNT(*) AS unique_count
-    FROM public.topic_participants
-    GROUP BY topic_id
+    SELECT tp_inner.topic_id AS topic_id, COUNT(*) AS unique_count
+    FROM public.topic_participants tp_inner
+    GROUP BY tp_inner.topic_id
   ) tp ON tp.topic_id = t.id
   LEFT JOIN (
-    SELECT topic_id, option AS option_id, COUNT(DISTINCT user_id) AS unique_count
-    FROM public.free_votes
-    GROUP BY topic_id, option
-  ) fv ON fv.topic_id = t.id AND fv.option_id = (opt.value->>'id')
+    SELECT fv_inner.topic_id AS topic_id, fv_inner.option AS option_id, COUNT(DISTINCT fv_inner.user_id) AS unique_count
+    FROM public.free_votes fv_inner
+    GROUP BY fv_inner.topic_id, fv_inner.option
+  ) fv ON fv.topic_id = t.id
+    AND (
+      fv.option_id = (opt.value->>'id')
+      OR ((opt.value->>'id') IS NULL AND fv.option_id = ('option-' || (opt.ord - 1)::text))
+    )
   WHERE
     (v_start IS NULL OR t.created_at >= v_start)
     AND (v_end IS NULL OR t.created_at <= v_end)
-  ORDER BY t.created_at DESC, t.title, opt.value->>'label';
+  ORDER BY t.created_at DESC, t.title, COALESCE(opt.value->>'text', opt.value->>'label');
 END;
 $$;
 
@@ -91,11 +95,15 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, auth, pg_temp
 AS $$
 DECLARE
   v_start TIMESTAMPTZ;
   v_end TIMESTAMPTZ;
+  v_has_is_deleted BOOLEAN;
+  v_has_is_banned BOOLEAN;
+  v_is_banned_expr TEXT;
+  v_sql TEXT;
 BEGIN
   IF NOT public.is_admin(auth.uid()) THEN
     RAISE EXCEPTION 'Not authorized';
@@ -109,20 +117,42 @@ BEGIN
     v_end := NULL;
   END;
 
-  RETURN QUERY
-  SELECT
-    p.id AS user_id,
-    p.email AS email,
-    p.nickname,
-    p.created_at,
-    p.last_sign_in_at,
-    p.token_balance,
-    p.is_banned
-  FROM public.profiles p
-  WHERE
-    (v_start IS NULL OR p.created_at >= v_start)
-    AND (v_end IS NULL OR p.created_at <= v_end)
-  ORDER BY p.created_at DESC;
+  SELECT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'is_deleted'
+  ) INTO v_has_is_deleted;
+
+  SELECT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'is_banned'
+  ) INTO v_has_is_banned;
+
+  v_is_banned_expr := CASE
+    WHEN v_has_is_deleted THEN 'COALESCE(p.is_deleted, false)'
+    WHEN v_has_is_banned THEN 'COALESCE(p.is_banned, false)'
+    ELSE 'false'
+  END;
+
+  v_sql := '
+    SELECT
+      p.id AS user_id,
+      COALESCE(u.email, '''')::TEXT AS email,
+      p.nickname,
+      p.created_at,
+      u.last_sign_in_at AS last_sign_in_at,
+      COALESCE(p.tokens, 0) AS token_balance,
+      ' || v_is_banned_expr || ' AS is_banned
+    FROM public.profiles p
+    LEFT JOIN auth.users u ON u.id = p.id
+    WHERE
+      ($1::timestamptz IS NULL OR p.created_at >= $1::timestamptz)
+      AND ($2::timestamptz IS NULL OR p.created_at <= $2::timestamptz)
+    ORDER BY p.created_at DESC
+  ';
+
+  RETURN QUERY EXECUTE v_sql USING v_start, v_end;
 END;
 $$;
 
@@ -146,7 +176,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, auth
 AS $$
 DECLARE
   v_start TIMESTAMPTZ;
@@ -170,12 +200,13 @@ BEGIN
     tt.created_at,
     tt.user_id,
     p.nickname,
-    'hidden'::TEXT AS email,
+    COALESCE(u.email, '')::TEXT AS email,
     tt.amount,
     tt.transaction_type AS type,
     tt.description
   FROM public.token_transactions tt
   LEFT JOIN public.profiles p ON p.id = tt.user_id
+  LEFT JOIN auth.users u ON u.id = tt.user_id
   WHERE
     (v_start IS NULL OR tt.created_at >= v_start)
     AND (v_end IS NULL OR tt.created_at <= v_end)

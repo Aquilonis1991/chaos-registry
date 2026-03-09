@@ -23,6 +23,7 @@
     "android": "npm run cap:sync:android && npx cap open android",
     "android:sync": "npm run cap:sync:android",
     "ios": "npm run cap:sync:ios && npx cap open ios",
+    "ios:sync": "npm run cap:sync:ios",
     "build:aab": "npm run build && npx cap sync android && node scripts/build-aab.cjs",
     "sql:force-update": "node scripts/print-force-update-sql.cjs"
   },

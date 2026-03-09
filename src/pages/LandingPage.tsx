@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Vote, Users, Activity, Shield, ArrowRight, Check } from "lucide-react";
+import { Vote, Users, Coins, Shield, ArrowRight, Check } from "lucide-react";
 import { Logo } from "@/components/Logo";
 
 const LandingPage = () => {
@@ -65,7 +65,7 @@ const LandingPage = () => {
 
             <Card>
               <CardContent className="p-6 text-center">
-                <Activity className="w-12 h-12 text-primary mx-auto mb-4" />
+                <Coins className="w-12 h-12 text-primary mx-auto mb-4" />
                 <h3 className="text-xl font-semibold mb-2">失序值系統</h3>
                 <p className="text-muted-foreground">
                   使用失序值參與投票或提高主題曝光度

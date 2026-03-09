@@ -3,7 +3,7 @@ import { LoadingBubble } from "@/components/ui/LoadingBubble";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Gift, Activity, Video, CheckCircle, Clock, Loader2, Calendar } from "lucide-react";
+import { Gift, Coins, Video, CheckCircle, Clock, Loader2, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { useMissionOperations } from "@/hooks/useMissionOperations";
 import { useProfile } from "@/hooks/useProfile";
@@ -577,7 +577,7 @@ const MissionPage = () => {
               onClick={() => navigate('/recharge')}
               className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-4 py-2 rounded-full hover:bg-primary-foreground/30 transition-colors cursor-pointer"
             >
-              <Activity className="w-5 h-5 text-accent" />
+              <Coins className="w-5 h-5 text-accent" />
               <span className="font-bold text-primary-foreground">{userTokens.toLocaleString()}</span>
             </button>
           </div>
@@ -603,7 +603,7 @@ const MissionPage = () => {
               </div>
               <div className="text-right text-white">
                 <div className="text-2xl font-bold flex items-center gap-1">
-                  <Activity className="w-6 h-6" />
+                  <Coins className="w-6 h-6" />
                   {dailyCheckInReward}
                 </div>
               </div>
@@ -651,7 +651,7 @@ const MissionPage = () => {
               </div>
               <div className="text-right text-accent-foreground">
                 <div className="text-2xl font-bold flex items-center gap-1">
-                  <Activity className="w-6 h-6" />
+                  <Coins className="w-6 h-6" />
                   {watchAdReward}
                 </div>
               </div>
@@ -721,7 +721,7 @@ const MissionPage = () => {
 
                     <div className="flex flex-col items-end gap-1 ml-4">
                       <div className="flex items-center gap-1 text-accent font-bold text-lg">
-                        <Activity className="w-5 h-5" />
+                        <Coins className="w-5 h-5" />
                         {mission.reward}
                       </div>
                       {!isCompleted && !isClaimed && (

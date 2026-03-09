@@ -3,7 +3,7 @@ import { LoadingBubble } from "@/components/ui/LoadingBubble";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Activity, Wallet, Zap, Crown, Star, Gift, Loader2 } from "lucide-react";
+import { Coins, Wallet, Zap, Crown, Star, Gift, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
@@ -75,12 +75,12 @@ const RechargePage = () => {
   })();
 
   // Map icon strings to components
-  const iconMap: Record<string, any> = { Activity, Coins: Activity, Zap, Star, Crown };
+  const iconMap: Record<string, any> = { Coins, Zap, Star, Crown };
 
   const tokenPackages = rechargeAmounts.map((pkg: any) => ({
     ...pkg,
     id: Number(pkg.id) || pkg.id,
-    icon: iconMap[pkg.icon] || Activity
+    icon: iconMap[pkg.icon] || Coins
   }));
 
   const handlePurchase = async (pkg: typeof tokenPackages[0]) => {
@@ -133,7 +133,7 @@ const RechargePage = () => {
               <div>
                 <p className="text-sm text-muted-foreground mb-1">{balanceLabel}</p>
                 <div className="flex items-center gap-2">
-                  <Activity className="w-6 h-6 text-accent" />
+                  <Coins className="w-6 h-6 text-accent" />
                   <span className="text-3xl font-bold text-foreground">{userTokens.toLocaleString()}</span>
                 </div>
               </div>

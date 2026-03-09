@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TopicCard } from "@/components/TopicCard";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Activity, Loader2 } from "lucide-react";
+import { PlusCircle, Coins, Loader2 } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { AnnouncementCarousel } from "@/components/AnnouncementCarousel";
 import { SearchBar } from "@/components/SearchBar";
@@ -297,7 +297,7 @@ const HomePage = () => {
               onClick={() => navigate('/recharge')}
               className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-4 py-2 rounded-full hover:bg-primary-foreground/30 transition-colors cursor-pointer"
             >
-              <Activity className="w-5 h-5 text-accent" />
+              <Coins className="w-5 h-5 text-accent" />
               <span className="font-bold text-primary-foreground">{userTokens.toLocaleString()}</span>
             </button>
           </div>
@@ -377,6 +377,7 @@ const HomePage = () => {
                             voteCount={topic.total_votes || 0}
                             creatorName={topic.creator_name || getText('common.anonymous', '匿名')}
                             isHot={topic.is_hot}
+                            isEnded={topic.status === 'ended' || new Date(topic.end_at || 0) <= new Date()}
                             createdAt={formatCreatedAt(topic.created_at)}
                             currentExposureLevel={topic.current_exposure_level ?? topic.exposure_level ?? null}
                           />
@@ -400,6 +401,7 @@ const HomePage = () => {
                             voteCount={topic.total_votes || 0}
                             creatorName={topic.creator_name || getText('common.anonymous', '匿名')}
                             isHot={topic.is_hot}
+                            isEnded={topic.status === 'ended' || new Date(topic.end_at || 0) <= new Date()}
                             createdAt={formatCreatedAt(topic.created_at)}
                             currentExposureLevel={topic.current_exposure_level ?? topic.exposure_level ?? null}
                           />
@@ -465,6 +467,7 @@ const HomePage = () => {
                         voteCount={topic.total_votes || 0}
                         creatorName={topic.creator_name || getText('common.anonymous', '匿名')}
                         isHot={topic.is_hot}
+                        isEnded={topic.status === 'ended' || new Date(topic.end_at || 0) <= new Date()}
                         createdAt={formatCreatedAt(topic.created_at)}
                         currentExposureLevel={topic.current_exposure_level ?? topic.exposure_level ?? null}
                       />
@@ -524,6 +527,7 @@ const HomePage = () => {
                         voteCount={topic.total_votes || 0}
                         creatorName={topic.creator_name || getText('common.anonymous', '匿名')}
                         isHot={topic.is_hot}
+                        isEnded={topic.status === 'ended' || new Date(topic.end_at || 0) <= new Date()}
                         createdAt={formatCreatedAt(topic.created_at)}
                         currentExposureLevel={topic.current_exposure_level ?? topic.exposure_level ?? null}
                       />

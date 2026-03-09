@@ -1,0 +1,27 @@
+{
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/dist/**": true,
+    "**/android/**": true,
+    "**/ios/**": true,
+    "**/.git/**": true,
+    "**/.vite/**": true,
+    "**/supabase/**": true,
+    "**/sql_patches/**": true,
+    "**/logs/**": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/android": true,
+    "**/ios": true,
+    "**/.git": true,
+    "**/*.log": true,
+    "**/supabase": true,
+    "**/sql_patches": true
+  },
+  "typescript.tsserver.maxTsServerMemory": 4096,
+  "typescript.disableAutomaticTypeAcquisition": true,
+  "javascript.disableAutomaticTypeAcquisition": true,
+  "files.exclude": {}
+}

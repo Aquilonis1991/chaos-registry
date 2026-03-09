@@ -12,7 +12,7 @@ import {
   Gift,
   Ban,
   MoreVertical,
-  Activity,
+  Coins,
   TrendingUp,
   Trash2,
   Eye,
@@ -741,7 +741,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1">
-                              <Activity className="w-4 h-4 text-yellow-500" />
+                              <Coins className="w-4 h-4 text-yellow-500" />
                               <span className="font-semibold">{user.tokens || 0}</span>
                             </div>
                           </TableCell>
@@ -1112,7 +1112,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                     </div>
                     <div>
                       <div className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
-                        <Activity className="w-3 h-3" />
+                        <Coins className="w-3 h-3" />
                         {getText('admin.userManager.detail.tokens', '失序值餘額')}
                       </div>
                       <div className="font-semibold text-lg">{detailUser.tokens || 0}</div>
@@ -1252,7 +1252,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                 <Card>
                   <CardContent className="p-4">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <Activity className="w-5 h-5" />
+                      <Coins className="w-5 h-5" />
                       {getText('admin.userManager.detail.tokenTransactions', '失序值交易記錄')}
                     </h3>
                     <div className="text-center text-destructive py-4">
@@ -1264,7 +1264,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                 <Card>
                   <CardContent className="p-4">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <Activity className="w-5 h-5" />
+                      <Coins className="w-5 h-5" />
                       {getText('admin.userManager.detail.tokenTransactions', '失序值交易記錄')} ({tokenTransactions.length})
                     </h3>
 
@@ -1351,7 +1351,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                 <Card>
                   <CardContent className="p-4">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <Activity className="w-5 h-5" />
+                      <Coins className="w-5 h-5" />
                       {getText('admin.userManager.detail.tokenTransactions', '失序值交易記錄')}
                     </h3>
                     <div className="text-center text-muted-foreground py-4">

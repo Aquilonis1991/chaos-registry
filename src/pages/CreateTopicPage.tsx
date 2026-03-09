@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Activity, X, Plus, Loader2, Gift, Sparkles } from "lucide-react";
+import { ArrowLeft, Coins, X, Plus, Loader2, Gift, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -638,7 +638,7 @@ const CreateTopicPage = () => {
                     </span>
                   ) : (
                     <span className="text-orange-500 font-bold flex items-center gap-1">
-                      <Activity className="w-4 h-4" />
+                      <Coins className="w-4 h-4" />
                       {getText('topic.unstable_rewrite.cost_prompt', '本次改寫消耗 {{amount}} 失序值').replace('{{amount}}', String(rewriteUsage.cost))}
                     </span>
                   )}
@@ -690,7 +690,7 @@ const CreateTopicPage = () => {
                 onClick={() => navigate('/recharge')}
                 className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-3 py-1.5 rounded-full hover:bg-primary-foreground/30 transition-colors cursor-pointer"
               >
-                <Activity className="w-4 h-4 text-accent" />
+                <Coins className="w-4 h-4 text-accent" />
                 <span className="font-bold text-primary-foreground text-sm">{userTokens}</span>
               </button>
             </div>
@@ -912,7 +912,7 @@ const CreateTopicPage = () => {
                           <div className="text-sm text-muted-foreground">{getText('topic.exposure.normalDesc', '標準推薦')}</div>
                         </div>
                         <div className="flex items-center gap-1 text-primary font-bold">
-                          <Activity className="w-4 h-4" />
+                          <Coins className="w-4 h-4" />
                           <span>{formatTokenAmount(normalExposureCost)}</span>
                         </div>
                       </div>
@@ -938,7 +938,7 @@ const CreateTopicPage = () => {
                           <div className="text-sm text-muted-foreground">{getText('topic.exposure.mediumDesc', '優先顯示')}</div>
                         </div>
                         <div className="flex items-center gap-1 text-yellow-600 dark:text-yellow-500 font-bold">
-                          <Activity className="w-4 h-4" />
+                          <Coins className="w-4 h-4" />
                           <span>{formatTokenAmount(mediumExposureCost)}</span>
                         </div>
                       </div>
@@ -964,7 +964,7 @@ const CreateTopicPage = () => {
                           <div className="text-sm text-muted-foreground">{getText('topic.exposure.highDesc', '置頂與優先推薦')}</div>
                         </div>
                         <div className="flex items-center gap-1 text-amber-600 dark:text-amber-500 font-bold">
-                          <Activity className="w-4 h-4" />
+                          <Coins className="w-4 h-4" />
                           <span>{formatTokenAmount(highExposureCost)}</span>
                         </div>
                       </div>
@@ -1039,7 +1039,7 @@ const CreateTopicPage = () => {
                     <div className="text-accent-foreground">
                       <div className="text-sm opacity-90">{getText('topic.costSummary.totalCost', '總消耗失序值')}</div>
                       <div className="text-2xl font-bold flex items-center gap-2">
-                        <Activity className="w-6 h-6" />
+                        <Coins className="w-6 h-6" />
                         {totalCost}
                       </div>
                     </div>

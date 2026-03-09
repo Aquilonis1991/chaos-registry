@@ -1,0 +1,6 @@
+key,category,zh,en,ja,description
+topicHistory.status.ended,topic_history,已結束,Ended,終了,主題狀態：已結束
+topicHistory.stats.timeEnded,topic_history,已結束,Ended,終了,主題統計時間：已結束
+voteHistory.status.closed,vote_history,已結束,Closed,終了,投票狀態：已結束
+common.time.expired,common_time,已結束,Expired,終了しました,已過期／剩餘時間已結束時顯示
+home.topicCard.ended,home,已結束,Ended,終了,首頁主題卡片圖示 title/aria-label（已結束）

@@ -114,6 +114,7 @@ export const DataExportManager = () => {
             downloadCSV("transactions_export", [
                 { key: "transaction_id", label: "交易ID" },
                 { key: "created_at", label: "交易時間" },
+                { key: "user_id", label: "用戶固定ID" },
                 { key: "nickname", label: "用戶暱稱" },
                 { key: "email", label: "用戶Email" },
                 { key: "type", label: "交易類型" },

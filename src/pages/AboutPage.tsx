@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Mail, Globe, Users, Vote, Activity, Shield } from "lucide-react";
+import { ArrowLeft, Mail, Globe, Users, Vote, Coins, Shield } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
@@ -95,7 +95,7 @@ const AboutPage = () => {
                 </div>
 
                 <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg">
-                  <Activity className="w-6 h-6 text-primary flex-shrink-0 mt-1" />
+                  <Coins className="w-6 h-6 text-primary flex-shrink-0 mt-1" />
                   <div>
                     <h4 className="font-semibold text-foreground mb-1">失序值系統</h4>
                     <p className="text-sm text-muted-foreground">

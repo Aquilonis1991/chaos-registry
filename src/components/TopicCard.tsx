@@ -65,6 +65,7 @@ function TopicCardContent({
   creatorName,
   isHot,
   isEnded,
+  endedLabel,
   createdAt,
   getTagColor,
 }: {

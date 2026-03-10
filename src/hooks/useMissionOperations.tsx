@@ -283,15 +283,20 @@ export const useMissionOperations = () => {
           // RPC 調用成功後，立即標記為成功（不等待後續操作）
           tokenUpdateSuccess = true;
 
-          // 後續操作改為異步執行，不阻塞 UI
+          // 後續操作：更新 profile、寫入 token_transactions（watch_ad），確保代幣紀錄正確
           Promise.allSettled([
-            // 更新觀看次數和登入時間
             supabase.from('profiles')
               .update({
                 ad_watch_count: adWatchCount + 1,
                 last_login: new Date().toISOString()
               })
-              .eq('id', user.id)
+              .eq('id', user.id),
+            supabase.rpc('log_token_transaction', {
+              p_user_id: user.id,
+              p_amount: AD_REWARD,
+              p_transaction_type: 'watch_ad',
+              p_description: 'Watched advertisement'
+            })
           ]).catch(() => {
             // 靜默處理錯誤，不影響主流程
           });

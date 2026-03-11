@@ -229,7 +229,7 @@ const AuthPage = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -248,6 +248,14 @@ const AuthPage = () => {
           toast.error(error.message);
         }
       } else {
+        // 協助排查：若收不到驗證信，請到 Supabase Dashboard 檢查 Auth 設定（見 docs/TROUBLESHOOTING_EMAIL_VERIFICATION.md）
+        const needsConfirm = data?.user && !data?.user?.email_confirmed_at;
+        if (needsConfirm) {
+          console.log("[Auth] 註冊成功，需驗證信箱。若未收到信請檢查：Redirect URLs、Confirm email、SMTP", {
+            emailRedirectTo: emailRedirectUrl,
+            userId: data?.user?.id,
+          });
+        }
         toast.success(getText('auth_signup_success', '註冊成功！請至信箱完成驗證後再登入'));
       }
     } catch (error) {

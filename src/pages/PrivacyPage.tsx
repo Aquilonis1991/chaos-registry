@@ -65,7 +65,7 @@ const PrivacyPage = () => {
   );
 };
 
-const DefaultPrivacySections = () => (
+export const DefaultPrivacySections = () => (
   <>
     <p className="text-foreground">
       感謝您使用《不理性登記處》（以下簡稱「本服務」或「本 App」）。本隱私權政策說明本公司（OOO 有限公司）如何收集、使用、儲存及保護您的個人資料。

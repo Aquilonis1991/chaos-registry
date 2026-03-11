@@ -65,7 +65,7 @@ const TermsPage = () => {
   );
 };
 
-const DefaultTermsSections = () => (
+export const DefaultTermsSections = () => (
   <>
     <p className="text-foreground">
       感謝您使用《不理性登記處》（以下簡稱「本服務」），本應用程式由 OOO 有限公司（以下簡稱「本公司」）所營運。

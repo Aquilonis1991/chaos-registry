@@ -25,6 +25,8 @@ import ContactPage from "./pages/ContactPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import TermsPage from "./pages/TermsPage";
 import PrivacyPage from "./pages/PrivacyPage";
+import LegalPage from "./pages/LegalPage";
+import MarketingPage from "./pages/MarketingPage";
 import AboutPage from "./pages/AboutPage";
 import AuthPage from "./pages/AuthPage";
 import VerifyRedirectPage from "./pages/VerifyRedirectPage";
@@ -93,6 +95,8 @@ const App = () => (
                   <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
                   <Route path="/terms" element={<TermsPage />} />
                   <Route path="/privacy" element={<PrivacyPage />} />
+                  <Route path="/legal" element={<LegalPage />} />
+                  <Route path="/marketing" element={<MarketingPage />} />
                   <Route path="/about" element={<AboutPage />} />
                   <Route path="/admin" element={<ProtectedRoute requireAuth><AdminPage /></ProtectedRoute>} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

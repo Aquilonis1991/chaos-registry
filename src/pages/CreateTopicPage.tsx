@@ -611,15 +611,24 @@ const CreateTopicPage = () => {
               {rewriteResult && (
                 <div className="bg-muted/50 p-3 rounded-md space-y-2 text-sm">
                   <div>
-                    <span className="font-semibold">標題：</span>
+                    <span className="font-semibold">
+                      {titleFieldLabel}
+                      ：
+                    </span>
                     <span className="text-foreground">{rewriteResult.rewritten_title}</span>
                   </div>
                   <div>
-                    <span className="font-semibold">詳述：</span>
+                    <span className="font-semibold">
+                      {descriptionFieldLabel}
+                      ：
+                    </span>
                     <span className="text-foreground text-xs line-clamp-3">{rewriteResult.rewritten_description || '(無變更)'}</span>
                   </div>
                   <div>
-                    <span className="font-semibold">選項：</span>
+                    <span className="font-semibold">
+                      {getText('topic.options.label', '投票選項 (2-6個)')}
+                      ：
+                    </span>
                     <ul className="list-disc list-inside text-foreground">
                       {rewriteResult.options.map((opt, i) => (
                         <li key={i}>{opt}</li>

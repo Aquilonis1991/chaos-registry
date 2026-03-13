@@ -19,8 +19,11 @@ const detectLanguageFromText = (text: string): DetectedLang => {
   const hasCjk = /[\u4e00-\u9fff]/.test(s);
   if (hasCjk) return "zh";
 
-  // Default to English for Latin/others
-  return "en";
+  // 以「是否有顯著拉丁字母」判斷英文，避免僅有數字/符號被當成 en 卻又無字母
+  const hasLatinWord = /[a-zA-Z]{2,}/.test(s);
+  if (hasLatinWord) return "en";
+
+  return "zh";
 };
 
 const langLabel = (lang: DetectedLang): string => {
@@ -165,7 +168,7 @@ Deno.serve(async (req) => {
     const openAiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openAiKey) throw new Error("OpenAI API Key not configured");
 
-    // Default Prompt (Fallback)
+    // Default Prompt (Fallback) - 繁中
     const DEFAULT_SYSTEM_PROMPT = `
       一、系統角色定義（唯一）
       你是一個系統內部的文字處理模組，
@@ -208,6 +211,22 @@ Deno.serve(async (req) => {
       }
     `;
 
+    // 英文專用預設（偵測為 en 時若無後台 en prompt 則用此，避免整段中文指令導致輸出中文）
+    const DEFAULT_SYSTEM_PROMPT_EN = `
+You are a text-processing module. You are not a creative tool or advisor. Outputs represent system results only.
+
+Task: unstable_rewrite. Rewrite the user's input into a "formal but absurd survey" style.
+Rules:
+- Use ONLY the content provided (title, description, options). Do not invent.
+- CRITICAL: Rewrite BOTH title AND description; description must not be empty.
+- Style: Title = survey/research theme; Description = survey intro/instructions; Options = scale, absurd binary, or leading options.
+- Tone: authoritative, academic, calm, but illogical or biased (chaos).
+- You MUST output all JSON string values in English only. No Chinese, no Japanese.
+
+Output JSON ONLY:
+{"rewritten_title":"string","rewritten_description":"string","options":["string","string","string"]}
+    `.trim();
+
     // 先偵測輸入語言，再依語言選用對應的 prompt（支援後台 中/英/日 三欄位）
     const combinedInput = [
       String(title ?? ""),
@@ -215,6 +234,7 @@ Deno.serve(async (req) => {
       ...(Array.isArray(options) ? options.map((o) => String(o ?? "")) : []),
     ].join("\n");
     const detected = detectLanguageFromText(combinedInput);
+    console.log("[Rewrite] detected language:", detected, "input sample:", combinedInput.slice(0, 120));
 
     let systemPrompt = DEFAULT_SYSTEM_PROMPT;
     try {
@@ -229,17 +249,41 @@ Deno.serve(async (req) => {
         if (typeof v === "object" && v !== null && ("zh" in v || "en" in v || "ja" in v)) {
           const o = v as Record<string, unknown>;
           const byLang = (key: string) => (typeof o[key] === "string" ? o[key] as string : "");
-          systemPrompt = byLang(detected) || byLang("zh") || "";
-          if (systemPrompt) console.log("Using dynamic AI prompt from system_config (lang:", detected, ")");
+          if (detected === "en") {
+            systemPrompt = byLang("en") || DEFAULT_SYSTEM_PROMPT_EN;
+            if (byLang("en")) console.log("Using dynamic AI prompt from system_config (lang: en)");
+            else console.log("Using built-in English system prompt (no en in config)");
+          } else {
+            systemPrompt = byLang(detected) || byLang("zh") || "";
+            if (systemPrompt) console.log("Using dynamic AI prompt from system_config (lang:", detected, ")");
+          }
         }
         if (!systemPrompt && typeof v === "string") {
           systemPrompt = v;
           console.log("Using dynamic AI prompt from system_config (legacy string)");
         }
-        if (!systemPrompt) systemPrompt = DEFAULT_SYSTEM_PROMPT;
+        if (!systemPrompt) systemPrompt = detected === "en" ? DEFAULT_SYSTEM_PROMPT_EN : DEFAULT_SYSTEM_PROMPT;
+      }
+      // 偵測為英文時一律強制使用英文 system prompt（含 config 為字串或 en 為空的情況）
+      if (detected === "en") {
+        const o = promptConfig?.value;
+        const enFromConfig = (o && typeof o === "object" && "en" in o && typeof (o as Record<string, unknown>).en === "string")
+          ? ((o as Record<string, unknown>).en as string).trim()
+          : "";
+        if (!enFromConfig) {
+          systemPrompt = DEFAULT_SYSTEM_PROMPT_EN;
+          console.log("Force English system prompt (detected=en, no en in config)");
+        }
       }
     } catch (e) {
       console.warn("Failed to fetch dynamic prompt, using default:", e);
+    }
+    if (detected === "en" && !systemPrompt.includes("English only") && !systemPrompt.includes("No Chinese")) {
+      systemPrompt = DEFAULT_SYSTEM_PROMPT_EN;
+      console.log("Force English system prompt (fallback: prompt was not English)");
+    }
+    if (detected === "en") {
+      systemPrompt = "OUTPUT LANGUAGE: English only. All JSON string values (rewritten_title, rewritten_description, options) MUST be in English. No 中文, no 日本語.\n\n" + systemPrompt;
     }
 
     // 依偵測語言加上「目標語言」的明確指令，避免模型受 system 中文影響而輸出中文
@@ -273,7 +317,7 @@ Deno.serve(async (req) => {
     // 在使用者訊息開頭再次強調輸出語言，提高模型遵守率
     const outputLanguageHint =
       detected === "en"
-        ? "[Output language: English only. Write all JSON string values in English.]\n"
+        ? "IMPORTANT: The user input below is in ENGLISH. You MUST respond with rewritten_title, rewritten_description, and options ALL in ENGLISH. Do not use Chinese or Japanese.\n\n"
         : detected === "ja"
           ? "[Output language: 日本語のみ。]\n"
           : "[Output language: 繁體中文]\n";

@@ -54,8 +54,10 @@ export const usePurchase = () => {
       toast.error(
         error.message || getText('recharge.toast.failure.desc', '購買失敗，請稍後再試')
       );
-    } finally {
       setIsProcessing(false);
+    } finally {
+      // 僅 Web 在此關閉遮罩；原生內購由 approvedCallback / errorCallback 在餘額更新後關閉
+      if (!isNative()) setIsProcessing(false);
     }
   };
 
@@ -166,6 +168,7 @@ export const usePurchase = () => {
             }
           );
 
+          // 餘額更新完成後才關閉遮罩
           await refreshProfile();
         } catch (err: any) {
           console.error('[Purchase] Verification failed:', err);
@@ -173,6 +176,8 @@ export const usePurchase = () => {
             getText('recharge.toast.verificationFailed', '驗證失敗: {{error}}')
               .replace('{{error}}', err.message || 'Unknown error')
           );
+        } finally {
+          setIsProcessing(false);
         }
       };
       store.when().approved(approvedCallback);
@@ -180,6 +185,7 @@ export const usePurchase = () => {
       const errorCallback = (error: any) => {
         if (error?.productId != null && error.productId !== productId) return;
         store.off(errorCallback);
+        setIsProcessing(false);
         console.error('[Purchase] Purchase error:', error);
         toast.error(
           getText('recharge.toast.purchaseError', '購買失敗: {{error}}')
@@ -205,7 +211,7 @@ export const usePurchase = () => {
       // 處理常見的購買錯誤
       if (error.code === 6777001 || error.code === 'USER_CANCELLED' || error.message?.includes('cancelled')) {
         errorMessage = getText('recharge.toast.userCancelled', '使用者取消了購買');
-        // 用戶取消不需要顯示錯誤提示
+        setIsProcessing(false);
         return;
       } else if (error.code === 'ITEM_ALREADY_OWNED' || error.message?.includes('already owned')) {
         errorMessage = getText('recharge.toast.alreadyOwned', '您已經擁有此產品');

@@ -30,6 +30,7 @@ import { DeleteTopicDialog } from "@/components/DeleteTopicDialog";
 import { ExposureApplyDialog } from "@/components/ExposureApplyDialog";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useLanguage, resolveBaseLanguage } from "@/contexts/LanguageContext";
+import { detectLanguageFromText } from "@/lib/detectLanguageFromText";
 import { useUIText } from "@/hooks/useUIText";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 import { formatRelativeTime, formatRemainingTime } from "@/lib/relativeTime";
@@ -50,7 +51,8 @@ const VoteDetailPage = () => {
   const { getConfig } = useSystemConfigCache();
   const voteButtonAmounts = getConfig('vote_button_amounts', [1, 10, 100]) as number[];
 
-  const { statement: aiClosing, isLoading: aiClosingLoading, isGenerating: aiClosingGenerating, hasFetched: aiClosingHasFetched, triggerGenerate: triggerAiClosing } = useAiClosingStatement(topic, resolveBaseLanguage(language), closingInitial, summaryClosingLoading);
+  const closingDisplayLang = topic?.title ? detectLanguageFromText(topic.title) : resolveBaseLanguage(language);
+  const { statement: aiClosing, isLoading: aiClosingLoading, isGenerating: aiClosingGenerating, hasFetched: aiClosingHasFetched, triggerGenerate: triggerAiClosing } = useAiClosingStatement(topic, closingDisplayLang, closingInitial, summaryClosingLoading);
   const isTopicEnded = topic ? (topic.status === 'ended' || new Date(topic.end_at || 0) <= new Date()) : false;
   /** 已自動觸發過產生結語的 topic id 集合（避免重複呼叫） */
   const autoClosingTriggeredRef = useRef<Set<string>>(new Set());
@@ -533,7 +535,7 @@ const VoteDetailPage = () => {
               {/* 混亂結語：有 initial 或已取回則直接顯示，不顯示讀取遮罩；僅有結語時上方不留白 */}
               {aiClosing ? (
                 <section
-                  key={`closing-${resolveBaseLanguage(language)}`}
+                  key={`closing-${closingDisplayLang}`}
                   aria-label={getText("chaos_closing.sectionLabel", "混亂結語")}
                   className="w-full space-y-2"
                 >
@@ -541,10 +543,10 @@ const VoteDetailPage = () => {
                     {getText("chaos_closing.title", "⚡ 混亂結語")}
                   </h2>
                   <ChaosClosingCard
-                    key={`chaos-closing-${aiClosing.topic_id}-${resolveBaseLanguage(language)}`}
+                    key={`chaos-closing-${aiClosing.topic_id}-${closingDisplayLang}`}
                     statement={aiClosing}
                     isLoading={false}
-                    language={language}
+                    language={closingDisplayLang}
                   />
                 </section>
               ) : aiClosingHasFetched && !aiClosingLoading ? (

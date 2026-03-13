@@ -213,6 +213,8 @@ Deno.serve(async (req) => {
       }
     `;
 
+        // 依介面語言選用後台設定的 繁中/英/日 prompt（支援中英日三欄位）
+        const langKey = String(language).startsWith("zh") ? "zh" : String(language).startsWith("ja") ? "ja" : "en";
         let systemPrompt = DEFAULT_SYSTEM_PROMPT;
         try {
             const { data: promptConfig } = await supabase
@@ -222,8 +224,18 @@ Deno.serve(async (req) => {
                 .single();
 
             if (promptConfig?.value) {
-                systemPrompt = promptConfig.value;
-                console.log("Using dynamic AI prompt from system_config");
+                const v = promptConfig.value;
+                if (typeof v === "object" && v !== null && ("zh" in v || "en" in v || "ja" in v)) {
+                    const o = v as Record<string, unknown>;
+                    const byLang = (key: string) => (typeof o[key] === "string" ? (o[key] as string) : "");
+                    systemPrompt = byLang(langKey) || byLang("zh") || "";
+                    if (systemPrompt) console.log("Using dynamic AI prompt from system_config (lang:", langKey, ")");
+                }
+                if (!systemPrompt && typeof v === "string") {
+                    systemPrompt = v;
+                    console.log("Using dynamic AI prompt from system_config (legacy string)");
+                }
+                if (!systemPrompt) systemPrompt = DEFAULT_SYSTEM_PROMPT;
             }
         } catch (e) {
             console.warn("Failed to fetch dynamic prompt, using default:", e);

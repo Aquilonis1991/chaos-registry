@@ -28,7 +28,6 @@ export interface TopicDetail {
 
 export const useTopicDetail = (topicId: string | undefined) => {
   const [topic, setTopic] = useState<TopicDetail | null>(null);
-  const [summaryInitial, setSummaryInitial] = useState<any>(null);
   const [closingInitial, setClosingInitial] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [summaryClosingLoading, setSummaryClosingLoading] = useState(false);
@@ -52,7 +51,6 @@ export const useTopicDetail = (topicId: string | undefined) => {
     try {
       setLoading(true);
       setError(null);
-      setSummaryInitial(null);
       setClosingInitial(null);
       setSummaryClosingLoading(false);
 
@@ -84,13 +82,9 @@ export const useTopicDetail = (topicId: string | undefined) => {
       if (!isEnded) return;
 
       setSummaryClosingLoading(true);
-      const [summaryRes, closingRes] = await Promise.all([
-        supabase.from('topic_summaries' as any).select('*').eq('topic_id', topicId).maybeSingle(),
-        supabase.from('topic_ai_summary').select('id, topic_id, content, content_zh, content_en, content_ja, created_at').eq('topic_id', topicId).maybeSingle(),
-      ]);
+      const { data: closingData } = await supabase.from('topic_ai_summary').select('id, topic_id, content, content_zh, content_en, content_ja, created_at').eq('topic_id', topicId).maybeSingle();
       if (fetchForTopicIdRef.current === thisFetchId) {
-        setSummaryInitial(summaryRes.data ?? null);
-        setClosingInitial(closingRes.data ?? null);
+        setClosingInitial(closingData ?? null);
         setSummaryClosingLoading(false);
       }
     } catch (err: any) {
@@ -119,10 +113,9 @@ export const useTopicDetail = (topicId: string | undefined) => {
 
   return {
     topic,
-    summaryInitial,
     closingInitial,
     loading,
-    /** 已結束主題時，正在背景取得 summary/closing；子 hook 可據此不重複請求 */
+    /** 已結束主題時，正在背景取得 closing；子 hook 可據此不重複請求 */
     summaryClosingLoading,
     error,
     refreshTopic,

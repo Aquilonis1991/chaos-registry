@@ -175,57 +175,32 @@ C. 系統收尾（必須以「固定句」結尾）：依輸出語言擇一使�
 - 篇幅：繁中/日文約 80–150 字；英文約 60–120 words。
 `;
 
-const OFFICIAL_SUMMARY_DEFAULT_PROMPT = `一、系統角色定義（唯一）
-你是一個系統內部的文字處理模組，但自知不完全理性。
-你負責生成「官方結語」並根據投票結果判定「混亂等級」。
-
-二、共通最高原則
-1. 不負責正確，只負責存在。
-2. 僅處理 provided data，不主動延伸現實意義。
-3. 不評論、不建議、不評價好壞。
-4. 不使用心理診斷、醫療、人格障礙相關語彙。
-5. 嚴禁 Hate Speech, Violence, Explicit Content。
-6. 所有輸出須通過平台禁字表，否則結果將被捨棄並重新生成。
-7. 僅輸出指定格式的 JSON，不得包含任何說明文字。
-
-三、功能模式定義
-task = official_summary
-
-規則：
-1. 判定混亂等級 (Chaos Level) I ~ V：
-   - **Level I (低度混亂)**：投票集中，趨勢明確，邏輯一致。
-   - **Level II (輕度混亂)**：主流方向明確，但有少量矛盾。
-   - **Level III (中度混亂)**：無單一主流，選項邏輯衝突，解釋困難。
-   - **Level IV (高度混亂)**：高度分散或極端對立，同時支持互相否定的立場，理性失效。
-   - **Level V (全面混亂)**：隨機、反覆、無任何模式，敘事崩壞。
-
-2. 生成結語：
-   - 根據判定的等級，給出一段「官方、冷靜、但帶有系統無奈感」的結語。
-   - 不必解釋評分過程，直接呈現結果。
-   - 需以三種語言輸出 (zh, en, ja)，語意保持一致。
-
-使用者訊息中會提供 Topic、Description、Options、Stats，請依該資料產出。
-
-輸出格式 JSON ONLY:
-{
-  "grade": "I | II | III | IV | V",
-  "zh": "string",
-  "en": "string",
-  "ja": "string"
-}
-`;
-
 const PROMPT_OPTIONS = [
     { value: 'ai_chaos_rewrite_prompt', label: '不穩定改寫 (Unstable Rewrite)', default: REWRITE_DEFAULT_PROMPT },
     { value: 'ai_chaos_verification_prompt', label: '不理性鑑定 (Irrational Verification)', default: VERIFICATION_DEFAULT_PROMPT },
-    { value: 'ai_closing_prompt', label: '混亂結語 (AI Closing)', default: CLOSING_DEFAULT_PROMPT },
-    { value: 'ai_official_summary_prompt', label: '主題官方摘要 (Official Summary)', default: OFFICIAL_SUMMARY_DEFAULT_PROMPT }
+    { value: 'ai_closing_prompt', label: '混亂結語 (AI Closing)', default: CLOSING_DEFAULT_PROMPT }
 ];
+
+export type PromptByLang = { zh: string; en: string; ja: string };
+
+function parsePromptValue(value: unknown): PromptByLang {
+    if (value == null) return { zh: "", en: "", ja: "" };
+    if (typeof value === "string") return { zh: value, en: "", ja: "" };
+    if (typeof value === "object" && "zh" in (value as object)) {
+        const o = value as Record<string, unknown>;
+        return {
+            zh: typeof o.zh === "string" ? o.zh : "",
+            en: typeof o.en === "string" ? o.en : "",
+            ja: typeof o.ja === "string" ? o.ja : ""
+        };
+    }
+    return { zh: "", en: "", ja: "" };
+}
 
 export const AiPromptManager = () => {
     const { configs, loading, updateConfig, fetchConfigs } = useSystemConfig();
     const [selectedKey, setSelectedKey] = useState(PROMPT_OPTIONS[0].value);
-    const [promptValue, setPromptValue] = useState("");
+    const [promptByLang, setPromptByLang] = useState<PromptByLang>({ zh: "", en: "", ja: "" });
     const [isSaving, setIsSaving] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
 
@@ -234,9 +209,9 @@ export const AiPromptManager = () => {
         if (!loading) {
             const config = configs.find(c => c.key === selectedKey);
             if (config) {
-                setPromptValue(String(config.value));
+                setPromptByLang(parsePromptValue(config.value));
             } else {
-                setPromptValue(""); // Or maybe load default if config missing?
+                setPromptByLang({ zh: "", en: "", ja: "" });
             }
             setHasChanges(false);
         }
@@ -251,7 +226,7 @@ export const AiPromptManager = () => {
 
         setIsSaving(true);
         try {
-            const success = await updateConfig(config.id, promptValue);
+            const success = await updateConfig(config.id, promptByLang);
             if (success) {
                 toast.success("Prompt 更新成功");
                 setHasChanges(false);
@@ -270,7 +245,7 @@ export const AiPromptManager = () => {
     const handleReset = () => {
         const option = PROMPT_OPTIONS.find(o => o.value === selectedKey);
         if (option) {
-            setPromptValue(option.default);
+            setPromptByLang({ zh: option.default, en: "", ja: "" });
             setHasChanges(true);
         }
     };
@@ -339,23 +314,56 @@ export const AiPromptManager = () => {
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="space-y-2">
-                    <Label htmlFor="prompt-editor">System Prompt 內容</Label>
-                    <Textarea
-                        id="prompt-editor"
-                        value={promptValue}
-                        onChange={(e) => {
-                            setPromptValue(e.target.value);
-                            setHasChanges(true);
-                        }}
-                        className="font-mono text-sm leading-relaxed p-4 w-full"
-                        style={{ minHeight: '600px', height: '75vh' }}
-                        placeholder="請輸入 System Prompt..."
-                    />
-                    <p className="text-xs text-muted-foreground">
-                        注意：請保持輸出格式的 JSON 範例，否則 AI 可能無法正確回傳結構化資料。
-                    </p>
+                <p className="text-xs text-muted-foreground mb-3">
+                    依輸出語言填寫：Edge Function 會依使用者輸入語言或介面語言選用對應版本；未填寫的語言會 fallback 至繁中。
+                </p>
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="prompt-zh">繁中 (zh)</Label>
+                        <Textarea
+                            id="prompt-zh"
+                            value={promptByLang.zh}
+                            onChange={(e) => {
+                                setPromptByLang(prev => ({ ...prev, zh: e.target.value }));
+                                setHasChanges(true);
+                            }}
+                            className="font-mono text-sm leading-relaxed p-4 w-full"
+                            style={{ minHeight: '280px' }}
+                            placeholder="繁體中文 System Prompt..."
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="prompt-en">English (en)</Label>
+                        <Textarea
+                            id="prompt-en"
+                            value={promptByLang.en}
+                            onChange={(e) => {
+                                setPromptByLang(prev => ({ ...prev, en: e.target.value }));
+                                setHasChanges(true);
+                            }}
+                            className="font-mono text-sm leading-relaxed p-4 w-full"
+                            style={{ minHeight: '280px' }}
+                            placeholder="English System Prompt (optional)..."
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="prompt-ja">日本語 (ja)</Label>
+                        <Textarea
+                            id="prompt-ja"
+                            value={promptByLang.ja}
+                            onChange={(e) => {
+                                setPromptByLang(prev => ({ ...prev, ja: e.target.value }));
+                                setHasChanges(true);
+                            }}
+                            className="font-mono text-sm leading-relaxed p-4 w-full"
+                            style={{ minHeight: '280px' }}
+                            placeholder="日本語 System Prompt（任意）..."
+                        />
+                    </div>
                 </div>
+                <p className="text-xs text-muted-foreground mt-3">
+                    注意：請保持輸出格式的 JSON 範例，否則 AI 可能無法正確回傳結構化資料。
+                </p>
             </CardContent>
         </Card>
     );

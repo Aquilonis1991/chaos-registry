@@ -208,7 +208,14 @@ Deno.serve(async (req) => {
       }
     `;
 
-    // Fetch dynamic prompt from system_config
+    // 先偵測輸入語言，再依語言選用對應的 prompt（支援後台 中/英/日 三欄位）
+    const combinedInput = [
+      String(title ?? ""),
+      String(description ?? ""),
+      ...(Array.isArray(options) ? options.map((o) => String(o ?? "")) : []),
+    ].join("\n");
+    const detected = detectLanguageFromText(combinedInput);
+
     let systemPrompt = DEFAULT_SYSTEM_PROMPT;
     try {
       const { data: promptConfig } = await supabase
@@ -218,29 +225,58 @@ Deno.serve(async (req) => {
         .single();
 
       if (promptConfig?.value) {
-        systemPrompt = promptConfig.value;
-        console.log("Using dynamic AI prompt from system_config");
+        const v = promptConfig.value;
+        if (typeof v === "object" && v !== null && ("zh" in v || "en" in v || "ja" in v)) {
+          const o = v as Record<string, unknown>;
+          const byLang = (key: string) => (typeof o[key] === "string" ? o[key] as string : "");
+          systemPrompt = byLang(detected) || byLang("zh") || "";
+          if (systemPrompt) console.log("Using dynamic AI prompt from system_config (lang:", detected, ")");
+        }
+        if (!systemPrompt && typeof v === "string") {
+          systemPrompt = v;
+          console.log("Using dynamic AI prompt from system_config (legacy string)");
+        }
+        if (!systemPrompt) systemPrompt = DEFAULT_SYSTEM_PROMPT;
       }
     } catch (e) {
       console.warn("Failed to fetch dynamic prompt, using default:", e);
     }
 
-    // 強制：依輸入文字語言輸出同語言（不依 UI 語言）
-    const combinedInput = [
-      String(title ?? ""),
-      String(description ?? ""),
-      ...(Array.isArray(options) ? options.map((o) => String(o ?? "")) : []),
-    ].join("\n");
-    const detected = detectLanguageFromText(combinedInput);
-    const languageConstraint = `
+    // 依偵測語言加上「目標語言」的明確指令，避免模型受 system 中文影響而輸出中文
+    const languageConstraintZh = `
 
 四、輸出語言規則（強制，不能忽略）
 - 你必須使用「與使用者輸入相同的語言」輸出 JSON 欄位值（rewritten_title / rewritten_description / options）。
 - 已偵測使用者輸入主要語言為：${langLabel(detected)}（代碼：${detected}）。
 - 禁止混用其他語言；若原文中包含少量外語片段，保留片段但整體語言仍以偵測語言為主。
 `;
+    const languageConstraintEn = `
+
+四、輸出語言規則（強制，不能忽略）
+- CRITICAL: You MUST write rewritten_title, rewritten_description, and every item in options ONLY in English. Do not use Chinese (中文) or Japanese. The user input is in English; your entire JSON output must be in English.
+- Detected user input language: English (code: en).
+`;
+    const languageConstraintJa = `
+
+四、輸出語言規則（強制，不能忽略）
+- 你必須使用「與使用者輸入相同的語言」輸出 JSON 欄位值。已偵測為日本語。全ての出力（rewritten_title, rewritten_description, options）は日本語のみで記述すること。中文・English は使用禁止。
+- Detected: 日本語（code: ja）。
+`;
+    const languageConstraint =
+      detected === "en"
+        ? languageConstraintEn
+        : detected === "ja"
+          ? languageConstraintJa
+          : languageConstraintZh;
     systemPrompt = `${systemPrompt}${languageConstraint}`;
 
+    // 在使用者訊息開頭再次強調輸出語言，提高模型遵守率
+    const outputLanguageHint =
+      detected === "en"
+        ? "[Output language: English only. Write all JSON string values in English.]\n"
+        : detected === "ja"
+          ? "[Output language: 日本語のみ。]\n"
+          : "[Output language: 繁體中文]\n";
     const userContent = JSON.stringify({ title, description, options });
 
     // Call OpenAI
@@ -254,7 +290,7 @@ Deno.serve(async (req) => {
         model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Task Input:\nRewrite to Chaos JSON: ${userContent}` }
+          { role: "user", content: `${outputLanguageHint}Task Input:\nRewrite to Chaos JSON: ${userContent}` }
         ],
         temperature: 1.0,
         response_format: { type: "json_object" }

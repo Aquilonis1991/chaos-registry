@@ -34,9 +34,7 @@ import { useUIText } from "@/hooks/useUIText";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 import { formatRelativeTime, formatRemainingTime } from "@/lib/relativeTime";
 import { cn } from "@/lib/utils";
-import { OfficialSummaryCard } from "@/components/OfficialSummaryCard";
 import { ChaosClosingCard } from "@/components/ChaosClosingCard";
-import { useOfficialSummary } from "@/hooks/useOfficialSummary";
 import { useAiClosingStatement } from "@/hooks/useAiClosingStatement";
 
 const VoteDetailPage = () => {
@@ -45,14 +43,13 @@ const VoteDetailPage = () => {
   const { profile, loading: profileLoading, refreshProfile } = useProfile();
   const { user, isAnonymous } = useAuth();
   const { castVote, castFreeVote, checkFreeVoteAvailable } = useVoteOperations();
-  const { topic, summaryInitial, closingInitial, loading: topicLoading, summaryClosingLoading, refreshTopic } = useTopicDetail(id);
+  const { topic, closingInitial, loading: topicLoading, summaryClosingLoading, refreshTopic } = useTopicDetail(id);
   const { refreshStats } = useUserStats(user?.id);
   const { language } = useLanguage();
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
   const { getConfig } = useSystemConfigCache();
   const voteButtonAmounts = getConfig('vote_button_amounts', [1, 10, 100]) as number[];
 
-  const { summary, isLoading: summaryLoading, hasFetched: summaryHasFetched } = useOfficialSummary(topic, summaryInitial, summaryClosingLoading);
   const { statement: aiClosing, isLoading: aiClosingLoading, isGenerating: aiClosingGenerating, hasFetched: aiClosingHasFetched, triggerGenerate: triggerAiClosing } = useAiClosingStatement(topic, resolveBaseLanguage(language), closingInitial, summaryClosingLoading);
   const isTopicEnded = topic ? (topic.status === 'ended' || new Date(topic.end_at || 0) <= new Date()) : false;
   /** 已自動觸發過產生結語的 topic id 集合（避免重複呼叫） */
@@ -525,7 +522,6 @@ const VoteDetailPage = () => {
         {/* Vote Actions：已結束且無總結/結語內容時不渲染此區，避免讀取時結語上方留白 */}
         {(function () {
           const hasEndedContent = isTopicEnded && (
-            (summaryHasFetched && summary) ||
             !!aiClosing ||
             (aiClosingHasFetched && !aiClosingLoading)
           );
@@ -534,15 +530,6 @@ const VoteDetailPage = () => {
         <div className={`relative z-20 isolate bg-background mb-6 max-w-3xl mx-auto w-full px-4 sm:px-6 ${isTopicEnded ? '' : 'pt-1'} ${!isTopicEnded ? 'space-y-3' : ''}`}>
           {isTopicEnded ? (
             <>
-              {summaryHasFetched && summary ? (
-                <div className={aiClosing || (aiClosingHasFetched && !aiClosingLoading) ? 'mb-3' : ''}>
-                  <OfficialSummaryCard
-                    summary={summary}
-                    isLoading={false}
-                    language={language}
-                  />
-                </div>
-              ) : null}
               {/* 混亂結語：有 initial 或已取回則直接顯示，不顯示讀取遮罩；僅有結語時上方不留白 */}
               {aiClosing ? (
                 <section

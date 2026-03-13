@@ -127,7 +127,19 @@ Deno.serve(async (req) => {
 5. 嚴禁心理分析、政治評論、現實建議。僅供娛樂。
 6. 簡短，約 80–150 字。`;
 
-    let systemPrompt = DEFAULT_SYSTEM_PROMPT;
+    type PromptByLang = { zh: string; en: string; ja: string };
+    const resolvePrompts = (v: unknown): PromptByLang => {
+      const def = DEFAULT_SYSTEM_PROMPT;
+      if (typeof v === "string") return { zh: v, en: v, ja: v };
+      if (typeof v === "object" && v !== null && ("zh" in v || "en" in v || "ja" in v)) {
+        const o = v as Record<string, unknown>;
+        const by = (k: string) => (typeof o[k] === "string" ? (o[k] as string) : def);
+        return { zh: by("zh") || def, en: by("en") || def, ja: by("ja") || def };
+      }
+      return { zh: def, en: def, ja: def };
+    };
+
+    let promptsByLang: PromptByLang = { zh: DEFAULT_SYSTEM_PROMPT, en: DEFAULT_SYSTEM_PROMPT, ja: DEFAULT_SYSTEM_PROMPT };
     try {
       const { data: promptConfig } = await supabase
         .from("system_config")
@@ -136,8 +148,8 @@ Deno.serve(async (req) => {
         .single();
 
       if (promptConfig?.value) {
-        systemPrompt = promptConfig.value;
-        console.log("Using dynamic AI prompt from system_config");
+        promptsByLang = resolvePrompts(promptConfig.value);
+        console.log("Using dynamic AI prompt from system_config (zh/en/ja)");
       }
     } catch (e) {
       console.warn("Failed to fetch dynamic prompt, using default:", e);
@@ -145,13 +157,13 @@ Deno.serve(async (req) => {
 
     const userPromptBase = `根據以下投票結果生成混亂結語：\n${JSON.stringify(aiInput, null, 2)}\n\n特別處理：若 total_votes 為 0，生成「群眾沉默」版本；若為 1，生成「孤獨決議」版本。`;
 
-    const langInstructions: { lang: "zh" | "en" | "ja"; instruction: string; fallback: string }[] = [
-      { lang: "zh", instruction: "請用繁體中文輸出，不可使用英文或日文。", fallback: FALLBACK_ZH },
-      { lang: "en", instruction: "Output in English only.", fallback: FALLBACK_EN },
-      { lang: "ja", instruction: "日本語のみで出力してください。", fallback: FALLBACK_JA },
+    const langInstructions: { lang: "zh" | "en" | "ja"; instruction: string; fallback: string; systemPrompt: string }[] = [
+      { lang: "zh", instruction: "請用繁體中文輸出，不可使用英文或日文。", fallback: FALLBACK_ZH, systemPrompt: promptsByLang.zh },
+      { lang: "en", instruction: "Output in English only.", fallback: FALLBACK_EN, systemPrompt: promptsByLang.en },
+      { lang: "ja", instruction: "日本語のみで出力してください。", fallback: FALLBACK_JA, systemPrompt: promptsByLang.ja },
     ];
 
-    const generateOne = async (instruction: string, fallback: string): Promise<string> => {
+    const generateOne = async (instruction: string, fallback: string, systemPrompt: string): Promise<string> => {
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
           const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -182,7 +194,7 @@ Deno.serve(async (req) => {
     };
 
     const [content_zh, content_en, content_ja] = await Promise.all(
-      langInstructions.map(({ instruction, fallback }) => generateOne(instruction, fallback))
+      langInstructions.map(({ instruction, fallback, systemPrompt }) => generateOne(instruction, fallback, systemPrompt))
     );
     const content = content_zh || content_en || content_ja || FALLBACK_ZH;
 

@@ -50,7 +50,7 @@ export const usePurchase = () => {
         // Web 版：使用模擬購買（或未來整合 Stripe）
         await handleWebPurchase(packageId, productInfo);
       }
-      } catch (error: any) {
+    } catch (error: any) {
       console.error('Purchase error:', error);
       toast.error(
         error.message || getText('recharge.toast.failure.desc', '購買失敗，請稍後再試')
@@ -58,6 +58,9 @@ export const usePurchase = () => {
       // 只有在錯誤時才立即設置 isProcessing = false
       // 成功時，isProcessing 會在 approvedCallback 的 finally 中設置
       setIsProcessing(false);
+    } finally {
+      // 僅 Web 在此關閉遮罩；原生內購由 approvedCallback / errorCallback 在餘額更新後關閉
+      if (!isNative()) setIsProcessing(false);
     }
     // 注意：成功時，isProcessing 會在 approvedCallback 的 finally 中設置
     // 這裡不設置，讓 approvedCallback 負責管理 isProcessing 的生命週期
@@ -626,6 +629,8 @@ export const usePurchase = () => {
             getText('recharge.toast.verificationFailed', '驗證失敗: {{error}}')
               .replace('{{error}}', err.message || 'Unknown error')
           );
+        } finally {
+          setIsProcessing(false);
         }
       };
       store.when().approved(approvedCallback);
@@ -633,6 +638,7 @@ export const usePurchase = () => {
       const errorCallback = (error: any) => {
         if (error?.productId != null && error.productId !== productId) return;
         store.off(errorCallback);
+        setIsProcessing(false);
         console.error('[Purchase] Purchase error:', error);
         toast.error(
           getText('recharge.toast.purchaseError', '購買失敗: {{error}}')
@@ -658,7 +664,7 @@ export const usePurchase = () => {
       // 處理常見的購買錯誤
       if (error.code === 6777001 || error.code === 'USER_CANCELLED' || error.message?.includes('cancelled')) {
         errorMessage = getText('recharge.toast.userCancelled', '使用者取消了購買');
-        // 用戶取消不需要顯示錯誤提示
+        setIsProcessing(false);
         return;
       } else if (error.code === 'ITEM_ALREADY_OWNED' || error.message?.includes('already owned')) {
         errorMessage = getText('recharge.toast.alreadyOwned', '您已經擁有此產品');

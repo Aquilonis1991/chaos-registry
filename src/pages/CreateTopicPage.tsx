@@ -611,15 +611,24 @@ const CreateTopicPage = () => {
               {rewriteResult && (
                 <div className="bg-muted/50 p-3 rounded-md space-y-2 text-sm">
                   <div>
-                    <span className="font-semibold">標題：</span>
+                    <span className="font-semibold">
+                      {titleFieldLabel}
+                      ：
+                    </span>
                     <span className="text-foreground">{rewriteResult.rewritten_title}</span>
                   </div>
                   <div>
-                    <span className="font-semibold">詳述：</span>
+                    <span className="font-semibold">
+                      {descriptionFieldLabel}
+                      ：
+                    </span>
                     <span className="text-foreground text-xs line-clamp-3">{rewriteResult.rewritten_description || '(無變更)'}</span>
                   </div>
                   <div>
-                    <span className="font-semibold">選項：</span>
+                    <span className="font-semibold">
+                      {getText('topic.options.label', '投票選項 (2-6個)')}
+                      ：
+                    </span>
                     <ul className="list-disc list-inside text-foreground">
                       {rewriteResult.options.map((opt, i) => (
                         <li key={i}>{opt}</li>
@@ -1025,7 +1034,7 @@ const CreateTopicPage = () => {
                       <div className={cn("flex justify-between", isDailyDiscountEligible ? "text-accent-foreground font-bold" : "text-muted-foreground opacity-90")}>
                         <span>
                           {getText('topic.costSummary.dailyDiscount', '每日首發優惠')}
-                          {!isDailyDiscountEligible && <span className="text-xs ml-1">(已使用)</span>}
+                          {!isDailyDiscountEligible && <span className="text-xs ml-1">{getText('topic.costSummary.dailyDiscountUsed', '（已使用）')}</span>}
                         </span>
                         <span className={cn("font-semibold", !isDailyDiscountEligible && "line-through")}>
                           -{dailyDiscountAmount} {tokenLabel}

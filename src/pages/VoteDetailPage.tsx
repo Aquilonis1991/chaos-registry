@@ -541,6 +541,7 @@ const VoteDetailPage = () => {
                     {getText("chaos_closing.title", "⚡ 混亂結語")}
                   </h2>
                   <ChaosClosingCard
+                    key={`chaos-closing-${aiClosing.topic_id}-${resolveBaseLanguage(language)}`}
                     statement={aiClosing}
                     isLoading={false}
                     language={language}

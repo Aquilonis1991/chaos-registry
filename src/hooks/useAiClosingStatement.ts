@@ -30,11 +30,13 @@ type RawRow = {
 
 /** 依 UI 語言選出要顯示的結語內文（三語欄位優先，無則 fallback content） */
 function resolveContentByLanguage(row: RawRow, lang: BaseLanguage): string {
-  const zh = row.content_zh ?? row.content;
-  const en = row.content_en ?? row.content;
-  const ja = row.content_ja ?? row.content;
-  const byLang = { zh, en, ja };
-  return byLang[lang] || zh || en || ja || "";
+  const r = row as Record<string, unknown>;
+  const content = typeof r.content === "string" ? r.content : "";
+  const zh = (typeof r.content_zh === "string" ? r.content_zh : null) ?? content;
+  const en = (typeof r.content_en === "string" ? r.content_en : null) ?? content;
+  const ja = (typeof r.content_ja === "string" ? r.content_ja : null) ?? content;
+  const byLang: Record<BaseLanguage, string> = { zh, en, ja };
+  return byLang[lang]?.trim() || zh || en || ja || content || "";
 }
 
 /** 從 DB 讀取結語原始列（三語欄位），不依語言解析，供依 UI 語言即時顯示 */

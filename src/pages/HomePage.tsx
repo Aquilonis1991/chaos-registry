@@ -45,7 +45,8 @@ const HomePage = () => {
     loading: hotLoading, 
     loadingMore: hotLoadingMore,
     hasMore: hotHasMore,
-    loadMore: hotLoadMore 
+    loadMore: hotLoadMore,
+    error: hotError,
   } = useTopics({ 
     filter: 'hot', 
     limit: TOPICS_PAGE_SIZE,
@@ -56,7 +57,8 @@ const HomePage = () => {
     loading: latestLoading,
     loadingMore: latestLoadingMore,
     hasMore: latestHasMore,
-    loadMore: latestLoadMore
+    loadMore: latestLoadMore,
+    error: latestError,
   } = useTopics({ 
     filter: 'latest', 
     limit: TOPICS_PAGE_SIZE,
@@ -67,13 +69,15 @@ const HomePage = () => {
     loading: joinedLoading,
     loadingMore: joinedLoadingMore,
     hasMore: joinedHasMore,
-    loadMore: joinedLoadMore
+    loadMore: joinedLoadMore,
+    error: joinedError,
   } = useTopics({ 
     filter: 'joined', 
     userId: user?.id,
     limit: TOPICS_PAGE_SIZE,
     enableInfiniteScroll: true
   });
+  const joinedRequiresLogin = currentTab === 'joined' && !user?.id;
 
   /** 當前分頁是否正在初次載入（載入完成前阻擋操作） */
   const isCurrentTabLoading =
@@ -501,9 +505,30 @@ const HomePage = () => {
           </TabsContent>
 
           <TabsContent value="joined" className="space-y-4 mt-0">
-            {joinedLoading ? (
+            {joinedRequiresLogin ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground mb-4">
+                  {getText('home.joined.requiresLogin', '登入後才會顯示你參與過的主題')}
+                </p>
+                <Button variant="vote" asChild>
+                  <Link to="/auth">{getText('home.joined.goLogin', '前往登入')}</Link>
+                </Button>
+              </div>
+            ) : joinedLoading ? (
               <div className="flex justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              </div>
+            ) : joinedError ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground mb-4">
+                  {getText('home.joined.loadFailed', '載入參與過的主題失敗')}
+                </p>
+                <p className="text-xs text-muted-foreground/80 mb-4 break-words">
+                  {joinedError}
+                </p>
+                <Button variant="outline" onClick={() => joinedLoadMore()}>
+                  {getText('common.button.retry', '重試')}
+                </Button>
               </div>
             ) : joinedTopics.length === 0 ? (
               <div className="text-center py-12">

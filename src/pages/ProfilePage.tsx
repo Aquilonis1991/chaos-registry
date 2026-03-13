@@ -551,7 +551,7 @@ const ProfilePage = () => {
                   )}
 
                   {/* 2. 暱稱 (Nickname) */}
-                  <div className="relative">
+                  <div className="relative w-full flex justify-center">
                     {isEditingName ? (
                       <div className="flex items-center gap-2 justify-center">
                         <Input

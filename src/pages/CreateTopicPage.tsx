@@ -1036,7 +1036,7 @@ const CreateTopicPage = () => {
                       <div className={cn("flex justify-between", isDailyDiscountEligible ? "text-accent-foreground font-bold" : "text-muted-foreground opacity-90")}>
                         <span>
                           {getText('topic.costSummary.dailyDiscount', '每日首發優惠')}
-                          {!isDailyDiscountEligible && <span className="text-xs ml-1">(已使用)</span>}
+                          {!isDailyDiscountEligible && <span className="text-xs ml-1">{getText('topic.costSummary.dailyDiscountUsed', '（已使用）')}</span>}
                         </span>
                         <span className={cn("font-semibold", !isDailyDiscountEligible && "line-through")}>
                           -{dailyDiscountAmount} {tokenLabel}

@@ -213,11 +213,16 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
+// 追蹤是否已經警告過（避免重複警告）
+let hasWarned = false;
+
 export const useLanguage = () => {
   const context = useContext(LanguageContext);
   if (!context) {
-    if (typeof window !== 'undefined') {
+    // 只在開發環境顯示警告，且只警告一次
+    if (typeof window !== 'undefined' && import.meta.env.DEV && !hasWarned) {
       console.warn('[LanguageContext] useLanguage called outside provider, returning default context');
+      hasWarned = true;
     }
     return defaultLanguageContext;
   }

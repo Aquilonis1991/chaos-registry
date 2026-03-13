@@ -14,6 +14,7 @@ export const usePurchase = () => {
   const { language } = useLanguage();
   const { getText } = useUIText(language);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isRefreshingProfile, setIsRefreshingProfile] = useState(false);
 
   const purchaseTokenPack = async (packageId: number) => {
     if (!user) {
@@ -49,14 +50,17 @@ export const usePurchase = () => {
         // Web 版：使用模擬購買（或未來整合 Stripe）
         await handleWebPurchase(packageId, productInfo);
       }
-    } catch (error: any) {
+      } catch (error: any) {
       console.error('Purchase error:', error);
       toast.error(
         error.message || getText('recharge.toast.failure.desc', '購買失敗，請稍後再試')
       );
-    } finally {
+      // 只有在錯誤時才立即設置 isProcessing = false
+      // 成功時，isProcessing 會在 approvedCallback 的 finally 中設置
       setIsProcessing(false);
     }
+    // 注意：成功時，isProcessing 會在 approvedCallback 的 finally 中設置
+    // 這裡不設置，讓 approvedCallback 負責管理 isProcessing 的生命週期
   };
 
   // 處理原生 App 內購
@@ -66,6 +70,362 @@ export const usePurchase = () => {
     platform: string
   ) => {
     try {
+      // iOS：cordova-plugin-purchase 的 Transaction 物件在部分環境不會帶 receipt，需要從 Bundle 讀取
+      // 但我們無法直接從 JS 讀取 Bundle，所以改用：交易完成後調用 refreshReceipts() 並從 store.adapter 取得
+      if (platform === 'ios') {
+        // 確保購買服務已初始化
+        if (!purchaseService.isInitialized()) {
+          console.log('[Purchase] Service not initialized, initializing now...');
+          const initialized = await purchaseService.initialize();
+          if (!initialized) {
+            throw new Error('無法初始化購買服務。請稍後再試或重新開啟 App 後再點選購買。');
+          }
+        }
+
+        const store = purchaseService.getStore();
+        if (!store) {
+          throw new Error('購買服務未初始化');
+        }
+
+        // 獲取產品
+        const product = store.get(productId);
+        if (!product) {
+          throw new Error(`產品不存在: ${productId}。請確認產品已在 App Store Connect 中創建。`);
+        }
+
+        // 檢查產品是否可購買
+        if (!product.canPurchase) {
+          console.warn('[Purchase] Product cannot be purchased:', {
+            productId,
+            state: product.state,
+            valid: product.valid,
+          });
+          
+          // iOS：如果產品狀態是 "owned" 或 "approved"，可能是因為有 pending transaction
+          // 嘗試 finish 所有該產品的 pending transactions，然後再試一次
+          if (platform === 'ios' && (product.state === 'owned' || product.state === 'approved')) {
+            console.log('[Purchase] Product in owned/approved state, attempting to finish pending transactions...');
+            try {
+              // 使用 store.when().approved() 來處理所有 pending approved transactions
+              let pendingTxFound = false;
+              const pendingTxHandler = (tx: any) => {
+                const txProductId = tx.products?.[0]?.id;
+                if (txProductId === productId) {
+                  pendingTxFound = true;
+                  console.log('[Purchase] Found pending transaction, finishing:', tx.transactionId);
+                  tx.finish().catch((e: any) => {
+                    console.warn('[Purchase] Failed to finish pending transaction:', e);
+                  });
+                }
+              };
+              
+              // 設置臨時監聽器來處理 pending transactions
+              store.when().approved(pendingTxHandler);
+              
+              // 更新產品狀態以觸發 pending transaction 事件
+              await store.update();
+              await new Promise(r => setTimeout(r, 500));
+              
+              // 移除臨時監聽器
+              store.off(pendingTxHandler);
+              
+              // 再次更新產品狀態
+              await store.update();
+              await new Promise(r => setTimeout(r, 300));
+              
+              // 重新檢查產品是否可購買
+              const updatedProduct = store.get(productId);
+              if (updatedProduct?.canPurchase) {
+                console.log('[Purchase] Product is now purchasable after finishing pending transactions');
+              } else {
+                throw new Error('產品目前無法購買，請稍後再試');
+              }
+            } catch (e) {
+              console.error('[Purchase] Error handling pending transactions:', e);
+              throw new Error('產品目前無法購買，請稍後再試');
+            }
+          } else {
+            throw new Error('產品目前無法購買，請稍後再試');
+          }
+        }
+
+        // 設置事件監聽
+        const approvedCallback = async (transaction: any) => {
+          const txProductId = transaction.products?.[0]?.id;
+          if (txProductId !== productId) {
+            // 如果是其他產品的 pending transaction，直接 finish（避免卡住）
+            const purchaseDate = transaction.purchaseDate ? new Date(transaction.purchaseDate) : null;
+            if (purchaseDate) {
+              const ageMinutes = (Date.now() - purchaseDate.getTime()) / (1000 * 60);
+              if (ageMinutes > 1) {
+                console.log('[Purchase] Finishing other product\'s old pending transaction:', txProductId);
+                transaction.finish().catch(() => {});
+              }
+            }
+            return;
+          }
+          store.off(approvedCallback);
+          
+          // 確保 isProcessing 保持為 true，直到 refreshProfile 完成
+          // 這樣遮罩會持續顯示
+          
+          try {
+            // iOS：交易完成後，嘗試刷新 receipt 並從多個來源取得
+            let receiptOrToken = '';
+            
+            // 方法 1：先嘗試從 transaction 物件取得（雖然通常為空）
+            const extractFromTransaction = (tx: any): string => {
+              const toStringSafe = (v: any): string => {
+                if (typeof v === 'string') return v;
+                if (!v) return '';
+                if (typeof v === 'object') {
+                  const nested = v.appStoreReceipt ?? v.receiptData ?? v.receipt ?? v.data ?? v.base64 ?? '';
+                  if (typeof nested === 'string') return nested;
+                }
+                return '';
+              };
+              
+              return (
+                toStringSafe(tx.parentReceipt?.appStoreReceipt) ||
+                toStringSafe(tx.appStoreReceipt) ||
+                toStringSafe(tx.parentReceipt?.receiptData) ||
+                toStringSafe(tx.receiptData) ||
+                toStringSafe(tx.parentReceipt?.receipt) ||
+                toStringSafe(tx.receipt) ||
+                ''
+              );
+            };
+            
+            receiptOrToken = extractFromTransaction(transaction);
+            
+            // 方法 2：如果 transaction 沒有，嘗試從 store/adapter 取得全域 receipt
+            if (!receiptOrToken) {
+              const w = window as any;
+              const CdvPurchase = w?.CdvPurchase;
+              const storeInstance = CdvPurchase?.store ?? store;
+              const adapter = storeInstance?.adapter ?? storeInstance?._adapter;
+              const apple = CdvPurchase?.AppleAppStore ?? CdvPurchase?.AppleAppStoreAdapter ?? null;
+              
+              const pick = (v: any): string => (typeof v === 'string' ? v : '');
+              receiptOrToken =
+                pick(storeInstance?.appStoreReceipt) ||
+                pick(storeInstance?.receipt) ||
+                pick(adapter?.appStoreReceipt) ||
+                pick(adapter?.receipt) ||
+                pick(apple?.appStoreReceipt) ||
+                pick(apple?.receipt) ||
+                '';
+            }
+            
+            // 方法 3：如果還是沒有，強制調用 refreshReceipts() 並等待更長時間
+            if (!receiptOrToken) {
+              console.log('[Purchase] Receipt not found, attempting to refresh receipts...');
+              try {
+                // 先更新 store 狀態
+                await store.update();
+                await new Promise(r => setTimeout(r, 300));
+                
+                // 嘗試調用 refreshReceipts（如果存在）
+                if (typeof store.refreshReceipts === 'function') {
+                  await store.refreshReceipts();
+                }
+                
+                // 等待 receipt 更新（最多 5 秒，每 200ms 檢查一次）
+                for (let i = 0; i < 25; i++) {
+                  await new Promise(r => setTimeout(r, 200));
+                  
+                  // 重新檢查所有可能的 receipt 來源
+                  const w = window as any;
+                  const CdvPurchase = w?.CdvPurchase;
+                  const storeInstance = CdvPurchase?.store ?? store;
+                  const adapter = storeInstance?.adapter ?? storeInstance?._adapter;
+                  const apple = CdvPurchase?.AppleAppStore ?? CdvPurchase?.AppleAppStoreAdapter ?? null;
+                  
+                  const pick = (v: any): string => (typeof v === 'string' ? v : '');
+                  receiptOrToken =
+                    pick(storeInstance?.appStoreReceipt) ||
+                    pick(storeInstance?.receipt) ||
+                    pick(adapter?.appStoreReceipt) ||
+                    pick(adapter?.receipt) ||
+                    pick(apple?.appStoreReceipt) ||
+                    pick(apple?.receipt) ||
+                    '';
+                  
+                  if (receiptOrToken) {
+                    console.log('[Purchase] Receipt found after refresh, length:', receiptOrToken.length);
+                    break;
+                  }
+                }
+              } catch (e) {
+                console.warn('[Purchase] refreshReceipts() failed:', e);
+              }
+            }
+
+            // 方法 4（iOS 最可靠）：透過原生插件直接讀取 Bundle receipt（appStoreReceiptURL）
+            if (!receiptOrToken) {
+              try {
+                const { ReceiptReader } = await import('@/plugins/ReceiptReader');
+                const rr = await ReceiptReader.getReceipt();
+                if (rr?.receiptData) {
+                  receiptOrToken = rr.receiptData;
+                  console.log('[Purchase] Receipt found via ReceiptReader plugin, length:', receiptOrToken.length);
+                }
+              } catch (e) {
+                console.warn('[Purchase] ReceiptReader.getReceipt() failed:', e);
+              }
+            }
+            
+            const transactionId = transaction.transactionId ?? transaction.parentReceipt?.orderId ?? '';
+            
+            console.log('[Purchase] Transaction approved:', {
+              productId,
+              transactionId,
+              receiptOrToken: receiptOrToken ? `${String(receiptOrToken).slice(0, 20)}...` : '(empty)',
+            });
+            
+            // 根本解決方案：如果 receipt 為空，改用 transactionId 驗證（Apple 推薦的新方法）
+            // 根據 cordova-plugin-purchase GitHub issue #1495，Apple 已棄用舊的 VerifyReceipt 端點
+            // 新做法是使用 transactionID 透過 App Store Server API 驗證
+            if (!receiptOrToken) {
+              console.warn('[Purchase] Receipt not found, falling back to transactionId-only verification');
+              
+              // 如果沒有 receipt 但有 transactionId，仍然可以驗證（後端會使用 App Store Server API）
+              if (!transactionId) {
+                console.error('[Purchase] No receipt and no transactionId. Transaction:', transaction);
+                throw new Error('購買資料不完整，無法驗證。請稍後再試或重新開啟 App。');
+              }
+              
+              // 使用 transactionId 驗證（後端會透過 App Store Server API 驗證）
+              const { data, error } = await supabase.functions.invoke('verify-app-store-purchase', {
+                body: {
+                  transactionId: transactionId,
+                  productId,
+                  packageName: 'com.votechaos.app',
+                  platform,
+                  // 不傳 receiptData，讓後端使用 App Store Server API
+                },
+              });
+              
+              if (error) {
+                console.error('[Purchase] Verification error:', error);
+                throw error;
+              }
+              
+              if (!data?.success) {
+                throw new Error(data?.error || '驗證失敗');
+              }
+              
+              await transaction.finish();
+              console.log('[Purchase] Transaction finished (transactionId-only verification)');
+              
+              const totalTokens =
+                data?.tokens != null
+                  ? Number(data.tokens).toLocaleString()
+                  : (PRODUCT_ID_MAP[packageId].tokens + PRODUCT_ID_MAP[packageId].bonus).toLocaleString();
+              
+              toast.success(
+                getText('recharge.toast.success.title', '購買成功！'),
+                {
+                  description: getText('recharge.toast.success.desc', '已獲得 {{amount}} 失序值')
+                    .replace('{{amount}}', totalTokens),
+                }
+              );
+              
+              // 在代幣刷新前顯示遮罩
+              // 確保 isProcessing 保持為 true，直到 refreshProfile 完成
+              setIsRefreshingProfile(true);
+              try {
+                await refreshProfile();
+              } finally {
+                setIsRefreshingProfile(false);
+                // 在 refreshProfile 完成後才設置 isProcessing = false
+                setIsProcessing(false);
+              }
+              return;
+            }
+            
+            // 如果有 receipt，使用傳統的 receipt 驗證
+            const { data, error } = await supabase.functions.invoke('verify-app-store-purchase', {
+              body: {
+                receiptData: receiptOrToken,
+                transactionId: transactionId || undefined,
+                productId,
+                packageName: 'com.votechaos.app',
+                platform,
+              },
+            });
+            
+            if (error) {
+              console.error('[Purchase] Verification error:', error);
+              throw error;
+            }
+            
+            if (!data?.success) {
+              throw new Error(data?.error || '驗證失敗');
+            }
+            
+            await transaction.finish();
+            console.log('[Purchase] Transaction finished');
+            
+            const totalTokens =
+              data?.tokens != null
+                ? Number(data.tokens).toLocaleString()
+                : (PRODUCT_ID_MAP[packageId].tokens + PRODUCT_ID_MAP[packageId].bonus).toLocaleString();
+            
+            toast.success(
+              getText('recharge.toast.success.title', '購買成功！'),
+              {
+                description: getText('recharge.toast.success.desc', '已獲得 {{amount}} 失序值')
+                  .replace('{{amount}}', totalTokens),
+              }
+            );
+            
+            // 在代幣刷新前顯示遮罩
+            // 確保 isProcessing 保持為 true，直到 refreshProfile 完成
+            setIsRefreshingProfile(true);
+            try {
+              await refreshProfile();
+            } finally {
+              setIsRefreshingProfile(false);
+              // 在 refreshProfile 完成後才設置 isProcessing = false
+              setIsProcessing(false);
+            }
+          } catch (err: any) {
+            console.error('[Purchase] Verification failed:', err);
+            toast.error(
+              getText('recharge.toast.verificationFailed', '驗證失敗: {{error}}')
+                .replace('{{error}}', err.message || 'Unknown error')
+            );
+            // 驗證失敗時也要關閉遮罩
+            setIsRefreshingProfile(false);
+            setIsProcessing(false);
+          }
+        };
+        
+        store.when().approved(approvedCallback);
+        
+        const errorCallback = (error: any) => {
+          if (error?.productId != null && error.productId !== productId) return;
+          store.off(errorCallback);
+          console.error('[Purchase] Purchase error:', error);
+          toast.error(
+            getText('recharge.toast.purchaseError', '購買失敗: {{error}}')
+              .replace('{{error}}', error?.message || 'Unknown error')
+          );
+        };
+        store.error(errorCallback);
+        
+        // 刷新產品信息
+        await purchaseService.refreshProducts();
+        
+        // 發起購買
+        console.log('[Purchase] Ordering product:', productId);
+        await product.getOffer().order();
+        console.log('[Purchase] Purchase order initiated');
+        
+        return;
+      }
+
       // 確保購買服務已初始化（內建重試，因 Cordova 插件可能較晚注入）
       if (!purchaseService.isInitialized()) {
         console.log('[Purchase] Service not initialized, initializing now...');
@@ -102,12 +462,93 @@ export const usePurchase = () => {
         if (txProductId !== productId) return;
         store.off(approvedCallback);
         try {
-          // Google Play (v13)：purchaseToken 在 transaction.parentReceipt.purchaseToken，不在 transaction 上
-          const purchaseToken =
-            transaction.parentReceipt?.purchaseToken ??
-            transaction.purchaseToken ??
-            transaction.receipt ??
-            '';
+          // iOS：有些情況 receipt 不會立即附在 transaction 上，先更新一次商店狀態再取值
+          try {
+            if (platform === 'ios' && typeof store.update === 'function') {
+              await store.update();
+              await new Promise((r) => setTimeout(r, 150));
+            }
+          } catch (e) {
+            console.warn('[Purchase] store.update() before receipt extraction failed:', e);
+          }
+
+          const extractReceiptString = (tx: any, osPlatform: string): string => {
+            const toStringSafe = (v: any): string => {
+              if (typeof v === 'string') return v;
+              if (!v) return '';
+              // 常見：receipt 可能是一個物件，真正的字串在子欄位
+              if (typeof v === 'object') {
+                // iOS 常見欄位猜測（不同版本/平台可能不同）
+                const nested =
+                  v.appStoreReceipt ??
+                  v.receiptData ??
+                  v.receipt ??
+                  v.data ??
+                  v.base64 ??
+                  '';
+                if (typeof nested === 'string') return nested;
+              }
+              return '';
+            };
+
+            if (osPlatform === 'ios') {
+              // iOS：優先嘗試 App Store receipt（base64）
+              return (
+                toStringSafe(tx.parentReceipt?.appStoreReceipt) ||
+                toStringSafe(tx.appStoreReceipt) ||
+                toStringSafe(tx.parentReceipt?.receiptData) ||
+                toStringSafe(tx.receiptData) ||
+                toStringSafe(tx.parentReceipt?.receipt) ||
+                toStringSafe(tx.receipt) ||
+                ''
+              );
+            }
+
+            // Android (v13)：purchaseToken 多半在 transaction.parentReceipt.purchaseToken
+            return (
+              toStringSafe(tx.parentReceipt?.purchaseToken) ||
+              toStringSafe(tx.purchaseToken) ||
+              toStringSafe(tx.receipt) ||
+              ''
+            );
+          };
+
+          let receiptOrToken = extractReceiptString(transaction, platform);
+
+          // iOS：若 transaction 上仍拿不到，嘗試從 store/adapter 取得全域 App Store receipt
+          if (!receiptOrToken && platform === 'ios') {
+            const w = window as any;
+            const CdvPurchase = w?.CdvPurchase;
+            const storeInstance = CdvPurchase?.store ?? store;
+            const adapter = storeInstance?.adapter ?? storeInstance?._adapter;
+            const apple = CdvPurchase?.AppleAppStore ?? CdvPurchase?.AppleAppStoreAdapter ?? null;
+
+            const pick = (v: any): string => (typeof v === 'string' ? v : '');
+            receiptOrToken =
+              pick(storeInstance?.appStoreReceipt) ||
+              pick(storeInstance?.receipt) ||
+              pick(adapter?.appStoreReceipt) ||
+              pick(adapter?.receipt) ||
+              pick(apple?.appStoreReceipt) ||
+              pick(apple?.receipt) ||
+              '';
+
+            // 一次性診斷：協助確認插件實際提供哪些欄位（避免噪音）
+            try {
+              (w.__purchaseReceiptDiagOnce ??= false);
+              if (w.__purchaseReceiptDiagOnce === false) {
+                w.__purchaseReceiptDiagOnce = true;
+                console.log('[Purchase][diag] iOS receipt missing on transaction. Inspecting available fields:', {
+                  transactionOwnProps: Object.getOwnPropertyNames(transaction ?? {}),
+                  storeOwnProps: Object.getOwnPropertyNames(storeInstance ?? {}),
+                  adapterOwnProps: Object.getOwnPropertyNames(adapter ?? {}),
+                  appleOwnProps: Object.getOwnPropertyNames(apple ?? {}),
+                });
+              }
+            } catch {
+              // ignore
+            }
+          }
           const transactionId =
             transaction.transactionId ??
             transaction.parentReceipt?.orderId ??
@@ -116,11 +557,11 @@ export const usePurchase = () => {
           console.log('[Purchase] Transaction approved:', {
             productId,
             transactionId,
-            purchaseToken: purchaseToken ? `${purchaseToken.slice(0, 20)}...` : '(empty)',
+            receiptOrToken: receiptOrToken ? `${String(receiptOrToken).slice(0, 20)}...` : '(empty)',
           });
 
-          if (!purchaseToken) {
-            console.error('[Purchase] No purchaseToken in transaction:', transaction);
+          if (!receiptOrToken) {
+            console.error('[Purchase] No receipt/purchaseToken in transaction:', transaction);
             throw new Error('購買資料不完整，無法驗證');
           }
 
@@ -132,7 +573,10 @@ export const usePurchase = () => {
 
           const { data, error } = await supabase.functions.invoke(verifyFunction, {
             body: {
-              purchaseToken,
+              // iOS：送 receiptData；Android：仍沿用 purchaseToken（後端兩者都支援，但這樣更明確）
+              ...(platform === 'ios'
+                ? { receiptData: receiptOrToken }
+                : { purchaseToken: receiptOrToken }),
               transactionId: transactionId || undefined,
               productId,
               packageName: 'com.votechaos.app',
@@ -166,7 +610,16 @@ export const usePurchase = () => {
             }
           );
 
-          await refreshProfile();
+          // 在代幣刷新前顯示遮罩
+          // 確保 isProcessing 保持為 true，直到 refreshProfile 完成
+          setIsRefreshingProfile(true);
+          try {
+            await refreshProfile();
+          } finally {
+            setIsRefreshingProfile(false);
+            // 在 refreshProfile 完成後才設置 isProcessing = false
+            setIsProcessing(false);
+          }
         } catch (err: any) {
           console.error('[Purchase] Verification failed:', err);
           toast.error(
@@ -259,12 +712,22 @@ export const usePurchase = () => {
       }
     );
 
-    await refreshProfile();
+    // 在代幣刷新前顯示遮罩
+    // 確保 isProcessing 保持為 true，直到 refreshProfile 完成
+    setIsRefreshingProfile(true);
+    try {
+      await refreshProfile();
+    } finally {
+      setIsRefreshingProfile(false);
+      // 在 refreshProfile 完成後才設置 isProcessing = false
+      setIsProcessing(false);
+    }
   };
 
   return {
     purchaseTokenPack,
     isProcessing,
+    isRefreshingProfile,
   };
 };
 

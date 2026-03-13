@@ -20,7 +20,7 @@ const RechargePage = () => {
   const { user } = useAuth();
   const { language } = useLanguage();
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
-  const { purchaseTokenPack, isProcessing } = usePurchase();
+  const { purchaseTokenPack, isProcessing, isRefreshingProfile } = usePurchase();
 
   const [selectedPackage, setSelectedPackage] = useState<number | null>(null);
 
@@ -87,8 +87,7 @@ const RechargePage = () => {
     setSelectedPackage(pkg.id);
     try {
       await purchaseTokenPack(pkg.id);
-      // 購買成功後，手動刷新本頁面的 profile 狀態 (因 useProfile 非全局 Context)
-      await refreshProfile();
+      // refreshProfile() 已在 usePurchase 中處理，並會顯示遮罩直到刷新完成
     } catch (error) {
       // 錯誤已在 usePurchase 中處理
     } finally {
@@ -107,9 +106,9 @@ const RechargePage = () => {
   return (
     <div className="min-h-screen bg-background pb-32">
       <LoadingBubble
-        isLoading={isProcessing}
-        textKey="loading.purchase_processing"
-        defaultText="正在安全處理您的交易..."
+        isLoading={isProcessing || isRefreshingProfile}
+        textKey={isRefreshingProfile ? "loading.refreshing_balance" : "loading.purchase_processing"}
+        defaultText={isRefreshingProfile ? "正在更新代幣餘額..." : "正在安全處理您的交易..."}
       />
       {/* Header */}
       <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">

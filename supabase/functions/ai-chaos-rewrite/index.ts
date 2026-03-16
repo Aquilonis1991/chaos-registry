@@ -168,65 +168,6 @@ Deno.serve(async (req) => {
     const openAiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openAiKey) throw new Error("OpenAI API Key not configured");
 
-    // Default Prompt (Fallback) - 繁中
-    const DEFAULT_SYSTEM_PROMPT = `
-      一、系統角色定義（唯一）
-      你是一個系統內部的文字處理模組，
-      不是創作工具、不是分析工具、不是建議來源。
-
-      你的所有輸出僅代表「系統處理結果」，
-      不代表事實、不代表立場、不代表正確性。
-
-      二、共通最高原則（所有功能適用）
-      1. 不負責正確，只負責存在。
-      2. 僅處理提供的資料，不主動延伸現實意義。
-      3. 不評論、不建議、不評價好壞。
-      4. 不使用心理診斷、醫療、人格障礙相關語彙。
-      5. 不出現真實人名、政治人物、仇恨、歧視、暴力、犯罪教學、露骨成人內容。
-      6. 所有輸出須通過平台禁字表，否則結果將被捨棄並重新生成。
-      7. 僅輸出指定格式的 JSON，不得包含任何說明文字。
-
-      三、功能模式定義
-      task = unstable_rewrite
-
-      你正在執行「不穩定改寫」。
-      這不是創作新內容，而是基於使用者已輸入的文字進行改寫。
-
-      規則：
-      - 僅能參考使用者提供的內容（標題、描述、選項）。
-      - 不可在內容完全空白的情況下生成。
-      - **CRITICAL: 必須連同「主題詳述 (Description)」一起改寫，絕對不能留空！**
-      - **風格要求：必須像是一份「正式但荒謬的問卷調查」**。
-        - **標題 (Title)**：改寫成像是問卷的「調查主題」或「研究計畫名稱」。
-        - **詳述 (Description)**：改寫成像是問卷的「前言」或「指導語」，包含學術或官腔的廢話。
-        - **選項 (Options)**：改寫成像是問卷的「選項」，例如量表、荒謬的二分法、或誘導式選項。
-      - 語氣：權威、學術、冷靜，但內容毫無邏輯或極度偏頗 (Mixed with chaos)。
-      - 使用指定語言輸出 (若輸入為繁中則輸出繁中)。
-
-      輸出格式 JSON ONLY:
-      {
-        "rewritten_title": "string",
-        "rewritten_description": "string",
-        "options": ["string", "string", "string"]
-      }
-    `;
-
-    // 英文專用預設（偵測為 en 時若無後台 en prompt 則用此，避免整段中文指令導致輸出中文）
-    const DEFAULT_SYSTEM_PROMPT_EN = `
-You are a text-processing module. You are not a creative tool or advisor. Outputs represent system results only.
-
-Task: unstable_rewrite. Rewrite the user's input into a "formal but absurd survey" style.
-Rules:
-- Use ONLY the content provided (title, description, options). Do not invent.
-- CRITICAL: Rewrite BOTH title AND description; description must not be empty.
-- Style: Title = survey/research theme; Description = survey intro/instructions; Options = scale, absurd binary, or leading options.
-- Tone: authoritative, academic, calm, but illogical or biased (chaos).
-- You MUST output all JSON string values in English only. No Chinese, no Japanese.
-
-Output JSON ONLY:
-{"rewritten_title":"string","rewritten_description":"string","options":["string","string","string"]}
-    `.trim();
-
     // 先偵測輸入語言，再依語言選用對應的 prompt（支援後台 中/英/日 三欄位）
     const combinedInput = [
       String(title ?? ""),
@@ -236,7 +177,9 @@ Output JSON ONLY:
     const detected = detectLanguageFromText(combinedInput);
     console.log("[Rewrite] detected language:", detected, "input sample:", combinedInput.slice(0, 120));
 
-    let systemPrompt = DEFAULT_SYSTEM_PROMPT;
+    // AI Prompt 必須從 system_config 讀取，不寫死字串，以維持後台即時修改功能
+    const missingLangFallback = "Rewrite the user's content into a formal but absurd survey style. Output valid JSON only: {\"rewritten_title\":\"string\",\"rewritten_description\":\"string\",\"options\":[\"string\"]}.";
+    let systemPrompt: string;
     try {
       const { data: promptConfig } = await supabase
         .from("system_config")
@@ -244,44 +187,36 @@ Output JSON ONLY:
         .eq("key", "ai_chaos_rewrite_prompt")
         .single();
 
-      if (promptConfig?.value) {
-        const v = promptConfig.value;
-        if (typeof v === "object" && v !== null && ("zh" in v || "en" in v || "ja" in v)) {
-          const o = v as Record<string, unknown>;
-          const byLang = (key: string) => (typeof o[key] === "string" ? o[key] as string : "");
-          if (detected === "en") {
-            systemPrompt = byLang("en") || DEFAULT_SYSTEM_PROMPT_EN;
-            if (byLang("en")) console.log("Using dynamic AI prompt from system_config (lang: en)");
-            else console.log("Using built-in English system prompt (no en in config)");
-          } else {
-            systemPrompt = byLang(detected) || byLang("zh") || "";
-            if (systemPrompt) console.log("Using dynamic AI prompt from system_config (lang:", detected, ")");
-          }
-        }
-        if (!systemPrompt && typeof v === "string") {
-          systemPrompt = v;
-          console.log("Using dynamic AI prompt from system_config (legacy string)");
-        }
-        if (!systemPrompt) systemPrompt = detected === "en" ? DEFAULT_SYSTEM_PROMPT_EN : DEFAULT_SYSTEM_PROMPT;
+      if (!promptConfig?.value) {
+        console.error("ai_chaos_rewrite_prompt not set in system_config");
+        return new Response(
+          JSON.stringify({ error: "ai_chaos_rewrite_prompt not configured in system_config. Please set it in the admin backend." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
-      // 偵測為英文時一律強制使用英文 system prompt（含 config 為字串或 en 為空的情況）
-      if (detected === "en") {
-        const o = promptConfig?.value;
-        const enFromConfig = (o && typeof o === "object" && "en" in o && typeof (o as Record<string, unknown>).en === "string")
-          ? ((o as Record<string, unknown>).en as string).trim()
-          : "";
-        if (!enFromConfig) {
-          systemPrompt = DEFAULT_SYSTEM_PROMPT_EN;
-          console.log("Force English system prompt (detected=en, no en in config)");
-        }
+
+      const v = promptConfig.value;
+      if (typeof v === "string") {
+        systemPrompt = v;
+        console.log("Using AI prompt from system_config (ai_chaos_rewrite_prompt, legacy string)");
+      } else if (typeof v === "object" && v !== null && ("zh" in v || "en" in v || "ja" in v)) {
+        const o = v as Record<string, unknown>;
+        const byLang = (key: string) => (typeof o[key] === "string" ? (o[key] as string).trim() : "");
+        systemPrompt = byLang(detected) || byLang("zh") || byLang("en") || byLang("ja") || missingLangFallback;
+        if (systemPrompt === missingLangFallback) console.log("Using minimal fallback for missing lang in config");
+        else console.log("Using AI prompt from system_config (lang:", detected, ")");
+      } else {
+        systemPrompt = missingLangFallback;
+        console.log("Using minimal fallback (invalid config shape)");
       }
     } catch (e) {
-      console.warn("Failed to fetch dynamic prompt, using default:", e);
+      console.error("Failed to fetch ai_chaos_rewrite_prompt from system_config:", e);
+      return new Response(
+        JSON.stringify({ error: "Failed to load ai_chaos_rewrite_prompt from system_config. Ensure the key exists and try again." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
-    if (detected === "en" && !systemPrompt.includes("English only") && !systemPrompt.includes("No Chinese")) {
-      systemPrompt = DEFAULT_SYSTEM_PROMPT_EN;
-      console.log("Force English system prompt (fallback: prompt was not English)");
-    }
+
     if (detected === "en") {
       systemPrompt = "OUTPUT LANGUAGE: English only. All JSON string values (rewritten_title, rewritten_description, options) MUST be in English. No 中文, no 日本語.\n\n" + systemPrompt;
     }

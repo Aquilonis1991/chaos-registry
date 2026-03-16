@@ -57,6 +57,8 @@ import { ErrorFeedback } from "@/components/ErrorFeedback";
 import { validateNickname, getBannedWordErrorMessage } from "@/lib/bannedWords";
 import { formatCompactNumber } from "@/lib/numberFormat";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
+import { isPromptConfigError, getPromptConfigKeyFromError } from "@/lib/promptConfigError";
+import { PromptNotConfiguredDialog } from "@/components/PromptNotConfiguredDialog";
 
 // Brain icon already imported from lucide-react below or we merge imports
 // import { Brain } from "lucide-react";
@@ -84,6 +86,8 @@ const ProfilePage = () => {
   const [isAssessmentDialogOpen, setIsAssessmentDialogOpen] = useState(false);
   const [weeklyAssessmentDone, setWeeklyAssessmentDone] = useState(false);
   const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
+  const [promptConfigDialogOpen, setPromptConfigDialogOpen] = useState(false);
+  const [promptConfigKey, setPromptConfigKey] = useState<string | null>(null);
 
   // 獲取未讀通知數量
   useEffect(() => {
@@ -398,14 +402,21 @@ const ProfilePage = () => {
       console.error('Assessment failed:', error);
 
       // Extract detailed error if possible
-      let errorMessage = error.message || getText('profile.error.updateFailed', '鑑定失敗');
+      let errorMessage = error.message || (error?.error && typeof error.error === "string" ? error.error : "") || getText('profile.error.updateFailed', '鑑定失敗');
 
-      // Basic check for token error string from backend
-      if (errorMessage.includes("PAYMENT_ERROR") || errorMessage.includes("insufficient")) {
-        errorMessage = getText('profile.error.insufficientTokens', '失序值不足');
+      if (isPromptConfigError(errorMessage)) {
+        const key = getPromptConfigKeyFromError(errorMessage);
+        if (key) {
+          setPromptConfigKey(key);
+          setPromptConfigDialogOpen(true);
+        }
+      } else {
+        // Basic check for token error string from backend
+        if (errorMessage.includes("PAYMENT_ERROR") || errorMessage.includes("insufficient")) {
+          errorMessage = getText('profile.error.insufficientTokens', '失序值不足');
+        }
+        toast.error(errorMessage);
       }
-
-      toast.error(errorMessage);
     } finally {
       setAssessmentLoading(false);
     }
@@ -870,6 +881,16 @@ const ProfilePage = () => {
           </div>
         </div>
       </div>
+
+      {promptConfigKey && (
+        <PromptNotConfiguredDialog
+          open={promptConfigDialogOpen}
+          onOpenChange={setPromptConfigDialogOpen}
+          configKey={promptConfigKey}
+          title={getText('profile.assessment.promptNotConfigured.title', '此功能需要後台設定')}
+          description={getText('profile.assessment.promptNotConfigured.description', '請在後台「AI Prompt 管理」中設定以下 key，即可使用不理性鑑定。')}
+        />
+      )}
     </>
   );
 };

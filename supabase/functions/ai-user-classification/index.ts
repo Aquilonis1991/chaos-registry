@@ -100,6 +100,18 @@ Deno.serve(async (req) => {
 
         if (metricsError) throw metricsError;
 
+        // 確保有帶出「最近建立的主題名稱」與「最近投票（主題+選項）」供 AI 參考
+        const recentTopics = metrics.recent_created_topics ?? [];
+        const recentVotes = metrics.recent_votes ?? [];
+        console.log("[ai-user-classification] metrics:", {
+            total_votes: metrics.total_votes,
+            created_topics: metrics.created_topics,
+            recent_created_topics_count: Array.isArray(recentTopics) ? recentTopics.length : 0,
+            recent_created_topics_sample: Array.isArray(recentTopics) ? recentTopics.slice(0, 3) : [],
+            recent_votes_count: Array.isArray(recentVotes) ? recentVotes.length : 0,
+            recent_votes_sample: Array.isArray(recentVotes) ? recentVotes.slice(0, 3) : [],
+        });
+
         // 5. Build Prompt
         const openAiKey = Deno.env.get("OPENAI_API_KEY");
         if (!openAiKey) throw new Error("OpenAI API Key not configured");
@@ -140,6 +152,7 @@ Deno.serve(async (req) => {
                 systemPrompt = missingLangFallback;
                 console.log("Using minimal fallback (invalid config shape)");
             }
+            console.log("[ai-user-classification] systemPrompt length:", systemPrompt?.length ?? 0, "first 120 chars:", (systemPrompt ?? "").slice(0, 120));
         } catch (e) {
             console.error("Failed to fetch ai_chaos_verification_prompt from system_config:", e);
             return new Response(
@@ -148,7 +161,20 @@ Deno.serve(async (req) => {
             );
         }
 
-        // 6. Call OpenAI (Stable v1/chat/completions)
+        // 6. Call OpenAI：user 內容明確標示「以下為該使用者實際資料」，促使模型依 recent_created_topics / recent_votes 生成
+        const userPayload = {
+            language: language,
+            instruction: "以下為該使用者的實際行為資料，請務必根據「最近建立的主題名稱」與「最近投票（主題＋選項）」內容生成稱號與側寫，不要忽略這些具體內容。",
+            stats: {
+                total_votes: metrics.total_votes,
+                created_topics: metrics.created_topics,
+                activity_days: metrics.activity_days,
+                recent_created_topics: recentTopics,
+                recent_votes: recentVotes
+            }
+        };
+        const userContentStr = JSON.stringify(userPayload);
+
         const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -159,19 +185,7 @@ Deno.serve(async (req) => {
                 model: "gpt-4o-mini",
                 messages: [
                     { role: "system", content: systemPrompt },
-                    {
-                        role: "user",
-                        content: JSON.stringify({
-                            language: language,
-                            stats: {
-                                total_votes: metrics.total_votes,
-                                created_topics: metrics.created_topics,
-                                activity_days: metrics.activity_days,
-                                recent_created_topics: metrics.recent_created_topics || [],
-                                recent_votes: metrics.recent_votes || []
-                            }
-                        })
-                    }
+                    { role: "user", content: userContentStr }
                 ],
                 temperature: 0.9,
                 response_format: { type: "json_object" }

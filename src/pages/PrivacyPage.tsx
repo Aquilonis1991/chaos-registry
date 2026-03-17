@@ -7,14 +7,27 @@ import { useUIText } from "@/hooks/useUIText";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 import LegalContentRenderer from "@/components/LegalContentRenderer";
 
-const PrivacyPage = () => {
+const LOCALE_TITLES: Record<string, { title: string; subtitle: string; heading: string }> = {
+  jp: { title: 'プライバシーポリシー', subtitle: 'Privacy Policy (Japanese)', heading: '🔒《不理性登記處 プライバシーポリシー》' },
+  en: { title: 'Privacy Policy', subtitle: 'Privacy Policy (English)', heading: '🔒 ChaosRegistry Privacy Policy' },
+};
+
+type PrivacyLocale = 'jp' | 'en' | undefined;
+
+interface PrivacyPageProps {
+  locale?: PrivacyLocale;
+}
+
+const PrivacyPage = ({ locale }: PrivacyPageProps) => {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const { getText } = useUIText(language);
   const { loading: configLoading, getConfig } = useSystemConfigCache();
 
-  const dynamicContent = getConfig<string>('legal_privacy_content', '');
+  const configKey = locale === 'jp' ? 'legal_privacy_content_jp' : locale === 'en' ? 'legal_privacy_content_en' : 'legal_privacy_content';
+  const dynamicContent = getConfig<string>(configKey, '');
   const hasCustomContent = !configLoading && typeof dynamicContent === 'string' && dynamicContent.trim().length > 0;
+  const localeMeta = locale ? LOCALE_TITLES[locale] : null;
 
   return (
     <div className="min-h-screen bg-background pb-8">
@@ -32,10 +45,10 @@ const PrivacyPage = () => {
             </Button>
             <div>
               <h1 className="text-xl font-bold text-primary-foreground">
-                {getText('privacyPage.header.title', '隱私權政策')}
+                {localeMeta ? localeMeta.title : getText('privacyPage.header.title', '隱私權政策')}
               </h1>
               <p className="text-xs text-primary-foreground/80">
-                {getText('privacyPage.header.subtitle', 'Privacy Policy')}
+                {localeMeta ? localeMeta.subtitle : getText('privacyPage.header.subtitle', 'Privacy Policy')}
               </p>
             </div>
           </div>
@@ -47,14 +60,20 @@ const PrivacyPage = () => {
         <Card>
           <CardContent className="p-6 space-y-6 prose prose-sm max-w-none">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-foreground mb-2">🔒《不理性登記處 隱私權政策》</h2>
+              <h2 className="text-2xl font-bold text-foreground mb-2">
+                {localeMeta ? localeMeta.heading : '🔒《不理性登記處 隱私權政策》'}
+              </h2>
               <p className="text-muted-foreground">
-                {hasCustomContent ? getText('privacyPage.header.subtitle', 'Privacy Policy') : '版本日期：2025 年 10 月'}
+                {hasCustomContent ? (localeMeta ? localeMeta.subtitle : getText('privacyPage.header.subtitle', 'Privacy Policy')) : (locale === 'jp' ? '版日：2025年10月' : locale === 'en' ? 'Last updated: October 2025' : '版本日期：2025 年 10 月')}
               </p>
             </div>
 
             {hasCustomContent ? (
               <LegalContentRenderer content={dynamicContent} />
+            ) : locale === 'jp' || locale === 'en' ? (
+              <p className="text-muted-foreground text-center py-8">
+                {locale === 'jp' ? 'このページの内容は管理者が後台で設定します。' : 'Content for this page is set by the administrator in the backend.'}
+              </p>
             ) : (
               <DefaultPrivacySections />
             )}
@@ -215,3 +234,10 @@ export const DefaultPrivacySections = () => (
 );
 
 export default PrivacyPage;
+�期：2025 年 10 月
+        <br />
+        感謝您信任《不理性登記處》，我們致力於保護您的隱私安全！🔒
+      </p>
+    </div>
+  </>
+);export default PrivacyPage;

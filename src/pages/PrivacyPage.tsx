@@ -234,10 +234,3 @@ export const DefaultPrivacySections = () => (
 );
 
 export default PrivacyPage;
-�期：2025 年 10 月
-        <br />
-        感謝您信任《不理性登記處》，我們致力於保護您的隱私安全！🔒
-      </p>
-    </div>
-  </>
-);export default PrivacyPage;

@@ -17,7 +17,6 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
-import { differenceInHours } from "date-fns";
 import { validateTopicContent, getBannedWordErrorMessage } from "@/lib/bannedWords";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
@@ -58,10 +57,15 @@ export const EditTopicDialog = ({
   const [newOptionInput, setNewOptionInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // 計算是否還能編輯（1小時內）
-  const hoursSinceCreated = differenceInHours(new Date(), new Date(createdAt));
-  const canEdit = hoursSinceCreated < 1;
-  const remainingTime = canEdit ? 60 - Math.floor(hoursSinceCreated * 60) : 0;
+  // 計算是否還能編輯（發布後 60 分鐘內）
+  // 注意：不要用 differenceInHours（只回傳整數小時，導致剩餘分鐘不會遞減）
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const createdMs = new Date(createdAt).getTime();
+  const elapsedMs = Math.max(0, nowMs - createdMs);
+  const editWindowMs = 60 * 60 * 1000;
+  const remainingMs = Math.max(0, editWindowMs - elapsedMs);
+  const canEdit = remainingMs > 0;
+  const remainingTime = canEdit ? Math.ceil(remainingMs / (60 * 1000)) : 0;
 
   useEffect(() => {
     if (open) {
@@ -72,6 +76,15 @@ export const EditTopicDialog = ({
       setNewOptionInput('');
     }
   }, [open, currentTitle, currentDescription]);
+
+  // 倒數更新（對話框開啟時才更新，避免不必要的 render）
+  useEffect(() => {
+    if (!open) return;
+    // 先立刻刷新一次，確保剛開啟時顯示正確
+    setNowMs(Date.now());
+    const t = setInterval(() => setNowMs(Date.now()), 10_000);
+    return () => clearInterval(t);
+  }, [open]);
 
   const handleAddOption = () => {
     const trimmed = newOptionInput.trim();

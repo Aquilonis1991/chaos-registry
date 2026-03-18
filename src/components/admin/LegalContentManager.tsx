@@ -23,9 +23,21 @@ const LEGAL_CONFIGS: LegalConfigItem[] = [
   },
   {
     key: "legal_privacy_content",
-    label: "隱私權政策內容",
+    label: "隱私權政策內容（繁體中文）",
     description: "顯示於 App /privacy 頁面，可輸入純文字，換行將自動保留。",
     placeholder: "請輸入完整的隱私權政策內容...",
+  },
+  {
+    key: "legal_privacy_content_jp",
+    label: "隱私權政策內容（日文）",
+    description: "顯示於 App /privacy/jp 頁面，可輸入純文字，換行將自動保留。",
+    placeholder: "プライバシーポリシーの内容を入力...",
+  },
+  {
+    key: "legal_privacy_content_en",
+    label: "隱私權政策內容（英文）",
+    description: "顯示於 App /privacy/en 頁面，可輸入純文字，換行將自動保留。",
+    placeholder: "Enter the full privacy policy content in English...",
   },
 ];
 
@@ -63,7 +75,13 @@ export const LegalContentManager = () => {
       if (success) {
         await fetchConfigs();
         invalidateConfigCache();
-        toast.success(`${key === "legal_terms_content" ? "使用者條款" : "隱私權政策"} 已更新`);
+        const labelMap: Record<string, string> = {
+          legal_terms_content: "使用者條款",
+          legal_privacy_content: "隱私權政策（繁中）",
+          legal_privacy_content_jp: "隱私權政策（日文）",
+          legal_privacy_content_en: "隱私權政策（英文）",
+        };
+        toast.success(`${labelMap[key] ?? key} 已更新`);
       }
     } finally {
       setSavingKey(null);
@@ -88,7 +106,7 @@ export const LegalContentManager = () => {
           <CardTitle>條款管理</CardTitle>
         </div>
         <CardDescription>
-          直接於此編輯使用者條款與隱私權政策，儲存後 App 會立即更新。僅支援純文字與換行。
+          直接於此編輯使用者條款與隱私權政策（繁中／日文／英文），儲存後 App 會立即更新。僅支援純文字與換行。
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">

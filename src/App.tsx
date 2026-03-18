@@ -95,6 +95,8 @@ const App = () => (
                   <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
                   <Route path="/terms" element={<TermsPage />} />
                   <Route path="/privacy" element={<PrivacyPage />} />
+                  <Route path="/privacy/jp" element={<PrivacyPage locale="jp" />} />
+                  <Route path="/privacy/en" element={<PrivacyPage locale="en" />} />
                   <Route path="/legal" element={<LegalPage />} />
                   <Route path="/marketing" element={<MarketingPage />} />
                   <Route path="/about" element={<AboutPage />} />

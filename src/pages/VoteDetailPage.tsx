@@ -37,6 +37,8 @@ import { formatRelativeTime, formatRemainingTime } from "@/lib/relativeTime";
 import { cn } from "@/lib/utils";
 import { ChaosClosingCard } from "@/components/ChaosClosingCard";
 import { useAiClosingStatement } from "@/hooks/useAiClosingStatement";
+import { isPromptConfigError, getPromptConfigKeyFromError } from "@/lib/promptConfigError";
+import { PromptNotConfiguredDialog } from "@/components/PromptNotConfiguredDialog";
 
 const VoteDetailPage = () => {
   const { id } = useParams();
@@ -53,6 +55,8 @@ const VoteDetailPage = () => {
 
   const closingDisplayLang = topic?.title ? detectLanguageFromText(topic.title) : resolveBaseLanguage(language);
   const { statement: aiClosing, isLoading: aiClosingLoading, isGenerating: aiClosingGenerating, hasFetched: aiClosingHasFetched, triggerGenerate: triggerAiClosing } = useAiClosingStatement(topic, closingDisplayLang, closingInitial, summaryClosingLoading);
+  const [promptConfigDialogOpen, setPromptConfigDialogOpen] = useState(false);
+  const [promptConfigKey, setPromptConfigKey] = useState<string | null>(null);
   const isTopicEnded = topic ? (topic.status === 'ended' || new Date(topic.end_at || 0) <= new Date()) : false;
   /** 已自動觸發過產生結語的 topic id 集合（避免重複呼叫） */
   const autoClosingTriggeredRef = useRef<Set<string>>(new Set());
@@ -139,6 +143,13 @@ const VoteDetailPage = () => {
     autoClosingTriggeredRef.current.add(topic.id);
     triggerAiClosing().then((r) => {
       if (r.success && r.generated) toast.success(getText("chaos_closing.generateSuccess", "結語已產生"));
+      else if (r.error && isPromptConfigError(r.error)) {
+        const key = getPromptConfigKeyFromError(r.error);
+        if (key) {
+          setPromptConfigKey(key);
+          setPromptConfigDialogOpen(true);
+        }
+      }
     });
   }, [topic?.id, isTopicEnded, aiClosingHasFetched, aiClosing, aiClosingLoading, aiClosingGenerating, user, isAnonymous, triggerAiClosing, getText]);
 
@@ -562,7 +573,13 @@ const VoteDetailPage = () => {
                           size="sm"
                           onClick={() => triggerAiClosing().then((r) => {
                             if (r.success && r.generated) toast.success(getText("chaos_closing.generateSuccess", "結語已產生"));
-                            else if (r.error) toast.error(r.error);
+                            else if (r.error && isPromptConfigError(r.error)) {
+                              const key = getPromptConfigKeyFromError(r.error);
+                              if (key) {
+                                setPromptConfigKey(key);
+                                setPromptConfigDialogOpen(true);
+                              }
+                            } else if (r.error) toast.error(r.error);
                           })}
                           disabled={aiClosingGenerating}
                         >
@@ -734,6 +751,16 @@ const VoteDetailPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {promptConfigKey && (
+        <PromptNotConfiguredDialog
+          open={promptConfigDialogOpen}
+          onOpenChange={setPromptConfigDialogOpen}
+          configKey={promptConfigKey}
+          title={getText("chaos_closing.promptNotConfigured.title", "此功能需要後台設定")}
+          description={getText("chaos_closing.promptNotConfigured.description", "請在後台「AI Prompt 管理」中設定以下 key，即可產生混亂結語。")}
+        />
+      )}
     </>
   );
 };

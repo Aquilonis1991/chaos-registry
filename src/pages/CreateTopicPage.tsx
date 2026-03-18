@@ -32,6 +32,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
+import { isPromptConfigError, getPromptConfigKeyFromError } from "@/lib/promptConfigError";
+import { PromptNotConfiguredDialog } from "@/components/PromptNotConfiguredDialog";
 
 const CreateTopicPage = () => {
   const navigate = useNavigate();
@@ -45,11 +47,12 @@ const CreateTopicPage = () => {
   const topicBannedLevels = getConfig('topic_banned_check_levels', ['A', 'B', 'C', 'D', 'E']);
   const topicDescriptionBannedLevels = getConfig('topic_description_banned_levels', ['A', 'B', 'C', 'D', 'E']);
   /* Config Limits */
-  const titleMaxLength = getConfig('title_max_length', 200);
+  const titleMaxLength = getConfig('title_max_length', 80);
   const titleMinLength = getConfig('title_min_length', 5);
-  const descMaxLength = getConfig('description_max_length', 150);
+  const descMaxLength = getConfig('description_max_length', 500);
   const optionMaxCount = getConfig('option_max_count', 6);
   const optionMinCount = getConfig('option_min_count', 2);
+  const optionItemMaxLength = getConfig('option_item_max_length', 50);
   const tagsMaxCount = getConfig('tags_max_count', 5);
 
   /* Pricing Configs */
@@ -190,6 +193,8 @@ const CreateTopicPage = () => {
   const [rewriteUsage, setRewriteUsage] = useState<{ isFree: boolean; cost: number; count: number } | null>(null);
   const [dailyRewriteCount, setDailyRewriteCount] = useState(0);
   const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
+  const [promptConfigDialogOpen, setPromptConfigDialogOpen] = useState(false);
+  const [promptConfigKey, setPromptConfigKey] = useState<string | null>(null);
 
   // Check daily rewrite usage on mount
   useEffect(() => {
@@ -243,9 +248,18 @@ const CreateTopicPage = () => {
       if (rewriteCost > 0) {
         updateTokensOptimistically(rewriteCost);
       }
-      toast.error(getText('topic.rewrite.error', '改寫失敗，請稍後再試'), {
-        description: error.message
-      });
+      const msg = error?.message ?? (typeof error?.error === "string" ? error.error : "");
+      if (msg && isPromptConfigError(msg)) {
+        const key = getPromptConfigKeyFromError(msg);
+        if (key) {
+          setPromptConfigKey(key);
+          setPromptConfigDialogOpen(true);
+        }
+      } else {
+        toast.error(getText('topic.rewrite.error', '改寫失敗，請稍後再試'), {
+          description: msg || error?.message
+        });
+      }
     } finally {
       setIsRewriting(false);
     }
@@ -466,6 +480,7 @@ const CreateTopicPage = () => {
         descriptionMax: descMaxLength,
         optionMin: optionMinCount,
         optionMax: optionMaxCount,
+        optionItemMax: optionItemMaxLength,
         tagsMax: tagsMaxCount
       });
 
@@ -666,6 +681,16 @@ const CreateTopicPage = () => {
         </AlertDialogContent>
       </AlertDialog >
 
+      {promptConfigKey && (
+        <PromptNotConfiguredDialog
+          open={promptConfigDialogOpen}
+          onOpenChange={setPromptConfigDialogOpen}
+          configKey={promptConfigKey}
+          title={getText('topic.rewrite.promptNotConfigured.title', '此功能需要後台設定')}
+          description={getText('topic.rewrite.promptNotConfigured.description', '請在後台「AI Prompt 管理」中設定以下 key，即可使用不穩定改寫。')}
+        />
+      )}
+
       {/* 固定標題列：發起主題與代幣餘額不隨捲動移動 */}
       <header className="fixed top-0 left-0 right-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
         <div className="max-w-screen-xl mx-auto px-4 py-4">
@@ -711,16 +736,23 @@ const CreateTopicPage = () => {
         <div className="max-w-screen-xl mx-auto px-4 py-6 space-y-6 pt-[calc(5.25rem+env(safe-area-inset-top,0px))]">
           {/* Title */}
           <div className="space-y-2">
-            <Label htmlFor="title" className="text-base font-semibold">{titleFieldLabel}</Label>
+            <Label htmlFor="title" className="text-base font-semibold">
+              {titleFieldLabel}
+              <span className="text-sm text-muted-foreground ml-2 font-normal">
+                ({getText('topic.title.maxHint', '最多 {{count}} 字')?.replace('{{count}}', titleMaxLength.toString())})
+              </span>
+            </Label>
             <Input
               id="title"
               placeholder={getText('topic.title.placeholder', '輸入吸引人的標題...')}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="h-12 text-base"
+              maxLength={titleMaxLength}
             />
-
-
+            <div className="text-xs text-muted-foreground text-right">
+              {title.length} / {titleMaxLength}
+            </div>
           </div>
 
           {/* Description */}
@@ -797,7 +829,11 @@ const CreateTopicPage = () => {
                       value={option}
                       onChange={(e) => updateOption(index, e.target.value)}
                       className={isDuplicate ? "border-red-500" : ""}
+                      maxLength={optionItemMaxLength}
                     />
+                    <div className="text-xs text-muted-foreground text-right mt-0.5">
+                      {option.length} / {optionItemMaxLength}
+                    </div>
                     {isDuplicate && (
                       <p className="text-xs text-red-500 mt-1">{getText('topic.options.duplicateOption', '此選項與其他選項重複')}</p>
                     )}

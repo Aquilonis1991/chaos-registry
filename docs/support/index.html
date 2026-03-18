@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>ChaosRegistry｜App 支援</title>
+    <style>
+      :root {
+        --bg: #0b1220;
+        --card: rgba(255, 255, 255, 0.06);
+        --text: rgba(255, 255, 255, 0.92);
+        --muted: rgba(255, 255, 255, 0.7);
+        --border: rgba(255, 255, 255, 0.14);
+        --accent: #7c3aed;
+        --accent2: #22c55e;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #f6f7fb;
+          --card: rgba(0, 0, 0, 0.04);
+          --text: rgba(0, 0, 0, 0.88);
+          --muted: rgba(0, 0, 0, 0.64);
+          --border: rgba(0, 0, 0, 0.12);
+          --accent: #6d28d9;
+          --accent2: #16a34a;
+        }
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Noto Sans TC",
+          "PingFang TC", "Microsoft JhengHei", sans-serif;
+        background: radial-gradient(1200px 800px at 10% 10%, rgba(124, 58, 237, 0.25), transparent 55%),
+          radial-gradient(1000px 700px at 90% 20%, rgba(34, 197, 94, 0.18), transparent 50%),
+          var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      a.underline {
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+      .wrap {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 32px 18px 56px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+      .logo {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, rgba(124, 58, 237, 0.95), rgba(34, 197, 94, 0.85));
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+      }
+      .title h1 {
+        font-size: 22px;
+        margin: 0;
+        letter-spacing: 0.2px;
+      }
+      .title p {
+        margin: 2px 0 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 14px;
+        margin-top: 14px;
+      }
+      @media (min-width: 860px) {
+        .grid {
+          grid-template-columns: 1.1fr 0.9fr;
+          gap: 16px;
+        }
+      }
+      .card {
+        border: 1px solid var(--border);
+        background: var(--card);
+        border-radius: 18px;
+        padding: 16px 16px;
+        backdrop-filter: blur(10px);
+      }
+      .card h2 {
+        margin: 0 0 8px;
+        font-size: 16px;
+      }
+      .card p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .pill {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        padding: 8px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: rgba(0, 0, 0, 0.06);
+        font-size: 13px;
+        color: var(--muted);
+      }
+      @media (prefers-color-scheme: light) {
+        .pill {
+          background: rgba(255, 255, 255, 0.35);
+        }
+      }
+      .btnrow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: rgba(0, 0, 0, 0.08);
+        font-size: 14px;
+      }
+      @media (prefers-color-scheme: light) {
+        .btn {
+          background: rgba(255, 255, 255, 0.35);
+        }
+      }
+      .btn.primary {
+        border-color: rgba(124, 58, 237, 0.55);
+        background: rgba(124, 58, 237, 0.18);
+        color: var(--text);
+      }
+      .btn.good {
+        border-color: rgba(34, 197, 94, 0.55);
+        background: rgba(34, 197, 94, 0.14);
+        color: var(--text);
+      }
+      ul {
+        margin: 10px 0 0;
+        padding-left: 18px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      li + li {
+        margin-top: 6px;
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 12.5px;
+        padding: 2px 6px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: rgba(0, 0, 0, 0.08);
+        color: var(--text);
+      }
+      @media (prefers-color-scheme: light) {
+        code {
+          background: rgba(255, 255, 255, 0.4);
+        }
+      }
+      footer {
+        margin-top: 18px;
+        color: var(--muted);
+        font-size: 12px;
+        text-align: center;
+      }
+      .tiny {
+        font-size: 12px;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="logo">CR</div>
+        <div class="title">
+          <h1>ChaosRegistry｜App 支援</h1>
+          <p>投票、混亂結語、不理性鑑定等功能的支援與回報管道。</p>
+        </div>
+      </header>
+
+      <div class="pill">
+        <span>支援頁用途：</span>
+        <span>App Store「App 支援」連結</span>
+      </div>
+
+      <div class="grid">
+        <section class="card">
+          <h2>聯絡我們</h2>
+          <p>建議用 Email 回報問題（可附截圖），我們會以最快速度回覆。</p>
+          <div class="btnrow">
+            <a class="btn primary underline" href="mailto:support@example.com?subject=ChaosRegistry%20%E6%94%AF%E6%8F%B4%20%7C%20%E5%95%8F%E9%A1%8C%E5%9B%9E%E5%A0%B1">
+              寫信給我們（請改成你的支援信箱）
+            </a>
+            <a class="btn underline" href="https://github.com/Aquilonis1991/chaos-registry/issues" target="_blank" rel="noreferrer">
+              回報 Issue（GitHub）
+            </a>
+          </div>
+          <p class="tiny" style="margin-top: 10px;">
+            請在 Email 內提供：<code>App 版本</code>、<code>裝置型號</code>、<code>iOS/Android 版本</code>、<code>問題描述</code>、<code>重現步驟</code>。
+          </p>
+        </section>
+
+        <aside class="card">
+          <h2>常見問題</h2>
+          <ul>
+            <li><strong>功能無法使用／提示需要設定</strong>：請確認後台 `system_config` 相關 key 已設定（App 會顯示 key）。</li>
+            <li><strong>內容生成太相似</strong>：請回報「最近建立主題」與「最近投票選項」是否正確顯示；我們會檢查資料來源與 Prompt。</li>
+            <li><strong>登入／驗證問題</strong>：請附上錯誤畫面與發生時間（含時區）。</li>
+            <li><strong>閃退或卡住</strong>：請附上裝置資訊與操作步驟。</li>
+          </ul>
+        </aside>
+
+        <section class="card">
+          <h2>隱私權與條款</h2>
+          <p>若你已上線隱私權政策與服務條款，請把以下連結改成你的正式網址。</p>
+          <div class="btnrow">
+            <a class="btn good underline" href="#" onclick="return false;">隱私權政策（請替換連結）</a>
+            <a class="btn underline" href="#" onclick="return false;">服務條款（請替換連結）</a>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>App 資訊</h2>
+          <p>App 名稱：ChaosRegistry（VoteChaos）</p>
+          <p class="tiny" style="margin-top: 8px;">
+            此頁為 GitHub Pages 靜態頁，可作為 App Store「支援 URL」。
+          </p>
+        </section>
+      </div>
+
+      <footer>
+        <div>© <span id="year"></span> ChaosRegistry</div>
+        <div class="tiny">若你是開發者：請在 `docs/support/index.html` 內替換支援信箱與隱私/條款連結。</div>
+      </footer>
+    </div>
+
+    <script>
+      document.getElementById("year").textContent = String(new Date().getFullYear());
+    </script>
+  </body>
+</html>
+

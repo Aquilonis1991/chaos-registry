@@ -88,6 +88,12 @@ export const EditTopicDialog = ({
       return;
     }
 
+    // 檢查單一選項字元上限（50 字元）
+    if (trimmed.length > 50) {
+      toast.error(getText('editTopic.error.optionMaxLength', '單一選項不能超過 50 個字元'));
+      return;
+    }
+
     // 檢查總選項數（最多 6 個）
     if (currentOptions.length + newOptions.length >= 6) {
       toast.error(getText('editTopic.error.maxOptions', '最多只能有 6 個選項'));
@@ -116,13 +122,13 @@ export const EditTopicDialog = ({
       return;
     }
 
-    if (trimmedTitle.length > 200) {
-      toast.error(getText('editTopic.error.titleMaxLength', '標題不能超過 200 個字元'));
+    if (trimmedTitle.length > 80) {
+      toast.error(getText('editTopic.error.titleMaxLength', '標題不能超過 80 個字元'));
       return;
     }
 
-    if (description.length > 150) {
-      toast.error(getText('editTopic.error.descriptionMaxLength', '說明不能超過 150 個字元'));
+    if (description.length > 500) {
+      toast.error(getText('editTopic.error.descriptionMaxLength', '說明不能超過 500 個字元'));
       return;
     }
 
@@ -285,10 +291,10 @@ export const EditTopicDialog = ({
               placeholder={getText('editTopic.form.titlePlaceholder', '輸入主題標題')}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              maxLength={200}
+              maxLength={80}
             />
             <p className="text-xs text-muted-foreground">
-              {title.length}/200
+              {title.length}/80
             </p>
           </div>
 
@@ -301,10 +307,10 @@ export const EditTopicDialog = ({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              maxLength={150}
+              maxLength={500}
             />
             <p className="text-xs text-muted-foreground">
-              {description.length}/150
+              {description.length}/500
             </p>
           </div>
 
@@ -329,20 +335,22 @@ export const EditTopicDialog = ({
               {getText('editTopic.form.newOptionLabel', '新增選項（最多 {{count}} 個）')
                 .replace('{{count}}', (6 - currentOptions.length).toString())}
             </Label>
-            <div className="flex gap-2">
-              <Input
-                id="new-option"
-                placeholder={getText('editTopic.form.newOptionPlaceholder', '輸入新選項')}
-                value={newOptionInput}
-                onChange={(e) => setNewOptionInput(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddOption();
-                  }
-                }}
-                disabled={currentOptions.length + newOptions.length >= 6}
-              />
+            <div className="flex flex-col gap-1">
+              <div className="flex gap-2">
+                <Input
+                  id="new-option"
+                  placeholder={getText('editTopic.form.newOptionPlaceholder', '輸入新選項')}
+                  value={newOptionInput}
+                  onChange={(e) => setNewOptionInput(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddOption();
+                    }
+                  }}
+                  disabled={currentOptions.length + newOptions.length >= 6}
+                  maxLength={50}
+                />
               <Button
                 type="button"
                 variant="outline"
@@ -351,6 +359,10 @@ export const EditTopicDialog = ({
               >
                 <Plus className="w-4 h-4" />
               </Button>
+            </div>
+            <p className="text-xs text-muted-foreground text-right">
+              {newOptionInput.length}/50
+            </p>
             </div>
 
             {/* 新增選項列表 */}

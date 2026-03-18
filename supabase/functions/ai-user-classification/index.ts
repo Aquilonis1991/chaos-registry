@@ -100,6 +100,18 @@ Deno.serve(async (req) => {
 
         if (metricsError) throw metricsError;
 
+        // 確保有帶出「最近建立的主題名稱」與「最近投票（主題+選項）」供 AI 參考
+        const recentTopics = metrics.recent_created_topics ?? [];
+        const recentVotes = metrics.recent_votes ?? [];
+        console.log("[ai-user-classification] metrics:", {
+            total_votes: metrics.total_votes,
+            created_topics: metrics.created_topics,
+            recent_created_topics_count: Array.isArray(recentTopics) ? recentTopics.length : 0,
+            recent_created_topics_sample: Array.isArray(recentTopics) ? recentTopics.slice(0, 3) : [],
+            recent_votes_count: Array.isArray(recentVotes) ? recentVotes.length : 0,
+            recent_votes_sample: Array.isArray(recentVotes) ? recentVotes.slice(0, 3) : [],
+        });
+
         // 5. Build Prompt
         const openAiKey = Deno.env.get("OPENAI_API_KEY");
         if (!openAiKey) throw new Error("OpenAI API Key not configured");
@@ -107,115 +119,10 @@ Deno.serve(async (req) => {
         // Extract language from request or default to 'zh'
         const { language = 'zh' } = await req.json().catch(() => ({}));
 
-        // Default Prompt (Fallback)
-        const DEFAULT_SYSTEM_PROMPT = `
-      🧠 B-1 System Prompt（AI 專用）
-      你是一個用於娛樂用途的「不理性行為側寫生成器」，
-      專門為投票平台生成有趣、惡搞風格的使用者行為側寫。
-
-      【重要】你的核心任務是生成「有趣、惡搞、幽默」的內容，絕對不要生成系統性、官腔、技術性的標籤或描述。
-
-      你的任務是：
-      根據系統提供的「使用者行為統計摘要」（包含：投票數、建立主題數、最近建立的主題名稱、最近投票的選項內容），
-      產出一組【有趣、惡搞、幽默】的稱號與行為側寫。
-
-      【資料運用指南】
-      - **最近建立的主題 (created_topics)**: 觀察使用者喜歡建立什麼類型的話題（政治？感情？無厘頭？）。
-      - **最近投票的內容 (recent_votes)**: 觀察使用者的選擇傾向（激進？隨波逐流？總是選少數派？）。
-      - **請利用這些具體內容來強化側寫的幽默感與準確度**，例如：「你似乎對『午餐吃什麼』有著異常的執著...」或「你的投票選擇總是像在走鋼索...」。
-
-      你不是心理分析工具，
-      不是人格分類系統，
-      也不是任何形式的醫療、診斷或評估機制。
-      你只是在用幽默、誇張的方式描述使用者在平台上的行為模式。
-
-      --------------------------------------------------
-      【輸出內容必須嚴格遵守以下規則】
-      --------------------------------------------------
-
-      1. 禁止使用任何與下列概念相關的詞彙、語意或暗示：
-         - 心理疾病
-         - 人格特質或性格分類
-         - 醫療、診斷、治療
-         - 心理學、精神分析或臨床相關用語
-
-      2. 稱號（title）【極重要】必須符合以下條件：
-         - 簡短（2-8 個字）
-         - 【必須】是有趣、生動、帶有幽默感的人格化、擬人化稱號
-         - 可以誇張、惡搞，但不得冒犯或歧視
-         - 【絕對禁止】使用系統性、官腔、抽象、技術性的詞彙
-         - 【絕對禁止】使用類似「行為記錄狀態」、「操作模式 A」、「用戶類型 B」、「高活躍度用戶」、「系統標記 001」、「行為模式 C」等系統標籤
-         - 【必須使用】具體、生動、有趣的稱號，例如：
-           * 「不理性投票狂」、「話題製造機」、「潛水觀察員」
-           * 「投票機器人」、「創意發想家」、「默默觀察者」
-           * 「投票成癮者」、「話題獵人」、「潛水大師」
-           * 「投票狂人」、「創意達人」、「觀察家」
-         - 稱號應該讓使用者看了會覺得有趣、有共鳴，而不是感到被系統標記
-         - 如果生成的稱號聽起來像系統標籤，必須重新生成
-
-      3. 側寫文字（summary）【極重要】必須：
-         - 【必須】使用幽默、惡搞、誇張的語氣
-         - 【必須】以第三人稱或第二人稱描述使用者的行為模式
-         - 【必須】加入誇張的比喻、有趣的形容
-         - 【必須】風格類似「這個人看起來像是...」、「你就像是一個...」的惡搞描述
-         - 【絕對禁止】冷靜、官腔、系統紀錄風格
-         - 【絕對禁止】使用「系統記錄顯示」、「用戶行為分析」、「操作模式」等系統性詞彙
-         - 可以帶有調侃、開玩笑的語氣，但不得惡意攻擊
-         - 如果生成的側寫聽起來像系統記錄，必須重新生成
-         - 【長度限制】側寫文字必須簡潔，長度約為範例的一半（約 30-50 字），避免過於冗長
-
-      4. 範例風格參考（請嚴格遵循）：
-         
-         稱號（title）範例：
-         - ✅ 好的稱號：「不理性投票狂」、「話題製造機」、「潛水觀察員」、「投票機器人」、「創意發想家」、「投票成癮者」、「話題獵人」
-         - ❌ 【禁止】不好的稱號：「行為記錄狀態」、「操作模式 A」、「用戶類型 B」、「高活躍度用戶」、「系統標記 001」、「行為模式 C」、「活躍度等級 3」
-         
-         側寫（summary）範例：
-         - ✅ 好的側寫（簡潔版，約 30-50 字）：「你就像是在投票海中瘋狂衝浪的浪人，看到任何話題都想插一腳，但話題創造力卻像是被封印了一樣。」
-         - ✅ 好的側寫（簡潔版，約 30-50 字）：「你就像是一個投票機器人，看到選項就按，但創建話題的按鈕似乎被你遺忘了。」
-         - ❌ 【禁止】不好的側寫：「系統記錄顯示該用戶投票次數較多，但創建話題次數較少。」、「用戶行為分析：高投票頻率，低創建頻率。」、「操作模式：積極參與投票，較少發起話題。」
-
-      5. 若稱號或側寫內容可能觸發系統禁字表，
-         該次結果將被視為無效並重新生成。
-
-      6. 輸出語言必須完全符合 input 中指定的 language (${language})，
-         不得混用任何其他語言。
-
-      7. 輸出內容必須包含一個免責聲明標示，
-         該標示必須以「disclaimer_key」欄位輸出，
-         不得直接輸出實際免責文字。
-
-      8. 僅允許輸出符合指定 Schema 的 JSON，
-         不得包含任何額外說明、註解或前後文字。
-
-      --------------------------------------------------
-      【風格指引 - 請嚴格遵循】
-      --------------------------------------------------
-
-      你的語氣【必須】：
-      - 幽默、有趣、帶點惡搞
-      - 可以用誇張的比喻和形容
-      - 可以調侃，但保持友善
-      - 避免真正的冒犯或歧視
-      - 讓使用者看了會笑，而不是感到被冒犯
-
-      【最後提醒】
-      - 這是一個娛樂功能，目的是讓使用者覺得有趣，而不是進行真正的行為分析
-      - 如果你生成的內容聽起來像系統記錄或技術標籤，請重新生成
-      - 稱號必須是有趣、人格化的，側寫必須是惡搞、幽默的
-      - 絕對不要生成任何系統性、官腔、技術性的內容
-
-      📤 B-3 Output Schema（固定）
-      {
-        "title": "string",
-        "summary": "string",
-        "disclaimer_key": "string"
-      }
-    `;
-
-        // 依介面語言選用後台設定的 繁中/英/日 prompt（支援中英日三欄位）
+        // AI Prompt 必須從 system_config 讀取，不寫死字串，以維持後台即時修改功能
         const langKey = String(language).startsWith("zh") ? "zh" : String(language).startsWith("ja") ? "ja" : "en";
-        let systemPrompt = DEFAULT_SYSTEM_PROMPT;
+        const missingLangFallback = "Generate a short, humorous user behavior title and summary based on the stats. Output JSON only: {\"title\":\"string\",\"summary\":\"string\",\"disclaimer_key\":\"string\"}.";
+        let systemPrompt: string;
         try {
             const { data: promptConfig } = await supabase
                 .from("system_config")
@@ -223,25 +130,51 @@ Deno.serve(async (req) => {
                 .eq("key", "ai_chaos_verification_prompt")
                 .single();
 
-            if (promptConfig?.value) {
-                const v = promptConfig.value;
-                if (typeof v === "object" && v !== null && ("zh" in v || "en" in v || "ja" in v)) {
-                    const o = v as Record<string, unknown>;
-                    const byLang = (key: string) => (typeof o[key] === "string" ? (o[key] as string) : "");
-                    systemPrompt = byLang(langKey) || byLang("zh") || "";
-                    if (systemPrompt) console.log("Using dynamic AI prompt from system_config (lang:", langKey, ")");
-                }
-                if (!systemPrompt && typeof v === "string") {
-                    systemPrompt = v;
-                    console.log("Using dynamic AI prompt from system_config (legacy string)");
-                }
-                if (!systemPrompt) systemPrompt = DEFAULT_SYSTEM_PROMPT;
+            if (!promptConfig?.value) {
+                console.error("ai_chaos_verification_prompt not set in system_config");
+                return new Response(
+                    JSON.stringify({ error: "ai_chaos_verification_prompt not configured in system_config. Please set it in the admin backend." }),
+                    { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                );
             }
+
+            const v = promptConfig.value;
+            if (typeof v === "string") {
+                systemPrompt = v;
+                console.log("Using AI prompt from system_config (ai_chaos_verification_prompt, legacy string)");
+            } else if (typeof v === "object" && v !== null && ("zh" in v || "en" in v || "ja" in v)) {
+                const o = v as Record<string, unknown>;
+                const byLang = (key: string) => (typeof o[key] === "string" ? (o[key] as string).trim() : "");
+                systemPrompt = byLang(langKey) || byLang("zh") || byLang("en") || byLang("ja") || missingLangFallback;
+                if (systemPrompt === missingLangFallback) console.log("Using minimal fallback for missing lang in config");
+                else console.log("Using AI prompt from system_config (lang:", langKey, ")");
+            } else {
+                systemPrompt = missingLangFallback;
+                console.log("Using minimal fallback (invalid config shape)");
+            }
+            console.log("[ai-user-classification] systemPrompt length:", systemPrompt?.length ?? 0, "first 120 chars:", (systemPrompt ?? "").slice(0, 120));
         } catch (e) {
-            console.warn("Failed to fetch dynamic prompt, using default:", e);
+            console.error("Failed to fetch ai_chaos_verification_prompt from system_config:", e);
+            return new Response(
+                JSON.stringify({ error: "Failed to load ai_chaos_verification_prompt from system_config. Ensure the key exists and try again." }),
+                { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
         }
 
-        // 6. Call OpenAI (Stable v1/chat/completions)
+        // 6. Call OpenAI：user 內容明確標示「以下為該使用者實際資料」，促使模型依 recent_created_topics / recent_votes 生成
+        const userPayload = {
+            language: language,
+            instruction: "以下為該使用者的實際行為資料，請務必根據「最近建立的主題名稱」與「最近投票（主題＋選項）」內容生成稱號與側寫，不要忽略這些具體內容。",
+            stats: {
+                total_votes: metrics.total_votes,
+                created_topics: metrics.created_topics,
+                activity_days: metrics.activity_days,
+                recent_created_topics: recentTopics,
+                recent_votes: recentVotes
+            }
+        };
+        const userContentStr = JSON.stringify(userPayload);
+
         const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -252,19 +185,7 @@ Deno.serve(async (req) => {
                 model: "gpt-4o-mini",
                 messages: [
                     { role: "system", content: systemPrompt },
-                    {
-                        role: "user",
-                        content: JSON.stringify({
-                            language: language,
-                            stats: {
-                                total_votes: metrics.total_votes,
-                                created_topics: metrics.created_topics,
-                                activity_days: metrics.activity_days,
-                                recent_created_topics: metrics.recent_created_topics || [],
-                                recent_votes: metrics.recent_votes || []
-                            }
-                        })
-                    }
+                    { role: "user", content: userContentStr }
                 ],
                 temperature: 0.9,
                 response_format: { type: "json_object" }

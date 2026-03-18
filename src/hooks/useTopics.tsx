@@ -273,15 +273,23 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
       }
       setError(null);
 
-      // 僅計入使用代幣投票過或自己建立的主題
+      // 計入：投票過（含免費票/代幣票）或自己建立的主題
       // 為了性能，我們只在首次載入時獲取所有 ID，之後使用緩存
       let allTopicIds: string[] = [];
       
       if (reset || currentOffset === 0 || allJoinedTopicIds.length === 0) {
         // 首次載入或重置時，獲取所有相關的 topic IDs
-        const [{ data: tokenVotes, error: tokenVotesError }, { data: createdTopics, error: createdTopicsError }] = await Promise.all([
+        const [
+          { data: tokenVotes, error: tokenVotesError },
+          { data: freeVotes, error: freeVotesError },
+          { data: createdTopics, error: createdTopicsError },
+        ] = await Promise.all([
           supabase
             .from('votes')
+            .select('topic_id')
+            .eq('user_id', userId),
+          supabase
+            .from('free_votes')
             .select('topic_id')
             .eq('user_id', userId),
           supabase
@@ -291,10 +299,12 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
         ]);
 
         if (tokenVotesError) throw tokenVotesError;
+        if (freeVotesError) throw freeVotesError;
         if (createdTopicsError) throw createdTopicsError;
 
         const topicIds = [
           ...(tokenVotes?.map(v => v.topic_id) || []),
+          ...(freeVotes?.map(v => v.topic_id) || []),
           ...(createdTopics?.map(t => t.id) || [])
         ];
 
@@ -334,7 +344,6 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
           )
         `)
         .in('id', paginatedTopicIds)
-        .eq('status', 'active')
         .gte('end_at', graceCutoffDate.toISOString())
         .order('created_at', { ascending: false });
 

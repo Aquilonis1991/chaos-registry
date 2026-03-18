@@ -103,10 +103,11 @@ Deno.serve(async (req) => {
     const voteGapPct = totalVotes > 0 ? (((winning.votes - second.votes) / totalVotes) * 100).toFixed(1) : "0";
     const durationMinutes = (topicRow.duration_days || 7) * 24 * 60;
 
-    // 5. Build AI input
+    // 5. Build AI input（確保含 topic_title, options 含 votes, winning_percentage 等供 user prompt 使用）
     const aiInput = {
       topic_title: topicRow.title,
       options: optList,
+      options_votes: optList.map((o) => ({ name: o.name, votes: o.votes })),
       total_votes: totalVotes,
       total_tokens_spent: 0,
       duration_minutes: durationMinutes,
@@ -118,28 +119,32 @@ Deno.serve(async (req) => {
     const openAiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openAiKey) throw new Error("OpenAI API Key not configured");
 
-    const DEFAULT_SYSTEM_PROMPT = `你是一個名為 ChaosRegistry 的系統內的文字模組，負責在投票結束後生成「混亂結語」。
-規則：
-1. 輸出純文字段落，不可輸出 JSON 或程式碼。
-2. 包含：開場儀式句、結果戲劇化描述、群體行為娛樂側寫。
-3. 結尾必須擇一使用下列固定句：「ChaosRegistry 已完成紀錄。」「本次混亂已存檔。」「請冷靜地參與下一場混亂。」
-4. 語氣：冷靜、無奈、帶有系統感，娛樂性。
-5. 嚴禁心理分析、政治評論、現實建議。僅供娛樂。
-6. 簡短，約 80–150 字。`;
+    // 性格隨機化：四種人格，本次生成三語共用同一種
+    const characterProfiles = ["Elitist", "ConspiracyTheorist", "ChaosCatalyst", "Existentialist"] as const;
+    const selectedCharacter = characterProfiles[Math.floor(Math.random() * characterProfiles.length)];
+    console.log("Selected character for this closing:", selectedCharacter);
 
+    // 各語系「附加性格指令」範本（動態附加在 Base Prompt 末尾，要求 AI 採用選中的性格）
+    const characterAppendByLang: Record<"zh" | "en" | "ja", string> = {
+      zh: `\n\n【本次性格】請以「${selectedCharacter}」的視角與口吻撰寫本則結語，保持混亂結語的格式與結尾固定句。`,
+      en: `\n\n[Character for this response] Write this closing in the voice and perspective of the ${selectedCharacter}. Keep the required format and closing phrase.`,
+      ja: `\n\n【今回の人格】「${selectedCharacter}」の視点と口調でこの結語を書いてください。形式と決まり文句は維持すること。`,
+    };
+
+    // Base Prompt 必須從 system_config 讀取，不寫死字串，以維持後台即時修改功能
     type PromptByLang = { zh: string; en: string; ja: string };
     const resolvePrompts = (v: unknown): PromptByLang => {
-      const def = DEFAULT_SYSTEM_PROMPT;
+      const missingLangFallback = "Generate a short closing statement for the voting topic in the requested language.";
       if (typeof v === "string") return { zh: v, en: v, ja: v };
       if (typeof v === "object" && v !== null && ("zh" in v || "en" in v || "ja" in v)) {
         const o = v as Record<string, unknown>;
-        const by = (k: string) => (typeof o[k] === "string" ? (o[k] as string) : def);
-        return { zh: by("zh") || def, en: by("en") || def, ja: by("ja") || def };
+        const by = (k: string) => (typeof o[k] === "string" ? (o[k] as string) : missingLangFallback);
+        return { zh: by("zh") || missingLangFallback, en: by("en") || missingLangFallback, ja: by("ja") || missingLangFallback };
       }
-      return { zh: def, en: def, ja: def };
+      return { zh: missingLangFallback, en: missingLangFallback, ja: missingLangFallback };
     };
 
-    let promptsByLang: PromptByLang = { zh: DEFAULT_SYSTEM_PROMPT, en: DEFAULT_SYSTEM_PROMPT, ja: DEFAULT_SYSTEM_PROMPT };
+    let promptsByLang: PromptByLang | null = null;
     try {
       const { data: promptConfig } = await supabase
         .from("system_config")
@@ -147,20 +152,41 @@ Deno.serve(async (req) => {
         .eq("key", "ai_closing_prompt")
         .single();
 
-      if (promptConfig?.value) {
-        promptsByLang = resolvePrompts(promptConfig.value);
-        console.log("Using dynamic AI prompt from system_config (zh/en/ja)");
+      if (!promptConfig?.value) {
+        console.error("ai_closing_prompt not set in system_config");
+        return new Response(
+          JSON.stringify({ error: "ai_closing_prompt not configured in system_config. Please set it in the admin backend." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
+      promptsByLang = resolvePrompts(promptConfig.value);
+      console.log("Using AI prompt from system_config (ai_closing_prompt)");
     } catch (e) {
-      console.warn("Failed to fetch dynamic prompt, using default:", e);
+      console.error("Failed to fetch ai_closing_prompt from system_config:", e);
+      return new Response(
+        JSON.stringify({ error: "Failed to load ai_closing_prompt from system_config. Ensure the key exists and try again." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (!promptsByLang) {
+      return new Response(
+        JSON.stringify({ error: "ai_closing_prompt not available" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
+    // 在 Base Prompt 末尾動態附加「本次性格」指令，三語共用同一 selectedCharacter
+    const systemPromptZh = promptsByLang.zh + characterAppendByLang.zh;
+    const systemPromptEn = promptsByLang.en + characterAppendByLang.en;
+    const systemPromptJa = promptsByLang.ja + characterAppendByLang.ja;
+
+    // User prompt：含 topic_title, options_votes, winning_percentage 等欄位
     const userPromptBase = `根據以下投票結果生成混亂結語：\n${JSON.stringify(aiInput, null, 2)}\n\n特別處理：若 total_votes 為 0，生成「群眾沉默」版本；若為 1，生成「孤獨決議」版本。`;
 
     const langInstructions: { lang: "zh" | "en" | "ja"; instruction: string; fallback: string; systemPrompt: string }[] = [
-      { lang: "zh", instruction: "請用繁體中文輸出，不可使用英文或日文。", fallback: FALLBACK_ZH, systemPrompt: promptsByLang.zh },
-      { lang: "en", instruction: "Output in English only.", fallback: FALLBACK_EN, systemPrompt: promptsByLang.en },
-      { lang: "ja", instruction: "日本語のみで出力してください。", fallback: FALLBACK_JA, systemPrompt: promptsByLang.ja },
+      { lang: "zh", instruction: "請用繁體中文輸出，不可使用英文或日文。", fallback: FALLBACK_ZH, systemPrompt: systemPromptZh },
+      { lang: "en", instruction: "Output in English only.", fallback: FALLBACK_EN, systemPrompt: systemPromptEn },
+      { lang: "ja", instruction: "日本語のみで出力してください。", fallback: FALLBACK_JA, systemPrompt: systemPromptJa },
     ];
 
     const generateOne = async (instruction: string, fallback: string, systemPrompt: string): Promise<string> => {

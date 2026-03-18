@@ -6,14 +6,16 @@ export const createTopicSchema = (limits: {
   descriptionMax?: number;
   optionMin?: number;
   optionMax?: number;
+  optionItemMax?: number;
   tagsMax?: number;
 } = {}) => {
   const {
     titleMin = 5,
-    titleMax = 200,
-    descriptionMax = 250,
+    titleMax = 80,
+    descriptionMax = 500,
     optionMin = 2,
     optionMax = 6,
+    optionItemMax = 50,
     tagsMax = 5
   } = limits;
 
@@ -26,7 +28,12 @@ export const createTopicSchema = (limits: {
       .trim()
       .max(descriptionMax, { message: `主題詳述不能超過 ${descriptionMax} 個字元` })
       .optional(),
-    options: z.array(z.string().trim().min(1, { message: "選項不能為空" }))
+    options: z.array(
+      z.string()
+        .trim()
+        .min(1, { message: "選項不能為空" })
+        .max(optionItemMax, { message: `單一選項不能超過 ${optionItemMax} 個字元` })
+    )
       .min(optionMin, { message: `至少需要 ${optionMin} 個選項` })
       .max(optionMax, { message: `最多只能 ${optionMax} 個選項` }),
     category: z.string().min(1, { message: "請選擇分類" }),

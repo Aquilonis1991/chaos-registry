@@ -67,7 +67,8 @@ Deno.serve(async (req) => {
       .select('key, value')
       .in('key', [
         'title_min_length', 'title_max_length', 'description_max_length',
-        'option_min_count', 'option_max_count', 'tags_max_count',
+        'option_min_count', 'option_max_count', 'option_item_max_length',
+        'tags_max_count',
         'exposure_costs', 'duration_costs', 'duration_min_days', 'duration_max_days',
         'topic_banned_check_levels'
       ]);
@@ -79,10 +80,11 @@ Deno.serve(async (req) => {
 
     // Get config values with fallbacks
     const titleMinLength = config.title_min_length || 5;
-    const titleMaxLength = config.title_max_length || 200;
-    const descMaxLength = config.description_max_length || 150;
+    const titleMaxLength = config.title_max_length || 80;
+    const descMaxLength = config.description_max_length || 500;
     const optionMinCount = config.option_min_count || 2;
     const optionMaxCount = config.option_max_count || 6;
+    const optionItemMaxLength = config.option_item_max_length || 50;
     const tagsMaxCount = config.tags_max_count || 5;
     const durationMinDays = config.duration_min_days || 1;
     const durationMaxDays = config.duration_max_days || 30;
@@ -154,6 +156,12 @@ Deno.serve(async (req) => {
       if (!option || typeof option !== 'string' || option.trim().length === 0) {
         return new Response(
           JSON.stringify({ error: 'All options must be non-empty strings' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (option.trim().length > optionItemMaxLength) {
+        return new Response(
+          JSON.stringify({ error: `Each option must not exceed ${optionItemMaxLength} characters` }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }

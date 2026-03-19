@@ -28,6 +28,8 @@ const transactionTypeIcons: Record<string, string> = {
   admin_adjustment: '⚙️',
   purchase: '💰',
   ai_usage: '🌀',
+  extend_topic_duration: '⏳',
+  add_topic_option: '➕',
 };
 
 const normalizeTransactionType = (type: string): string => {
@@ -75,6 +77,8 @@ const getTransactionTypeLabel = (type: string, getText: (key: string, fallback: 
     admin_adjustment: getText('tokenHistory.type.adminAdjustment', '系統調整'),
     purchase: getText('tokenHistory.type.purchase', '購買'),
     ai_usage: getText('tokenHistory.type.aiUsage', '不穩定處理'),
+    extend_topic_duration: getText('tokenHistory.type.extendTopicDuration', '延長投票時間'),
+    add_topic_option: getText('tokenHistory.type.addTopicOption', '新增投票選項'),
   };
   return labels[type] || getText('tokenHistory.type.unknown', type);
 };
@@ -153,6 +157,14 @@ const formatTransactionDescription = (
 
   if (/完成任務|Complete Mission/i.test(normalize)) {
     return getText('tokenHistory.mission.completeMission', '完成任務');
+  }
+
+  if (/參與者延長投票時間/i.test(normalize) || /extend_topic_duration/i.test(normalize)) {
+    return getText('tokenHistory.description.extendTopicDuration', '延長投票時間');
+  }
+
+  if (/參與者新增投票選項/i.test(normalize) || /add_topic_option/i.test(normalize)) {
+    return getText('tokenHistory.description.addTopicOption', '新增投票選項');
   }
 
   if (transactionType === 'complete_mission') {

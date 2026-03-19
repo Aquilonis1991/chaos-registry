@@ -768,7 +768,7 @@ const VoteDetailPage = () => {
               </div>
             </CardContent>
           </Card>
-          <div className="mt-2 flex justify-end">
+          <div className="mt-2 flex items-center justify-end gap-3">
             <Button
               variant="outline"
               size="sm"
@@ -777,6 +777,11 @@ const VoteDetailPage = () => {
             >
               {getText("topic.influence.extend", "延長時間")}
             </Button>
+            <span className="text-xs text-muted-foreground">
+              {getText("topic.influence.remainingExtensions", "剩餘次數 {{remaining}}/{{max}}")
+                .replace("{{remaining}}", String(Math.max(0, (topic.max_extension_count ?? 3) - (topic.extension_count ?? 0))))
+                .replace("{{max}}", String(topic.max_extension_count ?? 3))}
+            </span>
           </div>
         </div>
       </div>

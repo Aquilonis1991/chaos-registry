@@ -79,8 +79,8 @@ const VoteDetailPage = () => {
   const [extendConfirmOpen, setExtendConfirmOpen] = useState(false);
   const [newOptionText, setNewOptionText] = useState<string>("");
   const [addOptionConfirmOpen, setAddOptionConfirmOpen] = useState(false);
-  const canAddOption = topic?.allow_option_addition === true;
-  const canExtendTime = topic?.allow_time_extension === true;
+  const canAddOption = topic?.allow_option_addition === true && !isTopicEnded;
+  const canExtendTime = topic?.allow_time_extension === true && !isTopicEnded;
 
   const loadInfluenceQuote = useCallback(async () => {
     if (!topic?.id) return;

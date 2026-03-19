@@ -426,61 +426,6 @@ const VoteDetailPage = () => {
                 </div>
               </div>
 
-              {/* 參與者付費影響主題 */}
-              <div className="w-full lg:max-w-sm">
-                <Card className="border border-border/60">
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm font-semibold text-foreground">
-                        {getText("topic.influence.title", "互動擴充")}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {getText("topic.influence.extensionCount", "延長次數 {{count}}/{{max}}")
-                          .replace("{{count}}", String(topic.extension_count ?? 0))
-                          .replace("{{max}}", String(topic.max_extension_count ?? 3))}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        disabled={!user || isAnonymous || isTopicEnded || !topic.allow_time_extension}
-                        onClick={() => setExtendDialogOpen(true)}
-                      >
-                        {getText("topic.influence.extend", "延長時間")}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        disabled={!user || isAnonymous || isTopicEnded || !topic.allow_option_addition}
-                        onClick={() => setAddOptionDialogOpen(true)}
-                      >
-                        {getText("topic.influence.addOption", "新增選項")}
-                      </Button>
-                    </div>
-
-                    {(!user || isAnonymous) && (
-                      <div className="text-xs text-muted-foreground">
-                        {getText("topic.influence.loginHint", "登入後才可使用互動擴充功能")}
-                      </div>
-                    )}
-                    {isTopicEnded && (
-                      <div className="text-xs text-muted-foreground">
-                        {getText("topic.influence.endedHint", "主題已結束，無法再影響")}
-                      </div>
-                    )}
-                    {!isTopicEnded && (topic.allow_time_extension !== true) && (topic.allow_option_addition !== true) && (
-                      <div className="text-xs text-muted-foreground">
-                        {getText("topic.influence.disabledByCreator", "發起人未開啟互動擴充")}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-
               {/* Action Buttons */}
               <div className="w-full">
                 <div className={`grid gap-3 ${isCreator ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4' : 'grid-cols-2'}`}>
@@ -563,7 +508,18 @@ const VoteDetailPage = () => {
 
         {/* Vote Options（z-0 確保在按鈕區下方；已結束時縮小與總結區間距，避免上方白塊） */}
         <div className={`relative z-0 space-y-3 max-w-3xl mx-auto w-full px-4 sm:px-6 ${isTopicEnded ? 'mb-4' : 'mb-6'}`}>
-          <h3 className="text-lg font-semibold text-foreground mb-3">{chooseAnswerTitle}</h3>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h3 className="text-lg font-semibold text-foreground">{chooseAnswerTitle}</h3>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0"
+              disabled={!user || isAnonymous || isTopicEnded || !topic.allow_option_addition}
+              onClick={() => setAddOptionDialogOpen(true)}
+            >
+              {getText("topic.influence.addOption", "新增選項")}
+            </Button>
+          </div>
           {topic.options && topic.options.length > 0 ? (
             topic.options.map((option, index) => {
               const optionId = (option != null && typeof option === 'object' && (option.id !== undefined && option.id !== null))
@@ -812,6 +768,16 @@ const VoteDetailPage = () => {
               </div>
             </CardContent>
           </Card>
+          <div className="mt-2 flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!user || isAnonymous || isTopicEnded || !topic.allow_time_extension}
+              onClick={() => setExtendDialogOpen(true)}
+            >
+              {getText("topic.influence.extend", "延長時間")}
+            </Button>
+          </div>
         </div>
       </div>
 

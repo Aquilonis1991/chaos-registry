@@ -76,6 +76,7 @@ const VoteDetailPage = () => {
   const [influenceLoading, setInfluenceLoading] = useState(false);
   const [influenceQuote, setInfluenceQuote] = useState<any>(null);
   const [extendDays, setExtendDays] = useState<1 | 2 | 3>(1);
+  const [extendConfirmOpen, setExtendConfirmOpen] = useState(false);
   const [newOptionText, setNewOptionText] = useState<string>("");
 
   const loadInfluenceQuote = useCallback(async () => {
@@ -832,12 +833,21 @@ const VoteDetailPage = () => {
                   <Button
                     key={day}
                     type="button"
-                    variant={extendDays === day ? "default" : "outline"}
+                    variant="outline"
                     size="sm"
-                    onClick={() => setExtendDays(day)}
+                    onClick={() => {
+                      setExtendDays(day);
+                      setExtendConfirmOpen(true);
+                    }}
                     disabled={influenceLoading}
+                    className="h-auto py-2"
                   >
-                    +{day}{getText("topic.influence.days", "天")} {typeof cost === "number" && cost > 0 ? `(${cost} tokens)` : ""}
+                    <span className="w-full flex flex-col items-center leading-tight">
+                      <span className="font-semibold">+{day}{getText("topic.influence.days", "天")}</span>
+                      {typeof cost === "number" && cost > 0 && (
+                        <span className="text-xs text-muted-foreground">（{cost} {getText("topic.influence.tokens", "代幣")}）</span>
+                      )}
+                    </span>
                   </Button>
                 );
               })}
@@ -849,6 +859,32 @@ const VoteDetailPage = () => {
                 .replace("{{max}}", String(topic?.max_extension_count ?? 3))}
             </div>
           </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>{getText("common.button.cancel", "取消")}</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 延長投票時間：確認彈窗 */}
+      <AlertDialog open={extendConfirmOpen} onOpenChange={setExtendConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{getText("topic.influence.extendConfirmTitle", "確認延長")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {(() => {
+                const cost =
+                  extendDays === 1 ? influenceQuote?.costs?.extend_1_day :
+                  extendDays === 2 ? influenceQuote?.costs?.extend_2_day :
+                  influenceQuote?.costs?.extend_3_day;
+                const line1 = getText("topic.influence.extendConfirmLine1", "將延長 +{{days}} 天").replace("{{days}}", String(extendDays));
+                const line2 = typeof cost === "number" && cost > 0
+                  ? getText("topic.influence.extendConfirmLine2", "扣除 {{cost}} 代幣").replace("{{cost}}", String(cost))
+                  : getText("topic.influence.costLoading", "成本讀取中…");
+                return `${line1}\n${line2}`;
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
 
           <AlertDialogFooter>
             <AlertDialogCancel>{getText("common.button.cancel", "取消")}</AlertDialogCancel>
@@ -867,6 +903,7 @@ const VoteDetailPage = () => {
                   });
                   if (error) throw error;
                   toast.success(getText("topic.influence.extendSuccess", "已延長投票時間"));
+                  setExtendConfirmOpen(false);
                   setExtendDialogOpen(false);
                   await refreshTopic();
                   await refreshProfile();

@@ -142,6 +142,69 @@ const VoteDetailPage = () => {
   const confirmDialogCancelText = getText('vote.detail.confirm.cancel', '取消');
   const confirmDialogConfirmText = getText('vote.detail.confirm.confirm', '確認投入');
 
+  const getInfluenceErrorText = useCallback((raw?: string) => {
+    const fallback = getText("topic.influence.actionFailed", "操作失敗");
+    const message = String(raw || "").trim();
+    if (!message) return fallback;
+
+    if (/Not authenticated/i.test(message)) {
+      return getText("topic.influence.error.notAuthenticated", "請先登入");
+    }
+    if (/Invalid days/i.test(message)) {
+      return getText("topic.influence.error.invalidDays", "延長天數無效");
+    }
+    if (/Topic not found/i.test(message)) {
+      return getText("topic.influence.error.topicNotFound", "找不到主題");
+    }
+    if (/Topic has ended/i.test(message)) {
+      return getText("topic.influence.error.topicEnded", "主題已結束");
+    }
+    if (/Time extension is not allowed for this topic/i.test(message)) {
+      return getText("topic.influence.error.extensionNotAllowed", "此主題不允許延長時間");
+    }
+    if (/Days exceed max per action/i.test(message)) {
+      return getText("topic.influence.error.daysExceedMaxPerAction", "超過單次可延長上限");
+    }
+    if (/Not in extension window/i.test(message)) {
+      return getText("topic.influence.error.notInExtensionWindow", "尚未到可延長時段");
+    }
+    if (/Extension limit reached/i.test(message)) {
+      return getText("topic.influence.error.extensionLimitReached", "延長次數已達上限");
+    }
+    if (/User has already extended this topic/i.test(message)) {
+      return getText("topic.influence.error.userAlreadyExtended", "你已延長過此主題");
+    }
+    if (/Cost config missing or invalid/i.test(message)) {
+      return getText("topic.influence.error.costConfigInvalid", "成本設定錯誤，請稍後再試");
+    }
+    if (/User profile not found/i.test(message)) {
+      return getText("topic.influence.error.profileNotFound", "找不到使用者資料");
+    }
+    if (/Insufficient tokens/i.test(message)) {
+      return getText("topic.influence.error.insufficientTokens", "代幣不足");
+    }
+    if (/Option text is empty/i.test(message)) {
+      return getText("topic.influence.error.optionTextEmpty", "請輸入選項內容");
+    }
+    if (/Option addition is not allowed for this topic/i.test(message)) {
+      return getText("topic.influence.error.optionAdditionNotAllowed", "此主題不允許新增選項");
+    }
+    if (/Option length out of range/i.test(message)) {
+      return getText("topic.influence.error.optionLengthOutOfRange", "選項長度超出限制");
+    }
+    if (/Option count limit reached/i.test(message)) {
+      return getText("topic.influence.error.optionCountLimitReached", "選項數量已達上限");
+    }
+    if (/Duplicate option/i.test(message)) {
+      return getText("topic.influence.error.duplicateOption", "此選項已存在");
+    }
+    if (/User option add limit reached/i.test(message)) {
+      return getText("topic.influence.error.userOptionAddLimitReached", "你新增選項的次數已達上限");
+    }
+
+    return fallback;
+  }, [getText]);
+
   // Check free vote availability when component mounts（僅依賴 user/id，避免 checkFreeVote 引用變動導致 effect 重複執行、一直顯示讀取中）
   useEffect(() => {
     if (!user || isAnonymous || !id) {
@@ -911,7 +974,7 @@ const VoteDetailPage = () => {
                   await refreshStats();
                   console.log("[Influence] extend_topic_duration result:", data);
                 } catch (e: any) {
-                  toast.error(e?.message || getText("topic.influence.actionFailed", "操作失敗"));
+                  toast.error(getInfluenceErrorText(e?.message));
                 } finally {
                   setInfluenceLoading(false);
                 }
@@ -1025,7 +1088,7 @@ const VoteDetailPage = () => {
                   await refreshStats();
                   console.log("[Influence] add_topic_option result:", data);
                 } catch (e: any) {
-                  toast.error(e?.message || getText("topic.influence.actionFailed", "操作失敗"));
+                  toast.error(getInfluenceErrorText(e?.message));
                 } finally {
                   setInfluenceLoading(false);
                 }

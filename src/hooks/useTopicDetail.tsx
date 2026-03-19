@@ -24,6 +24,10 @@ export interface TopicDetail {
   creator_avatar?: string;
   total_votes?: number;
   time_remaining?: string;
+  allow_time_extension?: boolean;
+  allow_option_addition?: boolean;
+  extension_count?: number;
+  max_extension_count?: number;
 }
 
 export const useTopicDetail = (topicId: string | undefined) => {

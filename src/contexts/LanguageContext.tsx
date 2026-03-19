@@ -64,6 +64,14 @@ const translations: Record<BaseLanguage, Record<string, string>> = {
 
     // Vote Detail
     "vote.detail.section.ended": "投票已結束",
+
+    // Token history
+    "tokenHistory.type.extendTopicDuration": "延長投票時間",
+    "tokenHistory.type.addTopicOption": "新增投票選項",
+    "tokenHistory.type.deposit": "儲值",
+    "tokenHistory.description.extendTopicDuration": "延長投票時間",
+    "tokenHistory.description.addTopicOption": "新增投票選項",
+    "tokenHistory.description.deposit": "儲值",
   },
   en: {
     // Header
@@ -107,6 +115,14 @@ const translations: Record<BaseLanguage, Record<string, string>> = {
 
     // Vote Detail
     "vote.detail.section.ended": "Voting ended",
+
+    // Token history
+    "tokenHistory.type.extendTopicDuration": "Extend voting time",
+    "tokenHistory.type.addTopicOption": "Add vote option",
+    "tokenHistory.type.deposit": "Deposit",
+    "tokenHistory.description.extendTopicDuration": "Extend voting time",
+    "tokenHistory.description.addTopicOption": "Add vote option",
+    "tokenHistory.description.deposit": "Deposit",
   },
   ja: {
     // Header
@@ -150,6 +166,14 @@ const translations: Record<BaseLanguage, Record<string, string>> = {
 
     // Vote Detail
     "vote.detail.section.ended": "投票は終了しました",
+
+    // Token history
+    "tokenHistory.type.extendTopicDuration": "投票時間を延長",
+    "tokenHistory.type.addTopicOption": "投票の選択肢を追加",
+    "tokenHistory.type.deposit": "チャージ",
+    "tokenHistory.description.extendTopicDuration": "投票時間を延長",
+    "tokenHistory.description.addTopicOption": "投票の選択肢を追加",
+    "tokenHistory.description.deposit": "チャージ",
   },
 };
 

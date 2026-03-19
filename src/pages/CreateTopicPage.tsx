@@ -34,6 +34,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { isPromptConfigError, getPromptConfigKeyFromError } from "@/lib/promptConfigError";
 import { PromptNotConfiguredDialog } from "@/components/PromptNotConfiguredDialog";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 
 const CreateTopicPage = () => {
   const navigate = useNavigate();
@@ -123,7 +125,7 @@ const CreateTopicPage = () => {
 
     setIsSubmitting(true);
     try {
-      await createTopic({
+      const createResult: any = await createTopic({
         title: title.trim(),
         description,
         options: optionsForSubmit,
@@ -132,6 +134,21 @@ const CreateTopicPage = () => {
         exposure_level: exposure,
         duration_days: duration[0],
       });
+
+      const createdTopicId: string | undefined = createResult?.topic?.id;
+      if (createdTopicId) {
+        const { error: toggleErr } = await supabase
+          .from('topics')
+          .update({
+            allow_time_extension: allowTimeExtension,
+            allow_option_addition: allowOptionAddition,
+          })
+          .eq('id', createdTopicId);
+        if (toggleErr) {
+          // 不影響主流程，避免因 toggle 寫入失敗導致建立主題整體失敗
+          console.warn('[CreateTopic] Failed to persist interaction toggles:', toggleErr);
+        }
+      }
 
       toast.success(getText('topic.success', '主題建立成功！'));
       refreshStats();
@@ -195,6 +212,8 @@ const CreateTopicPage = () => {
   const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
   const [promptConfigDialogOpen, setPromptConfigDialogOpen] = useState(false);
   const [promptConfigKey, setPromptConfigKey] = useState<string | null>(null);
+  const [allowTimeExtension, setAllowTimeExtension] = useState(false);
+  const [allowOptionAddition, setAllowOptionAddition] = useState(false);
 
   // Check daily rewrite usage on mount
   useEffect(() => {
@@ -1036,6 +1055,40 @@ const CreateTopicPage = () => {
               <span>{getText('topic.duration.max', '{{maxDays}} 天').replace('{{maxDays}}', durationMaxDays.toString())}</span>
             </div>
           </div>
+
+          {/* Interactive Extensions */}
+          <Card className="border border-border/60">
+            <CardContent className="p-4 space-y-3">
+              <div className="space-y-1">
+                <div className="font-semibold text-foreground">
+                  {getText('topic.interactiveExtensions.title', '互動擴充設定')}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {getText('topic.interactiveExtensions.desc', '開啟後，其他使用者可花費代幣影響本主題的發展。')}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-0.5">
+                  <div className="text-sm font-medium text-foreground">
+                    {getText('topic.interactiveExtensions.allowTimeExtension', '允許參與者延長投票時間')}
+                  </div>
+                </div>
+                <Switch checked={allowTimeExtension} onCheckedChange={setAllowTimeExtension} />
+              </div>
+
+              <Separator />
+
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-0.5">
+                  <div className="text-sm font-medium text-foreground">
+                    {getText('topic.interactiveExtensions.allowOptionAddition', '允許參與者新增投票選項')}
+                  </div>
+                </div>
+                <Switch checked={allowOptionAddition} onCheckedChange={setAllowOptionAddition} />
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Cost Summary */}
           <Card className={cn(

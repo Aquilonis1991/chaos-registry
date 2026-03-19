@@ -66,6 +66,7 @@ function TopicCardContent({
   isHot,
   isEnded,
   endedLabel,
+  endedSuffixLabel,
   createdAt,
   getTagColor,
 }: {
@@ -76,10 +77,12 @@ function TopicCardContent({
   isHot?: boolean;
   isEnded?: boolean;
   endedLabel?: string;
+  endedSuffixLabel?: string;
   createdAt?: string;
   getTagColor: (tag: string) => string;
 }) {
   const label = endedLabel ?? '已結束';
+  const endedSuffix = endedSuffixLabel ?? '（已結束）';
   return (
     <>
       <div className="p-5">
@@ -115,6 +118,7 @@ function TopicCardContent({
           <div className="flex items-center gap-1 text-muted-foreground">
             <Clock className="w-4 h-4" />
             <span>{createdAt}</span>
+            {isEnded && <span>{endedSuffix}</span>}
           </div>
         )}
       </div>
@@ -126,6 +130,7 @@ export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, isEn
   const { language } = useLanguage();
   const { getText } = useUIText(language);
   const endedLabel = getText('home.topicCard.ended', '已結束');
+  const endedSuffixLabel = getText('home.topicCard.endedSuffix', '（已結束）');
 
   const level = typeof currentExposureLevel === 'string' ? currentExposureLevel.trim().toLowerCase() : '';
   const normalizedLevel = level === 'low' ? 'normal' : level;
@@ -146,6 +151,7 @@ export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, isEn
       isHot={isHot}
       isEnded={isEnded}
       endedLabel={endedLabel}
+      endedSuffixLabel={endedSuffixLabel}
       createdAt={createdAt}
       getTagColor={getTagColor}
     />
@@ -201,6 +207,7 @@ export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, isEn
               <div className="flex items-center gap-1 text-muted-foreground">
                 <Clock className="w-4 h-4" />
                 <span>{createdAt}</span>
+                {isEnded && <span>{endedSuffixLabel}</span>}
               </div>
             )}
           </CardFooter>

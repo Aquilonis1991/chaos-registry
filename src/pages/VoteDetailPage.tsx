@@ -115,7 +115,9 @@ const VoteDetailPage = () => {
   const topicNotFoundTitle = getText('vote.detail.empty.title', '主題不存在');
   const topicNotFoundDescription = getText('vote.detail.empty.description', '找不到此投票主題');
   const backHomeButton = getText('vote.detail.empty.backHome', '返回首頁');
-  const chooseAnswerTitle = getText('vote.detail.section.answers', '選擇你的答案');
+  const chooseAnswerTitle = isTopicEnded
+    ? getText('vote.detail.section.ended', '投票已結束')
+    : getText('vote.detail.section.answers', '選擇你的答案');
   const noOptionsText = getText('vote.detail.options.empty', '此主題暫無選項');
   const selectedMark = getText('vote.detail.option.selected', '✓ 已選擇');
   const unknownOptionText = getText('vote.detail.option.unknown', '未知選項');

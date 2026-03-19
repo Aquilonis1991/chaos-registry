@@ -39,6 +39,7 @@ import { ChaosClosingCard } from "@/components/ChaosClosingCard";
 import { useAiClosingStatement } from "@/hooks/useAiClosingStatement";
 import { isPromptConfigError, getPromptConfigKeyFromError } from "@/lib/promptConfigError";
 import { PromptNotConfiguredDialog } from "@/components/PromptNotConfiguredDialog";
+import { supabase } from "@/integrations/supabase/client";
 
 const VoteDetailPage = () => {
   const { id } = useParams();
@@ -68,6 +69,35 @@ const VoteDetailPage = () => {
   const [customAmount, setCustomAmount] = useState<string>("");
   const [exposureDialogOpen, setExposureDialogOpen] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+
+  // 參與者付費影響主題（延長時間 / 新增選項）
+  const [extendDialogOpen, setExtendDialogOpen] = useState(false);
+  const [addOptionDialogOpen, setAddOptionDialogOpen] = useState(false);
+  const [influenceLoading, setInfluenceLoading] = useState(false);
+  const [influenceQuote, setInfluenceQuote] = useState<any>(null);
+  const [extendDays, setExtendDays] = useState<1 | 2 | 3>(1);
+  const [newOptionText, setNewOptionText] = useState<string>("");
+
+  const loadInfluenceQuote = useCallback(async () => {
+    if (!topic?.id) return;
+    try {
+      setInfluenceLoading(true);
+      const { data, error } = await (supabase.rpc as any)("get_topic_influence_quote", { p_topic_id: topic.id });
+      if (error) throw error;
+      setInfluenceQuote(data ?? null);
+    } catch (e: any) {
+      console.warn("[Influence] load quote failed:", e?.message || e);
+      setInfluenceQuote(null);
+    } finally {
+      setInfluenceLoading(false);
+    }
+  }, [topic?.id]);
+
+  useEffect(() => {
+    if (extendDialogOpen || addOptionDialogOpen) {
+      void loadInfluenceQuote();
+    }
+  }, [extendDialogOpen, addOptionDialogOpen, loadInfluenceQuote]);
   const [pendingVoteAmount, setPendingVoteAmount] = useState<number | null>(null);
   const [pendingVoteSource, setPendingVoteSource] = useState<'quick' | 'custom' | null>(null);
 
@@ -392,6 +422,61 @@ const VoteDetailPage = () => {
                   <Clock className="w-4 h-4" />
                   <span>{remainingTimeLabel}</span>
                 </div>
+              </div>
+
+              {/* 參與者付費影響主題 */}
+              <div className="w-full lg:max-w-sm">
+                <Card className="border border-border/60">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-semibold text-foreground">
+                        {getText("topic.influence.title", "互動擴充")}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {getText("topic.influence.extensionCount", "延長次數 {{count}}/{{max}}")
+                          .replace("{{count}}", String(topic.extension_count ?? 0))
+                          .replace("{{max}}", String(topic.max_extension_count ?? 3))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        disabled={!user || isAnonymous || isTopicEnded || !topic.allow_time_extension}
+                        onClick={() => setExtendDialogOpen(true)}
+                      >
+                        {getText("topic.influence.extend", "延長時間")}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        disabled={!user || isAnonymous || isTopicEnded || !topic.allow_option_addition}
+                        onClick={() => setAddOptionDialogOpen(true)}
+                      >
+                        {getText("topic.influence.addOption", "新增選項")}
+                      </Button>
+                    </div>
+
+                    {(!user || isAnonymous) && (
+                      <div className="text-xs text-muted-foreground">
+                        {getText("topic.influence.loginHint", "登入後才可使用互動擴充功能")}
+                      </div>
+                    )}
+                    {isTopicEnded && (
+                      <div className="text-xs text-muted-foreground">
+                        {getText("topic.influence.endedHint", "主題已結束，無法再影響")}
+                      </div>
+                    )}
+                    {!isTopicEnded && (topic.allow_time_extension !== true) && (topic.allow_option_addition !== true) && (
+                      <div className="text-xs text-muted-foreground">
+                        {getText("topic.influence.disabledByCreator", "發起人未開啟互動擴充")}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
 
               {/* Action Buttons */}
@@ -747,6 +832,158 @@ const VoteDetailPage = () => {
             <AlertDialogCancel onClick={handleCancelVote}>{confirmDialogCancelText}</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmVote}>
               {confirmDialogConfirmText}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 延長投票時間 */}
+      <AlertDialog open={extendDialogOpen} onOpenChange={setExtendDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{getText("topic.influence.extendTitle", "延長投票時間")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {getText("topic.influence.extendDesc", "僅在剩餘時間接近結束時可操作，實際扣除以最新價格為準。")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-2">
+              {[1, 2, 3].map((d) => {
+                const day = d as 1 | 2 | 3;
+                const cost =
+                  day === 1 ? influenceQuote?.costs?.extend_1_day :
+                  day === 2 ? influenceQuote?.costs?.extend_2_day :
+                  influenceQuote?.costs?.extend_3_day;
+                return (
+                  <Button
+                    key={day}
+                    type="button"
+                    variant={extendDays === day ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setExtendDays(day)}
+                    disabled={influenceLoading}
+                  >
+                    +{day}{getText("topic.influence.days", "天")} {typeof cost === "number" && cost > 0 ? `(${cost} tokens)` : ""}
+                  </Button>
+                );
+              })}
+            </div>
+
+            <div className="text-xs text-muted-foreground">
+              {getText("topic.influence.extensionCount", "延長次數 {{count}}/{{max}}")
+                .replace("{{count}}", String(topic?.extension_count ?? 0))
+                .replace("{{max}}", String(topic?.max_extension_count ?? 3))}
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>{getText("common.button.cancel", "取消")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!topic?.id) return;
+                if (!user || isAnonymous) {
+                  toast.error(getText("topic.influence.loginHint", "登入後才可使用互動擴充功能"));
+                  return;
+                }
+                try {
+                  setInfluenceLoading(true);
+                  const { data, error } = await (supabase.rpc as any)("extend_topic_duration", {
+                    p_topic_id: topic.id,
+                    p_days: extendDays,
+                  });
+                  if (error) throw error;
+                  toast.success(getText("topic.influence.extendSuccess", "已延長投票時間"));
+                  setExtendDialogOpen(false);
+                  await refreshTopic();
+                  await refreshProfile();
+                  await refreshStats();
+                  console.log("[Influence] extend_topic_duration result:", data);
+                } catch (e: any) {
+                  toast.error(e?.message || getText("topic.influence.actionFailed", "操作失敗"));
+                } finally {
+                  setInfluenceLoading(false);
+                }
+              }}
+              disabled={influenceLoading}
+            >
+              {influenceLoading ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {getText("common.status.processing", "處理中")}
+                </span>
+              ) : (
+                getText("topic.influence.confirm", "確認")
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 新增投票選項 */}
+      <AlertDialog open={addOptionDialogOpen} onOpenChange={setAddOptionDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{getText("topic.influence.addOptionTitle", "新增投票選項")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {getText("topic.influence.addOptionDesc", "直接上架，不審核。實際扣除以最新價格為準。")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-2">
+            <Input
+              value={newOptionText}
+              onChange={(e) => setNewOptionText(e.target.value)}
+              placeholder={getText("topic.influence.optionPlaceholder", "輸入新選項")}
+              maxLength={50}
+              disabled={influenceLoading}
+            />
+            <div className="text-xs text-muted-foreground">
+              {typeof influenceQuote?.costs?.add_option === "number" && influenceQuote.costs.add_option > 0
+                ? getText("topic.influence.addOptionCost", "成本：{{cost}} tokens").replace("{{cost}}", String(influenceQuote.costs.add_option))
+                : getText("topic.influence.costLoading", "成本讀取中…")}
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>{getText("common.button.cancel", "取消")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!topic?.id) return;
+                if (!user || isAnonymous) {
+                  toast.error(getText("topic.influence.loginHint", "登入後才可使用互動擴充功能"));
+                  return;
+                }
+                try {
+                  setInfluenceLoading(true);
+                  const { data, error } = await (supabase.rpc as any)("add_topic_option", {
+                    p_topic_id: topic.id,
+                    p_option_text: newOptionText,
+                  });
+                  if (error) throw error;
+                  toast.success(getText("topic.influence.addOptionSuccess", "已新增選項"));
+                  setAddOptionDialogOpen(false);
+                  setNewOptionText("");
+                  await refreshTopic();
+                  await refreshProfile();
+                  await refreshStats();
+                  console.log("[Influence] add_topic_option result:", data);
+                } catch (e: any) {
+                  toast.error(e?.message || getText("topic.influence.actionFailed", "操作失敗"));
+                } finally {
+                  setInfluenceLoading(false);
+                }
+              }}
+              disabled={influenceLoading}
+            >
+              {influenceLoading ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {getText("common.status.processing", "處理中")}
+                </span>
+              ) : (
+                getText("topic.influence.confirm", "確認")
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

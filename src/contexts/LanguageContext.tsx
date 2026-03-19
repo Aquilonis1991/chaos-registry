@@ -61,6 +61,9 @@ const translations: Record<BaseLanguage, Record<string, string>> = {
     "mission.voteEnthusiast": "投票愛好者",
     "mission.topicCreator": "話題創造者",
     "mission.adWatcher": "廣告觀看者",
+
+    // Vote Detail
+    "vote.detail.section.ended": "投票已結束",
   },
   en: {
     // Header
@@ -101,6 +104,9 @@ const translations: Record<BaseLanguage, Record<string, string>> = {
     "mission.voteEnthusiast": "Vote Enthusiast",
     "mission.topicCreator": "Topic Creator",
     "mission.adWatcher": "Ad Watcher",
+
+    // Vote Detail
+    "vote.detail.section.ended": "Voting ended",
   },
   ja: {
     // Header
@@ -141,6 +147,9 @@ const translations: Record<BaseLanguage, Record<string, string>> = {
     "mission.voteEnthusiast": "投票愛好家",
     "mission.topicCreator": "トピッククリエイター",
     "mission.adWatcher": "広告視聴者",
+
+    // Vote Detail
+    "vote.detail.section.ended": "投票は終了しました",
   },
 };
 

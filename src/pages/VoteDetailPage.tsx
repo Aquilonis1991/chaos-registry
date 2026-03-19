@@ -79,6 +79,8 @@ const VoteDetailPage = () => {
   const [extendConfirmOpen, setExtendConfirmOpen] = useState(false);
   const [newOptionText, setNewOptionText] = useState<string>("");
   const [addOptionConfirmOpen, setAddOptionConfirmOpen] = useState(false);
+  const canAddOption = topic?.allow_option_addition === true;
+  const canExtendTime = topic?.allow_time_extension === true;
 
   const loadInfluenceQuote = useCallback(async () => {
     if (!topic?.id) return;
@@ -575,15 +577,17 @@ const VoteDetailPage = () => {
         <div className={`relative z-0 space-y-3 max-w-3xl mx-auto w-full px-4 sm:px-6 ${isTopicEnded ? 'mb-4' : 'mb-6'}`}>
           <div className="flex items-center justify-between gap-3 mb-3">
             <h3 className="text-lg font-semibold text-foreground">{chooseAnswerTitle}</h3>
-            <Button
-              variant="outline"
-              size="sm"
-              className="shrink-0"
-              disabled={!user || isAnonymous || isTopicEnded || !topic.allow_option_addition}
-              onClick={() => setAddOptionDialogOpen(true)}
-            >
-              {getText("topic.influence.addOption", "新增選項")}
-            </Button>
+            {canAddOption && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                disabled={!user || isAnonymous || isTopicEnded}
+                onClick={() => setAddOptionDialogOpen(true)}
+              >
+                {getText("topic.influence.addOption", "新增選項")}
+              </Button>
+            )}
           </div>
           {topic.options && topic.options.length > 0 ? (
             topic.options.map((option, index) => {
@@ -833,21 +837,23 @@ const VoteDetailPage = () => {
               </div>
             </CardContent>
           </Card>
-          <div className="mt-2 flex items-center justify-end gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!user || isAnonymous || isTopicEnded || !topic.allow_time_extension}
-              onClick={() => setExtendDialogOpen(true)}
-            >
-              {getText("topic.influence.extend", "延長時間")}
-            </Button>
-            <span className="text-xs text-muted-foreground">
-              {getText("topic.influence.remainingExtensions", "剩餘次數 {{remaining}}/{{max}}")
-                .replace("{{remaining}}", String(Math.max(0, (topic.max_extension_count ?? 3) - (topic.extension_count ?? 0))))
-                .replace("{{max}}", String(topic.max_extension_count ?? 3))}
-            </span>
-          </div>
+          {canExtendTime && (
+            <div className="mt-2 flex items-center justify-end gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!user || isAnonymous || isTopicEnded}
+                onClick={() => setExtendDialogOpen(true)}
+              >
+                {getText("topic.influence.extend", "延長時間")}
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                {getText("topic.influence.remainingExtensions", "剩餘次數 {{remaining}}/{{max}}")
+                  .replace("{{remaining}}", String(Math.max(0, (topic.max_extension_count ?? 3) - (topic.extension_count ?? 0))))
+                  .replace("{{max}}", String(topic.max_extension_count ?? 3))}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -876,6 +882,7 @@ const VoteDetailPage = () => {
       </AlertDialog>
 
       {/* 延長投票時間 */}
+      {canExtendTime && (
       <AlertDialog open={extendDialogOpen} onOpenChange={setExtendDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -929,8 +936,10 @@ const VoteDetailPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      )}
 
       {/* 延長投票時間：確認彈窗 */}
+      {canExtendTime && (
       <AlertDialog open={extendConfirmOpen} onOpenChange={setExtendConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -993,8 +1002,10 @@ const VoteDetailPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      )}
 
       {/* 新增投票選項 */}
+      {canAddOption && (
       <AlertDialog open={addOptionDialogOpen} onOpenChange={setAddOptionDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1044,8 +1055,10 @@ const VoteDetailPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      )}
 
       {/* 新增投票選項：確認彈窗 */}
+      {canAddOption && (
       <AlertDialog open={addOptionConfirmOpen} onOpenChange={setAddOptionConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1107,6 +1120,7 @@ const VoteDetailPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      )}
 
       {promptConfigKey && (
         <PromptNotConfiguredDialog

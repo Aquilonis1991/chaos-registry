@@ -78,6 +78,7 @@ const VoteDetailPage = () => {
   const [extendDays, setExtendDays] = useState<1 | 2 | 3>(1);
   const [extendConfirmOpen, setExtendConfirmOpen] = useState(false);
   const [newOptionText, setNewOptionText] = useState<string>("");
+  const [addOptionConfirmOpen, setAddOptionConfirmOpen] = useState(false);
 
   const loadInfluenceQuote = useCallback(async () => {
     if (!topic?.id) return;
@@ -958,6 +959,50 @@ const VoteDetailPage = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>{getText("common.button.cancel", "取消")}</AlertDialogCancel>
             <AlertDialogAction
+              onClick={() => {
+                if (!topic?.id) return;
+                if (!user || isAnonymous) {
+                  toast.error(getText("topic.influence.loginHint", "登入後才可使用互動擴充功能"));
+                  return;
+                }
+                setAddOptionConfirmOpen(true);
+              }}
+              disabled={influenceLoading}
+            >
+              {influenceLoading ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {getText("common.status.processing", "處理中")}
+                </span>
+              ) : (
+                getText("topic.influence.confirm", "確認")
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 新增投票選項：確認彈窗 */}
+      <AlertDialog open={addOptionConfirmOpen} onOpenChange={setAddOptionConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{getText("topic.influence.addOptionConfirmTitle", "確認新增選項")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {(() => {
+                const cost = influenceQuote?.costs?.add_option;
+                const line1 = getText("topic.influence.addOptionConfirmLine1", "新增選項：{{text}}")
+                  .replace("{{text}}", (newOptionText || "").trim() || "（空白）");
+                const line2 = typeof cost === "number" && cost > 0
+                  ? getText("topic.influence.addOptionConfirmLine2", "扣除 {{cost}} 代幣").replace("{{cost}}", String(cost))
+                  : getText("topic.influence.costLoading", "成本讀取中…");
+                return `${line1}\n${line2}`;
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>{getText("common.button.cancel", "取消")}</AlertDialogCancel>
+            <AlertDialogAction
               onClick={async () => {
                 if (!topic?.id) return;
                 if (!user || isAnonymous) {
@@ -972,6 +1017,7 @@ const VoteDetailPage = () => {
                   });
                   if (error) throw error;
                   toast.success(getText("topic.influence.addOptionSuccess", "已新增選項"));
+                  setAddOptionConfirmOpen(false);
                   setAddOptionDialogOpen(false);
                   setNewOptionText("");
                   await refreshTopic();

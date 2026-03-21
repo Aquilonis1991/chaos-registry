@@ -27,10 +27,6 @@
 <key>NSPhotoLibraryUsageDescription</key>
 <string>VoteChaos 需要訪問相簿以選擇個人頭像</string>
 
-<!-- 追蹤權限（iOS 14.5+ 需要，用於 AdMob）-->
-<key>NSUserTrackingUsageDescription</key>
-<string>為了提供個性化廣告體驗，我們需要您的授權</string>
-
 <!-- AdMob App ID -->
 <key>GADApplicationIdentifier</key>
 <string>ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY</string>

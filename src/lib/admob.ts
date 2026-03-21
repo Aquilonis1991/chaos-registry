@@ -1,6 +1,8 @@
 import { AdMob, BannerAdOptions, BannerAdSize, BannerAdPosition, AdMobRewardItem, RewardAdOptions, InterstitialAdOptions, AdLoadInfo } from '@capacitor-community/admob';
 import { Capacitor } from '@capacitor/core';
 
+const NPA_REQUEST_OPTIONS = { npa: true as const };
+
 /**
  * AdMob 測試廣告 ID
  * 開發期間使用 Google 官方測試 ID
@@ -109,10 +111,9 @@ export const initializeAdMob = async (): Promise<boolean> => {
     console.log('AdMob: Starting initialization...');
     
     await AdMob.initialize({
-      // 測試模式：true 表示使用測試廣告
-      // 生產環境應設為 false
       testingDevices: [],
-      initializeForTesting: true,
+      initializeForTesting: false,
+      requestTrackingAuthorization: false,
     });
     
     console.log('AdMob initialized successfully');
@@ -140,6 +141,7 @@ export const showBannerAd = async (): Promise<boolean> => {
       adSize: BannerAdSize.BANNER,
       position: BannerAdPosition.BOTTOM_CENTER,
       margin: 0,
+      ...NPA_REQUEST_OPTIONS,
     };
 
     await AdMob.showBanner(options);
@@ -191,6 +193,7 @@ export const prepareInterstitialAd = async (): Promise<boolean> => {
   try {
     const options: InterstitialAdOptions = {
       adId: getAdId('interstitial', undefined),
+      ...NPA_REQUEST_OPTIONS,
     };
 
     await AdMob.prepareInterstitial(options);
@@ -234,6 +237,7 @@ export const prepareRewardAd = async (adUnitId?: string | any): Promise<boolean>
   try {
     const options: RewardAdOptions = {
       adId: getAdId('rewarded', adUnitId),
+      ...NPA_REQUEST_OPTIONS,
     };
 
     await AdMob.prepareRewardVideoAd(options);

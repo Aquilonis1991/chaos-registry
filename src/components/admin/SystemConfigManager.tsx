@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import AnnouncementManager from "@/components/admin/AnnouncementManager";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -271,8 +272,12 @@ const SystemConfigManager = () => {
     'ai_closing_prompt'
   ];
 
+  /** 舊分類 battlefield 已廢棄且程式未使用；資料請以 migration 20260321130000 自 DB 刪除／合併 */
+  const HIDDEN_CATEGORIES = ['battlefield'] as const;
+
   const groupedConfigs = configs
     .filter(config => !HIDDEN_KEYS.includes(config.key))
+    .filter(config => !HIDDEN_CATEGORIES.includes(config.category as (typeof HIDDEN_CATEGORIES)[number]))
     .reduce((acc, config) => {
       if (!acc[config.category]) {
         acc[config.category] = [];
@@ -392,12 +397,13 @@ const SystemConfigManager = () => {
             const categoryConfigs = groupedConfigs[category] || [];
             return (
               <TabsContent key={category} value={category} className="space-y-4">
-                {categoryConfigs.length === 0 ? (
+                {categoryConfigs.length === 0 && category !== "announcement" ? (
                   <div className="text-sm text-muted-foreground">
                     尚未設定任何項目
                   </div>
                 ) : (
-                  categoryConfigs.map((config) => {
+                  <>
+                  {categoryConfigs.map((config) => {
                     const isPlatformAdUnit = AD_UNIT_IDS_BY_PLATFORM.includes(config.key);
                     const currentValue = getValue(config.id, config.value);
                     const hasChanged = isPlatformAdUnit ? isPlatformAdUnitChanged(config) : editedValues[config.id] !== undefined;
@@ -665,7 +671,13 @@ const SystemConfigManager = () => {
                         )}
                       </div>
                     );
-                  })
+                  })}
+                  {category === "announcement" && (
+                    <div className="mt-8 border-t border-border pt-6">
+                      <AnnouncementManager embedded />
+                    </div>
+                  )}
+                  </>
                 )}
               </TabsContent>
             );

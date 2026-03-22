@@ -20,6 +20,7 @@ import { zhTW } from "date-fns/locale";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
+import { getAnnouncementStyleClass } from "@/lib/announcementStyles";
 
 interface Announcement {
   id: string;
@@ -30,6 +31,9 @@ interface Announcement {
   priority: number;
   click_count: number;
   created_at: string;
+  announcement_category?: string;
+  style_preset?: number;
+  display_date?: string | null;
 }
 
 interface AnnouncementCarouselProps {
@@ -109,41 +113,25 @@ export const AnnouncementCarousel = ({
     onClose?.();
   };
 
-  const getPriorityColor = (priority: number) => {
-    if (priority >= 90) {
-      return "bg-gradient-to-r from-red-500 to-pink-500";
-    } else if (priority >= 70) {
-      return "bg-gradient-to-r from-blue-500 to-purple-500";
-    } else if (priority >= 50) {
-      return "bg-gradient-to-r from-green-500 to-teal-500";
-    } else {
-      return "bg-gradient-to-r from-gray-500 to-slate-500";
-    }
-  };
-
-  const getPriorityBadge = (priority: number) => {
-    if (priority >= 90) {
+  const getCategoryBadge = (a: Announcement, variant: "onGradient" | "onLight" = "onGradient") => {
+    const cat = a.announcement_category?.trim() || getText("announcement.badge.default", "一般");
+    if (variant === "onLight") {
       return (
-        <Badge variant="destructive" className="flex items-center gap-1">
+        <Badge variant="secondary" className="flex items-center gap-1 shrink-0">
           <Star className="w-3 h-3" />
-          {getText('announcement.badge.critical', '重要')}
-        </Badge>
-      );
-    } else if (priority >= 70) {
-      return (
-        <Badge variant="default" className="flex items-center gap-1">
-          <Star className="w-3 h-3" />
-          {getText('announcement.badge.high', '一般')}
-        </Badge>
-      );
-    } else {
-      return (
-        <Badge variant="outline" className="flex items-center gap-1">
-          <Star className="w-3 h-3" />
-          {getText('announcement.badge.normal', '通知')}
+          {cat}
         </Badge>
       );
     }
+    return (
+      <Badge
+        variant="secondary"
+        className="flex items-center gap-1 border border-white/30 bg-white/20 text-white"
+      >
+        <Star className="w-3 h-3" />
+        {cat}
+      </Badge>
+    );
   };
 
   if (loading) {
@@ -164,7 +152,7 @@ export const AnnouncementCarousel = ({
     <>
       <Card className={cn(
         "relative overflow-hidden transition-all duration-300 hover:shadow-lg",
-        getPriorityColor(currentAnnouncement.priority),
+        getAnnouncementStyleClass(currentAnnouncement.style_preset),
         className
       )}>
         <CardContent className="p-4">
@@ -248,9 +236,9 @@ export const AnnouncementCarousel = ({
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {selectedAnnouncement && getPriorityBadge(selectedAnnouncement.priority)}
-              {selectedAnnouncement?.title}
+            <DialogTitle className="flex flex-wrap items-center gap-2">
+              {selectedAnnouncement && getCategoryBadge(selectedAnnouncement, "onLight")}
+              <span className="break-words">{selectedAnnouncement?.title}</span>
             </DialogTitle>
           </DialogHeader>
           

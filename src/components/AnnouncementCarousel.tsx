@@ -52,6 +52,14 @@ export const AnnouncementCarousel = ({
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
   const [isDismissed, setIsDismissed] = useState(false);
 
+  const { getConfig, loading: configLoading, configs } = useSystemConfigCache();
+  const announcementMaxDisplay = useMemo(() => {
+    const raw = getConfig<number>("announcement_max_display", 3);
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 1) return 3;
+    return Math.min(Math.max(Math.floor(n), 1), 50);
+  }, [configs]);
+
   useEffect(() => {
     if (configLoading) return;
     const fetchAnnouncements = async () => {

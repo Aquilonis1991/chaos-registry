@@ -40,6 +40,7 @@ import { useAiClosingStatement } from "@/hooks/useAiClosingStatement";
 import { isPromptConfigError, getPromptConfigKeyFromError } from "@/lib/promptConfigError";
 import { PromptNotConfiguredDialog } from "@/components/PromptNotConfiguredDialog";
 import { supabase } from "@/integrations/supabase/client";
+import { ArenaSection } from "@/components/arena/ArenaSection";
 
 const VoteDetailPage = () => {
   const { id } = useParams();
@@ -476,6 +477,13 @@ const VoteDetailPage = () => {
                 {topic.description}
               </p>
             )}
+
+            <ArenaSection
+              topicId={id || ""}
+              topicEndAt={topic.end_at || ""}
+              userId={user?.id ?? null}
+              isTopicEnded={isTopicEnded}
+            />
 
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">

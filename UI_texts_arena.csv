@@ -1,5 +1,7 @@
 key,category,zh,en,ja,description
 arena.empty,arena,尚未有人留言,No messages yet,まだコメントがありません,觀點角鬥場空狀態
+arena.emptyRowLabel,arena,留言狀態,Messages,コメント,空狀態列左側標籤（對齊截止時間列）
+arena.loading,arena,載入中,Loading,読み込み中,角鬥場載入無障礙文字
 arena.coreLabel,arena,核心區,Core,コア,核心區標籤
 arena.eliteLabel,arena,精英區,Elite,エリート,精英區標籤
 arena.ttlRemaining,arena,存在週期剩餘: {{minutes}} 分鐘,TTL remaining: {{minutes}} min,残り: {{minutes}} 分,TTL 剩餘顯示（{{minutes}} 為佔位）

@@ -460,9 +460,27 @@ const VoteDetailPage = () => {
         <div className="max-w-screen-xl mx-auto px-5 sm:px-6 py-6">
           {/* Topic Info */}
           <div className="mb-6 max-w-4xl mx-auto w-full px-4 sm:px-6">
-            <h2 className="text-2xl font-bold text-foreground mb-3">
-              {topic.title}
-            </h2>
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <h2 className="text-2xl font-bold text-foreground flex-1 min-w-0 pr-2">
+                {topic.title}
+              </h2>
+              <ReportDialog
+                targetType="topic"
+                targetId={id || ""}
+                targetTitle={topic.title}
+                trigger={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 h-10 w-10 text-destructive hover:text-destructive hover:bg-destructive/15"
+                    aria-label={reportButtonText}
+                  >
+                    <Flag className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+                  </Button>
+                }
+              />
+            </div>
 
             <div className="flex flex-wrap gap-2 mb-4">
               {topic.tags.map((tag) => (
@@ -497,68 +515,45 @@ const VoteDetailPage = () => {
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="w-full">
-                <div className={`grid gap-3 ${isCreator ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4' : 'grid-cols-2'}`}>
-                  {/* 編輯和刪除按鈕（僅創建者可見）*/}
-                  {isCreator && (
-                    <>
+              {/* 編輯／刪除／曝光（僅創建者） */}
+              {isCreator && (
+                <div className="w-full lg:max-w-md">
+                  <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
+                    <div className="w-full">
+                      <EditTopicDialog
+                        topicId={id || ''}
+                        currentTitle={topic.title}
+                        currentDescription={topic.description}
+                        currentOptions={topic.options.map(opt => opt.text)}
+                        createdAt={topic.created_at}
+                        onEditSuccess={refreshTopic}
+                        triggerClassName="w-full"
+                      />
+                    </div>
+                    <div className="w-full">
+                      <DeleteTopicDialog
+                        topicId={id || ''}
+                        topicTitle={topic.title}
+                        navigateAfterDelete={true}
+                        triggerClassName="w-full"
+                      />
+                    </div>
+                    {topic.exposure_level !== 'high' && (
                       <div className="w-full">
-                        <EditTopicDialog
-                          topicId={id || ''}
-                          currentTitle={topic.title}
-                          currentDescription={topic.description}
-                          currentOptions={topic.options.map(opt => opt.text)}
-                          createdAt={topic.created_at}
-                          onEditSuccess={refreshTopic}
-                          triggerClassName="w-full"
-                        />
-                      </div>
-                      <div className="w-full">
-                        <DeleteTopicDialog
-                          topicId={id || ''}
-                          topicTitle={topic.title}
-                          navigateAfterDelete={true}
-                          triggerClassName="w-full"
-                        />
-                      </div>
-                      {/* 曝光升級按鈕 */}
-                      {topic.exposure_level !== 'high' && (
-                        <div className="w-full">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setExposureDialogOpen(true)}
-                            className="w-full text-primary hover:text-primary"
-                          >
-                            <Sparkles className="w-4 h-4 mr-2" />
-                            {upgradeExposureText}
-                          </Button>
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {/* Report Button */}
-                  <div className="w-full">
-                    <ReportDialog
-                      targetType="topic"
-                      targetId={id || ""}
-                      targetTitle={topic.title}
-                      trigger={
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
-                          className="w-full text-muted-foreground hover:text-destructive"
+                          onClick={() => setExposureDialogOpen(true)}
+                          className="w-full text-primary hover:text-primary"
                         >
-                          <Flag className="w-4 h-4 mr-2" />
-                          {reportButtonText}
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          {upgradeExposureText}
                         </Button>
-                      }
-                    />
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* 曝光升級對話框 */}

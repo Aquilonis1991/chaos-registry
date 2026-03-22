@@ -88,7 +88,7 @@ export function ArenaSection({
       .select("message_id")
       .eq("user_id", userId)
       .in("message_id", ids);
-    setVoteIds(new Set((data || []).map((r) => r.message_id)));
+    setVoteIds(new Set((data || []).map((r) => String(r.message_id))));
   }, [userId, messages]);
 
   useEffect(() => {
@@ -121,8 +121,14 @@ export function ArenaSection({
       toast.success(getText("arena.toast.postSuccess", "已發表"));
       await fetchMessages({ silent: true });
     } catch (e: unknown) {
-      const msg = (e as { message?: string })?.message || getText("arena.toast.postFailed", "發表失敗");
-      toast.error(msg);
+      const raw =
+        (e as { message?: string })?.message || (e as { details?: string })?.details || String(e);
+      if (/One message per topic allowed/i.test(raw)) {
+        toast.error(getText("arena.toast.onePerTopic", "每個主題僅限發表一則觀點"));
+      } else {
+        const msg = raw || getText("arena.toast.postFailed", "發表失敗");
+        toast.error(msg);
+      }
     } finally {
       setPosting(false);
     }
@@ -133,14 +139,15 @@ export function ArenaSection({
       toast.error(getText("arena.needLoginVote", "請先登入後再互動"));
       return;
     }
-    if (voteIds.has(messageId)) return;
+    const mid = String(messageId);
+    if (voteIds.has(mid)) return;
     try {
       const { error } = await supabase.rpc("cast_arena_vote", {
-        p_message_id: messageId,
+        p_message_id: mid,
         p_vote_type: voteType,
       });
       if (error) throw error;
-      setVoteIds((s) => new Set([...s, messageId]));
+      setVoteIds((s) => new Set([...s, mid]));
       await fetchMessages({ silent: true });
     } catch (e: unknown) {
       toast.error((e as { message?: string })?.message || getText("arena.toast.voteFailed", "投票失敗"));
@@ -158,11 +165,12 @@ export function ArenaSection({
     (m) => m.id !== core?.id && !elite.some((e) => e.id === m.id)
   );
 
-  /** 贊同／斥責：核心／精英／一般留言共用（匿名可見按鈕，點擊提示登入） */
+  /** 贊同／斥責：核心／精英／一般留言共用（匿名可點 → 提示登入）；自己的留言顯示停用按鈕避免「完全看不到」） */
   const renderVoteRow = (m: ArenaMessage, variant: "core" | "elite" | "card") => {
     if (isTopicEnded) return null;
-    if (userId === m.user_id) return null;
-    if (voteIds.has(m.id)) {
+    const mid = String(m.id);
+    const isOwn = Boolean(userId) && String(userId) === String(m.user_id);
+    if (voteIds.has(mid)) {
       return (
         <p
           className={cn(
@@ -174,17 +182,16 @@ export function ArenaSection({
         </p>
       );
     }
-    // 編排參考 Facebook：並排、圓角膠囊、主色藍／次要灰
     const upLabel = getText("arena.upvote", "贊同 (+{{bonus}})").replace("{{bonus}}", String(upBonus));
     const downLabel = getText("arena.downvote", "斥責 (-{{penalty}})").replace("{{penalty}}", String(downPenalty));
     const upBase =
-      "flex-1 inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+      "flex-1 inline-flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-full px-2.5 sm:px-3 text-xs sm:text-sm font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
     const upClass =
       variant === "card"
         ? cn(upBase, "bg-[#1877F2] text-white hover:bg-[#166FE5] active:bg-[#1565D8]")
         : cn(upBase, "bg-[#1877F2] text-white hover:bg-[#166FE5] active:bg-[#1565D8]");
     const downBase =
-      "flex-1 inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+      "flex-1 inline-flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-full px-2.5 sm:px-3 text-xs sm:text-sm font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
     const downClass =
       variant === "card"
         ? cn(
@@ -192,23 +199,51 @@ export function ArenaSection({
             "bg-[#E4E6EB] text-[#4B4F56] hover:bg-[#D8DADF] dark:bg-[#3A3B3C] dark:text-[#E4E6EB] dark:hover:bg-[#4E4F50]"
           )
         : cn(downBase, "bg-[#3A3B3C] text-[#E4E6EB] hover:bg-[#4E4F50] active:bg-[#3a3c41]");
-    return (
-      <div
-        className={cn(
-          "flex w-full max-w-md items-stretch gap-2",
-          variant === "card" ? "pt-1" : "mt-2"
-        )}
-      >
-        <button type="button" className={upClass} onClick={() => void handleVote(m.id, "upvote")} aria-label={upLabel}>
+    const disabledOwn = cn("cursor-not-allowed opacity-50");
+    const rowWrap = cn("flex w-full items-stretch gap-2", variant === "card" ? "pt-1" : "mt-2");
+
+    const pair = (
+      <>
+        <button
+          type="button"
+          className={cn(upClass, isOwn && disabledOwn)}
+          onClick={() => void handleVote(mid, "upvote")}
+          aria-label={upLabel}
+          disabled={isOwn}
+        >
           <ThumbsUp className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden />
-          <span className="truncate">{upLabel}</span>
+          <span className="text-center leading-snug break-words">{upLabel}</span>
         </button>
-        <button type="button" className={downClass} onClick={() => void handleVote(m.id, "downvote")} aria-label={downLabel}>
+        <button
+          type="button"
+          className={cn(downClass, isOwn && disabledOwn)}
+          onClick={() => void handleVote(mid, "downvote")}
+          aria-label={downLabel}
+          disabled={isOwn}
+        >
           <ThumbsDown className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden />
-          <span className="truncate">{downLabel}</span>
+          <span className="text-center leading-snug break-words">{downLabel}</span>
         </button>
-      </div>
+      </>
     );
+
+    if (isOwn) {
+      return (
+        <div className={cn(rowWrap, "flex-col gap-2")}>
+          <p
+            className={cn(
+              "text-xs",
+              variant === "card" ? "text-muted-foreground" : "text-[#A0A0A0]"
+            )}
+          >
+            {getText("arena.voteOwnHint", "這是你的留言，無法自行贊同／斥責")}
+          </p>
+          <div className="flex w-full items-stretch gap-2">{pair}</div>
+        </div>
+      );
+    }
+
+    return <div className={rowWrap}>{pair}</div>;
   };
 
   if (!topicId) return null;

@@ -114,18 +114,27 @@ export const useVoteOperations = () => {
         }
       }
 
-      // 寫入投票紀錄（使用 upsert 處理重複投票的情況）
+      // 寫入投票紀錄：同一 (user_id, topic_id) 僅一列，必須「累加 amount」，
+      // 否則多次投票會覆寫成最後一次，導致觀點角鬥場 RPC 誤判參與度不足。
       try {
+        const { data: existingVote } = await supabase
+          .from('votes')
+          .select('amount')
+          .eq('user_id', user.id)
+          .eq('topic_id', topicId)
+          .maybeSingle();
+        const nextAmount = (existingVote?.amount ?? 0) + amount;
         const { error: voteError } = await supabase
           .from('votes')
-          .upsert({
-            topic_id: topicId,
-            user_id: user.id,
-            option: option,
-            amount,
-          }, {
-            onConflict: 'user_id,topic_id'
-          });
+          .upsert(
+            {
+              topic_id: topicId,
+              user_id: user.id,
+              option: option,
+              amount: nextAmount,
+            },
+            { onConflict: 'user_id,topic_id' }
+          );
 
         if (voteError) {
           console.warn('寫入 votes 紀錄失敗：', voteError);

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -48,6 +48,8 @@ export function ArenaSection({
   const [buyShield, setBuyShield] = useState(false);
   const [posting, setPosting] = useState(false);
   const [voteIds, setVoteIds] = useState<Set<string>>(new Set());
+  /** 留言 user_id → display_name（單次批次查詢，避免逐則請求） */
+  const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
 
   const x = getConfig("arena_throne_min_threshold_x", 100) as number;
   const y = getConfig("arena_elite_min_threshold_y", 50) as number;
@@ -75,7 +77,24 @@ export function ArenaSection({
         toast.error(getText("arena.toast.loadFailed", "載入失敗"));
         return;
       }
-      setMessages((data as ArenaMessage[]) || []);
+      const rows = (data as ArenaMessage[]) || [];
+      setMessages(rows);
+      if (rows.length === 0) {
+        setAuthorNames({});
+        return;
+      }
+      const uids = [...new Set(rows.map((r) => r.user_id))];
+      const { data: profs } = await supabase.from("profiles").select("id, display_name").in("id", uids);
+      const next: Record<string, string> = {};
+      const fallback = getText("arena.userFallback", "用戶");
+      profs?.forEach((p) => {
+        const n = (p as { id: string; display_name: string | null }).display_name;
+        next[(p as { id: string }).id] = (n && String(n).trim()) || fallback;
+      });
+      uids.forEach((uid) => {
+        if (!next[uid]) next[uid] = fallback;
+      });
+      setAuthorNames(next);
     },
     [topicId, getText]
   );
@@ -165,52 +184,106 @@ export function ArenaSection({
     (m) => m.id !== core?.id && !elite.some((e) => e.id === m.id)
   );
 
-  /** 贊同／斥責：含自己的留言（每人每則留言僅能投一次）；匿名可點 → 提示登入 */
-  const renderVoteRow = (m: ArenaMessage, variant: "core" | "elite" | "card") => {
-    if (isTopicEnded) return null;
+  /** 贊同／斥責：僅 icon + (±X min)，靠右下；完整說明放 aria-label */
+  const renderArenaMessageBlock = (m: ArenaMessage, variant: "core" | "elite" | "card") => {
     const mid = String(m.id);
-    if (voteIds.has(mid)) {
-      return (
-        <p
-          className={cn(
-            "text-xs mt-2",
-            variant === "card" ? "text-muted-foreground" : "text-[#A0A0A0]"
-          )}
-        >
-          {getText("arena.voted", "已投票")}
-        </p>
+    const name =
+      authorNames[m.user_id] ?? getText("arena.userFallback", "用戶");
+    const ttlText = getText("arena.ttlRemaining", "存在週期剩餘: {{minutes}} 分鐘").replace(
+      "{{minutes}}",
+      String(m.ttl_minutes)
+    );
+    const ttlCls =
+      variant === "card" ? "text-[11px] text-muted-foreground/65" : "text-[11px] text-[#A0A0A0]/75";
+    const countCls =
+      variant === "card" ? "text-[11px] text-muted-foreground" : "text-[11px] text-[#A0A0A0]";
+    const borderCls = variant === "card" ? "border-border/40" : "border-white/10";
+    const contentCls =
+      variant === "card" ? "text-sm text-foreground leading-relaxed" : "text-sm text-white leading-relaxed";
+    const nameCls =
+      variant === "card" ? "text-sm font-medium text-foreground truncate" : "text-sm font-medium text-white truncate";
+    const upAria = getText("arena.upvote", "贊同 (+{{bonus}})").replace("{{bonus}}", String(upBonus));
+    const downAria = getText("arena.downvote", "斥責 (-{{penalty}})").replace("{{penalty}}", String(downPenalty));
+    const btnBase =
+      "inline-flex min-h-[36px] items-center justify-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 shrink-0";
+    const upBtn = cn(btnBase, "bg-[#1877F2] text-white hover:bg-[#166FE5] active:bg-[#1565D8]");
+    const downBtnCard = cn(
+      btnBase,
+      "bg-[#E4E6EB] text-[#4B4F56] hover:bg-[#D8DADF] dark:bg-[#3A3B3C] dark:text-[#E4E6EB] dark:hover:bg-[#4E4F50]"
+    );
+    const downBtnArena = cn(btnBase, "bg-[#3A3B3C] text-[#E4E6EB] hover:bg-[#4E4F50] active:bg-[#3a3c41]");
+
+    const counts = (
+      <div className={countCls}>
+        👍{m.upvote_count} 👎{m.downvote_count}
+      </div>
+    );
+
+    let footer: ReactNode;
+    if (isTopicEnded) {
+      footer = (
+        <div className={cn("mt-3 pt-2 border-t flex items-end justify-between", borderCls)}>{counts}</div>
+      );
+    } else if (voteIds.has(mid)) {
+      footer = (
+        <div className={cn("mt-3 pt-2 border-t flex items-end justify-between gap-2", borderCls)}>
+          {counts}
+          <span
+            className={cn(
+              "text-[11px] shrink-0",
+              variant === "card" ? "text-muted-foreground" : "text-[#A0A0A0]"
+            )}
+          >
+            {getText("arena.voted", "已投票")}
+          </span>
+        </div>
+      );
+    } else {
+      footer = (
+        <div className={cn("mt-3 pt-2 border-t flex items-end justify-between gap-2", borderCls)}>
+          {counts}
+          <div className="flex shrink-0 gap-1.5 ml-auto">
+            <button type="button" className={upBtn} onClick={() => void handleVote(mid, "upvote")} aria-label={upAria}>
+              <ThumbsUp className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+              <span className="tabular-nums whitespace-nowrap">
+                (+{upBonus} min)
+              </span>
+            </button>
+            <button
+              type="button"
+              className={variant === "card" ? downBtnCard : downBtnArena}
+              onClick={() => void handleVote(mid, "downvote")}
+              aria-label={downAria}
+            >
+              <ThumbsDown className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+              <span className="tabular-nums whitespace-nowrap">
+                (-{downPenalty} min)
+              </span>
+            </button>
+          </div>
+        </div>
       );
     }
-    const upLabel = getText("arena.upvote", "贊同 (+{{bonus}})").replace("{{bonus}}", String(upBonus));
-    const downLabel = getText("arena.downvote", "斥責 (-{{penalty}})").replace("{{penalty}}", String(downPenalty));
-    const upBase =
-      "flex-1 inline-flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-full px-2.5 sm:px-3 text-xs sm:text-sm font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
-    const upClass =
-      variant === "card"
-        ? cn(upBase, "bg-[#1877F2] text-white hover:bg-[#166FE5] active:bg-[#1565D8]")
-        : cn(upBase, "bg-[#1877F2] text-white hover:bg-[#166FE5] active:bg-[#1565D8]");
-    const downBase =
-      "flex-1 inline-flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-full px-2.5 sm:px-3 text-xs sm:text-sm font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
-    const downClass =
-      variant === "card"
-        ? cn(
-            downBase,
-            "bg-[#E4E6EB] text-[#4B4F56] hover:bg-[#D8DADF] dark:bg-[#3A3B3C] dark:text-[#E4E6EB] dark:hover:bg-[#4E4F50]"
-          )
-        : cn(downBase, "bg-[#3A3B3C] text-[#E4E6EB] hover:bg-[#4E4F50] active:bg-[#3a3c41]");
-    const rowWrap = cn("flex w-full items-stretch gap-2", variant === "card" ? "pt-1" : "mt-2");
 
     return (
-      <div className={rowWrap}>
-        <button type="button" className={upClass} onClick={() => void handleVote(mid, "upvote")} aria-label={upLabel}>
-          <ThumbsUp className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden />
-          <span className="text-center leading-snug break-words">{upLabel}</span>
-        </button>
-        <button type="button" className={downClass} onClick={() => void handleVote(mid, "downvote")} aria-label={downLabel}>
-          <ThumbsDown className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden />
-          <span className="text-center leading-snug break-words">{downLabel}</span>
-        </button>
-      </div>
+      <>
+        <div className="flex items-baseline justify-between gap-2 mb-2">
+          <span className={nameCls}>{name}</span>
+          <span className={cn(ttlCls, "shrink-0 max-w-[55%] text-right leading-tight")}>{ttlText}</span>
+        </div>
+        <p className={contentCls}>{m.content}</p>
+        {isShielded(m) && (
+          <p
+            className={cn(
+              "text-xs mt-2",
+              variant === "card" ? "text-amber-600 dark:text-amber-500 font-medium" : "text-[#D4AF37]"
+            )}
+          >
+            {getText("arena.shieldLocked", "[🔒數據鎖定中]")}
+          </p>
+        )}
+        {footer}
+      </>
     );
   };
 
@@ -324,12 +397,8 @@ export function ArenaSection({
         <>
       {core && (
         <div className="border-4 border-[#D4AF37] bg-black text-white p-6 mb-4 font-mono">
-          <p className="text-sm text-[#A0A0A0] mb-1">{getText("arena.coreLabel", "核心區")}</p>
-          <p>{core.content}</p>
-          <p className="text-xs mt-2">👍{core.upvote_count} / 👎{core.downvote_count}</p>
-          <p className="text-xs text-[#A0A0A0]">{getText("arena.ttlRemaining", "存在週期剩餘: {{minutes}} 分鐘").replace("{{minutes}}", String(core.ttl_minutes))}</p>
-          {isShielded(core) && <span className="text-[#D4AF37]">{getText("arena.shieldLocked", "[🔒數據鎖定中]")}</span>}
-          {renderVoteRow(core, "core")}
+          <p className="text-sm text-[#A0A0A0] mb-2">{getText("arena.coreLabel", "核心區")}</p>
+          {renderArenaMessageBlock(core, "core")}
         </div>
       )}
 
@@ -341,10 +410,7 @@ export function ArenaSection({
               key={m.id}
               className="border-2 border-[#C0C0C0] bg-[#0D0D0D] text-[#E0E0E0] p-4"
             >
-              <p>{m.content}</p>
-              <p className="text-xs mt-1">👍{m.upvote_count} / 👎{m.downvote_count}</p>
-              <p className="text-xs text-[#A0A0A0]">{getText("arena.ttlRemaining", "存在週期剩餘: {{minutes}} 分鐘").replace("{{minutes}}", String(m.ttl_minutes))}</p>
-              {renderVoteRow(m, "elite")}
+              {renderArenaMessageBlock(m, "elite")}
             </div>
           ))}
         </div>
@@ -358,26 +424,7 @@ export function ArenaSection({
             userId === m.user_id && "border border-dashed border-primary/50"
           )}
         >
-          <CardContent className="p-4 space-y-3">
-            {isShielded(m) && (
-              <p className="text-xs text-amber-600 dark:text-amber-500 font-medium">
-                {getText("arena.shieldLocked", "[🔒數據鎖定中]")}
-              </p>
-            )}
-            <p className="text-sm text-foreground leading-relaxed">{m.content}</p>
-            <div className="flex items-center justify-between text-sm gap-3 flex-wrap">
-              <span className="text-muted-foreground">
-                👍{m.upvote_count} / 👎{m.downvote_count}
-              </span>
-              <span className="font-semibold text-foreground text-right">
-                {getText("arena.ttlRemaining", "存在週期剩餘: {{minutes}} 分鐘").replace(
-                  "{{minutes}}",
-                  String(m.ttl_minutes)
-                )}
-              </span>
-            </div>
-            {renderVoteRow(m, "card")}
-          </CardContent>
+          <CardContent className="p-4">{renderArenaMessageBlock(m, "card")}</CardContent>
         </Card>
       ))}
 

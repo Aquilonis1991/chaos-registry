@@ -300,6 +300,11 @@ const SystemConfigManager = () => {
   const remainingCategories = existingCategories.filter(category => !orderedCategories.includes(category));
   const sortedCategories = [...primaryCategories, ...remainingCategories];
 
+  /** 分頁標籤拆成兩行（上／下各約一半） */
+  const tabRowSplitIndex = Math.ceil(sortedCategories.length / 2);
+  const categoryTabsRow1 = sortedCategories.slice(0, tabRowSplitIndex);
+  const categoryTabsRow2 = sortedCategories.slice(tabRowSplitIndex);
+
   // 當 configs 載入完成後，若尚未設定分頁則選第一個
   useEffect(() => {
     if (loading || configs.length === 0) return;
@@ -354,17 +359,33 @@ const SystemConfigManager = () => {
           onValueChange={(v) => setConfigTab(v)}
           className="w-full"
         >
-          <TabsList className="flex flex-wrap gap-2 w-full min-h-[2.5rem]">
-            {sortedCategories.map(category => (
-              <TabsTrigger
-                key={category}
-                value={category}
-                className="whitespace-nowrap flex-1 min-w-[120px]"
-                type="button"
-              >
-                {categoryNames[category] || category}
-              </TabsTrigger>
-            ))}
+          <TabsList className="flex h-auto min-h-0 w-full flex-col gap-2 rounded-md bg-muted p-2 items-stretch justify-start">
+            <div className="flex w-full flex-wrap gap-2" role="presentation">
+              {categoryTabsRow1.map((category) => (
+                <TabsTrigger
+                  key={category}
+                  value={category}
+                  className="min-w-[100px] flex-1 whitespace-nowrap sm:min-w-[120px]"
+                  type="button"
+                >
+                  {categoryNames[category] || category}
+                </TabsTrigger>
+              ))}
+            </div>
+            {categoryTabsRow2.length > 0 ? (
+              <div className="flex w-full flex-wrap gap-2" role="presentation">
+                {categoryTabsRow2.map((category) => (
+                  <TabsTrigger
+                    key={category}
+                    value={category}
+                    className="min-w-[100px] flex-1 whitespace-nowrap sm:min-w-[120px]"
+                    type="button"
+                  >
+                    {categoryNames[category] || category}
+                  </TabsTrigger>
+                ))}
+              </div>
+            ) : null}
           </TabsList>
 
           {sortedCategories.map(category => {

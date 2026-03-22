@@ -12,6 +12,8 @@ arena.postButton,arena,發表觀點,Post View,投稿する,發表觀點按鈕
 arena.dialogTitle,arena,發表觀點,Post View,投稿,發表觀點對話框標題
 arena.placeholderMaxChars,arena,最多 {{max}} 字,Max {{max}} chars,最大{{max}}文字,字數 placeholder（{{max}} 為佔位）
 arena.shieldOption,arena,購買數據鎖定保險 ({{price}} 代幣),Buy shield ({{price}} tokens),シールド購入 ({{price}} トークン),鎖定保險選項（{{price}} 為佔位）
+arena.shieldTitle,arena,購買數據鎖定保險,Buy data lock insurance,データロック保険,Switch 列標題（互動擴充版式）
+arena.shieldCostLine,arena,{{price}} 代幣,{{price}} tokens,{{price}} トークン,代幣列（{{price}}）
 arena.cancel,arena,取消,Cancel,キャンセル,取消按鈕
 arena.submitting,arena,發表中...,Posting...,投稿中...,發表中狀態
 arena.submit,arena,發表,Post,投稿,發表按鈕
@@ -20,3 +22,5 @@ arena.toast.maxChars,arena,最多 {{max}} 字,Max {{max}} chars,最大{{max}}文
 arena.toast.postSuccess,arena,已發表,Posted,投稿しました,發表成功 toast
 arena.toast.postFailed,arena,發表失敗,Post failed,投稿に失敗しました,發表失敗 toast
 arena.toast.voteFailed,arena,投票失敗,Vote failed,投票に失敗しました,投票失敗 toast
+arena.needLoginVote,arena,請先登入後再互動,Please log in to interact,操作するにはログインしてください,匿名點贊同／斥責時提示
+arena.voted,arena,已投票,Voted,投票済み,已對該留言投過票

@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
+import { Coins, Loader2 } from "lucide-react";
 
 export type ArenaMessage = {
   id: string;
@@ -124,7 +126,10 @@ export function ArenaSection({
   };
 
   const handleVote = async (messageId: string, voteType: "upvote" | "downvote") => {
-    if (!userId) return;
+    if (!userId) {
+      toast.error(getText("arena.needLoginVote", "請先登入後再互動"));
+      return;
+    }
     if (voteIds.has(messageId)) return;
     try {
       const { error } = await supabase.rpc("cast_arena_vote", {
@@ -150,6 +155,57 @@ export function ArenaSection({
     (m) => m.id !== core?.id && !elite.some((e) => e.id === m.id)
   );
 
+  /** 贊同／斥責：核心／精英／一般留言共用（匿名可見按鈕，點擊提示登入） */
+  const renderVoteRow = (m: ArenaMessage, variant: "core" | "elite" | "card") => {
+    if (isTopicEnded) return null;
+    if (userId === m.user_id) return null;
+    if (voteIds.has(m.id)) {
+      return (
+        <p
+          className={cn(
+            "text-xs mt-2",
+            variant === "card" ? "text-muted-foreground" : "text-[#A0A0A0]"
+          )}
+        >
+          {getText("arena.voted", "已投票")}
+        </p>
+      );
+    }
+    const variantBtn =
+      variant === "core"
+        ? "border-white/50 bg-white/10 text-white hover:bg-white/20 hover:text-white"
+        : variant === "elite"
+          ? "border-[#C0C0C0]/80 bg-black/40 text-[#E0E0E0] hover:bg-black/60 hover:text-[#E0E0E0]"
+          : "font-mono border-border";
+    return (
+      <div
+        className={cn(
+          "flex flex-wrap gap-2",
+          variant === "card" ? "pt-1" : "mt-2"
+        )}
+      >
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className={cn("text-xs", variantBtn)}
+          onClick={() => void handleVote(m.id, "upvote")}
+        >
+          {getText("arena.upvote", "贊同 (+{{bonus}})").replace("{{bonus}}", String(upBonus))}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className={cn("text-xs", variantBtn)}
+          onClick={() => void handleVote(m.id, "downvote")}
+        >
+          {getText("arena.downvote", "斥責 (-{{penalty}})").replace("{{penalty}}", String(downPenalty))}
+        </Button>
+      </div>
+    );
+  };
+
   if (!topicId) return null;
 
   const postDialog = !isTopicEnded && userId && (
@@ -159,11 +215,12 @@ export function ArenaSection({
         size="sm"
         className="mt-3 font-mono w-full sm:w-auto"
         onClick={() => setInputOpen(true)}
+        type="button"
       >
         {getText("arena.postButton", "發表觀點")}
       </Button>
       <Dialog open={inputOpen} onOpenChange={setInputOpen}>
-        <DialogContent>
+        <DialogContent className="font-sans">
           <DialogHeader>
             <DialogTitle>{getText("arena.dialogTitle", "發表觀點")}</DialogTitle>
           </DialogHeader>
@@ -172,13 +229,33 @@ export function ArenaSection({
             onChange={(e) => setInputText(e.target.value)}
             placeholder={getText("arena.placeholderMaxChars", "最多 {{max}} 字").replace("{{max}}", String(maxLen))}
             maxLength={maxLen}
-            className="font-mono"
+            className="font-mono min-h-[120px]"
           />
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={buyShield} onChange={(e) => setBuyShield(e.target.checked)} />
-            {getText("arena.shieldOption", "購買數據鎖定保險 ({{price}} 代幣)").replace("{{price}}", String(shieldPrice))}
-          </label>
-          <DialogFooter>
+          {/* 版式參考建立主題「互動擴充設定」：Card + 左欄說明 + Switch */}
+          <Card className="border border-border/60">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-0.5 min-w-0 flex-1">
+                  <Label htmlFor="arena-shield-switch" className="text-sm font-medium text-foreground cursor-pointer">
+                    {getText("arena.shieldTitle", "購買數據鎖定保險")}
+                  </Label>
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Coins className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
+                    <span>
+                      {getText("arena.shieldCostLine", "{{price}} 代幣").replace("{{price}}", String(shieldPrice))}
+                    </span>
+                  </div>
+                </div>
+                <Switch
+                  id="arena-shield-switch"
+                  checked={buyShield}
+                  onCheckedChange={setBuyShield}
+                  className="shrink-0"
+                />
+              </div>
+            </CardContent>
+          </Card>
+          <DialogFooter className="gap-3 sm:gap-4 sm:space-x-0 flex-col-reverse sm:flex-row sm:justify-end">
             <Button variant="outline" onClick={() => setInputOpen(false)}>
               {getText("arena.cancel", "取消")}
             </Button>
@@ -192,9 +269,9 @@ export function ArenaSection({
   );
 
   return (
-    <section className="mb-4 font-mono" aria-label="數據回收角鬥場">
+    <section className="mb-4" aria-label="數據回收角鬥場">
       {loading ? (
-        <Card className="bg-muted/50">
+        <Card className="bg-muted/50 font-sans">
           <CardContent className="p-4 flex justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden />
             <span className="sr-only">{getText("arena.loading", "載入中")}</span>
@@ -202,7 +279,7 @@ export function ArenaSection({
         </Card>
       ) : messages.length === 0 ? (
         <>
-          <Card className="bg-muted/50">
+          <Card className="bg-muted/50 font-sans">
             <CardContent className="p-4">
               <div className="flex items-center justify-between text-sm gap-3">
                 <span className="text-muted-foreground shrink-0">
@@ -219,27 +296,18 @@ export function ArenaSection({
       ) : (
         <>
       {core && (
-        <div className="border-4 border-[#D4AF37] bg-black text-white p-6 mb-4">
+        <div className="border-4 border-[#D4AF37] bg-black text-white p-6 mb-4 font-mono">
           <p className="text-sm text-[#A0A0A0] mb-1">{getText("arena.coreLabel", "核心區")}</p>
           <p>{core.content}</p>
           <p className="text-xs mt-2">👍{core.upvote_count} / 👎{core.downvote_count}</p>
           <p className="text-xs text-[#A0A0A0]">{getText("arena.ttlRemaining", "存在週期剩餘: {{minutes}} 分鐘").replace("{{minutes}}", String(core.ttl_minutes))}</p>
           {isShielded(core) && <span className="text-[#D4AF37]">{getText("arena.shieldLocked", "[🔒數據鎖定中]")}</span>}
-          {userId !== core.user_id && !voteIds.has(core.id) && !isTopicEnded && (
-            <div className="flex gap-2 mt-2">
-              <Button size="sm" variant="outline" className="text-xs" onClick={() => handleVote(core.id, "upvote")}>
-                {getText("arena.upvote", "贊同 (+{{bonus}})").replace("{{bonus}}", String(upBonus))}
-              </Button>
-              <Button size="sm" variant="outline" className="text-xs" onClick={() => handleVote(core.id, "downvote")}>
-                {getText("arena.downvote", "斥責 (-{{penalty}})").replace("{{penalty}}", String(downPenalty))}
-              </Button>
-            </div>
-          )}
+          {renderVoteRow(core, "core")}
         </div>
       )}
 
       {elite.length > 0 && (
-        <div className="space-y-2 mb-4">
+        <div className="space-y-2 mb-4 font-mono">
           <p className="text-xs text-[#E0E0E0] mb-2">{getText("arena.eliteLabel", "精英區")}</p>
           {elite.map((m) => (
             <div
@@ -249,58 +317,41 @@ export function ArenaSection({
               <p>{m.content}</p>
               <p className="text-xs mt-1">👍{m.upvote_count} / 👎{m.downvote_count}</p>
               <p className="text-xs text-[#A0A0A0]">{getText("arena.ttlRemaining", "存在週期剩餘: {{minutes}} 分鐘").replace("{{minutes}}", String(m.ttl_minutes))}</p>
-              {userId !== m.user_id && !voteIds.has(m.id) && !isTopicEnded && (
-                <div className="flex gap-2 mt-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-xs"
-                    onClick={() => handleVote(m.id, "upvote")}
-                  >
-                    {getText("arena.upvote", "贊同 (+{{bonus}})").replace("{{bonus}}", String(upBonus))}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-xs"
-                    onClick={() => handleVote(m.id, "downvote")}
-                  >
-                    {getText("arena.downvote", "斥責 (-{{penalty}})").replace("{{penalty}}", String(downPenalty))}
-                  </Button>
-                </div>
-              )}
+              {renderVoteRow(m, "elite")}
             </div>
           ))}
         </div>
       )}
 
       {mundane.map((m) => (
-        <div
+        <Card
           key={m.id}
           className={cn(
-            "p-3 mb-2 font-mono",
-            userId === m.user_id
-              ? "border-2 border-dashed border-[#666666] bg-[#050505] text-[#A0A0A0]"
-              : "border border-[#333333] bg-[#050505] text-[#A0A0A0]"
+            "bg-muted/50 font-sans mb-2",
+            userId === m.user_id && "border border-dashed border-primary/50"
           )}
         >
-          {isShielded(m) && (
-            <span className="text-[#D4AF37] text-xs">{getText("arena.shieldLocked", "[🔒數據鎖定中]")}</span>
-          )}
-          <p>{m.content}</p>
-          <p className="text-xs mt-1">👍{m.upvote_count} / 👎{m.downvote_count}</p>
-          <p className="text-xs">{getText("arena.ttlRemaining", "存在週期剩餘: {{minutes}} 分鐘").replace("{{minutes}}", String(m.ttl_minutes))}</p>
-          {userId !== m.user_id && !voteIds.has(m.id) && !isTopicEnded && (
-            <div className="flex gap-2 mt-2">
-              <Button size="sm" variant="outline" className="text-xs" onClick={() => handleVote(m.id, "upvote")}>
-                {getText("arena.upvote", "贊同 (+{{bonus}})").replace("{{bonus}}", String(upBonus))}
-              </Button>
-              <Button size="sm" variant="outline" className="text-xs" onClick={() => handleVote(m.id, "downvote")}>
-                {getText("arena.downvote", "斥責 (-{{penalty}})").replace("{{penalty}}", String(downPenalty))}
-              </Button>
+          <CardContent className="p-4 space-y-3">
+            {isShielded(m) && (
+              <p className="text-xs text-amber-600 dark:text-amber-500 font-medium">
+                {getText("arena.shieldLocked", "[🔒數據鎖定中]")}
+              </p>
+            )}
+            <p className="text-sm text-foreground leading-relaxed">{m.content}</p>
+            <div className="flex items-center justify-between text-sm gap-3 flex-wrap">
+              <span className="text-muted-foreground">
+                👍{m.upvote_count} / 👎{m.downvote_count}
+              </span>
+              <span className="font-semibold text-foreground text-right">
+                {getText("arena.ttlRemaining", "存在週期剩餘: {{minutes}} 分鐘").replace(
+                  "{{minutes}}",
+                  String(m.ttl_minutes)
+                )}
+              </span>
             </div>
-          )}
-        </div>
+            {renderVoteRow(m, "card")}
+          </CardContent>
+        </Card>
       ))}
 
       {postDialog}

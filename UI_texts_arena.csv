@@ -14,6 +14,8 @@ arena.placeholderMaxChars,arena,最多 {{max}} 字,Max {{max}} chars,最大{{max
 arena.shieldOption,arena,購買數據鎖定保險 ({{price}} 代幣),Buy shield ({{price}} tokens),シールド購入 ({{price}} トークン),鎖定保險選項（{{price}} 為佔位）
 arena.shieldTitle,arena,購買數據鎖定保險,Buy data lock insurance,データロック保険,Switch 列標題（互動擴充版式）
 arena.shieldCostLine,arena,{{price}} 代幣,{{price}} tokens,{{price}} トークン,代幣列（{{price}}）
+arena.shieldDetailTitle,arena,鎖定保護機制說明,Lock protection details,ロック保護の説明,勾選鎖定時 Alert 標題
+arena.shieldDetailBody,arena,"開啟後，發表成功時將從帳戶扣除 {{price}} 代幣，並套用以下效果：\n\n· 鎖定約 {{hours}} 小時：鎖定期間內，系統對該則留言的「存在週期自然衰減」會暫停。\n· 發表時額外增加約 {{bonus}} 分鐘的存在週期。\n\n其他使用者仍可贊同或斥責；斥責仍可能縮短剩餘存在週期（但不會低於 0）。","When enabled, {{price}} tokens will be deducted on successful post:\n\n· Lock for about {{hours}} h: natural TTL decay pauses for this comment during the lock.\n· On post, about {{bonus}} extra minutes of TTL are added.\n\nOthers can still agree or disagree; disagree may still reduce remaining TTL (not below 0).","有効にすると、投稿成功時に {{price}} トークンが消費されます。\n\n· 約 {{hours}} 時間ロック：期間中は当該コメントの自然TTL減衰が停止します。\n· 投稿時に約 {{bonus}} 分のTTLが追加されます。\n\n他ユーザーは賛成・反論できます。反論で残りTTLが減る場合があります（0未満にはなりません）。",勾選鎖定保險時顯示（佔位 {{price}} {{hours}} {{bonus}}）
 arena.cancel,arena,取消,Cancel,キャンセル,取消按鈕
 arena.submitting,arena,發表中...,Posting...,投稿中...,發表中狀態
 arena.submit,arena,發表,Post,投稿,發表按鈕
@@ -24,5 +26,3 @@ arena.toast.postFailed,arena,發表失敗,Post failed,投稿に失敗しまし�
 arena.toast.voteFailed,arena,投票失敗,Vote failed,投票に失敗しました,投票失敗 toast
 arena.needLoginVote,arena,請先登入後再互動,Please log in to interact,操作するにはログインしてください,匿名點贊同／斥責時提示
 arena.voted,arena,已投票,Voted,投票済み,已對該留言投過票
-arena.shieldDetailTitle,arena,鎖定保護機制說明,Lock protection details,ロック保護の説明,勾選鎖定時 Alert 標題
-arena.shieldDetailBody,arena,"開啟後，發表成功時將從帳戶扣除 {{price}} 代幣，並套用以下效果： · 鎖定約 {{hours}} 小時：鎖定期間內自然衰減暫停 · 發表時額外增加約 {{bonus}} 分鐘存在週期 · 他人仍可贊同／斥責",When enabled {{price}} tokens deducted on post. Lock ~{{hours}}h pauses decay; +{{bonus}} min TTL. Others can still vote.,有効時 {{price}} トークン消費。約{{hours}}hロックで減衰停止、+{{bonus}}分。他ユーザーは賛否可,多行全文以 migration 20260320170000 為準

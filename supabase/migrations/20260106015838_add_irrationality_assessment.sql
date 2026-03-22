@@ -44,6 +44,8 @@ CREATE TABLE IF NOT EXISTS public.user_assessments (
 ALTER TABLE public.user_assessments ENABLE ROW LEVEL SECURITY;
 
 -- Policies
+DROP POLICY IF EXISTS "Users can view their own assessments" ON public.user_assessments;
+DROP POLICY IF EXISTS "Service role can insert assessments" ON public.user_assessments;
 -- 1. Users can view their own assessments
 CREATE POLICY "Users can view their own assessments"
     ON public.user_assessments FOR SELECT
@@ -57,6 +59,9 @@ CREATE POLICY "Service role can insert assessments"
 
 -- 2. Create RPC for behavior metrics
 -- This function calculates stats for the last 7 days.
+-- 若遠端曾為 JSON 回傳型別，REPLACE 無法變更回傳型別，需先 DROP
+DROP FUNCTION IF EXISTS public.get_user_behavior_metrics(UUID);
+
 CREATE OR REPLACE FUNCTION public.get_user_behavior_metrics(p_user_id UUID)
 RETURNS JSONB
 LANGUAGE plpgsql

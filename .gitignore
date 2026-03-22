@@ -11,6 +11,13 @@ node_modules
 dist
 dist-ssr
 
+# Android 主專案：Gradle 快取與建置產物（體積極大，勿提交）
+android/.gradle/
+android/**/build/
+android/**/captures/
+android/**/.cxx/
+android/local.properties
+
 # Native plugin / Gradle 建置（體積大，勿納入版本庫與索引）
 native-ad-plugin/android/build/
 native-ad-plugin/android/.gradle/

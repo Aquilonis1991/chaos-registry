@@ -13,6 +13,8 @@ FOR SELECT
 USING (true);
 
 -- Phase 2: Create Security Definer Function for Admin Checks
+-- 遠端若已有不同簽名／預設參數，REPLACE 可能失敗，先 DROP
+DROP FUNCTION IF EXISTS public.is_admin(uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.is_admin(check_user_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -116,6 +118,20 @@ END;
 $$;
 
 -- Phase 8: Add constraints
+-- 舊版 topics 可能為 1–30 天等，先收斂為允許值再套 CHECK
+UPDATE public.topics
+SET duration_days = CASE
+  WHEN duration_days <= 1 THEN 1
+  WHEN duration_days <= 3 THEN 3
+  WHEN duration_days <= 7 THEN 7
+  ELSE 14
+END
+WHERE duration_days IS NOT NULL AND duration_days NOT IN (1, 3, 7, 14);
+
+UPDATE public.topics
+SET exposure_level = 'medium'
+WHERE exposure_level IS NOT NULL AND exposure_level NOT IN ('low', 'medium', 'high');
+
 DO $$ 
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_duration_days') THEN

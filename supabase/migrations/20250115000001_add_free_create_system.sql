@@ -15,6 +15,9 @@ CREATE TABLE IF NOT EXISTS public.free_create_qualifications (
 ALTER TABLE public.free_create_qualifications ENABLE ROW LEVEL SECURITY;
 
 -- Policies for free_create_qualifications
+DROP POLICY IF EXISTS "Users can view own free create qualifications" ON public.free_create_qualifications;
+DROP POLICY IF EXISTS "Users can insert own free create qualifications" ON public.free_create_qualifications;
+DROP POLICY IF EXISTS "Users can update own free create qualifications" ON public.free_create_qualifications;
 CREATE POLICY "Users can view own free create qualifications"
   ON public.free_create_qualifications FOR SELECT
   USING (auth.uid() = user_id);

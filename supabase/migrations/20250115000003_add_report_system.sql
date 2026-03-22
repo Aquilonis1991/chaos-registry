@@ -1,26 +1,33 @@
 -- Create report system
 
--- Create report_types enum
-CREATE TYPE public.report_type AS ENUM (
-  'hate_speech',      -- 仇恨言論
-  'sexual_content',   -- 色情內容
-  'violence',         -- 暴力內容
-  'illegal',          -- 違法內容
-  'spam',             -- 垃圾訊息
-  'phishing',         -- 釣魚詐騙
-  'misinformation',   -- 虛假訊息
-  'harassment',       -- 騷擾
-  'other'             -- 其他
-);
+-- Create report_types enum（遠端若已存在則略過）
+DO $$ BEGIN
+  CREATE TYPE public.report_type AS ENUM (
+    'hate_speech',
+    'sexual_content',
+    'violence',
+    'illegal',
+    'spam',
+    'phishing',
+    'misinformation',
+    'harassment',
+    'other'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
--- Create report_status enum
-CREATE TYPE public.report_status AS ENUM (
-  'pending',          -- 待處理
-  'reviewing',        -- 審核中
-  'resolved',         -- 已處理
-  'rejected',         -- 已駁回
-  'closed'            -- 已關閉
-);
+DO $$ BEGIN
+  CREATE TYPE public.report_status AS ENUM (
+    'pending',
+    'reviewing',
+    'resolved',
+    'rejected',
+    'closed'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Create reports table
 CREATE TABLE IF NOT EXISTS public.reports (
@@ -48,6 +55,11 @@ CREATE TABLE IF NOT EXISTS public.reports (
 ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
 
 -- Policies for reports
+DROP POLICY IF EXISTS "Users can view own reports" ON public.reports;
+DROP POLICY IF EXISTS "Users can insert reports" ON public.reports;
+DROP POLICY IF EXISTS "Admins can view all reports" ON public.reports;
+DROP POLICY IF EXISTS "Admins can update reports" ON public.reports;
+DROP POLICY IF EXISTS "Admins can delete reports" ON public.reports;
 -- Users can view their own reports
 CREATE POLICY "Users can view own reports"
   ON public.reports FOR SELECT
@@ -198,6 +210,7 @@ END;
 $$;
 
 -- Create trigger for updated_at
+DROP TRIGGER IF EXISTS update_reports_updated_at ON public.reports;
 CREATE TRIGGER update_reports_updated_at
   BEFORE UPDATE ON public.reports
   FOR EACH ROW
@@ -205,10 +218,10 @@ CREATE TRIGGER update_reports_updated_at
 
 -- Add system config for report settings
 INSERT INTO public.system_config (key, value, category, description) VALUES
-  ('report_email_notifications', 'true', 'report', '是否發送檢舉郵件通知給管理員'),
-  ('report_admin_email', 'admin@votechaos.com', 'report', '接收檢舉通知的管理員郵箱'),
-  ('report_auto_hide_threshold', '5', 'report', '自動隱藏內容的檢舉數量閾值'),
-  ('report_require_auth', 'false', 'report', '檢舉是否需要登入')
+  ('report_email_notifications', 'true'::jsonb, 'report', '是否發送檢舉郵件通知給管理員'),
+  ('report_admin_email', to_jsonb('admin@votechaos.com'::text), 'report', '接收檢舉通知的管理員郵箱'),
+  ('report_auto_hide_threshold', '5'::jsonb, 'report', '自動隱藏內容的檢舉數量閾值'),
+  ('report_require_auth', 'false'::jsonb, 'report', '檢舉是否需要登入')
 ON CONFLICT (key) DO NOTHING;
 
 -- Insert sample report types explanation (for UI reference)

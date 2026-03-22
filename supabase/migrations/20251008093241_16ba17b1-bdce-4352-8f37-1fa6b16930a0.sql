@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS public.ui_texts (
 ALTER TABLE public.ui_texts ENABLE ROW LEVEL SECURITY;
 
 -- Anyone can read UI texts
+DROP POLICY IF EXISTS "Anyone can view ui_texts" ON public.ui_texts;
+DROP POLICY IF EXISTS "Service role can manage ui_texts" ON public.ui_texts;
 CREATE POLICY "Anyone can view ui_texts"
   ON public.ui_texts
   FOR SELECT
@@ -39,6 +41,8 @@ UPDATE public.topics SET approval_status = 'approved' WHERE approval_status = 'p
 
 -- Modify the public view policy to only show approved topics
 DROP POLICY IF EXISTS "Anyone can view active topics" ON public.topics;
+DROP POLICY IF EXISTS "Anyone can view approved active topics" ON public.topics;
+DROP POLICY IF EXISTS "Creators can view own pending topics" ON public.topics;
 CREATE POLICY "Anyone can view approved active topics"
   ON public.topics
   FOR SELECT
@@ -61,6 +65,8 @@ CREATE TABLE IF NOT EXISTS public.admin_users (
 ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
 
 -- Only service role can manage admins
+DROP POLICY IF EXISTS "Service role can manage admin_users" ON public.admin_users;
+DROP POLICY IF EXISTS "Users can view own admin status" ON public.admin_users;
 CREATE POLICY "Service role can manage admin_users"
   ON public.admin_users
   FOR ALL

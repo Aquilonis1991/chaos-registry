@@ -24,6 +24,7 @@ arena.toast.maxChars,arena,最多 {{max}} 字,Max {{max}} chars,最大{{max}}文
 arena.toast.postSuccess,arena,已發表,Posted,投稿しました,發表成功 toast
 arena.toast.postFailed,arena,發表失敗,Post failed,投稿に失敗しました,發表失敗 toast
 arena.toast.onePerTopic,arena,每個主題僅限發表一則觀點,One message per topic allowed,1トピックにつき1件まで,每人每主題僅能發表一則角鬥場留言（對應 RPC）
+arena.toast.insufficientVoteParticipation,arena,在本主題累積投票參與度需達 {{required}}（付費票加總＋免費票次）才能發表觀點,Need at least {{required}} vote participation on this topic (paid vote sum + free votes) to post,このトピックで投票参加が合計{{required}}（有料票の合計＋無料票）に達するまで投稿できません,對應 RPC：Insufficient vote participation；system_config：arena_mundane_access_votes
 arena.toast.voteFailed,arena,投票失敗,Vote failed,投票に失敗しました,投票失敗 toast
 arena.needLoginVote,arena,請先登入後再互動,Please log in to interact,操作するにはログインしてください,匿名點贊同／斥責時提示
 arena.voted,arena,已投票,Voted,投票済み,已對該留言投過票

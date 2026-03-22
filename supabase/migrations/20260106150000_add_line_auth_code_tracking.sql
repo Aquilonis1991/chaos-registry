@@ -1,5 +1,5 @@
 -- Add LINE OAuth authorization code tracking for single-use policy
--- This prevents duplicate processing of the same authorization code
+-- （原檔名 20260115_* 解析為 20260115 易與排序衝突，改為 20260106150000）
 
 -- Create table to track used authorization codes
 CREATE TABLE IF NOT EXISTS public.line_auth_codes (
@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS public.line_auth_codes (
 
 -- Enable RLS
 ALTER TABLE public.line_auth_codes ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Service role can manage auth codes" ON public.line_auth_codes;
 
 -- Policy: Only service role can access (Edge Functions use SERVICE_ROLE_KEY)
 -- This table is only accessed by Edge Functions, not by users
@@ -99,8 +101,6 @@ END;
 $$;
 
 -- Optional: Create a trigger to automatically clean up expired codes
--- This will run the cleanup function whenever a new code is inserted
--- (Alternative: Use pg_cron extension for scheduled cleanup)
 CREATE OR REPLACE FUNCTION public.auto_cleanup_expired_codes()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -116,7 +116,8 @@ BEGIN
 END;
 $$;
 
--- Create trigger (optional, can be disabled if using pg_cron instead)
+DROP TRIGGER IF EXISTS trigger_auto_cleanup_expired_codes ON public.line_auth_codes;
+
 CREATE TRIGGER trigger_auto_cleanup_expired_codes
   AFTER INSERT ON public.line_auth_codes
   FOR EACH ROW

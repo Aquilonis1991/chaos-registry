@@ -1,4 +1,5 @@
 -- Create topic_summaries table
+-- （原檔名 20260106_* 與版本號衝突，改為 20260106000000）
 CREATE TABLE IF NOT EXISTS public.topic_summaries (
   id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   topic_id uuid NOT NULL REFERENCES public.topics(id) ON DELETE CASCADE,
@@ -14,6 +15,9 @@ CREATE TABLE IF NOT EXISTS public.topic_summaries (
 ALTER TABLE public.topic_summaries ENABLE ROW LEVEL SECURITY;
 
 -- Policies
+DROP POLICY IF EXISTS "Everyone can read topic summaries" ON public.topic_summaries;
+DROP POLICY IF EXISTS "Admins can delete topic summaries" ON public.topic_summaries;
+
 -- Everyone can read summaries
 CREATE POLICY "Everyone can read topic summaries"
   ON public.topic_summaries FOR SELECT

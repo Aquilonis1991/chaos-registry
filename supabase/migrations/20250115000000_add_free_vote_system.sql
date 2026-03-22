@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS public.free_votes (
 ALTER TABLE public.free_votes ENABLE ROW LEVEL SECURITY;
 
 -- Policies for free_votes
+DROP POLICY IF EXISTS "Users can view own free votes" ON public.free_votes;
+DROP POLICY IF EXISTS "Users can insert own free votes" ON public.free_votes;
 CREATE POLICY "Users can view own free votes"
   ON public.free_votes FOR SELECT
   USING (auth.uid() = user_id);
@@ -22,9 +24,10 @@ CREATE POLICY "Users can insert own free votes"
   ON public.free_votes FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
--- Create unique constraint to prevent duplicate free votes per user per topic per day
-CREATE UNIQUE INDEX IF NOT EXISTS idx_free_votes_user_topic_date 
-ON public.free_votes (user_id, topic_id, DATE(used_at));
+-- 唯一約束：同一使用者、同一主題、同一天僅一筆免費票
+-- 注意：不可使用 DATE(used_at)（非 IMMUTABLE），改用 UTC 日期以利索引
+CREATE UNIQUE INDEX IF NOT EXISTS idx_free_votes_user_topic_date
+ON public.free_votes (user_id, topic_id, ((used_at AT TIME ZONE 'UTC')::date));
 
 -- Add function to check if user has used free vote today
 CREATE OR REPLACE FUNCTION public.has_used_free_vote_today(

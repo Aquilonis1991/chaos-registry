@@ -163,6 +163,14 @@ export function ArenaSection({
         (e as { message?: string })?.message || (e as { details?: string })?.details || String(e);
       if (/One message per topic allowed/i.test(raw)) {
         toast.error(getText("arena.toast.onePerTopic", "每個主題僅限發表一則觀點"));
+      } else if (/Insufficient vote participation/i.test(raw)) {
+        const required = Number(getConfig("arena_mundane_access_votes", 5)) || 5;
+        toast.error(
+          getText(
+            "arena.toast.insufficientVoteParticipation",
+            "在本主題累積投票參與度需達 {{required}}（付費票加總＋免費票次）才能發表觀點"
+          ).replace("{{required}}", String(required))
+        );
       } else {
         const msg = raw || getText("arena.toast.postFailed", "發表失敗");
         toast.error(msg);

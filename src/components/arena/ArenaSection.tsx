@@ -165,11 +165,10 @@ export function ArenaSection({
     (m) => m.id !== core?.id && !elite.some((e) => e.id === m.id)
   );
 
-  /** 贊同／斥責：核心／精英／一般留言共用（匿名可點 → 提示登入）；自己的留言顯示停用按鈕避免「完全看不到」） */
+  /** 贊同／斥責：含自己的留言（每人每則留言僅能投一次）；匿名可點 → 提示登入 */
   const renderVoteRow = (m: ArenaMessage, variant: "core" | "elite" | "card") => {
     if (isTopicEnded) return null;
     const mid = String(m.id);
-    const isOwn = Boolean(userId) && String(userId) === String(m.user_id);
     if (voteIds.has(mid)) {
       return (
         <p
@@ -199,51 +198,20 @@ export function ArenaSection({
             "bg-[#E4E6EB] text-[#4B4F56] hover:bg-[#D8DADF] dark:bg-[#3A3B3C] dark:text-[#E4E6EB] dark:hover:bg-[#4E4F50]"
           )
         : cn(downBase, "bg-[#3A3B3C] text-[#E4E6EB] hover:bg-[#4E4F50] active:bg-[#3a3c41]");
-    const disabledOwn = cn("cursor-not-allowed opacity-50");
     const rowWrap = cn("flex w-full items-stretch gap-2", variant === "card" ? "pt-1" : "mt-2");
 
-    const pair = (
-      <>
-        <button
-          type="button"
-          className={cn(upClass, isOwn && disabledOwn)}
-          onClick={() => void handleVote(mid, "upvote")}
-          aria-label={upLabel}
-          disabled={isOwn}
-        >
+    return (
+      <div className={rowWrap}>
+        <button type="button" className={upClass} onClick={() => void handleVote(mid, "upvote")} aria-label={upLabel}>
           <ThumbsUp className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden />
           <span className="text-center leading-snug break-words">{upLabel}</span>
         </button>
-        <button
-          type="button"
-          className={cn(downClass, isOwn && disabledOwn)}
-          onClick={() => void handleVote(mid, "downvote")}
-          aria-label={downLabel}
-          disabled={isOwn}
-        >
+        <button type="button" className={downClass} onClick={() => void handleVote(mid, "downvote")} aria-label={downLabel}>
           <ThumbsDown className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden />
           <span className="text-center leading-snug break-words">{downLabel}</span>
         </button>
-      </>
+      </div>
     );
-
-    if (isOwn) {
-      return (
-        <div className={cn(rowWrap, "flex-col gap-2")}>
-          <p
-            className={cn(
-              "text-xs",
-              variant === "card" ? "text-muted-foreground" : "text-[#A0A0A0]"
-            )}
-          >
-            {getText("arena.voteOwnHint", "這是你的留言，無法自行贊同／斥責")}
-          </p>
-          <div className="flex w-full items-stretch gap-2">{pair}</div>
-        </div>
-      );
-    }
-
-    return <div className={rowWrap}>{pair}</div>;
   };
 
   if (!topicId) return null;

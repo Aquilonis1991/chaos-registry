@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import { format } from "date-fns";
 import { zhTW } from "date-fns/locale";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
+import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 
 interface Announcement {
   id: string;
@@ -52,23 +53,22 @@ export const AnnouncementCarousel = ({
   const [isDismissed, setIsDismissed] = useState(false);
 
   useEffect(() => {
+    if (configLoading) return;
+    const fetchAnnouncements = async () => {
+      try {
+        const { data, error } = await supabase.rpc("get_active_announcements", {
+          limit_count: announcementMaxDisplay,
+        });
+        if (error) throw error;
+        setAnnouncements(data || []);
+      } catch (error) {
+        console.error("Error fetching announcements:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchAnnouncements();
-  }, []);
-
-  const fetchAnnouncements = async () => {
-    try {
-      const { data, error } = await supabase.rpc('get_active_announcements', {
-        limit_count: 3
-      });
-
-      if (error) throw error;
-      setAnnouncements(data || []);
-    } catch (error) {
-      console.error('Error fetching announcements:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [configLoading, announcementMaxDisplay]);
 
   const handleAnnouncementClick = async (announcement: Announcement) => {
     try {

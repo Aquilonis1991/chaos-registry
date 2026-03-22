@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useUIText } from "@/hooks/useUIText";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -31,6 +33,8 @@ export function ArenaSection({
   userId: string | null;
   isTopicEnded: boolean;
 }) {
+  const { language } = useLanguage();
+  const { getText } = useUIText(language);
   const { getConfig } = useSystemConfigCache();
   const [messages, setMessages] = useState<ArenaMessage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -57,11 +61,11 @@ export function ArenaSection({
       .order("created_at", { ascending: true });
     setLoading(false);
     if (error) {
-      toast.error("載入失敗");
+      toast.error(getText("arena.toast.loadFailed", "載入失敗"));
       return;
     }
     setMessages((data as ArenaMessage[]) || []);
-  }, [topicId]);
+  }, [topicId, getText]);
 
   const fetchMyVotes = useCallback(async () => {
     if (!userId || messages.length === 0) return;
@@ -87,7 +91,7 @@ export function ArenaSection({
     const t = (inputText || "").trim();
     if (!t) return;
     if (t.length > maxLen) {
-      toast.error(`最多 ${maxLen} 字`);
+      toast.error(getText("arena.toast.maxChars", "最多 {{max}} 字").replace("{{max}}", String(maxLen)));
       return;
     }
     setPosting(true);
@@ -101,10 +105,10 @@ export function ArenaSection({
       setInputOpen(false);
       setInputText("");
       setBuyShield(false);
-      toast.success("已發表");
+      toast.success(getText("arena.toast.postSuccess", "已發表"));
       fetchMessages();
     } catch (e: unknown) {
-      const msg = (e as { message?: string })?.message || "發表失敗";
+      const msg = (e as { message?: string })?.message || getText("arena.toast.postFailed", "發表失敗");
       toast.error(msg);
     } finally {
       setPosting(false);
@@ -123,7 +127,7 @@ export function ArenaSection({
       setVoteIds((s) => new Set([...s, messageId]));
       fetchMessages();
     } catch (e: unknown) {
-      toast.error((e as { message?: string })?.message || "投票失敗");
+      toast.error((e as { message?: string })?.message || getText("arena.toast.voteFailed", "投票失敗"));
     }
   };
 
@@ -138,26 +142,30 @@ export function ArenaSection({
     (m) => m.id !== core?.id && !elite.some((e) => e.id === m.id)
   );
 
-  if (!topicId || (loading && messages.length === 0)) return null;
+  if (!topicId) return null;
 
   return (
     <section className="mb-4 font-mono" aria-label="數據回收角鬥場">
-      <p className="text-[#FF4500] text-xs mb-3">PROJ-NEW: 數據回收角鬥場 V30.0</p>
-
+      {messages.length === 0 && !loading ? (
+        <div className="border border-[#333333] bg-[#050505] text-[#A0A0A0] p-6 text-center">
+          <p className="text-sm">{getText("arena.empty", "尚未有人留言")}</p>
+        </div>
+      ) : (
+        <>
       {core && (
         <div className="border-4 border-[#D4AF37] bg-black text-white p-6 mb-4">
-          <p className="text-sm text-[#A0A0A0] mb-1">核心區</p>
+          <p className="text-sm text-[#A0A0A0] mb-1">{getText("arena.coreLabel", "核心區")}</p>
           <p>{core.content}</p>
           <p className="text-xs mt-2">👍{core.upvote_count} / 👎{core.downvote_count}</p>
-          <p className="text-xs text-[#A0A0A0]">存在週期剩餘: {core.ttl_minutes} 分鐘</p>
-          {isShielded(core) && <span className="text-[#D4AF37]">[🔒數據鎖定中]</span>}
+          <p className="text-xs text-[#A0A0A0]">{getText("arena.ttlRemaining", "存在週期剩餘: {{minutes}} 分鐘").replace("{{minutes}}", String(core.ttl_minutes))}</p>
+          {isShielded(core) && <span className="text-[#D4AF37]">{getText("arena.shieldLocked", "[🔒數據鎖定中]")}</span>}
           {userId !== core.user_id && !voteIds.has(core.id) && (
             <div className="flex gap-2 mt-2">
               <Button size="sm" variant="outline" className="text-xs" onClick={() => handleVote(core.id, "upvote")}>
-                贊同 (+{upBonus})
+                {getText("arena.upvote", "贊同 (+{{bonus}})").replace("{{bonus}}", String(upBonus))}
               </Button>
               <Button size="sm" variant="outline" className="text-xs" onClick={() => handleVote(core.id, "downvote")}>
-                斥責 (-{downPenalty})
+                {getText("arena.downvote", "斥責 (-{{penalty}})").replace("{{penalty}}", String(downPenalty))}
               </Button>
             </div>
           )}
@@ -166,7 +174,7 @@ export function ArenaSection({
 
       {elite.length > 0 && (
         <div className="space-y-2 mb-4">
-          <p className="text-xs text-[#E0E0E0] mb-2">精英區</p>
+          <p className="text-xs text-[#E0E0E0] mb-2">{getText("arena.eliteLabel", "精英區")}</p>
           {elite.map((m) => (
             <div
               key={m.id}
@@ -174,7 +182,7 @@ export function ArenaSection({
             >
               <p>{m.content}</p>
               <p className="text-xs mt-1">👍{m.upvote_count} / 👎{m.downvote_count}</p>
-              <p className="text-xs text-[#A0A0A0]">存在週期剩餘: {m.ttl_minutes} 分鐘</p>
+              <p className="text-xs text-[#A0A0A0]">{getText("arena.ttlRemaining", "存在週期剩餘: {{minutes}} 分鐘").replace("{{minutes}}", String(m.ttl_minutes))}</p>
               {userId !== m.user_id && !voteIds.has(m.id) && !isTopicEnded && (
                 <div className="flex gap-2 mt-2">
                   <Button
@@ -183,7 +191,7 @@ export function ArenaSection({
                     className="text-xs"
                     onClick={() => handleVote(m.id, "upvote")}
                   >
-                    贊同 (+{upBonus})
+                    {getText("arena.upvote", "贊同 (+{{bonus}})").replace("{{bonus}}", String(upBonus))}
                   </Button>
                   <Button
                     size="sm"
@@ -191,7 +199,7 @@ export function ArenaSection({
                     className="text-xs"
                     onClick={() => handleVote(m.id, "downvote")}
                   >
-                    斥責 (-{downPenalty})
+                    {getText("arena.downvote", "斥責 (-{{penalty}})").replace("{{penalty}}", String(downPenalty))}
                   </Button>
                 </div>
               )}
@@ -211,18 +219,18 @@ export function ArenaSection({
           )}
         >
           {isShielded(m) && (
-            <span className="text-[#D4AF37] text-xs">[🔒數據鎖定中]</span>
+            <span className="text-[#D4AF37] text-xs">{getText("arena.shieldLocked", "[🔒數據鎖定中]")}</span>
           )}
           <p>{m.content}</p>
           <p className="text-xs mt-1">👍{m.upvote_count} / 👎{m.downvote_count}</p>
-          <p className="text-xs">存在週期剩餘: {m.ttl_minutes} 分鐘</p>
+          <p className="text-xs">{getText("arena.ttlRemaining", "存在週期剩餘: {{minutes}} 分鐘").replace("{{minutes}}", String(m.ttl_minutes))}</p>
           {userId !== m.user_id && !voteIds.has(m.id) && !isTopicEnded && (
             <div className="flex gap-2 mt-2">
               <Button size="sm" variant="outline" className="text-xs" onClick={() => handleVote(m.id, "upvote")}>
-                贊同 (+{upBonus})
+                {getText("arena.upvote", "贊同 (+{{bonus}})").replace("{{bonus}}", String(upBonus))}
               </Button>
               <Button size="sm" variant="outline" className="text-xs" onClick={() => handleVote(m.id, "downvote")}>
-                斥責 (-{downPenalty})
+                {getText("arena.downvote", "斥責 (-{{penalty}})").replace("{{penalty}}", String(downPenalty))}
               </Button>
             </div>
           )}
@@ -232,32 +240,34 @@ export function ArenaSection({
       {!isTopicEnded && userId && (
         <>
           <Button variant="outline" size="sm" className="mt-2 font-mono" onClick={() => setInputOpen(true)}>
-            發表觀點
+            {getText("arena.postButton", "發表觀點")}
           </Button>
           <Dialog open={inputOpen} onOpenChange={setInputOpen}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>發表觀點</DialogTitle>
+                <DialogTitle>{getText("arena.dialogTitle", "發表觀點")}</DialogTitle>
               </DialogHeader>
               <Textarea
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder={`最多 ${maxLen} 字`}
+                placeholder={getText("arena.placeholderMaxChars", "最多 {{max}} 字").replace("{{max}}", String(maxLen))}
                 maxLength={maxLen}
                 className="font-mono"
               />
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={buyShield} onChange={(e) => setBuyShield(e.target.checked)} />
-                購買數據鎖定保險 ({shieldPrice} 代幣)
+                {getText("arena.shieldOption", "購買數據鎖定保險 ({{price}} 代幣)").replace("{{price}}", String(shieldPrice))}
               </label>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setInputOpen(false)}>取消</Button>
+                <Button variant="outline" onClick={() => setInputOpen(false)}>{getText("arena.cancel", "取消")}</Button>
                 <Button onClick={handlePost} disabled={posting || !inputText.trim()}>
-                  {posting ? "發表中..." : "發表"}
+                  {posting ? getText("arena.submitting", "發表中...") : getText("arena.submit", "發表")}
                 </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
+        </>
+      )}
         </>
       )}
     </section>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -17,12 +17,43 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+/** 後台可直接以數字編輯、並附中文說明的系統配置 */
+const INTEGER_ADMIN_CONFIG: Record<
+  string,
+  { label: string; min: number; max: number; helper: string }
+> = {
+  report_auto_hide_threshold: {
+    label: "檢舉自動隱藏閾值",
+    min: 1,
+    max: 999,
+    helper:
+      "當同一主題被「不同用戶」檢舉累計達此人數時，系統自動隱藏該主題（與 handle_topic_report 一致）。",
+  },
+  announcement_max_display: {
+    label: "前台公告顯示則數",
+    min: 1,
+    max: 50,
+    helper:
+      "公告輪播一次向 get_active_announcements 請求的最多筆數；儲存後前台快取會於重新載入後生效。",
+  },
+};
+
+function coerceConfigNumber(v: unknown): number {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim() !== "" && !isNaN(Number(v))) return Number(v);
+  if (v && typeof v === "object" && v !== null && "value" in v) {
+    return coerceConfigNumber((v as { value: unknown }).value);
+  }
+  return NaN;
+}
+
 const SystemConfigManager = () => {
   const { configs, loading, updateConfig } = useSystemConfig();
   const [editedValues, setEditedValues] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState<string | null>(null);
   const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [testResults, setTestResults] = useState<number[]>([]);
+  const [configTab, setConfigTab] = useState<string>("");
 
   const handleValueChange = (id: string, newValue: string) => {
     setEditedValues(prev => ({ ...prev, [id]: newValue }));
@@ -204,6 +235,33 @@ const SystemConfigManager = () => {
     setTestDialogOpen(true);
   };
 
+  const saveIntegerAdminConfig = async (
+    config: { id: string; key: string; value: unknown },
+    meta: (typeof INTEGER_ADMIN_CONFIG)[string]
+  ) => {
+    const edited = editedValues[config.id];
+    if (edited === undefined) return;
+    const n = parseInt(String(edited).trim(), 10);
+    if (Number.isNaN(n) || n < meta.min || n > meta.max) {
+      toast.error(`請輸入 ${meta.min}～${meta.max} 的整數`);
+      return;
+    }
+    setSaving(config.id);
+    try {
+      const success = await updateConfig(config.id, n);
+      if (success) {
+        setEditedValues((prev) => {
+          const next = { ...prev };
+          delete next[config.id];
+          return next;
+        });
+        invalidateConfigCache();
+      }
+    } finally {
+      setSaving(null);
+    }
+  };
+
   // Keys that are managed by dedicated components and should be hidden here
   const HIDDEN_KEYS = [
     'legal_terms_content',
@@ -232,13 +290,28 @@ const SystemConfigManager = () => {
     'home',
     'mission',
     'advertising',
-    'user'
+    'user',
+    'report',
+    'announcement'
   ];
 
   const existingCategories = Object.keys(groupedConfigs);
   const primaryCategories = orderedCategories.filter(category => existingCategories.includes(category));
   const remainingCategories = existingCategories.filter(category => !orderedCategories.includes(category));
   const sortedCategories = [...primaryCategories, ...remainingCategories];
+
+  // 當 configs 載入完成後，若尚未設定分頁則選第一個
+  useEffect(() => {
+    if (loading || configs.length === 0) return;
+    const cats = Object.keys(groupedConfigs);
+    const ordered = ['validation','recharge','voting','topic_cost','arena','home','mission','advertising','user','report','announcement'];
+    const primary = ordered.filter(c => cats.includes(c));
+    const remaining = cats.filter(c => !ordered.includes(c));
+    const sorted = [...primary, ...remaining];
+    if (sorted[0]) {
+      setConfigTab(prev => !prev || !sorted.includes(prev) ? sorted[0] : prev);
+    }
+  }, [loading, configs]);
 
   const categoryNames: Record<string, string> = {
     recharge: '儲值配置',
@@ -249,7 +322,9 @@ const SystemConfigManager = () => {
     mission: '任務獎勵',
     advertising: '廣告配置',
     user: '用戶配置',
-    home: '首頁配置'
+    home: '首頁配置',
+    report: '檢舉',
+    announcement: '公告顯示'
   };
 
   if (loading) {
@@ -274,13 +349,18 @@ const SystemConfigManager = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue={sortedCategories[0] || ''} className="w-full">
-          <TabsList className="flex flex-wrap gap-2 w-full">
+        <Tabs
+          value={configTab || sortedCategories[0] || ""}
+          onValueChange={(v) => setConfigTab(v)}
+          className="w-full"
+        >
+          <TabsList className="flex flex-wrap gap-2 w-full min-h-[2.5rem]">
             {sortedCategories.map(category => (
               <TabsTrigger
                 key={category}
                 value={category}
-                className="whitespace-nowrap"
+                className="whitespace-nowrap flex-1 min-w-[120px]"
+                type="button"
               >
                 {categoryNames[category] || category}
               </TabsTrigger>
@@ -365,6 +445,75 @@ const SystemConfigManager = () => {
                                 className="font-mono text-sm"
                               />
                             </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    const intAdmin = INTEGER_ADMIN_CONFIG[config.key];
+                    if (intAdmin) {
+                      const coerced = coerceConfigNumber(config.value);
+                      const storedInt = Number.isFinite(coerced)
+                        ? Math.floor(coerced)
+                        : intAdmin.min;
+                      const displayStr =
+                        editedValues[config.id] !== undefined
+                          ? editedValues[config.id]
+                          : String(storedInt);
+                      const hasIntChanged =
+                        editedValues[config.id] !== undefined &&
+                        String(editedValues[config.id]).trim() !== String(storedInt);
+
+                      return (
+                        <div
+                          key={config.id}
+                          className="space-y-2 border-b pb-4 last:border-0 rounded-md border border-primary/20 bg-muted/30 p-4"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 space-y-1">
+                              <p className="text-sm font-semibold text-foreground">{intAdmin.label}</p>
+                              <p className="text-xs font-mono text-muted-foreground">{config.key}</p>
+                              <p className="text-sm text-muted-foreground">{intAdmin.helper}</p>
+                              {config.description ? (
+                                <p className="text-xs text-muted-foreground/80">{config.description}</p>
+                              ) : null}
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={() => saveIntegerAdminConfig(config, intAdmin)}
+                              disabled={!hasIntChanged || saving === config.id}
+                              variant={hasIntChanged ? "default" : "outline"}
+                            >
+                              {saving === config.id ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                  儲存中
+                                </>
+                              ) : (
+                                <>
+                                  <Save className="w-4 h-4 mr-1" />
+                                  儲存
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Label htmlFor={config.id} className="sr-only">
+                              {intAdmin.label}
+                            </Label>
+                            <Input
+                              id={config.id}
+                              type="number"
+                              min={intAdmin.min}
+                              max={intAdmin.max}
+                              step={1}
+                              value={displayStr}
+                              onChange={(e) => handleValueChange(config.id, e.target.value)}
+                              className="max-w-[12rem] font-mono"
+                            />
+                            <span className="text-xs text-muted-foreground">
+                              範圍：{intAdmin.min}～{intAdmin.max}
+                            </span>
                           </div>
                         </div>
                       );

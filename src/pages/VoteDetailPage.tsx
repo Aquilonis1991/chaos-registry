@@ -473,30 +473,26 @@ const VoteDetailPage = () => {
             </div>
 
             {topic.description && (
-              <p className="text-muted-foreground mb-4">
+              <p className="text-base leading-relaxed text-foreground/95 mb-5">
                 {topic.description}
               </p>
             )}
 
-            <ArenaSection
-              topicId={id || ""}
-              topicEndAt={topic.end_at || ""}
-              userId={user?.id ?? null}
-              isTopicEnded={isTopicEnded}
-            />
-
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <User className="w-4 h-4" />
-                  <span>{topic.creator_name}</span>
+              <div
+                className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground/65"
+                aria-label={getText("vote.detail.meta.ariaLabel", "主題發起與時間資訊")}
+              >
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <User className="w-3.5 h-3.5 shrink-0 opacity-60" aria-hidden />
+                  <span className="truncate">{topic.creator_name}</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Clock className="w-3.5 h-3.5 shrink-0 opacity-60" aria-hidden />
                   <span>{createdAtLabel}</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Clock className="w-3.5 h-3.5 shrink-0 opacity-60" aria-hidden />
                   <span>{remainingTimeLabel}</span>
                 </div>
               </div>
@@ -832,6 +828,16 @@ const VoteDetailPage = () => {
           )}
         </div>
           ); })()}
+
+        {/* Arena：代幣餘額下方、投票截止時間上方 */}
+        <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 mb-4">
+          <ArenaSection
+            topicId={id || ""}
+            topicEndAt={topic.end_at || ""}
+            userId={user?.id ?? null}
+            isTopicEnded={isTopicEnded}
+          />
+        </div>
 
         {/* Info Card */}
         <div className="max-w-3xl mx-auto w-full px-4 sm:px-6">

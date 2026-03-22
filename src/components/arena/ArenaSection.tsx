@@ -9,9 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Coins, Loader2 } from "lucide-react";
+import { Coins, Info, Loader2, ThumbsDown, ThumbsUp } from "lucide-react";
 
 export type ArenaMessage = {
   id: string;
@@ -52,6 +53,8 @@ export function ArenaSection({
   const y = getConfig("arena_elite_min_threshold_y", 50) as number;
   const maxLen = getConfig("arena_comment_max_length", 100) as number;
   const shieldPrice = getConfig("arena_shield_price", 100) as number;
+  const shieldHours = Number(getConfig("arena_shield_duration_hours", 3)) || 3;
+  const shieldLegacyBonus = Number(getConfig("arena_shield_legacy_bonus", 180)) || 180;
   const upBonus = getConfig("arena_upvote_time_bonus", 10) as number;
   const downPenalty = getConfig("arena_downvote_time_penalty", 12) as number;
 
@@ -171,42 +174,52 @@ export function ArenaSection({
         </p>
       );
     }
-    const variantBtn =
-      variant === "core"
-        ? "border-white/50 bg-white/10 text-white hover:bg-white/20 hover:text-white"
-        : variant === "elite"
-          ? "border-[#C0C0C0]/80 bg-black/40 text-[#E0E0E0] hover:bg-black/60 hover:text-[#E0E0E0]"
-          : "font-mono border-border";
+    // 編排參考 Facebook：並排、圓角膠囊、主色藍／次要灰
+    const upLabel = getText("arena.upvote", "贊同 (+{{bonus}})").replace("{{bonus}}", String(upBonus));
+    const downLabel = getText("arena.downvote", "斥責 (-{{penalty}})").replace("{{penalty}}", String(downPenalty));
+    const upBase =
+      "flex-1 inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+    const upClass =
+      variant === "card"
+        ? cn(upBase, "bg-[#1877F2] text-white hover:bg-[#166FE5] active:bg-[#1565D8]")
+        : cn(upBase, "bg-[#1877F2] text-white hover:bg-[#166FE5] active:bg-[#1565D8]");
+    const downBase =
+      "flex-1 inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+    const downClass =
+      variant === "card"
+        ? cn(
+            downBase,
+            "bg-[#E4E6EB] text-[#4B4F56] hover:bg-[#D8DADF] dark:bg-[#3A3B3C] dark:text-[#E4E6EB] dark:hover:bg-[#4E4F50]"
+          )
+        : cn(downBase, "bg-[#3A3B3C] text-[#E4E6EB] hover:bg-[#4E4F50] active:bg-[#3a3c41]");
     return (
       <div
         className={cn(
-          "flex flex-wrap gap-2",
+          "flex w-full max-w-md items-stretch gap-2",
           variant === "card" ? "pt-1" : "mt-2"
         )}
       >
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className={cn("text-xs", variantBtn)}
-          onClick={() => void handleVote(m.id, "upvote")}
-        >
-          {getText("arena.upvote", "贊同 (+{{bonus}})").replace("{{bonus}}", String(upBonus))}
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className={cn("text-xs", variantBtn)}
-          onClick={() => void handleVote(m.id, "downvote")}
-        >
-          {getText("arena.downvote", "斥責 (-{{penalty}})").replace("{{penalty}}", String(downPenalty))}
-        </Button>
+        <button type="button" className={upClass} onClick={() => void handleVote(m.id, "upvote")} aria-label={upLabel}>
+          <ThumbsUp className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden />
+          <span className="truncate">{upLabel}</span>
+        </button>
+        <button type="button" className={downClass} onClick={() => void handleVote(m.id, "downvote")} aria-label={downLabel}>
+          <ThumbsDown className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden />
+          <span className="truncate">{downLabel}</span>
+        </button>
       </div>
     );
   };
 
   if (!topicId) return null;
+
+  const shieldDetailText = getText(
+    "arena.shieldDetailBody",
+    "開啟後，發表成功時將從帳戶扣除 {{price}} 代幣，並套用以下效果：\n\n· 鎖定約 {{hours}} 小時：鎖定期間內，系統對該則留言的「存在週期自然衰減」會暫停。\n· 發表時額外增加約 {{bonus}} 分鐘的存在週期。\n\n其他使用者仍可贊同或斥責；斥責仍可能縮短剩餘存在週期（但不會低於 0）。"
+  )
+    .replace(/\{\{price\}\}/g, String(shieldPrice))
+    .replace(/\{\{hours\}\}/g, String(shieldHours))
+    .replace(/\{\{bonus\}\}/g, String(shieldLegacyBonus));
 
   const postDialog = !isTopicEnded && userId && (
     <>
@@ -255,6 +268,17 @@ export function ArenaSection({
               </div>
             </CardContent>
           </Card>
+          {buyShield && (
+            <Alert className="border-blue-200/90 bg-blue-50/90 text-foreground dark:border-blue-900/60 dark:bg-blue-950/50">
+              <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" aria-hidden />
+              <AlertTitle className="text-foreground">
+                {getText("arena.shieldDetailTitle", "鎖定保護機制說明")}
+              </AlertTitle>
+              <AlertDescription className="text-sm text-muted-foreground whitespace-pre-line">
+                {shieldDetailText}
+              </AlertDescription>
+            </Alert>
+          )}
           <DialogFooter className="gap-3 sm:gap-4 sm:space-x-0 flex-col-reverse sm:flex-row sm:justify-end">
             <Button variant="outline" onClick={() => setInputOpen(false)}>
               {getText("arena.cancel", "取消")}

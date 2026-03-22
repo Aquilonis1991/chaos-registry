@@ -24,3 +24,5 @@ arena.toast.postFailed,arena,發表失敗,Post failed,投稿に失敗しまし�
 arena.toast.voteFailed,arena,投票失敗,Vote failed,投票に失敗しました,投票失敗 toast
 arena.needLoginVote,arena,請先登入後再互動,Please log in to interact,操作するにはログインしてください,匿名點贊同／斥責時提示
 arena.voted,arena,已投票,Voted,投票済み,已對該留言投過票
+arena.shieldDetailTitle,arena,鎖定保護機制說明,Lock protection details,ロック保護の説明,勾選鎖定時 Alert 標題
+arena.shieldDetailBody,arena,"開啟後，發表成功時將從帳戶扣除 {{price}} 代幣，並套用以下效果： · 鎖定約 {{hours}} 小時：鎖定期間內自然衰減暫停 · 發表時額外增加約 {{bonus}} 分鐘存在週期 · 他人仍可贊同／斥責",When enabled {{price}} tokens deducted on post. Lock ~{{hours}}h pauses decay; +{{bonus}} min TTL. Others can still vote.,有効時 {{price}} トークン消費。約{{hours}}hロックで減衰停止、+{{bonus}}分。他ユーザーは賛否可,多行全文以 migration 20260320170000 為準

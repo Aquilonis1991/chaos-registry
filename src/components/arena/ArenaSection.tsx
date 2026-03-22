@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -27,6 +27,8 @@ export type ArenaMessage = {
   created_at: string;
   /** 最後一次 TTL／互動更新時間（自然衰減推算用） */
   updated_at: string;
+  /** 後端軟回收時間；僅作者可查詢該列（RLS） */
+  recycled_at?: string | null;
 };
 
 export function ArenaSection({
@@ -65,7 +67,7 @@ export function ArenaSection({
   const decayRate = Number(getConfig("arena_natural_decay_rate", 1)) || 1;
 
   /** 定時觸發重繪，使「存在週期剩餘」隨時間遞減 */
-  const [, setTtlTick] = useState(0);
+  const [ttlTick, setTtlTick] = useState(0);
   useEffect(() => {
     if (messages.length === 0) return undefined;
     const id = window.setInterval(() => setTtlTick((n) => n + 1), 10000);
@@ -79,6 +81,12 @@ export function ArenaSection({
         return;
       }
       if (!opts?.silent) setLoading(true);
+      // 先同步後端衰減／軟回收，避免畫面已顯示 0 分鐘但列上 TTL 尚未寫回
+      try {
+        await supabase.rpc("decay_arena_ttl", { p_minutes: opts?.silent ? 10 : 30 });
+      } catch (e) {
+        console.warn("[arena] decay_arena_ttl:", e);
+      }
       const { data, error } = await supabase
         .from("topic_arena_messages")
         .select("*")
@@ -201,7 +209,7 @@ export function ArenaSection({
   };
 
   const net = (m: ArenaMessage) => m.upvote_count - m.downvote_count;
-  const isShielded = (m: ArenaMessage) => m.shield_until && new Date(m.shield_until) > new Date();
+  const isShielded = (m: ArenaMessage) => Boolean(m.shield_until && new Date(m.shield_until) > new Date());
 
   /** 畫面顯示用剩餘分鐘：依 updated_at 推算自然衰減；鎖定中與後端相同不扣時間 */
   const displayTtlMinutes = (m: ArenaMessage) => {
@@ -213,17 +221,52 @@ export function ArenaSection({
     const elapsedMin = (Date.now() - t0) / 60000;
     return Math.max(0, Math.floor(base - decayRate * elapsedMin));
   };
-  const core = messages.filter((m) => net(m) >= x).sort((a, b) => net(b) - net(a))[0];
-  const elite = messages
+
+  /** 旁觀者：存在週期已歸零（含後端 recycled_at 或前端推算）且非本人 → 不顯示該列 */
+  const visibleMessages = useMemo(() => {
+    return messages.filter((m) => {
+      if (m.recycled_at) return userId === m.user_id;
+      const expired = !isShielded(m) && displayTtlMinutes(m) <= 0;
+      if (expired && userId !== m.user_id) return false;
+      return true;
+    });
+  }, [messages, userId, ttlTick, decayRate]);
+
+  /** 當事人：顯示灰色回收卡（後端已回收或前端推算 TTL 已歸零） */
+  const isRecycledView = (m: ArenaMessage) => {
+    if (!userId || userId !== m.user_id) return false;
+    if (m.recycled_at) return true;
+    return !isShielded(m) && displayTtlMinutes(m) <= 0;
+  };
+
+  const core = visibleMessages.filter((m) => net(m) >= x).sort((a, b) => net(b) - net(a))[0];
+  const elite = visibleMessages
     .filter((m) => m.id !== core?.id && net(m) >= y)
     .sort((a, b) => net(b) - net(a))
     .slice(0, 3);
-  const mundane = messages.filter(
+  const mundane = visibleMessages.filter(
     (m) => m.id !== core?.id && !elite.some((e) => e.id === m.id)
   );
 
   /** 贊同／斥責：僅 icon + (±X min)，靠右下；完整說明放 aria-label */
   const renderArenaMessageBlock = (m: ArenaMessage, variant: "core" | "elite" | "card") => {
+    if (isRecycledView(m)) {
+      const body = getText(
+        "arena.recycledBody",
+        "您的留言存在週期已歸零。系統執行回收。最終結果：👍贊同 {{up}} / 👎斥責 {{down}}，感謝您發表廢話。"
+      )
+        .replace("{{up}}", String(m.upvote_count))
+        .replace("{{down}}", String(m.downvote_count));
+      return (
+        <div
+          className="rounded-lg border border-muted-foreground/35 bg-muted/90 px-4 py-3 text-sm text-muted-foreground leading-relaxed"
+          role="status"
+        >
+          {body}
+        </div>
+      );
+    }
+
     const mid = String(m.id);
     const name =
       authorNames[m.user_id] ?? getText("arena.userFallback", "用戶");
@@ -441,19 +484,40 @@ export function ArenaSection({
       ) : (
         <>
       {core && (
-        <div className="border-4 border-[#D4AF37] bg-black text-white p-6 mb-4 font-mono">
-          <p className="text-sm text-[#A0A0A0] mb-2">{getText("arena.coreLabel", "核心區")}</p>
+        <div
+          className={cn(
+            "p-6 mb-4 font-mono rounded-lg",
+            isRecycledView(core)
+              ? "border border-muted-foreground/40 bg-muted/60 text-foreground"
+              : "border-4 border-[#D4AF37] bg-black text-white"
+          )}
+        >
+          {!isRecycledView(core) && (
+            <p className="text-sm text-[#A0A0A0] mb-2">{getText("arena.coreLabel", "核心區")}</p>
+          )}
           {renderArenaMessageBlock(core, "core")}
         </div>
       )}
 
       {elite.length > 0 && (
         <div className="space-y-2 mb-4 font-mono">
-          <p className="text-xs text-[#E0E0E0] mb-2">{getText("arena.eliteLabel", "精英區")}</p>
+          <p
+            className={cn(
+              "text-xs mb-2",
+              elite.some((e) => isRecycledView(e)) ? "text-muted-foreground" : "text-[#E0E0E0]"
+            )}
+          >
+            {getText("arena.eliteLabel", "精英區")}
+          </p>
           {elite.map((m) => (
             <div
               key={m.id}
-              className="border-2 border-[#C0C0C0] bg-[#0D0D0D] text-[#E0E0E0] p-4"
+              className={cn(
+                "p-4 rounded-lg",
+                isRecycledView(m)
+                  ? "border border-muted-foreground/40 bg-muted/60 text-foreground"
+                  : "border-2 border-[#C0C0C0] bg-[#0D0D0D] text-[#E0E0E0]"
+              )}
             >
               {renderArenaMessageBlock(m, "elite")}
             </div>
@@ -465,8 +529,9 @@ export function ArenaSection({
         <Card
           key={m.id}
           className={cn(
-            "bg-muted/50 font-sans mb-2",
-            userId === m.user_id && "border border-dashed border-primary/50"
+            "font-sans mb-2",
+            isRecycledView(m) ? "border border-muted-foreground/40 bg-muted/70" : "bg-muted/50",
+            userId === m.user_id && !isRecycledView(m) && "border border-dashed border-primary/50"
           )}
         >
           <CardContent className="p-4">{renderArenaMessageBlock(m, "card")}</CardContent>

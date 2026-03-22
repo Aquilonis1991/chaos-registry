@@ -28,3 +28,4 @@ arena.toast.insufficientVoteParticipation,arena,在本主題累積投票參與�
 arena.toast.voteFailed,arena,投票失敗,Vote failed,投票に失敗しました,投票失敗 toast
 arena.needLoginVote,arena,請先登入後再互動,Please log in to interact,操作するにはログインしてください,匿名點贊同／斥責時提示
 arena.voted,arena,已投票,Voted,投票済み,已對該留言投過票
+arena.recycledBody,arena,您的留言存在週期已歸零。系統執行回收。最終結果：👍贊同 {{up}} / 👎斥責 {{down}}，感謝您發表廢話。,Your message TTL reached zero and was recycled. Final: 👍 {{up}} / 👎 {{down}}. Thanks for the nonsense.,存在週期がゼロになり回収されました。結果：👍 {{up}} / 👎 {{down}}。,TTL 歸零後僅作者看到的灰色提示卡

@@ -25,6 +25,8 @@ export type ArenaMessage = {
   downvote_count: number;
   is_legacy: boolean;
   created_at: string;
+  /** 最後一次 TTL／互動更新時間（自然衰減推算用） */
+  updated_at: string;
 };
 
 export function ArenaSection({
@@ -48,7 +50,7 @@ export function ArenaSection({
   const [buyShield, setBuyShield] = useState(false);
   const [posting, setPosting] = useState(false);
   const [voteIds, setVoteIds] = useState<Set<string>>(new Set());
-  /** 留言 user_id → display_name（單次批次查詢，避免逐則請求） */
+  /** 留言 user_id → profiles.nickname（暱稱，單次批次查詢） */
   const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
 
   const x = getConfig("arena_throne_min_threshold_x", 100) as number;
@@ -59,6 +61,16 @@ export function ArenaSection({
   const shieldLegacyBonus = Number(getConfig("arena_shield_legacy_bonus", 180)) || 180;
   const upBonus = getConfig("arena_upvote_time_bonus", 10) as number;
   const downPenalty = getConfig("arena_downvote_time_penalty", 12) as number;
+  /** 每分鐘自然消耗分鐘數（與 decay_arena_ttl 一致；畫面即時推算，不依賴僅 cron 寫回 DB） */
+  const decayRate = Number(getConfig("arena_natural_decay_rate", 1)) || 1;
+
+  /** 定時觸發重繪，使「存在週期剩餘」隨時間遞減 */
+  const [, setTtlTick] = useState(0);
+  useEffect(() => {
+    if (messages.length === 0) return undefined;
+    const id = window.setInterval(() => setTtlTick((n) => n + 1), 10000);
+    return () => window.clearInterval(id);
+  }, [messages.length, topicId]);
 
   const fetchMessages = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -84,12 +96,19 @@ export function ArenaSection({
         return;
       }
       const uids = [...new Set(rows.map((r) => r.user_id))];
-      const { data: profs } = await supabase.from("profiles").select("id, display_name").in("id", uids);
+      const { data: profs, error: profErr } = await supabase
+        .from("profiles")
+        .select("id, nickname")
+        .in("id", uids);
+      if (profErr) {
+        console.warn("[arena] profiles batch:", profErr.message);
+      }
       const next: Record<string, string> = {};
       const fallback = getText("arena.userFallback", "用戶");
       profs?.forEach((p) => {
-        const n = (p as { id: string; display_name: string | null }).display_name;
-        next[(p as { id: string }).id] = (n && String(n).trim()) || fallback;
+        const row = p as { id: string; nickname: string | null };
+        const n = row.nickname;
+        next[row.id] = (n && String(n).trim()) || fallback;
       });
       uids.forEach((uid) => {
         if (!next[uid]) next[uid] = fallback;
@@ -175,6 +194,17 @@ export function ArenaSection({
 
   const net = (m: ArenaMessage) => m.upvote_count - m.downvote_count;
   const isShielded = (m: ArenaMessage) => m.shield_until && new Date(m.shield_until) > new Date();
+
+  /** 畫面顯示用剩餘分鐘：依 updated_at 推算自然衰減；鎖定中與後端相同不扣時間 */
+  const displayTtlMinutes = (m: ArenaMessage) => {
+    const base = Math.max(0, m.ttl_minutes);
+    if (isShielded(m)) return base;
+    const anchor = m.updated_at || m.created_at;
+    const t0 = new Date(anchor).getTime();
+    if (Number.isNaN(t0)) return base;
+    const elapsedMin = (Date.now() - t0) / 60000;
+    return Math.max(0, Math.floor(base - decayRate * elapsedMin));
+  };
   const core = messages.filter((m) => net(m) >= x).sort((a, b) => net(b) - net(a))[0];
   const elite = messages
     .filter((m) => m.id !== core?.id && net(m) >= y)
@@ -191,7 +221,7 @@ export function ArenaSection({
       authorNames[m.user_id] ?? getText("arena.userFallback", "用戶");
     const ttlText = getText("arena.ttlRemaining", "存在週期剩餘: {{minutes}} 分鐘").replace(
       "{{minutes}}",
-      String(m.ttl_minutes)
+      String(displayTtlMinutes(m))
     );
     const ttlCls =
       variant === "card" ? "text-[11px] text-muted-foreground/65" : "text-[11px] text-[#A0A0A0]/75";
@@ -214,8 +244,15 @@ export function ArenaSection({
     const downBtnArena = cn(btnBase, "bg-[#3A3B3C] text-[#E4E6EB] hover:bg-[#4E4F50] active:bg-[#3a3c41]");
 
     const counts = (
-      <div className={countCls}>
-        👍{m.upvote_count} 👎{m.downvote_count}
+      <div className={cn(countCls, "inline-flex items-center gap-3")}>
+        <span className="inline-flex items-center gap-1">
+          <ThumbsUp className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+          <span className="tabular-nums">{m.upvote_count}</span>
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <ThumbsDown className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+          <span className="tabular-nums">{m.downvote_count}</span>
+        </span>
       </div>
     );
 

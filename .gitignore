@@ -10,6 +10,12 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+
+# Native plugin / Gradle 建置（體積大，勿納入版本庫與索引）
+native-ad-plugin/android/build/
+native-ad-plugin/android/.gradle/
+native-ad-plugin/android/.cxx/
+native-ad-plugin/android/local.properties
 *.local
 secrets/
 *.aab

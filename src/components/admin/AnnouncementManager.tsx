@@ -272,23 +272,16 @@ const AnnouncementManager = ({ embedded = false }: Props) => {
 
   return (
     <div className="space-y-6">
-      {!embedded && (
-        <div>
-          <h2 className="text-2xl font-bold">公告管理</h2>
-          <p className="text-muted-foreground">管理平台公告內容和顯示設定</p>
-        </div>
-      )}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      {embedded ? (
-        <div className="flex-1 min-w-0">
-          <h3 className="text-lg font-semibold">公告列表與編輯</h3>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-2xl font-bold">公告管理</h2>
+          <p className="text-muted-foreground">管理平台公告內容與前台輪播顯示</p>
           <p className="text-sm text-muted-foreground mt-1">
             分類、背景配色、顯示日期、權重（1～100）、排程（開始／結束時間）；前台僅在排程內顯示。
           </p>
         </div>
-      ) : null}
 
-      <div className={embedded ? "shrink-0" : "flex w-full justify-end"}>
+      <div className="flex w-full shrink-0 justify-end sm:w-auto">
         <Dialog
           open={isDialogOpen}
           onOpenChange={(open) => {

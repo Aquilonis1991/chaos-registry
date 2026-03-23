@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import AnnouncementManager from "@/components/admin/AnnouncementManager";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -397,13 +396,12 @@ const SystemConfigManager = () => {
             const categoryConfigs = groupedConfigs[category] || [];
             return (
               <TabsContent key={category} value={category} className="space-y-4">
-                {categoryConfigs.length === 0 && category !== "announcement" ? (
+                {categoryConfigs.length === 0 ? (
                   <div className="text-sm text-muted-foreground">
                     尚未設定任何項目
                   </div>
                 ) : (
-                  <>
-                  {categoryConfigs.map((config) => {
+                  categoryConfigs.map((config) => {
                     const isPlatformAdUnit = AD_UNIT_IDS_BY_PLATFORM.includes(config.key);
                     const currentValue = getValue(config.id, config.value);
                     const hasChanged = isPlatformAdUnit ? isPlatformAdUnitChanged(config) : editedValues[config.id] !== undefined;
@@ -671,13 +669,7 @@ const SystemConfigManager = () => {
                         )}
                       </div>
                     );
-                  })}
-                  {category === "announcement" && (
-                    <div className="mt-8 border-t border-border pt-6">
-                      <AnnouncementManager embedded />
-                    </div>
-                  )}
-                  </>
+                  })
                 )}
               </TabsContent>
             );

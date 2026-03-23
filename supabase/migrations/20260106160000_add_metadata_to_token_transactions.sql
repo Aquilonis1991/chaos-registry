@@ -1,5 +1,5 @@
 -- Add metadata column to token_transactions for storing purchase information
--- This allows us to store purchaseToken, productId, and other purchase details
+-- （原檔名 20260127_* 解析為 20260127 易衝突，改為 20260106160000）
 
 ALTER TABLE public.token_transactions
   ADD COLUMN IF NOT EXISTS metadata JSONB;

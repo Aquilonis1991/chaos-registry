@@ -1,8 +1,7 @@
 -- Add language columns to ui_texts table
-ALTER TABLE public.ui_texts 
-ADD COLUMN zh TEXT,
-ADD COLUMN en TEXT,
-ADD COLUMN ja TEXT;
+ALTER TABLE public.ui_texts ADD COLUMN IF NOT EXISTS zh TEXT;
+ALTER TABLE public.ui_texts ADD COLUMN IF NOT EXISTS en TEXT;
+ALTER TABLE public.ui_texts ADD COLUMN IF NOT EXISTS ja TEXT;
 
 -- Update existing records to have language-specific values (set zh as current value)
 UPDATE public.ui_texts SET zh = value WHERE zh IS NULL;

@@ -126,9 +126,6 @@ npx cap open ios
 <key>GADApplicationIdentifier</key>
 <string>ca-app-pub-3940256099942544~1458002511</string>
 
-<!-- 追蹤權限（iOS 14.5+）-->
-<key>NSUserTrackingUsageDescription</key>
-<string>為了提供個性化廣告體驗，我們需要您的授權</string>
 ```
 
 **✅ 這些配置已經完成**，不需要額外修改。

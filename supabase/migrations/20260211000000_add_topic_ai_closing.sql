@@ -20,6 +20,8 @@ COMMENT ON TABLE public.topic_ai_summary IS '主題結束後的 AI 混亂結語�
 
 ALTER TABLE public.topic_ai_summary ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Everyone can read topic ai summary" ON public.topic_ai_summary;
+
 -- Everyone can read
 CREATE POLICY "Everyone can read topic ai summary"
   ON public.topic_ai_summary FOR SELECT

@@ -1,0 +1,33 @@
+key,category,zh,en,ja,description
+arena.empty,arena,尚未有人留言,No messages yet,まだコメントがありません,觀點角鬥場空狀態
+arena.emptyRowLabel,arena,留言狀態,Messages,コメント,空狀態列左側標籤（對齊截止時間列）
+arena.loading,arena,載入中,Loading,読み込み中,角鬥場載入無障礙文字
+arena.coreLabel,arena,核心區,Core,コア,核心區標籤
+arena.eliteLabel,arena,精英區,Elite,エリート,精英區標籤
+arena.ttlRemaining,arena,存在週期剩餘: {{minutes}} 分鐘,TTL remaining: {{minutes}} min,残り: {{minutes}} 分,TTL 剩餘顯示（{{minutes}} 為佔位）
+arena.shieldLocked,arena,[🔒數據鎖定中],[🔒 Locked],[🔒ロック中],鎖定狀態標記
+arena.shieldRemainingHoursMinutes,arena,剩餘 {{hours}} 小時 {{minutes}} 分鐘,{{hours}}h {{minutes}}m left,残り {{hours}} 時間 {{minutes}} 分,鎖定剩餘時間（時+分）
+arena.shieldRemainingMinutes,arena,剩餘 {{minutes}} 分鐘,{{minutes}}m left,残り {{minutes}} 分,鎖定剩餘時間（僅分鐘）
+arena.upvote,arena,贊同 (+{{bonus}}),Upvote (+{{bonus}}),賛成 (+{{bonus}}),贊同按鈕（{{bonus}} 為佔位）
+arena.downvote,arena,斥責 (-{{penalty}}),Downvote (-{{penalty}}),反論 (-{{penalty}}),斥責按鈕（{{penalty}} 為佔位）
+arena.postButton,arena,發表觀點,Post View,投稿する,發表觀點按鈕
+arena.dialogTitle,arena,發表觀點,Post View,投稿,發表觀點對話框標題
+arena.placeholderMaxChars,arena,最多 {{max}} 字,Max {{max}} chars,最大{{max}}文字,字數 placeholder（{{max}} 為佔位）
+arena.shieldOption,arena,購買數據鎖定保險 ({{price}} 代幣),Buy shield ({{price}} tokens),シールド購入 ({{price}} トークン),鎖定保險選項（{{price}} 為佔位）
+arena.shieldTitle,arena,購買數據鎖定保險,Buy data lock insurance,データロック保険,Switch 列標題（互動擴充版式）
+arena.shieldCostLine,arena,{{price}} 代幣,{{price}} tokens,{{price}} トークン,代幣列（{{price}}）
+arena.shieldDetailTitle,arena,鎖定保護機制說明,Lock protection details,ロック保護の説明,勾選鎖定時 Alert 標題
+arena.shieldDetailBody,arena,"開啟後，發表成功時將從帳戶扣除 {{price}} 代幣，並套用以下效果：\n\n· 鎖定約 {{hours}} 小時：鎖定期間內，系統對該則留言的「存在週期自然衰減」會暫停。\n· 發表時額外增加約 {{bonus}} 分鐘的存在週期。\n\n其他使用者仍可贊同或斥責；斥責仍可能縮短剩餘存在週期（但不會低於 0）。","When enabled, {{price}} tokens will be deducted on successful post:\n\n· Lock for about {{hours}} h: natural TTL decay pauses for this comment during the lock.\n· On post, about {{bonus}} extra minutes of TTL are added.\n\nOthers can still agree or disagree; disagree may still reduce remaining TTL (not below 0).","有効にすると、投稿成功時に {{price}} トークンが消費されます。\n\n· 約 {{hours}} 時間ロック：期間中は当該コメントの自然TTL減衰が停止します。\n· 投稿時に約 {{bonus}} 分のTTLが追加されます。\n\n他ユーザーは賛成・反論できます。反論で残りTTLが減る場合があります（0未満にはなりません）。",勾選鎖定保險時顯示（佔位 {{price}} {{hours}} {{bonus}}）
+arena.cancel,arena,取消,Cancel,キャンセル,取消按鈕
+arena.submitting,arena,發表中...,Posting...,投稿中...,發表中狀態
+arena.submit,arena,發表,Post,投稿,發表按鈕
+arena.toast.loadFailed,arena,載入失敗,Load failed,読み込み失敗,載入失敗 toast
+arena.toast.maxChars,arena,最多 {{max}} 字,Max {{max}} chars,最大{{max}}文字,字數超限 toast（{{max}} 為佔位）
+arena.toast.postSuccess,arena,已發表,Posted,投稿しました,發表成功 toast
+arena.toast.postFailed,arena,發表失敗,Post failed,投稿に失敗しました,發表失敗 toast
+arena.toast.onePerTopic,arena,每個主題僅限發表一則觀點,One message per topic allowed,1トピックにつき1件まで,每人每主題僅能發表一則角鬥場留言（對應 RPC）
+arena.toast.insufficientVoteParticipation,arena,在本主題累積投票參與度需達 {{required}}（付費票加總＋免費票次）才能發表觀點,Need at least {{required}} vote participation on this topic (paid vote sum + free votes) to post,このトピックで投票参加が合計{{required}}（有料票の合計＋無料票）に達するまで投稿できません,對應 RPC：Insufficient vote participation；system_config：arena_mundane_access_votes
+arena.toast.voteFailed,arena,投票失敗,Vote failed,投票に失敗しました,投票失敗 toast
+arena.needLoginVote,arena,請先登入後再互動,Please log in to interact,操作するにはログインしてください,匿名點贊同／斥責時提示
+arena.voted,arena,已投票,Voted,投票済み,已對該留言投過票
+arena.recycledBody,arena,您的留言存在週期已歸零。系統執行回收。最終結果：👍贊同 {{up}} / 👎斥責 {{down}}，感謝您發表廢話。,Your message TTL reached zero and was recycled. Final: 👍 {{up}} / 👎 {{down}}. Thanks for the nonsense.,存在週期がゼロになり回収されました。結果：👍 {{up}} / 👎 {{down}}。,TTL 歸零後僅作者看到的灰色提示卡

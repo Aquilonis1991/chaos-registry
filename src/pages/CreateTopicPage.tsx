@@ -212,8 +212,8 @@ const CreateTopicPage = () => {
   const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
   const [promptConfigDialogOpen, setPromptConfigDialogOpen] = useState(false);
   const [promptConfigKey, setPromptConfigKey] = useState<string | null>(null);
-  const [allowTimeExtension, setAllowTimeExtension] = useState(false);
-  const [allowOptionAddition, setAllowOptionAddition] = useState(false);
+  const [allowTimeExtension, setAllowTimeExtension] = useState(true);
+  const [allowOptionAddition, setAllowOptionAddition] = useState(true);
 
   // Check daily rewrite usage on mount
   useEffect(() => {
@@ -710,35 +710,6 @@ const CreateTopicPage = () => {
         />
       )}
 
-      {/* 固定標題列：發起主題與代幣餘額不隨捲動移動 */}
-      <header className="fixed top-0 left-0 right-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
-        <div className="max-w-screen-xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate(-1)}
-              className="text-primary-foreground hover:bg-primary-foreground/20"
-            >
-              <ArrowLeft className="w-6 h-6" />
-            </Button>
-
-            <div className="flex-1">
-              <h1 className="text-lg font-bold text-primary-foreground">{headerTitle}</h1>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => navigate('/recharge')}
-              className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-3 py-1.5 rounded-full hover:bg-primary-foreground/30 transition-colors cursor-pointer"
-            >
-              <Coins className="w-4 h-4 text-accent" />
-              <span className="font-bold text-primary-foreground text-sm">{userTokens}</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
       <div className="min-h-screen bg-background pb-20">
         <LoadingBubble
           isLoading={isRewriting}
@@ -750,9 +721,40 @@ const CreateTopicPage = () => {
           textKey="loading.create_topic"
           defaultText="正在建立主題..."
         />
+        {/* 固定標題列：發起主題與代幣餘額不隨捲動移動 */}
+        <header className="fixed top-0 left-0 right-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
+          <div className="max-w-screen-xl mx-auto px-4 py-4">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(-1)}
+                className="text-primary-foreground hover:bg-primary-foreground/20"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </Button>
 
-        {/* Content - 添加 padding-top 避免被固定 header 擋住 */}
-        <div className="max-w-screen-xl mx-auto px-4 py-6 space-y-6 pt-[calc(5.25rem+env(safe-area-inset-top,0px))]">
+              <div className="flex-1">
+                <h1 className="text-lg font-bold text-primary-foreground">{headerTitle}</h1>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => navigate('/recharge')}
+                className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-3 py-1.5 rounded-full hover:bg-primary-foreground/30 transition-colors cursor-pointer"
+              >
+                <Coins className="w-4 h-4 text-accent" />
+                <span className="font-bold text-primary-foreground text-sm">{userTokens}</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* 預留標題列高度（safe area + 0.75rem + py-4 + 一行），避免內容被擋住 */}
+        <div className="h-[calc(5.25rem+env(safe-area-inset-top,0px))]" aria-hidden="true" />
+
+        {/* Content */}
+        <div className="max-w-screen-xl mx-auto px-4 py-6 space-y-6">
           {/* Title */}
           <div className="space-y-2">
             <Label htmlFor="title" className="text-base font-semibold">

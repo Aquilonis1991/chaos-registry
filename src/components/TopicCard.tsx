@@ -69,7 +69,6 @@ function TopicCardContent({
   endedSuffixLabel,
   createdAt,
   getTagColor,
-  useCard = false,
 }: {
   title: string;
   tags: string[];
@@ -81,13 +80,12 @@ function TopicCardContent({
   endedSuffixLabel?: string;
   createdAt?: string;
   getTagColor: (tag: string) => string;
-  useCard?: boolean;
 }) {
   const label = endedLabel ?? '已結束';
   const endedSuffix = endedSuffixLabel ?? '（已結束）';
-  const content = (
+  return (
     <>
-      <div className={useCard ? undefined : "p-5"}>
+      <div className="p-5">
         <div className="flex items-start justify-between mb-3">
           <h3 className="text-lg font-bold text-foreground flex-1 line-clamp-2">{title}</h3>
           <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
@@ -105,7 +103,7 @@ function TopicCardContent({
           ))}
         </div>
       </div>
-      <div className={useCard ? undefined : "flex items-center px-5 py-3 bg-muted/30 justify-between text-sm"}>
+      <div className="flex items-center px-5 py-3 bg-muted/30 justify-between text-sm">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1 text-primary font-semibold">
             <Flame className="w-4 h-4" />
@@ -126,52 +124,6 @@ function TopicCardContent({
       </div>
     </>
   );
-
-  if (useCard) {
-    return (
-      <>
-        <CardContent className="p-5">
-          <div className="flex items-start justify-between mb-3">
-            <h3 className="text-lg font-bold text-foreground flex-1 line-clamp-2">{title}</h3>
-            <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
-              {isEnded && (
-                <CheckCircle2 className="w-5 h-5 text-muted-foreground" title={label} aria-label={label} />
-              )}
-              {isHot && <Flame className="w-5 h-5 text-accent" />}
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2 mb-3">
-            {tags.map((tag) => (
-              <Badge key={tag} className={cn("text-xs font-medium border-0", getTagColor(tag))}>
-                #{tag}
-              </Badge>
-            ))}
-          </div>
-        </CardContent>
-        <CardFooter className="px-5 py-3 bg-muted/30 flex items-center justify-between text-sm">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1 text-primary font-semibold">
-              <Flame className="w-4 h-4" />
-              <span>{formatCompactNumber(voteCount)}</span>
-            </div>
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <User className="w-4 h-4" />
-              <span>{creatorName}</span>
-            </div>
-          </div>
-          {createdAt && (
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <Clock className="w-4 h-4" />
-              <span>{createdAt}</span>
-              {isEnded && <span>{endedSuffix}</span>}
-            </div>
-          )}
-        </CardFooter>
-      </>
-    );
-  }
-
-  return content;
 }
 
 export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, isEnded, createdAt, currentExposureLevel }: TopicCardProps) => {
@@ -190,7 +142,7 @@ export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, isEn
   const exposureStyle = getExposureContainerStyle(effectiveLevel);
   const isExposureCard = effectiveLevel === 'high' || effectiveLevel === 'medium';
 
-  const contentForExposure = (
+  const content = (
     <TopicCardContent
       title={title}
       tags={tags}
@@ -202,23 +154,6 @@ export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, isEn
       endedSuffixLabel={endedSuffixLabel}
       createdAt={createdAt}
       getTagColor={getTagColor}
-      useCard={false}
-    />
-  );
-
-  const contentForCard = (
-    <TopicCardContent
-      title={title}
-      tags={tags}
-      voteCount={voteCount}
-      creatorName={creatorName}
-      isHot={isHot}
-      isEnded={isEnded}
-      endedLabel={endedLabel}
-      endedSuffixLabel={endedSuffixLabel}
-      createdAt={createdAt}
-      getTagColor={getTagColor}
-      useCard={true}
     />
   );
 
@@ -231,7 +166,7 @@ export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, isEn
           className="rounded-lg overflow-hidden active:scale-100 transition-none"
           data-exposure-level={effectiveLevel}
         >
-          {contentForExposure}
+          {content}
         </div>
       ) : (
         <Card
@@ -239,7 +174,43 @@ export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, isEn
             "cursor-pointer active:scale-100 transition-none border-0 !bg-gradient-to-br from-gray-100 to-transparent dark:from-gray-800/50 dark:to-transparent"
           )}
         >
-          {contentForCard}
+          <CardContent className="p-5">
+            <div className="flex items-start justify-between mb-3">
+              <h3 className="text-lg font-bold text-foreground flex-1 line-clamp-2">{title}</h3>
+              <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
+                {isEnded && (
+                  <CheckCircle2 className="w-5 h-5 text-muted-foreground" title={endedLabel} aria-label={endedLabel} />
+                )}
+                {isHot && <Flame className="w-5 h-5 text-accent" />}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {tags.map((tag) => (
+                <Badge key={tag} className={cn("text-xs font-medium border-0", getTagColor(tag))}>
+                  #{tag}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+          <CardFooter className="px-5 py-3 bg-muted/30 flex items-center justify-between text-sm">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1 text-primary font-semibold">
+                <Flame className="w-4 h-4" />
+                <span>{formatCompactNumber(voteCount)}</span>
+              </div>
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <User className="w-4 h-4" />
+                <span>{creatorName}</span>
+              </div>
+            </div>
+            {createdAt && (
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <Clock className="w-4 h-4" />
+                <span>{createdAt}</span>
+                {isEnded && <span>{endedSuffixLabel}</span>}
+              </div>
+            )}
+          </CardFooter>
         </Card>
       )}
     </Link>

@@ -22,6 +22,8 @@ const getClientIP = (req: Request): string => {
   return req.headers.get('x-real-ip') || req.headers.get('cf-connecting-ip') || 'unknown';
 };
 
+const normalizeExposureLevelForDb = (level: string): string => (level === 'normal' ? 'low' : level);
+
 Deno.serve(async (req) => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
@@ -167,7 +169,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    const validExposureLevels = ['normal', 'medium', 'high'];
+    const validExposureLevels = ['low', 'normal', 'medium', 'high'];
     if (!validExposureLevels.includes(exposure_level)) {
       return new Response(
         JSON.stringify({ error: 'Invalid exposure level' }),
@@ -190,7 +192,11 @@ Deno.serve(async (req) => {
     }
 
     // Calculate cost from dynamic config
-    const exposureCost = exposureCosts[exposure_level as keyof typeof exposureCosts] || 30;
+    const exposureCost =
+      exposureCosts[exposure_level as keyof typeof exposureCosts]
+      || (exposure_level === 'low' ? exposureCosts.normal : undefined)
+      || (exposure_level === 'normal' ? exposureCosts.low : undefined)
+      || 30;
     const durationCost = durationCosts[duration_days.toString()] || 0;
     const totalCost = exposureCost + durationCost;
 
@@ -200,6 +206,8 @@ Deno.serve(async (req) => {
     });
 
     // Create topic first
+    const normalizedExposureLevel = normalizeExposureLevelForDb(exposure_level);
+
     const { data: topic, error: topicError } = await supabaseClient
       .from('topics')
       .insert({
@@ -208,7 +216,7 @@ Deno.serve(async (req) => {
         description: description?.trim() || null,
         options: options,
         tags: tags || [],
-        exposure_level,
+        exposure_level: normalizedExposureLevel,
         duration_days,
         end_at,
         status: 'active',

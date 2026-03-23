@@ -210,6 +210,21 @@ export function ArenaSection({
 
   const net = (m: ArenaMessage) => m.upvote_count - m.downvote_count;
   const isShielded = (m: ArenaMessage) => Boolean(m.shield_until && new Date(m.shield_until) > new Date());
+  const shieldRemainingText = (m: ArenaMessage) => {
+    if (!m.shield_until) return "";
+    const diffMs = new Date(m.shield_until).getTime() - Date.now();
+    if (diffMs <= 0) return "";
+    const totalMin = Math.max(1, Math.ceil(diffMs / 60000));
+    const h = Math.floor(totalMin / 60);
+    const min = totalMin % 60;
+    if (h > 0) {
+      return getText("arena.shieldRemainingHoursMinutes", "剩餘 {{hours}} 小時 {{minutes}} 分鐘")
+        .replace("{{hours}}", String(h))
+        .replace("{{minutes}}", String(min));
+    }
+    return getText("arena.shieldRemainingMinutes", "剩餘 {{minutes}} 分鐘")
+      .replace("{{minutes}}", String(min));
+  };
 
   /** 畫面顯示用剩餘分鐘：依 updated_at 推算自然衰減；鎖定中與後端相同不扣時間 */
   const displayTtlMinutes = (m: ArenaMessage) => {
@@ -368,6 +383,7 @@ export function ArenaSection({
             )}
           >
             {getText("arena.shieldLocked", "[🔒數據鎖定中]")}
+            {` ${shieldRemainingText(m)}`}
           </p>
         )}
         {footer}
@@ -383,7 +399,9 @@ export function ArenaSection({
   )
     .replace(/\{\{price\}\}/g, String(shieldPrice))
     .replace(/\{\{hours\}\}/g, String(shieldHours))
-    .replace(/\{\{bonus\}\}/g, String(shieldLegacyBonus));
+    .replace(/\{\{bonus\}\}/g, String(shieldLegacyBonus))
+    // DB 文案若以字面 \n 儲存，轉成實際換行以正確顯示
+    .replace(/\\n/g, "\n");
 
   const postDialog = !isTopicEnded && userId && (
     <>

@@ -28,6 +28,7 @@ export const useTopicOperations = () => {
   const { language } = useLanguage();
   const { getText } = useUIText(language);
   const { getConfig } = useSystemConfigCache();
+  const normalizeExposureLevelForDb = (level: string) => (level === 'normal' ? 'low' : level);
 
   /* New Discount Logic */
   const checkDailyDiscountEligibility = async (): Promise<boolean> => {
@@ -97,7 +98,10 @@ export const useTopicOperations = () => {
         }
       }
 
-      const exposureCost = (exposureCosts as any)[data.exposure_level] ?? 30;
+      const exposureCost =
+        (exposureCosts as any)[data.exposure_level]
+        ?? (data.exposure_level === 'normal' ? (exposureCosts as any).low : undefined)
+        ?? 30;
       const durationCost = (durationCosts as any)[data.duration_days.toString()] ?? 0;
 
       // 計算總價：(曝光 + 天數 + 基礎) - 折扣，最小為 0
@@ -126,13 +130,15 @@ export const useTopicOperations = () => {
           votes: 0
         }));
 
+      const normalizedExposureLevel = normalizeExposureLevelForDb(data.exposure_level);
+
       const { data: rpcResult, error: rpcError } = await (supabase.rpc as any)('create_topic_atomic', {
         p_title: data.title.trim(),
         p_description: data.description?.trim() || null,
         p_options: formattedOptions,
         p_category: data.category,
         p_tags: data.tags || [],
-        p_exposure_level: data.exposure_level,
+        p_exposure_level: normalizedExposureLevel,
         p_duration_days: data.duration_days,
         p_end_at: endDate.toISOString(),
         p_total_cost: totalCost,

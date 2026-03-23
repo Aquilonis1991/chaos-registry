@@ -6,6 +6,8 @@ arena.coreLabel,arena,核心區,Core,コア,核心區標籤
 arena.eliteLabel,arena,精英區,Elite,エリート,精英區標籤
 arena.ttlRemaining,arena,存在週期剩餘: {{minutes}} 分鐘,TTL remaining: {{minutes}} min,残り: {{minutes}} 分,TTL 剩餘顯示（{{minutes}} 為佔位）
 arena.shieldLocked,arena,[🔒數據鎖定中],[🔒 Locked],[🔒ロック中],鎖定狀態標記
+arena.shieldRemainingHoursMinutes,arena,剩餘 {{hours}} 小時 {{minutes}} 分鐘,{{hours}}h {{minutes}}m left,残り {{hours}} 時間 {{minutes}} 分,鎖定剩餘時間（時+分）
+arena.shieldRemainingMinutes,arena,剩餘 {{minutes}} 分鐘,{{minutes}}m left,残り {{minutes}} 分,鎖定剩餘時間（僅分鐘）
 arena.upvote,arena,贊同 (+{{bonus}}),Upvote (+{{bonus}}),賛成 (+{{bonus}}),贊同按鈕（{{bonus}} 為佔位）
 arena.downvote,arena,斥責 (-{{penalty}}),Downvote (-{{penalty}}),反論 (-{{penalty}}),斥責按鈕（{{penalty}} 為佔位）
 arena.postButton,arena,發表觀點,Post View,投稿する,發表觀點按鈕

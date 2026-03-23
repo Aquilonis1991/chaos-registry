@@ -239,9 +239,31 @@ const AnnouncementManager = ({ embedded = false }: Props) => {
         }
         toast.success("公告更新成功");
       } else {
-        const { error } = await supabase.from("announcements").insert(announcementData);
-
-        if (error) throw error;
+        const { error: rpcError } = await supabase.rpc("admin_create_announcement", {
+          p_title: announcementData.title,
+          p_content: announcementData.content,
+          p_summary: announcementData.summary,
+          p_image_url: announcementData.image_url,
+          p_priority: announcementData.priority,
+          p_start_date: announcementData.start_date,
+          p_end_date: announcementData.end_date,
+          p_is_active: announcementData.is_active,
+          p_announcement_category: announcementData.announcement_category,
+          p_style_preset: announcementData.style_preset,
+          p_display_date: announcementData.display_date,
+        });
+        if (rpcError) {
+          if (!isRpcMissingError(rpcError)) throw rpcError;
+          // fallback：若環境尚未套用 RPC migration，先回退舊的直接 insert 路徑
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from("announcements")
+            .insert(announcementData)
+            .select("id");
+          if (fallbackError) throw fallbackError;
+          if (!fallbackData || fallbackData.length === 0) {
+            throw new Error("新增未生效（可能無權限或資料未寫入）");
+          }
+        }
         toast.success("公告創建成功");
       }
 

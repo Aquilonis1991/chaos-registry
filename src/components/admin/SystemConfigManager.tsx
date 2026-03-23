@@ -29,13 +29,6 @@ const INTEGER_ADMIN_CONFIG: Record<
     helper:
       "當同一主題被「不同用戶」檢舉累計達此人數時，系統自動隱藏該主題（與 handle_topic_report 一致）。",
   },
-  announcement_max_display: {
-    label: "前台公告顯示則數",
-    min: 1,
-    max: 50,
-    helper:
-      "公告輪播一次向 get_active_announcements 請求的最多筆數；儲存後前台快取會於重新載入後生效。",
-  },
 };
 
 function coerceConfigNumber(v: unknown): number {
@@ -268,7 +261,9 @@ const SystemConfigManager = () => {
     'legal_privacy_content',
     'ai_chaos_rewrite_prompt',
     'ai_chaos_verification_prompt',
-    'ai_closing_prompt'
+    'ai_closing_prompt',
+    // 移至後台「公告顯示」頁上方管理
+    'announcement_max_display'
   ];
 
   /** 舊分類 battlefield 已廢棄且程式未使用；資料請以 migration 20260321130000 自 DB 刪除／合併 */

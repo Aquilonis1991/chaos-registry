@@ -25,6 +25,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { zhTW } from "date-fns/locale";
+import { useSystemConfig } from "@/hooks/useSystemConfig";
+import { invalidateConfigCache } from "@/hooks/useSystemConfigCache";
 import {
   ANNOUNCEMENT_CATEGORIES,
   ANNOUNCEMENT_STYLE_PRESETS,
@@ -56,11 +58,14 @@ type Props = {
 };
 
 const AnnouncementManager = ({ embedded = false }: Props) => {
+  const { configs, updateConfig } = useSystemConfig();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [displaySaving, setDisplaySaving] = useState(false);
+  const [displayCountInput, setDisplayCountInput] = useState("3");
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -73,6 +78,23 @@ const AnnouncementManager = ({ embedded = false }: Props) => {
   const [announcementCategory, setAnnouncementCategory] = useState<AnnouncementCategory>("一般");
   const [stylePreset, setStylePreset] = useState(1);
   const [displayDate, setDisplayDate] = useState("");
+
+  const announcementMaxDisplayConfig = configs.find(
+    (c) => c.key === "announcement_max_display"
+  );
+
+  useEffect(() => {
+    if (!announcementMaxDisplayConfig) return;
+    const raw = announcementMaxDisplayConfig.value;
+    const n =
+      typeof raw === "number"
+        ? raw
+        : typeof raw === "string"
+          ? Number(raw)
+          : Number.NaN;
+    const safe = Number.isFinite(n) ? Math.max(1, Math.min(50, Math.floor(n))) : 3;
+    setDisplayCountInput(String(safe));
+  }, [announcementMaxDisplayConfig?.id, announcementMaxDisplayConfig?.value]);
 
   useEffect(() => {
     fetchAnnouncements();
@@ -262,6 +284,31 @@ const AnnouncementManager = ({ embedded = false }: Props) => {
     return "低";
   };
 
+  const saveAnnouncementMaxDisplay = async () => {
+    if (!announcementMaxDisplayConfig) {
+      toast.error("找不到 announcement_max_display 設定");
+      return;
+    }
+    const n = parseInt(displayCountInput.trim(), 10);
+    if (Number.isNaN(n) || n < 1 || n > 50) {
+      toast.error("請輸入 1～50 的整數");
+      return;
+    }
+    setDisplaySaving(true);
+    try {
+      const success = await updateConfig(announcementMaxDisplayConfig.id, n);
+      if (!success) {
+        toast.error("儲存失敗");
+        return;
+      }
+      invalidateConfigCache();
+      toast.success("前台公告顯示則數已更新");
+      setDisplayCountInput(String(n));
+    } finally {
+      setDisplaySaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -272,6 +319,35 @@ const AnnouncementManager = ({ embedded = false }: Props) => {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold">前台公告顯示則數</p>
+              <p className="text-xs text-muted-foreground">
+                `announcement_max_display`：公告輪播一次向 get_active_announcements 請求的最多筆數（1～50）。
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Input
+                value={displayCountInput}
+                onChange={(e) => setDisplayCountInput(e.target.value)}
+                type="number"
+                min={1}
+                max={50}
+                step={1}
+                className="w-28"
+              />
+              <Button
+                onClick={saveAnnouncementMaxDisplay}
+                disabled={displaySaving || !announcementMaxDisplayConfig}
+              >
+                {displaySaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "儲存"}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <h2 className="text-2xl font-bold">公告管理</h2>

@@ -28,7 +28,6 @@ export const useTopicOperations = () => {
   const { language } = useLanguage();
   const { getText } = useUIText(language);
   const { getConfig } = useSystemConfigCache();
-  const normalizeExposureLevelForDb = (level: string) => (level === 'normal' ? 'low' : level);
 
   /* New Discount Logic */
   const checkDailyDiscountEligibility = async (): Promise<boolean> => {

@@ -167,7 +167,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    const validExposureLevels = ['low', 'normal', 'medium', 'high'];
+    const validExposureLevels = ['normal', 'medium', 'high'];
     if (!validExposureLevels.includes(exposure_level)) {
       return new Response(
         JSON.stringify({ error: 'Invalid exposure level' }),
@@ -201,9 +201,7 @@ Deno.serve(async (req) => {
       check_user_id: user.id
     });
 
-    // Create topic first
-    const normalizedExposureLevel = normalizeExposureLevelForDb(exposure_level);
-
+    // Create topic first（與 DB topics_exposure_level_check：normal|medium|high 一致）
     const { data: topic, error: topicError } = await supabaseClient
       .from('topics')
       .insert({
@@ -212,7 +210,7 @@ Deno.serve(async (req) => {
         description: description?.trim() || null,
         options: options,
         tags: tags || [],
-        exposure_level: normalizedExposureLevel,
+        exposure_level,
         duration_days,
         end_at,
         status: 'active',

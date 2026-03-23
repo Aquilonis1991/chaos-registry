@@ -378,7 +378,7 @@ const VoteDetailPage = () => {
   // 等待主題資料時：只顯示頁面骨架（Header），內容區留白，不顯示任何讀取動畫/彈窗
   if (waitingForTopic) {
     return (
-      <div className="min-h-screen bg-background pb-6">
+      <div className="min-h-screen bg-background pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
         <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
           <div className="max-w-screen-xl mx-auto px-5 sm:px-6 py-4">
             <div className="flex items-center gap-4">
@@ -428,7 +428,7 @@ const VoteDetailPage = () => {
 
   return (
     <>
-      <div className="min-h-screen bg-background pb-6">
+      <div className="min-h-screen bg-background pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
         {/* Header：進入詳情即顯示，不擋全螢幕 */}
         <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
           <div className="max-w-screen-xl mx-auto px-5 sm:px-6 py-4">

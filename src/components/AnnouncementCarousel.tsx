@@ -53,6 +53,9 @@ export const AnnouncementCarousel = ({
   const [isDismissed, setIsDismissed] = useState(false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
+  const [isTouching, setIsTouching] = useState(false);
+  const [dragDeltaX, setDragDeltaX] = useState(0);
+  const [swipeFxOffset, setSwipeFxOffset] = useState(0);
 
   const { getConfig, loading: configLoading, configs } = useSystemConfigCache();
   const announcementMaxDisplay = useMemo(() => {
@@ -113,18 +116,37 @@ export const AnnouncementCarousel = ({
 
   const SWIPE_THRESHOLD = 40;
   const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {
+    setIsTouching(true);
     setTouchStartX(e.touches[0].clientX);
     setTouchEndX(null);
+    setDragDeltaX(0);
+    setSwipeFxOffset(0);
   };
   const handleTouchMove = (e: TouchEvent<HTMLDivElement>) => {
-    setTouchEndX(e.touches[0].clientX);
+    const x = e.touches[0].clientX;
+    setTouchEndX(x);
+    if (touchStartX !== null) {
+      setDragDeltaX(x - touchStartX);
+    }
   };
   const handleTouchEnd = () => {
+    setIsTouching(false);
+    const delta = touchStartX !== null && touchEndX !== null ? touchStartX - touchEndX : 0;
+
     if (announcements.length <= 1 || touchStartX === null || touchEndX === null) return;
-    const delta = touchStartX - touchEndX;
-    if (Math.abs(delta) < SWIPE_THRESHOLD) return;
-    if (delta > 0) handleNext();
-    else handlePrev();
+    if (Math.abs(delta) < SWIPE_THRESHOLD) {
+      setDragDeltaX(0);
+      return;
+    }
+    if (delta > 0) {
+      handleNext();
+      setSwipeFxOffset(-10);
+    } else {
+      handlePrev();
+      setSwipeFxOffset(10);
+    }
+    window.setTimeout(() => setSwipeFxOffset(0), 180);
+    setDragDeltaX(0);
   };
 
   const getCategoryBadge = (a: Announcement, variant: "onGradient" | "onLight" = "onGradient") => {
@@ -161,6 +183,11 @@ export const AnnouncementCarousel = ({
   }
 
   const currentAnnouncement = announcements[currentIndex];
+  const dragRatio = Math.min(Math.abs(dragDeltaX) / 160, 1);
+  const visualOffset = dragDeltaX * 0.18 + swipeFxOffset;
+  const visualScale = 1 - dragRatio * 0.03;
+  const visualOpacity = 1 - dragRatio * 0.2;
+  const edgeGlowSide = dragDeltaX > 0 ? "left" : "right";
 
   return (
     <>
@@ -173,7 +200,32 @@ export const AnnouncementCarousel = ({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       >
-        <CardContent className="p-4">
+        <CardContent
+          className="p-4 relative"
+          style={{
+            transform: `translateX(${visualOffset}px) scale(${visualScale})`,
+            opacity: visualOpacity,
+            transition: isTouching
+              ? "none"
+              : "transform 220ms ease, opacity 220ms ease",
+          }}
+        >
+          {announcements.length > 1 && dragRatio > 0.05 && (
+            <div
+              aria-hidden
+              className={cn(
+                "pointer-events-none absolute top-0 bottom-0 w-12",
+                edgeGlowSide === "left" ? "left-0" : "right-0"
+              )}
+              style={{
+                background:
+                  edgeGlowSide === "left"
+                    ? "linear-gradient(to right, rgba(255,255,255,0.32), rgba(255,255,255,0))"
+                    : "linear-gradient(to left, rgba(255,255,255,0.32), rgba(255,255,255,0))",
+                opacity: dragRatio,
+              }}
+            />
+          )}
           <div className="flex items-center justify-between text-white">
             <div className="flex-1 cursor-pointer pr-10" onClick={() => handleAnnouncementClick(currentAnnouncement)}>
               <div className="flex items-center gap-2 mb-2 flex-wrap">

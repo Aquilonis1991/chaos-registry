@@ -13,7 +13,6 @@ import {
   Plus,
   Edit,
   Trash2,
-  Eye,
   Calendar,
   Star,
   Clock,
@@ -43,7 +42,6 @@ interface Announcement {
   start_date: string;
   end_date: string;
   is_active: boolean;
-  click_count: number;
   created_at: string;
   updated_at: string;
   created_by?: string;
@@ -202,12 +200,16 @@ const AnnouncementManager = ({ embedded = false }: Props) => {
       };
 
       if (editingAnnouncement) {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("announcements")
           .update(announcementData)
-          .eq("id", editingAnnouncement.id);
+          .eq("id", editingAnnouncement.id)
+          .select("id");
 
         if (error) throw error;
+        if (!data || data.length === 0) {
+          throw new Error("編輯未生效（可能無權限或資料已不存在）");
+        }
         toast.success("公告更新成功");
       } else {
         const { error } = await supabase.from("announcements").insert(announcementData);
@@ -221,7 +223,11 @@ const AnnouncementManager = ({ embedded = false }: Props) => {
       resetForm();
     } catch (error: unknown) {
       console.error("Error saving announcement:", error);
-      toast.error("保存公告失敗");
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "保存公告失敗";
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -231,30 +237,49 @@ const AnnouncementManager = ({ embedded = false }: Props) => {
     if (!confirm("確定要刪除這個公告嗎？")) return;
 
     try {
-      const { error } = await supabase.from("announcements").delete().eq("id", id);
+      const { data, error } = await supabase
+        .from("announcements")
+        .delete()
+        .eq("id", id)
+        .select("id");
 
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("刪除未生效（可能無權限或資料已不存在）");
+      }
       toast.success("公告刪除成功");
       await fetchAnnouncements();
     } catch (error) {
       console.error("Error deleting announcement:", error);
-      toast.error("刪除公告失敗");
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "刪除公告失敗";
+      toast.error(message);
     }
   };
 
   const handleToggleActive = async (id: string, currentStatus: boolean) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("announcements")
         .update({ is_active: !currentStatus })
-        .eq("id", id);
+        .eq("id", id)
+        .select("id, is_active");
 
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("啟用/停用未生效（可能無權限或資料已不存在）");
+      }
       toast.success(`公告已${!currentStatus ? "啟用" : "停用"}`);
       await fetchAnnouncements();
     } catch (error) {
       console.error("Error toggling announcement status:", error);
-      toast.error("更新公告狀態失敗");
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "更新公告狀態失敗";
+      toast.error(message);
     }
   };
 
@@ -565,7 +590,6 @@ const AnnouncementManager = ({ embedded = false }: Props) => {
                 <TableHead>顯示日</TableHead>
                 <TableHead>狀態</TableHead>
                 <TableHead>排程</TableHead>
-                <TableHead>點擊</TableHead>
                 <TableHead>操作</TableHead>
               </TableRow>
             </TableHeader>
@@ -627,12 +651,6 @@ const AnnouncementManager = ({ embedded = false }: Props) => {
                         <Clock className="w-3 h-3 shrink-0" />
                         {format(new Date(announcement.end_date), "MM/dd HH:mm", { locale: zhTW })}
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Eye className="w-3 h-3" />
-                      {announcement.click_count}
                     </div>
                   </TableCell>
                   <TableCell>

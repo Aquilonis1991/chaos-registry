@@ -352,7 +352,6 @@ const SystemConfigManager = () => {
         </div>
         <CardDescription>
           管理所有系統數值配置，修改後點擊保存即可應用。
-          原「app」「pricing」分類已併入「用戶配置」分頁（資料庫 migration 20260321180000）。
         </CardDescription>
       </CardHeader>
       <CardContent>

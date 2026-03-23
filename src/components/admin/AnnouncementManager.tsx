@@ -98,6 +98,16 @@ const AnnouncementManager = ({ embedded = false }: Props) => {
     fetchAnnouncements();
   }, []);
 
+  const isRpcMissingError = (error: unknown) => {
+    const message =
+      typeof error === "object" && error !== null && "message" in error
+        ? String((error as { message?: unknown }).message || "")
+        : "";
+    return /function .*admin_.*announcement.* does not exist|Could not find the function/i.test(
+      message
+    );
+  };
+
   const fetchAnnouncements = async () => {
     try {
       const { data, error } = await supabase
@@ -200,7 +210,7 @@ const AnnouncementManager = ({ embedded = false }: Props) => {
       };
 
       if (editingAnnouncement) {
-        const { error } = await supabase.rpc("admin_update_announcement", {
+        const { error: rpcError } = await supabase.rpc("admin_update_announcement", {
           p_id: editingAnnouncement.id,
           p_title: announcementData.title,
           p_content: announcementData.content,
@@ -214,7 +224,19 @@ const AnnouncementManager = ({ embedded = false }: Props) => {
           p_style_preset: announcementData.style_preset,
           p_display_date: announcementData.display_date,
         });
-        if (error) throw error;
+        if (rpcError) {
+          if (!isRpcMissingError(rpcError)) throw rpcError;
+          // fallback：若環境尚未套用 RPC migration，先回退舊的直接 update 路徑
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from("announcements")
+            .update(announcementData)
+            .eq("id", editingAnnouncement.id)
+            .select("id");
+          if (fallbackError) throw fallbackError;
+          if (!fallbackData || fallbackData.length === 0) {
+            throw new Error("編輯未生效（可能無權限或資料已不存在）");
+          }
+        }
         toast.success("公告更新成功");
       } else {
         const { error } = await supabase.from("announcements").insert(announcementData);
@@ -232,7 +254,11 @@ const AnnouncementManager = ({ embedded = false }: Props) => {
         error instanceof Error && error.message
           ? error.message
           : "保存公告失敗";
-      toast.error(message);
+      toast.error(message, {
+        description: isRpcMissingError(error)
+          ? "偵測到後端尚未套用公告管理 RPC，請執行 supabase db push。"
+          : undefined,
+      });
     } finally {
       setIsSubmitting(false);
     }

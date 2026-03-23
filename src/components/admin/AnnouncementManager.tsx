@@ -200,16 +200,21 @@ const AnnouncementManager = ({ embedded = false }: Props) => {
       };
 
       if (editingAnnouncement) {
-        const { data, error } = await supabase
-          .from("announcements")
-          .update(announcementData)
-          .eq("id", editingAnnouncement.id)
-          .select("id");
-
+        const { error } = await supabase.rpc("admin_update_announcement", {
+          p_id: editingAnnouncement.id,
+          p_title: announcementData.title,
+          p_content: announcementData.content,
+          p_summary: announcementData.summary,
+          p_image_url: announcementData.image_url,
+          p_priority: announcementData.priority,
+          p_start_date: announcementData.start_date,
+          p_end_date: announcementData.end_date,
+          p_is_active: announcementData.is_active,
+          p_announcement_category: announcementData.announcement_category,
+          p_style_preset: announcementData.style_preset,
+          p_display_date: announcementData.display_date,
+        });
         if (error) throw error;
-        if (!data || data.length === 0) {
-          throw new Error("編輯未生效（可能無權限或資料已不存在）");
-        }
         toast.success("公告更新成功");
       } else {
         const { error } = await supabase.from("announcements").insert(announcementData);
@@ -237,16 +242,8 @@ const AnnouncementManager = ({ embedded = false }: Props) => {
     if (!confirm("確定要刪除這個公告嗎？")) return;
 
     try {
-      const { data, error } = await supabase
-        .from("announcements")
-        .delete()
-        .eq("id", id)
-        .select("id");
-
+      const { error } = await supabase.rpc("admin_delete_announcement", { p_id: id });
       if (error) throw error;
-      if (!data || data.length === 0) {
-        throw new Error("刪除未生效（可能無權限或資料已不存在）");
-      }
       toast.success("公告刪除成功");
       await fetchAnnouncements();
     } catch (error) {
@@ -261,16 +258,11 @@ const AnnouncementManager = ({ embedded = false }: Props) => {
 
   const handleToggleActive = async (id: string, currentStatus: boolean) => {
     try {
-      const { data, error } = await supabase
-        .from("announcements")
-        .update({ is_active: !currentStatus })
-        .eq("id", id)
-        .select("id, is_active");
-
+      const { error } = await supabase.rpc("admin_toggle_announcement_active", {
+        p_id: id,
+        p_is_active: !currentStatus,
+      });
       if (error) throw error;
-      if (!data || data.length === 0) {
-        throw new Error("啟用/停用未生效（可能無權限或資料已不存在）");
-      }
       toast.success(`公告已${!currentStatus ? "啟用" : "停用"}`);
       await fetchAnnouncements();
     } catch (error) {

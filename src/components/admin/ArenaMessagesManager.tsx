@@ -74,6 +74,7 @@ export default function ArenaMessagesManager() {
   const [ttlInput, setTtlInput] = useState<Record<string, string>>({});
   const [upvoteInput, setUpvoteInput] = useState<Record<string, string>>({});
   const [downvoteInput, setDownvoteInput] = useState<Record<string, string>>({});
+  const [shieldInput, setShieldInput] = useState<Record<string, string>>({});
 
   const [editOpen, setEditOpen] = useState(false);
   const [editRow, setEditRow] = useState<ArenaRow | null>(null);
@@ -247,6 +248,34 @@ export default function ArenaMessagesManager() {
       if (error) throw error;
       toast.success("已調整票數");
     }).catch(() => toast.error("調整票數失敗"));
+  };
+
+  const adjustShield = (row: ArenaRow, deltaMinutes: number) => {
+    setBusy(row.id, async () => {
+      const now = new Date();
+      const current = row.shield_until ? new Date(row.shield_until) : null;
+
+      if (deltaMinutes < 0 && (!current || Number.isNaN(current.getTime()) || current <= now)) {
+        throw new Error("目前沒有可減少的鎖定時間");
+      }
+
+      const base = current && !Number.isNaN(current.getTime()) && current > now ? current : now;
+      const next = new Date(base.getTime() + deltaMinutes * 60_000);
+
+      const patch: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+        shield_until: next <= now ? null : next.toISOString(),
+      };
+
+      const { error } = await supabase.from("topic_arena_messages").update(patch).eq("id", row.id);
+      if (error) throw error;
+
+      if (next <= now) toast.success("鎖定時間已清除");
+      else toast.success(deltaMinutes > 0 ? `已增加 ${deltaMinutes} 分鐘鎖定時間` : `已減少 ${Math.abs(deltaMinutes)} 分鐘鎖定時間`);
+    }).catch((e: unknown) => {
+      const msg = e instanceof Error ? e.message : "調整鎖定時間失敗";
+      toast.error(msg);
+    });
   };
 
   const parseStep = (raw: string | undefined) => {
@@ -531,6 +560,41 @@ export default function ArenaMessagesManager() {
                             }
                           >
                             <ThumbsDown className="h-3 w-3 mr-1 opacity-60" />−
+                          </Button>
+                        </div>
+                        <div className="flex flex-wrap gap-1 items-center">
+                          <span className="text-xs text-muted-foreground w-full">鎖定時間（分鐘）</span>
+                          <Input
+                            type="number"
+                            min={1}
+                            step={1}
+                            value={shieldInput[row.id] ?? ""}
+                            onChange={(e) =>
+                              setShieldInput((prev) => ({
+                                ...prev,
+                                [row.id]: e.target.value,
+                              }))
+                            }
+                            placeholder="1"
+                            className="h-8 w-20"
+                          />
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            disabled={disabled}
+                            onClick={() => adjustShield(row, parseStep(shieldInput[row.id]))}
+                          >
+                            <Plus className="h-3 w-3 mr-1" />
+                            增加
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            disabled={disabled}
+                            onClick={() => adjustShield(row, -parseStep(shieldInput[row.id]))}
+                          >
+                            <Minus className="h-3 w-3 mr-1" />
+                            減少
                           </Button>
                         </div>
                       </div>

@@ -374,7 +374,7 @@ export function ArenaSection({
         {isShielded(m) && (
           <p
             className={cn(
-              "text-xs mt-2",
+              "text-xs mt-2 text-right",
               "text-amber-600 dark:text-amber-500 font-medium"
             )}
           >
@@ -506,26 +506,13 @@ export function ArenaSection({
               : "border-amber-500/50 bg-gradient-to-br from-amber-500/15 via-yellow-500/5 to-transparent text-foreground"
           )}
         >
-          {!isRecycledView(core) && (
-            <p className="text-sm text-amber-700 dark:text-amber-400 mb-2 inline-flex items-center gap-1.5 font-semibold">
-              <Crown className="h-4 w-4" aria-hidden />
-              {getText("arena.coreLabel", "核心區")}
-            </p>
-          )}
+          {!isRecycledView(core) && <Crown className="h-4 w-4 text-amber-600 dark:text-amber-400 mb-2" aria-hidden />}
           {renderArenaMessageBlock(core, "core")}
         </div>
       )}
 
       {elite.length > 0 && (
         <div className="space-y-2 mb-4">
-          <p
-            className={cn(
-              "text-xs mb-2",
-              elite.some((e) => isRecycledView(e)) ? "text-muted-foreground" : "text-slate-600 dark:text-slate-300"
-            )}
-          >
-            {getText("arena.eliteLabel", "精英區")}
-          </p>
           {elite.map((m) => (
             <div
               key={m.id}

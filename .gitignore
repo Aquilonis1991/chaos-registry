@@ -39,3 +39,9 @@ secrets/
 *.njsproj
 *.sln
 *.sw?
+
+# Supabase CLI 本機暫存（版本號快取，勿提交）
+supabase/.temp/
+
+# Eclipse / ADT 本機設定（IDE 自動產生）
+native-ad-plugin/android/.settings/

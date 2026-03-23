@@ -212,8 +212,8 @@ const CreateTopicPage = () => {
   const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
   const [promptConfigDialogOpen, setPromptConfigDialogOpen] = useState(false);
   const [promptConfigKey, setPromptConfigKey] = useState<string | null>(null);
-  const [allowTimeExtension, setAllowTimeExtension] = useState(false);
-  const [allowOptionAddition, setAllowOptionAddition] = useState(false);
+  const [allowTimeExtension, setAllowTimeExtension] = useState(true);
+  const [allowOptionAddition, setAllowOptionAddition] = useState(true);
 
   // Check daily rewrite usage on mount
   useEffect(() => {

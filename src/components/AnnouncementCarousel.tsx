@@ -1,16 +1,12 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type TouchEvent } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
-  ChevronLeft, 
-  ChevronRight, 
   X, 
   Calendar, 
-  Clock, 
   Star,
-  ExternalLink,
   Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -55,6 +51,8 @@ export const AnnouncementCarousel = ({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
   const [isDismissed, setIsDismissed] = useState(false);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchEndX, setTouchEndX] = useState<number | null>(null);
 
   const { getConfig, loading: configLoading, configs } = useSystemConfigCache();
   const announcementMaxDisplay = useMemo(() => {
@@ -113,6 +111,22 @@ export const AnnouncementCarousel = ({
     onClose?.();
   };
 
+  const SWIPE_THRESHOLD = 40;
+  const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {
+    setTouchStartX(e.touches[0].clientX);
+    setTouchEndX(null);
+  };
+  const handleTouchMove = (e: TouchEvent<HTMLDivElement>) => {
+    setTouchEndX(e.touches[0].clientX);
+  };
+  const handleTouchEnd = () => {
+    if (announcements.length <= 1 || touchStartX === null || touchEndX === null) return;
+    const delta = touchStartX - touchEndX;
+    if (Math.abs(delta) < SWIPE_THRESHOLD) return;
+    if (delta > 0) handleNext();
+    else handlePrev();
+  };
+
   const getCategoryBadge = (a: Announcement, variant: "onGradient" | "onLight" = "onGradient") => {
     const cat = a.announcement_category?.trim() || getText("announcement.badge.default", "一般");
     if (variant === "onLight") {
@@ -154,10 +168,14 @@ export const AnnouncementCarousel = ({
         "relative overflow-hidden transition-all duration-300 hover:shadow-lg",
         getAnnouncementStyleClass(currentAnnouncement.style_preset),
         className
-      )}>
+      )}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      >
         <CardContent className="p-4">
           <div className="flex items-center justify-between text-white">
-            <div className="flex-1 cursor-pointer" onClick={() => handleAnnouncementClick(currentAnnouncement)}>
+            <div className="flex-1 cursor-pointer pr-10" onClick={() => handleAnnouncementClick(currentAnnouncement)}>
               <div className="flex items-center gap-2 mb-2 flex-wrap">
                 {getCategoryBadge(currentAnnouncement)}
                 <span className="text-xs opacity-80">
@@ -179,44 +197,18 @@ export const AnnouncementCarousel = ({
                 </p>
               )}
             </div>
-
-            <div className="flex items-center gap-2 ml-4">
-              {announcements.length > 1 && (
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handlePrev}
-                    className="text-white hover:bg-white/20 h-8 w-8 p-0"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </Button>
-                  <span className="text-xs opacity-80">
-                    {currentIndex + 1}/{announcements.length}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleNext}
-                    className="text-white hover:bg-white/20 h-8 w-8 p-0"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
-
-              {showCloseButton && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleDismiss}
-                  className="text-white hover:bg-white/20 h-8 w-8 p-0"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              )}
-            </div>
           </div>
+
+          {showCloseButton && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDismiss}
+              className="absolute right-2 top-2 text-white hover:bg-white/20 h-8 w-8 p-0"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          )}
 
           {/* Progress dots */}
           {announcements.length > 1 && (
@@ -255,11 +247,6 @@ export const AnnouncementCarousel = ({
                   <Calendar className="w-4 h-4" />
                 {getText('announcement.dialog.publishedAt', '發布時間：')}
                 {format(new Date(selectedAnnouncement.created_at), 'yyyy年MM月dd日 HH:mm', { locale: zhTW })}
-                </div>
-                <div className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
-                {getText('announcement.dialog.clicks', '點擊數：')}
-                {selectedAnnouncement.click_count}
                 </div>
               </div>
 

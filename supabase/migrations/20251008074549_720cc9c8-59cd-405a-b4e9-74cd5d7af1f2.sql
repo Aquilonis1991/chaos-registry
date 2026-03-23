@@ -115,14 +115,19 @@ ON CONFLICT (user_id, topic_id) DO NOTHING;
 -- ALTER TABLE public.profiles DROP COLUMN IF EXISTS joined_topics;
 
 -- Phase 3.4: Add Server-Side Validation - Database constraints
--- Add constraints to topics table
-ALTER TABLE public.topics 
+ALTER TABLE public.topics DROP CONSTRAINT IF EXISTS check_title_length;
+ALTER TABLE public.topics
   ADD CONSTRAINT check_title_length CHECK (char_length(title) >= 5 AND char_length(title) <= 200);
 
--- Add constraints to profiles table
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS check_nickname_length;
 ALTER TABLE public.profiles
   ADD CONSTRAINT check_nickname_length CHECK (char_length(nickname) >= 1 AND char_length(nickname) <= 50);
 
--- Add constraint to votes table
+-- 既有列可能超出 1–100，先修正再加 CHECK（避免遷移失敗）
+UPDATE public.votes
+SET amount = GREATEST(1, LEAST(COALESCE(amount, 1), 100))
+WHERE amount IS NULL OR amount < 1 OR amount > 100;
+
+ALTER TABLE public.votes DROP CONSTRAINT IF EXISTS check_vote_amount_positive;
 ALTER TABLE public.votes
   ADD CONSTRAINT check_vote_amount_positive CHECK (amount > 0 AND amount <= 100);

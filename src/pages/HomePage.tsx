@@ -27,7 +27,7 @@ const HomePage = () => {
   const { profile } = useProfile();
   const { language } = useLanguage();
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
-  const { getConfig, loading: configLoading, configs } = useSystemConfigCache();
+  const { getConfig } = useSystemConfigCache();
   const [currentTab, setCurrentTab] = useState<'hot' | 'latest' | 'joined'>('hot');
   
   // 當從其他頁面回到首頁時，確保 Intersection Observer 重新設置

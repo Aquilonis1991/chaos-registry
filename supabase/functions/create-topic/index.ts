@@ -190,7 +190,9 @@ Deno.serve(async (req) => {
     }
 
     // Calculate cost from dynamic config
-    const exposureCost = exposureCosts[exposure_level as keyof typeof exposureCosts] || 30;
+    const exposureCost =
+      exposureCosts[exposure_level as keyof typeof exposureCosts]
+      || 30;
     const durationCost = durationCosts[duration_days.toString()] || 0;
     const totalCost = exposureCost + durationCost;
 
@@ -199,7 +201,7 @@ Deno.serve(async (req) => {
       check_user_id: user.id
     });
 
-    // Create topic first
+    // Create topic first（與 DB topics_exposure_level_check：normal|medium|high 一致）
     const { data: topic, error: topicError } = await supabaseClient
       .from('topics')
       .insert({

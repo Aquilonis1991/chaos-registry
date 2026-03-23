@@ -47,6 +47,9 @@ CREATE TABLE IF NOT EXISTS public.user_missions (
 ALTER TABLE public.user_missions ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for user_missions
+DROP POLICY IF EXISTS "Users can view own missions" ON public.user_missions;
+DROP POLICY IF EXISTS "Users can insert own missions" ON public.user_missions;
+DROP POLICY IF EXISTS "Users can update own missions" ON public.user_missions;
 CREATE POLICY "Users can view own missions" 
 ON public.user_missions 
 FOR SELECT 
@@ -63,6 +66,7 @@ FOR UPDATE
 USING (auth.uid() = user_id);
 
 -- Add trigger for updated_at
+DROP TRIGGER IF EXISTS update_user_missions_updated_at ON public.user_missions;
 CREATE TRIGGER update_user_missions_updated_at
 BEFORE UPDATE ON public.user_missions
 FOR EACH ROW

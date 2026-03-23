@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS public.token_transactions (
 
 ALTER TABLE public.token_transactions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own token transactions" ON public.token_transactions;
+DROP POLICY IF EXISTS "Users can insert own token transactions" ON public.token_transactions;
 CREATE POLICY "Users can view own token transactions"
   ON public.token_transactions FOR SELECT
   USING (auth.uid() = user_id);

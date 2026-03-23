@@ -88,11 +88,9 @@ export const useSystemConfigCache = () => {
       value = configs[key];
     } else {
       // 只在關鍵配置缺失時輸出日誌（減少日誌輸出）
-      // 注意：ad_reward_amount 是備選配置，如果 mission_watch_ad_reward 存在，這個警告是正常的
       if (key === 'mission_watch_ad_reward' || key === 'mission_watch_ad_limit') {
         console.warn(`[getConfig] 配置 ${key} 不存在，使用默認值:`, defaultValue);
       }
-      // ad_reward_amount 和 max_ads_per_day 是備選配置，不需要警告
       return defaultValue;
     }
 

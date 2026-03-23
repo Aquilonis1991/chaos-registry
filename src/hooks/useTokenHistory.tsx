@@ -31,6 +31,7 @@ const transactionTypeIcons: Record<string, string> = {
   ai_usage: '🌀',
   extend_topic_duration: '⏳',
   add_topic_option: '➕',
+  arena_shield: '🔒',
 };
 
 const normalizeTransactionType = (type: string): string => {
@@ -81,6 +82,7 @@ const getTransactionTypeLabel = (type: string, getText: (key: string, fallback: 
     ai_usage: getText('tokenHistory.type.aiUsage', '不穩定處理'),
     extend_topic_duration: getText('tokenHistory.type.extendTopicDuration', '延長投票時間'),
     add_topic_option: getText('tokenHistory.type.addTopicOption', '新增投票選項'),
+    arena_shield: getText('tokenHistory.type.arenaShield', '購買數據鎖定保險'),
   };
   return labels[type] || getText('tokenHistory.type.unknown', type);
 };
@@ -167,6 +169,13 @@ const formatTransactionDescription = (
 
   if (/參與者新增投票選項/i.test(normalize) || /add_topic_option/i.test(normalize)) {
     return getText('tokenHistory.description.addTopicOption', '新增投票選項');
+  }
+
+  if (
+    transactionType === 'arena_shield' ||
+    /購買觀點鎖定保險|arena_shield|data lock insurance|shield insurance/i.test(normalize)
+  ) {
+    return getText('tokenHistory.description.arenaShield', '購買數據鎖定保險');
   }
 
   if (transactionType === 'deposit' || /儲值|deposit/i.test(normalize)) {

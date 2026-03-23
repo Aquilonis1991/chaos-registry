@@ -9,6 +9,14 @@ const FALLBACK_ZH = "ChaosRegistry 已完成紀錄。";
 const FALLBACK_EN = "ChaosRegistry has recorded this session.";
 const FALLBACK_JA = "ChaosRegistry は記録を完了しました。";
 
+const renderPromptTemplate = (template: string, vars: Record<string, string>) => {
+  let out = template;
+  for (const [k, v] of Object.entries(vars)) {
+    out = out.replaceAll(`{{${k}}}`, v);
+  }
+  return out;
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -91,12 +99,43 @@ Deno.serve(async (req) => {
     }
 
     // 4. Compute statistics
-    const options = (topicRow.options || []) as Array<{ id?: string; text: string; votes?: number }>;
-    const optList = options.map((o) => ({
-      name: typeof o === "string" ? o : (o?.text ?? ""),
-      votes: typeof o === "object" && o && "votes" in o ? (o.votes ?? 0) : 0,
-    }));
-    const totalVotes = optList.reduce((s, o) => s + o.votes, 0);
+    // options 的 votes 欄位可能不存在（投票紀錄在 votes 表），因此以 votes 表聚合為主，並回填到 options 清單中。
+    const options = (topicRow.options || []) as Array<string | { id?: string; text?: string; label?: string; votes?: number }>;
+    const optList = options
+      .map((o, idx) => {
+        const name = typeof o === "string" ? o : (o?.text ?? o?.label ?? "");
+        // option id 可能缺失：沿用前端慣例 option-<index>
+        const optionId = typeof o === "object" && o && typeof (o as any).id === "string" && (o as any).id.trim().length > 0
+          ? String((o as any).id)
+          : `option-${idx}`;
+        return { optionId, name, votes: 0 };
+      })
+      .filter((o) => o.name.trim().length > 0);
+
+    // Aggregate votes from votes table (option 是 TEXT，通常存 optionId)
+    const { data: voteAgg, error: voteAggErr } = await supabase
+      .from("votes")
+      .select("option, amount")
+      .eq("topic_id", topic_id);
+    if (voteAggErr) console.warn("[generate-ai-closing] votes aggregate error:", voteAggErr);
+
+    const voteMap = new Map<string, number>();
+    for (const r of (voteAgg || []) as Array<{ option: string; amount: number }>) {
+      const key = String(r.option ?? "");
+      const amt = Number(r.amount ?? 0);
+      if (!key) continue;
+      voteMap.set(key, (voteMap.get(key) ?? 0) + (Number.isFinite(amt) ? amt : 0));
+    }
+
+    // fill votes
+    for (const o of optList) o.votes = voteMap.get(o.optionId) ?? 0;
+
+    // fallback: 若 votes.option 存的是選項文字（舊資料），嘗試以 name 再加總一次
+    if (voteMap.size > 0 && optList.every((o) => o.votes === 0)) {
+      for (const o of optList) o.votes = voteMap.get(o.name) ?? 0;
+    }
+
+    const totalVotes = optList.reduce((s, o) => s + (o.votes ?? 0), 0);
     const winning = optList.length ? optList.reduce((a, b) => (a.votes >= b.votes ? a : b)) : { name: "", votes: 0 };
     const winningPct = totalVotes > 0 ? ((winning.votes / totalVotes) * 100).toFixed(1) : "0";
     const second = optList.length >= 2 ? optList.filter((o) => o !== winning).reduce((a, b) => (a.votes >= b.votes ? a : b)) : { votes: 0 };
@@ -106,8 +145,8 @@ Deno.serve(async (req) => {
     // 5. Build AI input（確保含 topic_title, options 含 votes, winning_percentage 等供 user prompt 使用）
     const aiInput = {
       topic_title: topicRow.title,
-      options: optList,
-      options_votes: optList.map((o) => ({ name: o.name, votes: o.votes })),
+      options: optList.map((o) => ({ id: o.optionId, name: o.name, votes: o.votes })),
+      options_votes: optList.map((o) => ({ id: o.optionId, name: o.name, votes: o.votes })),
       total_votes: totalVotes,
       total_tokens_spent: 0,
       duration_minutes: durationMinutes,
@@ -175,10 +214,20 @@ Deno.serve(async (req) => {
       );
     }
 
+    // 先把 system_config 的 {{var}} 模板替換成實際值，避免 AI 只看到佔位符
+    const templateVars: Record<string, string> = {
+      topic_title: String(aiInput.topic_title ?? ""),
+      winning_option: String(aiInput.winning_option ?? ""),
+      winning_percentage: String(aiInput.winning_percentage ?? "0"),
+      vote_gap_percentage: String(aiInput.vote_gap_percentage ?? "0"),
+      total_votes: String(aiInput.total_votes ?? 0),
+      duration_minutes: String(aiInput.duration_minutes ?? 0),
+    };
+
     // 在 Base Prompt 末尾動態附加「本次性格」指令，三語共用同一 selectedCharacter
-    const systemPromptZh = promptsByLang.zh + characterAppendByLang.zh;
-    const systemPromptEn = promptsByLang.en + characterAppendByLang.en;
-    const systemPromptJa = promptsByLang.ja + characterAppendByLang.ja;
+    const systemPromptZh = renderPromptTemplate(promptsByLang.zh, templateVars) + characterAppendByLang.zh;
+    const systemPromptEn = renderPromptTemplate(promptsByLang.en, templateVars) + characterAppendByLang.en;
+    const systemPromptJa = renderPromptTemplate(promptsByLang.ja, templateVars) + characterAppendByLang.ja;
 
     // User prompt：含 topic_title, options_votes, winning_percentage 等欄位
     const userPromptBase = `根據以下投票結果生成混亂結語：\n${JSON.stringify(aiInput, null, 2)}\n\n特別處理：若 total_votes 為 0，生成「群眾沉默」版本；若為 1，生成「孤獨決議」版本。`;

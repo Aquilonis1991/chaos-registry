@@ -130,6 +130,134 @@ export const DataExportManager = () => {
         }
     };
 
+    const handleExportArenaMessages = async () => {
+        try {
+            setLoading("arena");
+            const { start, end } = calculateDateRange();
+
+            let query = supabase
+                .from("topic_arena_messages")
+                .select("id, topic_id, user_id, content, ttl_minutes, shield_until, upvote_count, downvote_count, is_legacy, created_at, updated_at, recycled_at")
+                .order("created_at", { ascending: false });
+
+            if (start && end) {
+                query = query.gte("created_at", start).lte("created_at", end);
+            }
+
+            const { data, error } = await query;
+            if (error) throw error;
+
+            if (!data || data.length === 0) {
+                toast.info("此區間無資料可匯出");
+                return;
+            }
+
+            const rows = data as Array<{
+                id: string;
+                topic_id: string;
+                user_id: string;
+                content: string;
+                ttl_minutes: number;
+                shield_until: string | null;
+                upvote_count: number;
+                downvote_count: number;
+                is_legacy: boolean;
+                created_at: string;
+                updated_at: string;
+                recycled_at: string | null;
+            }>;
+
+            const topicIds = [...new Set(rows.map((r) => r.topic_id))];
+            const userIds = [...new Set(rows.map((r) => r.user_id))];
+
+            const topicMap: Record<string, { title: string; status: string | null; end_at: string | null }> = {};
+            const userMap: Record<string, string> = {};
+
+            if (topicIds.length > 0) {
+                const { data: topicsData, error: topicError } = await supabase
+                    .from("topics")
+                    .select("id, title, status, end_at")
+                    .in("id", topicIds);
+                if (topicError) throw topicError;
+                (topicsData || []).forEach((t: any) => {
+                    topicMap[t.id] = {
+                        title: t.title ?? "",
+                        status: t.status ?? null,
+                        end_at: t.end_at ?? null
+                    };
+                });
+            }
+
+            if (userIds.length > 0) {
+                const { data: usersData, error: userError } = await supabase
+                    .from("profiles")
+                    .select("id, nickname")
+                    .in("id", userIds);
+                if (userError) throw userError;
+                (usersData || []).forEach((u: any) => {
+                    userMap[u.id] = (u.nickname && String(u.nickname).trim()) || "";
+                });
+            }
+
+            const exportRows = rows.map((row) => {
+                const topic = topicMap[row.topic_id];
+                const topicEnded = !!topic && (topic.status === "ended" || (!!topic.end_at && new Date(topic.end_at) <= new Date()));
+                const locked = !!row.shield_until && new Date(row.shield_until) > new Date();
+
+                let messageStatus = "顯示中";
+                if (row.recycled_at) messageStatus = "已回收";
+                else if (topicEnded) messageStatus = "封存";
+                else if (locked) messageStatus = "鎖定中";
+
+                return {
+                    message_id: row.id,
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                    topic_id: row.topic_id,
+                    topic_title: topic?.title ?? "",
+                    topic_status: topic?.status ?? "",
+                    user_id: row.user_id,
+                    user_nickname: userMap[row.user_id] ?? "",
+                    content: row.content,
+                    message_status: messageStatus,
+                    ttl_minutes: row.ttl_minutes,
+                    shield_until: row.shield_until ?? "",
+                    recycled_at: row.recycled_at ?? "",
+                    upvote_count: row.upvote_count,
+                    downvote_count: row.downvote_count,
+                    net_score: row.upvote_count - row.downvote_count,
+                    is_legacy: row.is_legacy ? "true" : "false",
+                };
+            });
+
+            downloadCSV("arena_messages_export", [
+                { key: "message_id", label: "留言ID" },
+                { key: "created_at", label: "建立時間" },
+                { key: "updated_at", label: "更新時間" },
+                { key: "topic_id", label: "話題ID" },
+                { key: "topic_title", label: "話題標題" },
+                { key: "topic_status", label: "話題狀態" },
+                { key: "user_id", label: "用戶ID" },
+                { key: "user_nickname", label: "用戶暱稱" },
+                { key: "content", label: "留言內容" },
+                { key: "message_status", label: "留言狀態" },
+                { key: "ttl_minutes", label: "存在週期(分鐘)" },
+                { key: "shield_until", label: "鎖定到期時間" },
+                { key: "recycled_at", label: "回收時間" },
+                { key: "upvote_count", label: "贊同數" },
+                { key: "downvote_count", label: "斥責數" },
+                { key: "net_score", label: "淨分數" },
+                { key: "is_legacy", label: "舊資料標記" },
+            ], exportRows);
+
+            toast.success(`成功匯出 ${exportRows.length} 筆角鬥場留言資料`);
+        } catch (error: any) {
+            toast.error("匯出失敗: " + error.message);
+        } finally {
+            setLoading(null);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <LoadingBubble
@@ -156,7 +284,7 @@ export const DataExportManager = () => {
                 </Select>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                 {/* 用戶數據卡片 */}
                 <Card>
                     <CardHeader>
@@ -229,6 +357,33 @@ export const DataExportManager = () => {
                             variant="outline"
                         >
                             {loading === "transactions" ? (
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : (
+                                <Download className="w-4 h-4 mr-2" />
+                            )}
+                            匯出 CSV
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                {/* 角鬥場留言卡片 */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            角鬥場留言數據
+                        </CardTitle>
+                        <CardDescription>
+                            匯出觀點角鬥場留言、狀態、鎖定時間與贊同/斥責統計
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button
+                            className="w-full"
+                            onClick={handleExportArenaMessages}
+                            disabled={loading !== null}
+                            variant="outline"
+                        >
+                            {loading === "arena" ? (
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                             ) : (
                                 <Download className="w-4 h-4 mr-2" />

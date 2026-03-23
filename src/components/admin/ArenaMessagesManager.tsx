@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -34,12 +35,12 @@ import {
   ThumbsDown,
   Clock,
   RefreshCw,
+  Calendar,
 } from "lucide-react";
 
 const CONTENT_MAX = 100;
-const TTL_STEP = 10;
-const VOTE_STEP = 1;
-const PAGE_SIZE = 50;
+const DEFAULT_STEP = 1;
+const FETCH_BATCH_SIZE = 500;
 const TOPIC_UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -58,50 +59,87 @@ type ArenaRow = {
   recycled_at: string | null;
 };
 
-type TopicMeta = { id: string; title: string };
+type TopicMeta = { id: string; title: string; status: string | null; end_at: string | null };
 type ProfileMeta = { id: string; nickname: string | null };
+type TopicStateMeta = { title: string; status?: string | null; end_at?: string | null };
 
 export default function ArenaMessagesManager() {
   const [rows, setRows] = useState<ArenaRow[]>([]);
-  const [topics, setTopics] = useState<Record<string, string>>({});
+  const [topics, setTopics] = useState<Record<string, TopicStateMeta>>({});
   const [authors, setAuthors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [topicFilter, setTopicFilter] = useState("");
+  const [dateRange, setDateRange] = useState("30"); // days, 'all' for all time
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [ttlInput, setTtlInput] = useState<Record<string, string>>({});
+  const [upvoteInput, setUpvoteInput] = useState<Record<string, string>>({});
+  const [downvoteInput, setDownvoteInput] = useState<Record<string, string>>({});
 
   const [editOpen, setEditOpen] = useState(false);
   const [editRow, setEditRow] = useState<ArenaRow | null>(null);
   const [editContent, setEditContent] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
+  const calculateDateRange = useCallback(() => {
+    if (dateRange === "all") return { start: null, end: null };
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - parseInt(dateRange, 10));
+    return { start: start.toISOString(), end: end.toISOString() };
+  }, [dateRange]);
+
+  const fetchAllArenaRows = useCallback(async (topicId: string) => {
+    const all: ArenaRow[] = [];
+    let from = 0;
+    const { start, end } = calculateDateRange();
+
+    while (true) {
       let q = supabase
         .from("topic_arena_messages")
         .select(
           "id, topic_id, user_id, content, ttl_minutes, shield_until, upvote_count, downvote_count, is_legacy, created_at, updated_at, recycled_at"
         )
         .order("created_at", { ascending: false })
-        .limit(PAGE_SIZE);
+        .range(from, from + FETCH_BATCH_SIZE - 1);
 
-      const topicIdTrim = topicFilter.trim();
-      if (topicIdTrim.length > 0 && TOPIC_UUID_RE.test(topicIdTrim)) {
-        q = q.eq("topic_id", topicIdTrim);
+      if (topicId.length > 0 && TOPIC_UUID_RE.test(topicId)) {
+        q = q.eq("topic_id", topicId);
+      }
+      if (start && end) {
+        q = q.gte("created_at", start).lte("created_at", end);
       }
 
       const { data, error } = await q;
       if (error) throw error;
-      const list = (data || []) as ArenaRow[];
+
+      const batch = (data || []) as ArenaRow[];
+      all.push(...batch);
+
+      if (batch.length < FETCH_BATCH_SIZE) break;
+      from += FETCH_BATCH_SIZE;
+    }
+
+    return all;
+  }, [calculateDateRange]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const topicIdTrim = topicFilter.trim();
+      const list = await fetchAllArenaRows(topicIdTrim);
       setRows(list);
 
       const tids = [...new Set(list.map((r) => r.topic_id))];
       const uids = [...new Set(list.map((r) => r.user_id))];
 
       if (tids.length) {
-        const { data: trows } = await supabase.from("topics").select("id, title").in("id", tids);
-        const tm: Record<string, string> = {};
-        (trows as TopicMeta[] | null)?.forEach((t) => {
-          tm[t.id] = t.title;
+        const { data: trows } = await supabase.from("topics").select("id, title, status, end_at").in("id", tids);
+        const tm: Record<string, TopicStateMeta> = {};
+        (trows as TopicMeta[] | null)?.forEach((topic) => {
+          tm[topic.id] = {
+            title: topic.title,
+            status: topic.status ?? null,
+            end_at: topic.end_at ?? null,
+          };
         });
         setTopics(tm);
       } else setTopics({});
@@ -120,7 +158,7 @@ export default function ArenaMessagesManager() {
     } finally {
       setLoading(false);
     }
-  }, [topicFilter]);
+  }, [fetchAllArenaRows, topicFilter]);
 
   useEffect(() => {
     load();
@@ -211,6 +249,45 @@ export default function ArenaMessagesManager() {
     }).catch(() => toast.error("調整票數失敗"));
   };
 
+  const parseStep = (raw: string | undefined) => {
+    if (!raw || raw.trim() === "") return DEFAULT_STEP;
+    const n = Number.parseInt(raw, 10);
+    if (Number.isNaN(n) || n <= 0) return DEFAULT_STEP;
+    return n;
+  };
+
+  const isTopicEnded = (topicId: string) => {
+    const t = topics[topicId];
+    if (!t) return false;
+    if (t.status === "ended") return true;
+    if (!t.end_at) return false;
+    return new Date(t.end_at) <= new Date();
+  };
+
+  const isLocked = (row: ArenaRow) => Boolean(row.shield_until && new Date(row.shield_until) > new Date());
+
+  const getMessageStatus = (row: ArenaRow) => {
+    if (row.recycled_at) return { label: "已回收", variant: "secondary" as const };
+    if (isTopicEnded(row.topic_id)) return { label: "封存", variant: "default" as const };
+    if (isLocked(row)) return { label: "鎖定中", variant: "outline" as const };
+    return { label: "顯示中", variant: "outline" as const };
+  };
+
+  const formatLockTime = (row: ArenaRow) => {
+    if (!row.shield_until) return "—";
+    const end = new Date(row.shield_until);
+    if (Number.isNaN(end.getTime())) return "—";
+    const now = Date.now();
+    const diffMs = end.getTime() - now;
+    const endText = format(end, "MM/dd HH:mm", { locale: zhTW });
+    if (diffMs <= 0) return `${endText}（已到期）`;
+    const min = Math.max(1, Math.ceil(diffMs / 60000));
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    const remain = h > 0 ? `${h}小時${m}分鐘` : `${m}分鐘`;
+    return `${endText}（剩餘 ${remain}）`;
+  };
+
   if (loading && rows.length === 0) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -229,6 +306,24 @@ export default function ArenaMessagesManager() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="flex items-center space-x-3 p-3 bg-muted/50 rounded-md">
+            <div className="flex items-center space-x-2">
+              <Calendar className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium">資料區間：</span>
+            </div>
+            <Select value={dateRange} onValueChange={setDateRange}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="選擇時間範圍" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">最近 7 天</SelectItem>
+                <SelectItem value="30">最近 30 天</SelectItem>
+                <SelectItem value="90">最近 90 天</SelectItem>
+                <SelectItem value="365">最近 1 年</SelectItem>
+                <SelectItem value="all">全部時間</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1 flex-1 min-w-[200px]">
               <Label htmlFor="topicFilter">依話題 ID 篩選（選填，完整 UUID）</Label>
@@ -236,7 +331,7 @@ export default function ArenaMessagesManager() {
                 id="topicFilter"
                 value={topicFilter}
                 onChange={(e) => setTopicFilter(e.target.value)}
-                placeholder="留空顯示最近 50 則；或貼上 topic_id"
+                placeholder="留空顯示全部留言；或貼上 topic_id"
               />
             </div>
             <Button type="button" variant="outline" onClick={() => load()} disabled={loading}>
@@ -245,7 +340,7 @@ export default function ArenaMessagesManager() {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            存在週期每次 ±{TTL_STEP} 分鐘；贊同／斥責每次 ±{VOTE_STEP}（數字與實際投票紀錄可能不完全一致，僅供管理調整顯示）。
+            依資料區間篩選後顯示全部留言（分批載入）；時間、贊同、斥責可先輸入調整量，空白預設為 {DEFAULT_STEP}。
           </p>
         </CardContent>
       </Card>
@@ -261,13 +356,14 @@ export default function ArenaMessagesManager() {
               <TableHead>贊同</TableHead>
               <TableHead>斥責</TableHead>
               <TableHead>狀態</TableHead>
+              <TableHead className="min-w-[180px]">鎖定時間</TableHead>
               <TableHead className="min-w-[280px]">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                   沒有資料
                 </TableCell>
               </TableRow>
@@ -277,7 +373,7 @@ export default function ArenaMessagesManager() {
                 return (
                   <TableRow key={row.id}>
                     <TableCell className="align-top text-sm">
-                      <div className="font-medium line-clamp-2">{topics[row.topic_id] || "—"}</div>
+                      <div className="font-medium line-clamp-2">{topics[row.topic_id]?.title || "—"}</div>
                       <div className="text-xs text-muted-foreground font-mono mt-1 break-all">
                         {row.topic_id}
                       </div>
@@ -295,15 +391,15 @@ export default function ArenaMessagesManager() {
                     <TableCell className="align-top">{row.upvote_count}</TableCell>
                     <TableCell className="align-top">{row.downvote_count}</TableCell>
                     <TableCell className="align-top">
-                      {row.recycled_at ? (
-                        <Badge variant="secondary">已回收</Badge>
-                      ) : (
-                        <Badge variant="outline">顯示中</Badge>
-                      )}
+                      {(() => {
+                        const status = getMessageStatus(row);
+                        return <Badge variant={status.variant}>{status.label}</Badge>;
+                      })()}
                       <div className="text-xs text-muted-foreground mt-1">
                         {format(new Date(row.created_at), "MM/dd HH:mm", { locale: zhTW })}
                       </div>
                     </TableCell>
+                    <TableCell className="align-top text-sm">{formatLockTime(row)}</TableCell>
                     <TableCell className="align-top">
                       <div className="flex flex-col gap-2">
                         <div className="flex flex-wrap gap-1">
@@ -330,32 +426,62 @@ export default function ArenaMessagesManager() {
                         </div>
                         <div className="flex flex-wrap gap-1 items-center">
                           <span className="text-xs text-muted-foreground w-full">時間</span>
+                          <Input
+                            type="number"
+                            min={1}
+                            step={1}
+                            value={ttlInput[row.id] ?? ""}
+                            onChange={(e) =>
+                              setTtlInput((prev) => ({
+                                ...prev,
+                                [row.id]: e.target.value,
+                              }))
+                            }
+                            placeholder="1"
+                            className="h-8 w-20"
+                          />
                           <Button
                             size="sm"
                             variant="secondary"
                             disabled={disabled}
-                            onClick={() => adjustTtl(row, TTL_STEP)}
+                            onClick={() => adjustTtl(row, parseStep(ttlInput[row.id]))}
                           >
                             <Plus className="h-3 w-3 mr-1" />
-                            {TTL_STEP}分
+                            增加
                           </Button>
                           <Button
                             size="sm"
                             variant="secondary"
                             disabled={disabled}
-                            onClick={() => adjustTtl(row, -TTL_STEP)}
+                            onClick={() => adjustTtl(row, -parseStep(ttlInput[row.id]))}
                           >
                             <Minus className="h-3 w-3 mr-1" />
-                            {TTL_STEP}分
+                            減少
                           </Button>
                         </div>
                         <div className="flex flex-wrap gap-1 items-center">
                           <span className="text-xs text-muted-foreground w-full">贊同</span>
+                          <Input
+                            type="number"
+                            min={1}
+                            step={1}
+                            value={upvoteInput[row.id] ?? ""}
+                            onChange={(e) =>
+                              setUpvoteInput((prev) => ({
+                                ...prev,
+                                [row.id]: e.target.value,
+                              }))
+                            }
+                            placeholder="1"
+                            className="h-8 w-20"
+                          />
                           <Button
                             size="sm"
                             variant="outline"
                             disabled={disabled}
-                            onClick={() => adjustVote(row, "upvote_count", VOTE_STEP)}
+                            onClick={() =>
+                              adjustVote(row, "upvote_count", parseStep(upvoteInput[row.id]))
+                            }
                           >
                             <ThumbsUp className="h-3 w-3 mr-1" />+
                           </Button>
@@ -363,18 +489,36 @@ export default function ArenaMessagesManager() {
                             size="sm"
                             variant="outline"
                             disabled={disabled}
-                            onClick={() => adjustVote(row, "upvote_count", -VOTE_STEP)}
+                            onClick={() =>
+                              adjustVote(row, "upvote_count", -parseStep(upvoteInput[row.id]))
+                            }
                           >
                             <ThumbsUp className="h-3 w-3 mr-1 rotate-180" />−
                           </Button>
                         </div>
                         <div className="flex flex-wrap gap-1 items-center">
                           <span className="text-xs text-muted-foreground w-full">斥責</span>
+                          <Input
+                            type="number"
+                            min={1}
+                            step={1}
+                            value={downvoteInput[row.id] ?? ""}
+                            onChange={(e) =>
+                              setDownvoteInput((prev) => ({
+                                ...prev,
+                                [row.id]: e.target.value,
+                              }))
+                            }
+                            placeholder="1"
+                            className="h-8 w-20"
+                          />
                           <Button
                             size="sm"
                             variant="outline"
                             disabled={disabled}
-                            onClick={() => adjustVote(row, "downvote_count", VOTE_STEP)}
+                            onClick={() =>
+                              adjustVote(row, "downvote_count", parseStep(downvoteInput[row.id]))
+                            }
                           >
                             <ThumbsDown className="h-3 w-3 mr-1" />+
                           </Button>
@@ -382,7 +526,9 @@ export default function ArenaMessagesManager() {
                             size="sm"
                             variant="outline"
                             disabled={disabled}
-                            onClick={() => adjustVote(row, "downvote_count", -VOTE_STEP)}
+                            onClick={() =>
+                              adjustVote(row, "downvote_count", -parseStep(downvoteInput[row.id]))
+                            }
                           >
                             <ThumbsDown className="h-3 w-3 mr-1 opacity-60" />−
                           </Button>

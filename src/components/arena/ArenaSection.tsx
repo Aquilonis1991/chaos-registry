@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Coins, Info, Loader2, ThumbsDown, ThumbsUp } from "lucide-react";
+import { Coins, Crown, Info, Loader2, ThumbsDown, ThumbsUp } from "lucide-react";
 
 export type ArenaMessage = {
   id: string;
@@ -289,15 +289,11 @@ export function ArenaSection({
       "{{minutes}}",
       String(displayTtlMinutes(m))
     );
-    const ttlCls =
-      variant === "card" ? "text-[11px] text-muted-foreground/65" : "text-[11px] text-[#A0A0A0]/75";
-    const countCls =
-      variant === "card" ? "text-[11px] text-muted-foreground" : "text-[11px] text-[#A0A0A0]";
-    const borderCls = variant === "card" ? "border-border/40" : "border-white/10";
-    const contentCls =
-      variant === "card" ? "text-sm text-foreground leading-relaxed" : "text-sm text-white leading-relaxed";
-    const nameCls =
-      variant === "card" ? "text-sm font-medium text-foreground truncate" : "text-sm font-medium text-white truncate";
+    const ttlCls = "text-[11px] text-muted-foreground/75";
+    const countCls = "text-[11px] text-muted-foreground";
+    const borderCls = "border-border/40";
+    const contentCls = "text-sm text-foreground leading-relaxed";
+    const nameCls = "text-sm font-medium text-foreground truncate";
     const upAria = getText("arena.upvote", "贊同 (+{{bonus}})").replace("{{bonus}}", String(upBonus));
     const downAria = getText("arena.downvote", "斥責 (-{{penalty}})").replace("{{penalty}}", String(downPenalty));
     const btnBase =
@@ -307,7 +303,7 @@ export function ArenaSection({
       btnBase,
       "bg-[#E4E6EB] text-[#4B4F56] hover:bg-[#D8DADF] dark:bg-[#3A3B3C] dark:text-[#E4E6EB] dark:hover:bg-[#4E4F50]"
     );
-    const downBtnArena = cn(btnBase, "bg-[#3A3B3C] text-[#E4E6EB] hover:bg-[#4E4F50] active:bg-[#3a3c41]");
+    const downBtnArena = downBtnCard;
 
     const counts = (
       <div className={cn(countCls, "inline-flex items-center gap-3")}>
@@ -334,7 +330,7 @@ export function ArenaSection({
           <span
             className={cn(
               "text-[11px] shrink-0",
-              variant === "card" ? "text-muted-foreground" : "text-[#A0A0A0]"
+              "text-muted-foreground"
             )}
           >
             {getText("arena.voted", "已投票")}
@@ -379,7 +375,7 @@ export function ArenaSection({
           <p
             className={cn(
               "text-xs mt-2",
-              variant === "card" ? "text-amber-600 dark:text-amber-500 font-medium" : "text-[#D4AF37]"
+              "text-amber-600 dark:text-amber-500 font-medium"
             )}
           >
             {getText("arena.shieldLocked", "[🔒數據鎖定中]")}
@@ -504,25 +500,28 @@ export function ArenaSection({
       {core && (
         <div
           className={cn(
-            "p-6 mb-4 font-mono rounded-lg",
+            "p-6 mb-4 rounded-lg border-2 shadow-sm",
             isRecycledView(core)
               ? "border border-muted-foreground/40 bg-muted/60 text-foreground"
-              : "border-4 border-[#D4AF37] bg-black text-white"
+              : "border-amber-500/50 bg-gradient-to-br from-amber-500/15 via-yellow-500/5 to-transparent text-foreground"
           )}
         >
           {!isRecycledView(core) && (
-            <p className="text-sm text-[#A0A0A0] mb-2">{getText("arena.coreLabel", "核心區")}</p>
+            <p className="text-sm text-amber-700 dark:text-amber-400 mb-2 inline-flex items-center gap-1.5 font-semibold">
+              <Crown className="h-4 w-4" aria-hidden />
+              {getText("arena.coreLabel", "核心區")}
+            </p>
           )}
           {renderArenaMessageBlock(core, "core")}
         </div>
       )}
 
       {elite.length > 0 && (
-        <div className="space-y-2 mb-4 font-mono">
+        <div className="space-y-2 mb-4">
           <p
             className={cn(
               "text-xs mb-2",
-              elite.some((e) => isRecycledView(e)) ? "text-muted-foreground" : "text-[#E0E0E0]"
+              elite.some((e) => isRecycledView(e)) ? "text-muted-foreground" : "text-slate-600 dark:text-slate-300"
             )}
           >
             {getText("arena.eliteLabel", "精英區")}
@@ -531,10 +530,10 @@ export function ArenaSection({
             <div
               key={m.id}
               className={cn(
-                "p-4 rounded-lg",
+                "p-4 rounded-lg border shadow-sm",
                 isRecycledView(m)
                   ? "border border-muted-foreground/40 bg-muted/60 text-foreground"
-                  : "border-2 border-[#C0C0C0] bg-[#0D0D0D] text-[#E0E0E0]"
+                  : "border-slate-300/70 dark:border-slate-700 bg-gradient-to-br from-gray-100 to-transparent dark:from-gray-800/50 dark:to-transparent text-foreground"
               )}
             >
               {renderArenaMessageBlock(m, "elite")}
@@ -548,7 +547,9 @@ export function ArenaSection({
           key={m.id}
           className={cn(
             "font-sans mb-2",
-            isRecycledView(m) ? "border border-muted-foreground/40 bg-muted/70" : "bg-muted/50",
+            isRecycledView(m)
+              ? "border border-muted-foreground/40 bg-muted/70"
+              : "border-0 !bg-gradient-to-br from-gray-100 to-transparent dark:from-gray-800/50 dark:to-transparent",
             userId === m.user_id && !isRecycledView(m) && "border border-dashed border-primary/50"
           )}
         >

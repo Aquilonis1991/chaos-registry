@@ -130,15 +130,13 @@ export const useTopicOperations = () => {
           votes: 0
         }));
 
-      const normalizedExposureLevel = normalizeExposureLevelForDb(data.exposure_level);
-
       const { data: rpcResult, error: rpcError } = await (supabase.rpc as any)('create_topic_atomic', {
         p_title: data.title.trim(),
         p_description: data.description?.trim() || null,
         p_options: formattedOptions,
         p_category: data.category,
         p_tags: data.tags || [],
-        p_exposure_level: normalizedExposureLevel,
+        p_exposure_level: data.exposure_level,
         p_duration_days: data.duration_days,
         p_end_at: endDate.toISOString(),
         p_total_cost: totalCost,

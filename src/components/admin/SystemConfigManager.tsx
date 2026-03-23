@@ -291,7 +291,8 @@ const SystemConfigManager = () => {
     'advertising',
     'user',
     'report',
-    'announcement'
+    'announcement',
+    'ai_cost'
   ];
 
   const existingCategories = Object.keys(groupedConfigs);
@@ -308,7 +309,7 @@ const SystemConfigManager = () => {
   useEffect(() => {
     if (loading || configs.length === 0) return;
     const cats = Object.keys(groupedConfigs);
-    const ordered = ['validation','recharge','voting','topic_cost','arena','home','mission','advertising','user','report','announcement'];
+    const ordered = ['validation','recharge','voting','topic_cost','arena','home','mission','advertising','user','report','announcement','ai_cost'];
     const primary = ordered.filter(c => cats.includes(c));
     const remaining = cats.filter(c => !ordered.includes(c));
     const sorted = [...primary, ...remaining];
@@ -328,7 +329,8 @@ const SystemConfigManager = () => {
     user: '用戶配置',
     home: '首頁配置',
     report: '檢舉',
-    announcement: '公告顯示'
+    announcement: '公告顯示',
+    ai_cost: 'AI 成本'
   };
 
   if (loading) {

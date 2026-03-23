@@ -158,10 +158,16 @@ export const AnnouncementCarousel = ({
         <CardContent className="p-4">
           <div className="flex items-center justify-between text-white">
             <div className="flex-1 cursor-pointer" onClick={() => handleAnnouncementClick(currentAnnouncement)}>
-              <div className="flex items-center gap-2 mb-2">
-                {getPriorityBadge(currentAnnouncement.priority)}
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                {getCategoryBadge(currentAnnouncement)}
                 <span className="text-xs opacity-80">
-                  {format(new Date(currentAnnouncement.created_at), 'MM/dd', { locale: zhTW })}
+                  {currentAnnouncement.display_date
+                    ? format(
+                        new Date(currentAnnouncement.display_date + "T12:00:00"),
+                        "yyyy/MM/dd",
+                        { locale: zhTW }
+                      )
+                    : format(new Date(currentAnnouncement.created_at), "MM/dd", { locale: zhTW })}
                 </span>
               </div>
               <h3 className="font-bold text-lg mb-1 line-clamp-1">

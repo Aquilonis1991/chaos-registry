@@ -496,13 +496,6 @@ const VoteDetailPage = () => {
               </p>
             )}
 
-            <ArenaSection
-              topicId={id || ""}
-              topicEndAt={topic.end_at || ""}
-              userId={user?.id ?? null}
-              isTopicEnded={isTopicEnded}
-            />
-
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div
                 className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground/65"

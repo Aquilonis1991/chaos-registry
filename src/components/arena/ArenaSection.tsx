@@ -179,6 +179,8 @@ export function ArenaSection({
             "在本主題累積投票參與度需達 {{required}}（付費票加總＋免費票次）才能發表觀點"
           ).replace("{{required}}", String(required))
         );
+      } else if (/Content contains banned word/i.test(raw)) {
+        toast.error(getText("arena.toast.bannedWord", "留言包含禁字，請修改後再送出"));
       } else {
         const msg = raw || getText("arena.toast.postFailed", "發表失敗");
         toast.error(msg);

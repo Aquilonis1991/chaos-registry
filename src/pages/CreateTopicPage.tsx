@@ -27,7 +27,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useTopicOperations } from "@/hooks/useTopicOperations";
 import { createTopicSchema } from "@/lib/validationSchemas";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
-import { checkBannedWords, validateTopicContent, getBannedWordErrorMessage } from "@/lib/bannedWords";
+import { checkBannedWords, validateTopicContent, getBannedWordErrorMessage, maskMatchedKeyword } from "@/lib/bannedWords";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -87,17 +87,6 @@ const CreateTopicPage = () => {
   const reviewDialogMessageTemplate = getText('topic.description.reviewMessage', '詳述包含敏感字詞「{{keyword}}」，可能會被管理員下架或修改，仍要送出嗎？');
   const reviewDialogConfirmText = getText('topic.description.reviewConfirm', '仍要送出');
   const reviewDialogCancelText = getText('common.button.cancel', '取消');
-
-  const maskKeywordInText = (text: string, keyword: string) => {
-    if (!keyword) return text;
-    const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(escaped, 'gi');
-    return text.replace(regex, (match) => {
-      const chars = Array.from(match);
-      if (chars.length <= 1) return '***';
-      return `${chars[0]}***`;
-    });
-  };
 
   const handleMaskConfirm = () => {
     if (!maskDialogInfo) {
@@ -181,10 +170,50 @@ const CreateTopicPage = () => {
     setReviewDialogInfo(null);
     setPendingSubmission(null);
   };
+
+  const handleMainContentMaskConfirm = () => {
+    if (!mainContentMaskInfo) {
+      setMainContentMaskOpen(false);
+      return;
+    }
+    const { maskedValue, blockType, optionIndex, tagIndex } = mainContentMaskInfo;
+    if (blockType === 'title') setTitle(maskedValue);
+    else if (blockType === 'option' && optionIndex !== undefined) {
+      setOptions(prev => {
+        const next = [...prev];
+        if (optionIndex >= 0 && optionIndex < next.length) next[optionIndex] = maskedValue;
+        return next;
+      });
+    } else if (blockType === 'tag' && tagIndex !== undefined) {
+      setSelectedTags(prev => {
+        const next = [...prev];
+        if (tagIndex >= 0 && tagIndex < next.length) next[tagIndex] = maskedValue;
+        return next;
+      });
+    } else if (blockType === 'category') setCategory(maskedValue);
+    setMainContentMaskOpen(false);
+    setMainContentMaskInfo(null);
+    toast.info(getText('topic.mask.applied', '敏感字已替換，請確認後重新送出'));
+  };
+
+  const handleMainContentReviewConfirm = async () => {
+    const submission = mainContentPendingSubmission;
+    setMainContentReviewOpen(false);
+    setMainContentReviewInfo(null);
+    setMainContentPendingSubmission(null);
+    if (!submission) return;
+    await checkDescriptionAndSubmit(submission.options, submission.tags);
+  };
+
+  const handleMainContentReviewCancel = () => {
+    setMainContentReviewOpen(false);
+    setMainContentReviewInfo(null);
+    setMainContentPendingSubmission(null);
+  };
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [options, setOptions] = useState(["", ""]);
-  const category = "other";
+  const [category, setCategory] = useState("other");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customTag, setCustomTag] = useState("");
   const [exposure, setExposure] = useState("normal");
@@ -205,6 +234,19 @@ const CreateTopicPage = () => {
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [reviewDialogInfo, setReviewDialogInfo] = useState<{ keyword: string } | null>(null);
   const [pendingSubmission, setPendingSubmission] = useState<{ options: string[]; tags: string[] } | null>(null);
+  /** 標題／選項／標籤／分類 的 mask 對話框 */
+  const [mainContentMaskOpen, setMainContentMaskOpen] = useState(false);
+  const [mainContentMaskInfo, setMainContentMaskInfo] = useState<{
+    keyword: string;
+    maskedValue: string;
+    blockType: 'title' | 'option' | 'tag' | 'category';
+    optionIndex?: number;
+    tagIndex?: number;
+  } | null>(null);
+  /** 標題／選項／標籤／分類 的 review 對話框 */
+  const [mainContentReviewOpen, setMainContentReviewOpen] = useState(false);
+  const [mainContentReviewInfo, setMainContentReviewInfo] = useState<{ keyword: string } | null>(null);
+  const [mainContentPendingSubmission, setMainContentPendingSubmission] = useState<{ options: string[]; tags: string[] } | null>(null);
   const [isDailyDiscountEligible, setIsDailyDiscountEligible] = useState(false);
 
   /* Unstable Rewrite State */
@@ -522,17 +564,47 @@ const CreateTopicPage = () => {
       return;
     }
 
-    // 檢查禁字
+    // 檢查禁字（標題、選項、標籤、分類）
     const bannedCheck = await validateTopicContent(
       title,
       null,
       trimmedOptions,
       sanitizedTags,
       category,
-      topicBannedLevels
+      (topicBannedLevels ?? ['A', 'B', 'C', 'D', 'E']) as string[]
     );
 
     if (bannedCheck.found) {
+      if (bannedCheck.action === 'block') {
+        toast.error(getBannedWordErrorMessage(bannedCheck), {
+          description: getText('topic.banned.description', '發現禁字：{{keyword}}（級別：{{level}}）')
+            .replace('{{keyword}}', bannedCheck.keyword || '')
+            .replace('{{level}}', bannedCheck.level || '')
+        });
+        return;
+      }
+      if (bannedCheck.action === 'mask' && bannedCheck.keyword && bannedCheck.blockType && bannedCheck.blockValue !== undefined) {
+        const masked = maskMatchedKeyword(bannedCheck.blockValue, bannedCheck.keyword);
+        const bt = bannedCheck.blockType;
+        if (bt === 'title' || bt === 'option' || bt === 'tag' || bt === 'category') {
+          setMainContentMaskInfo({
+            keyword: bannedCheck.keyword,
+            maskedValue: masked,
+            blockType: bt,
+            optionIndex: bannedCheck.optionIndex,
+            tagIndex: bannedCheck.tagIndex,
+          });
+          setMainContentMaskOpen(true);
+        }
+        return;
+      }
+      if (bannedCheck.action === 'review') {
+        setMainContentReviewInfo({ keyword: bannedCheck.keyword || '' });
+        setMainContentPendingSubmission({ options: trimmedOptions, tags: sanitizedTags });
+        setMainContentReviewOpen(true);
+        return;
+      }
+      // 其他或未設定 action 時視為 block
       toast.error(getBannedWordErrorMessage(bannedCheck), {
         description: getText('topic.banned.description', '發現禁字：{{keyword}}（級別：{{level}}）')
           .replace('{{keyword}}', bannedCheck.keyword || '')
@@ -541,8 +613,12 @@ const CreateTopicPage = () => {
       return;
     }
 
+    await checkDescriptionAndSubmit(trimmedOptions, sanitizedTags);
+  };
+
+  const checkDescriptionAndSubmit = async (optionsForSubmit: string[], tagsForSubmit: string[]) => {
     const descriptionCheck = description.trim()
-      ? await checkBannedWords(description, topicDescriptionBannedLevels)
+      ? await checkBannedWords(description, (topicDescriptionBannedLevels ?? ['A', 'B', 'C', 'D', 'E']) as string[])
       : { found: false };
 
     if (descriptionCheck.found) {
@@ -552,23 +628,25 @@ const CreateTopicPage = () => {
         });
         return;
       }
-
       if (descriptionCheck.action === 'mask') {
-        const masked = maskKeywordInText(description, descriptionCheck.keyword || '');
+        const masked = maskMatchedKeyword(description, descriptionCheck.keyword || '');
         setMaskDialogInfo({ keyword: descriptionCheck.keyword || '', maskedDescription: masked });
         setMaskDialogOpen(true);
         return;
       }
-
       if (descriptionCheck.action === 'review') {
         setReviewDialogInfo({ keyword: descriptionCheck.keyword || '' });
-        setPendingSubmission({ options: trimmedOptions, tags: sanitizedTags });
+        setPendingSubmission({ options: optionsForSubmit, tags: tagsForSubmit });
         setReviewDialogOpen(true);
         return;
       }
+      toast.error(getText('topic.description.blocked', '詳述包含禁止使用的字詞，請修改後重試'), {
+        description: getText('topic.description.blockedDesc', '敏感字詞：{{keyword}}').replace('{{keyword}}', descriptionCheck.keyword || '')
+      });
+      return;
     }
 
-    await submitTopic(trimmedOptions, sanitizedTags);
+    await submitTopic(optionsForSubmit, tagsForSubmit);
   };
 
   const userTokens = profile?.tokens || 0;
@@ -613,7 +691,35 @@ const CreateTopicPage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={mainContentMaskOpen} onOpenChange={(open) => { if (!open) { setMainContentMaskOpen(false); setMainContentMaskInfo(null); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{getText('topic.mask.contentTitle', '內容含敏感字詞')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {getText('topic.mask.contentMessage', '發現敏感字詞「{{keyword}}」，將替換為星號。是否套用？').replace('{{keyword}}', mainContentMaskInfo?.keyword || '')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{getText('common.button.cancel', '取消')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleMainContentMaskConfirm}>{getText('topic.description.maskConfirm', '替換為星號')}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
+      <AlertDialog open={mainContentReviewOpen} onOpenChange={(open) => { if (!open) handleMainContentReviewCancel(); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{getText('topic.review.contentTitle', '內容需經審核')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {getText('topic.review.contentMessage', '發現敏感字詞「{{keyword}}」，送出後將進入審核流程。仍要送出嗎？').replace('{{keyword}}', mainContentReviewInfo?.keyword || '')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleMainContentReviewCancel}>{getText('common.button.cancel', '取消')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleMainContentReviewConfirm}>{getText('topic.description.reviewConfirm', '仍要送出')}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Unstable Rewrite Payment Confirmation Dialog */}
       <AlertDialog open={showPaymentConfirm} onOpenChange={setShowPaymentConfirm}>

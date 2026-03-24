@@ -117,16 +117,21 @@ Deno.serve(async (req) => {
 
     const validation = validationResult?.[0];
     if (validation && validation.is_valid === false) {
-      return new Response(
-        JSON.stringify({
-          error: `Forbidden keyword detected in ${validation.field_name}: ${validation.matched_keyword}`,
-          keyword: validation.matched_keyword,
-          level: validation.matched_level,
-          action: validation.matched_action,
-          field: validation.field_name
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      const action = validation.matched_action || 'block';
+      if (action === 'review') {
+        // 允許 review 等級，由管理員後續審核
+      } else {
+        return new Response(
+          JSON.stringify({
+            error: `Forbidden keyword detected in ${validation.field_name}: ${validation.matched_keyword}`,
+            keyword: validation.matched_keyword,
+            level: validation.matched_level,
+            action: validation.matched_action,
+            field: validation.field_name
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // Server-side input validation with dynamic config

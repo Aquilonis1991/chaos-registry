@@ -566,21 +566,23 @@ export const UITextManager = () => {
       </div>
 
       <div className="border rounded-lg overflow-x-auto">
-        <Table>
+        <Table className="min-w-[min(100%,1280px)]">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-32">{tableHeaderCategory}</TableHead>
-              <TableHead className="w-48">{tableHeaderKey}</TableHead>
-              <TableHead className="w-48">{tableHeaderZh}</TableHead>
-              <TableHead className="w-48">{tableHeaderEn}</TableHead>
-              <TableHead className="w-48">{tableHeaderJa}</TableHead>
-              <TableHead className="w-64">{tableHeaderDescription}</TableHead>
-              <TableHead className="w-32">{tableHeaderActions}</TableHead>
+              <TableHead className="min-w-[7rem]">{tableHeaderCategory}</TableHead>
+              <TableHead className="min-w-[10rem]">{tableHeaderKey}</TableHead>
+              <TableHead className="min-w-[12rem]">{tableHeaderZh}</TableHead>
+              <TableHead className="min-w-[12rem]">{tableHeaderEn}</TableHead>
+              <TableHead className="min-w-[12rem]">{tableHeaderJa}</TableHead>
+              <TableHead className="min-w-[14rem]">{tableHeaderDescription}</TableHead>
+              <TableHead className="sticky right-0 z-20 min-w-[11rem] w-[11rem] border-l border-border bg-background shadow-[-6px_0_10px_-4px_hsl(var(--background)/0.9)]">
+                {tableHeaderActions}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredTexts.map((text) => (
-              <TableRow key={text.id}>
+              <TableRow key={text.id} className="group">
                 <TableCell className="font-medium">
                   {editingId === text.id ? (
                     <Input
@@ -638,11 +640,12 @@ export const UITextManager = () => {
                     </div>
                   )}
                 </TableCell>
-                <TableCell>
+                <TableCell className="sticky right-0 z-10 min-w-[11rem] w-[11rem] border-l border-border bg-background group-hover:bg-muted/50">
                   {editingId === text.id ? (
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button
                         size="sm"
+                        className="shrink-0"
                         onClick={() => handleSave(text)}
                         disabled={updateMutation.isPending}
                       >
@@ -655,6 +658,7 @@ export const UITextManager = () => {
                       <Button
                         size="sm"
                         variant="outline"
+                        className="shrink-0"
                         onClick={handleCancel}
                         disabled={updateMutation.isPending}
                       >
@@ -665,6 +669,7 @@ export const UITextManager = () => {
                     <Button
                       size="sm"
                       variant="outline"
+                      className="shrink-0"
                       onClick={() => handleEdit(text)}
                     >
                       <Edit className="w-4 h-4 mr-1" />編輯

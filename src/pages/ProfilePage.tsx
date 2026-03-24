@@ -877,7 +877,7 @@ const ProfilePage = () => {
 
           {/* Version：與 package.json 同步，封包時更新 package.json 即可 */}
           <div className="text-center text-sm text-muted-foreground py-4">
-            ChaosRegistry v{__APP_VERSION__}
+            ChaosRegistry v{__APP_VERSION__ || "1.0.92"}
           </div>
         </div>
       </div>

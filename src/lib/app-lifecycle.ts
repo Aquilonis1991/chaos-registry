@@ -164,7 +164,7 @@ export const getAppInfo = async () => {
   if (!Capacitor.isNativePlatform()) {
     return {
       name: 'VoteChaos',
-      version: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.38',
+      version: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.92',
       build: '1',
       platform: 'web'
     };

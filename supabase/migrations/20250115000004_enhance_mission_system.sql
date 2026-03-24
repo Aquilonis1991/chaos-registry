@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS public.daily_logins (
 ALTER TABLE public.daily_logins ENABLE ROW LEVEL SECURITY;
 
 -- Policies
+DROP POLICY IF EXISTS "Users can view own login history" ON public.daily_logins;
+DROP POLICY IF EXISTS "Users can insert own login records" ON public.daily_logins;
 CREATE POLICY "Users can view own login history"
   ON public.daily_logins FOR SELECT
   USING (auth.uid() = user_id);
@@ -31,6 +33,7 @@ CREATE POLICY "Users can insert own login records"
 CREATE INDEX IF NOT EXISTS idx_daily_logins_user_date ON public.daily_logins(user_id, login_date DESC);
 
 -- Function to record daily login and update streak
+DROP FUNCTION IF EXISTS public.record_daily_login(uuid);
 CREATE OR REPLACE FUNCTION public.record_daily_login(p_user_id uuid)
 RETURNS TABLE (
   is_new_login boolean,
@@ -120,6 +123,7 @@ END;
 $$;
 
 -- Function to get user's login streak info
+DROP FUNCTION IF EXISTS public.get_login_streak_info(uuid);
 CREATE OR REPLACE FUNCTION public.get_login_streak_info(p_user_id uuid)
 RETURNS TABLE (
   current_streak integer,
@@ -163,8 +167,8 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Add system config for mission settings
 INSERT INTO public.system_config (key, value, category, description) VALUES
-  ('daily_login_reward', '3', 'mission', '每日登入獎勵代幣數'),
-  ('consecutive_login_target', '5', 'mission', '連續登入目標天數'),
-  ('consecutive_login_reward_type', 'free_create_qualification', 'mission', '連續登入獎勵類型')
+  ('daily_login_reward', '3'::jsonb, 'mission', '每日登入獎勵代幣數'),
+  ('consecutive_login_target', '5'::jsonb, 'mission', '連續登入目標天數'),
+  ('consecutive_login_reward_type', to_jsonb('free_create_qualification'::text), 'mission', '連續登入獎勵類型')
 ON CONFLICT (key) DO NOTHING;
 

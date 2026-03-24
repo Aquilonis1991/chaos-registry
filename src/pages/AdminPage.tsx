@@ -7,6 +7,8 @@ import { Loader2 } from "lucide-react";
 import { UITextManager } from "@/components/admin/UITextManager";
 import { TopicManager } from "@/components/admin/TopicManager";
 import SystemConfigManager from "@/components/admin/SystemConfigManager";
+import AnnouncementManager from "@/components/admin/AnnouncementManager";
+import ArenaMessagesManager from "@/components/admin/ArenaMessagesManager";
 import ReportManager from "@/components/admin/ReportManager";
 import SecurityManager from "@/components/admin/SecurityManager";
 import { BannedWordsManager } from "@/components/admin/BannedWordsManager";
@@ -14,7 +16,6 @@ import { UserRestrictionManager } from "@/components/admin/UserRestrictionManage
 import { UserManager } from "@/components/admin/UserManager";
 import NotificationManager from "@/components/admin/NotificationManager";
 import ContactMessageManager from "@/components/admin/ContactMessageManager";
-import { isNative } from "@/lib/capacitor";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import LegalContentManager from "@/components/admin/LegalContentManager";
@@ -35,10 +36,12 @@ const AdminPage = () => {
   const tabContact = getText('admin.tabs.contact', '聯絡訊息');
   const tabReports = getText('admin.tabs.reports', '檢舉管理');
   const tabTopics = getText('admin.tabs.topics', '主題管理');
+  const tabArenaMessages = getText('admin.tabs.arenaMessages', '觀點角鬥場');
   const tabRestrictions = getText('admin.tabs.userRestrictions', '用戶限制');
   const tabSecurity = getText('admin.tabs.security', '安全管理');
   const tabUiTexts = getText('admin.tabs.uiTexts', 'UI文字管理');
   const tabConfig = getText('admin.tabs.config', '系統配置');
+  const tabAnnouncements = getText('admin.tabs.announcementsDisplay', '公告顯示');
   const tabBannedWords = getText('admin.tabs.bannedWords', '禁字表');
   const tabLegal = getText('admin.tabs.legal', '條款管理');
   const tabExport = getText('admin.tabs.export', '數據匯出');
@@ -146,7 +149,7 @@ const AdminPage = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl pt-[calc(1.5rem+env(safe-area-inset-top,0px))]">
+    <div className="container mx-auto p-6 max-w-screen-2xl pt-[calc(1.5rem+env(safe-area-inset-top,0px))]">
       <h1 className="text-3xl font-bold mb-6">{headerTitle}</h1>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -156,11 +159,13 @@ const AdminPage = () => {
           <TabsTrigger value="contact">{tabContact}</TabsTrigger>
           <TabsTrigger value="reports">{tabReports}</TabsTrigger>
           <TabsTrigger value="topics">{tabTopics}</TabsTrigger>
+          <TabsTrigger value="arena-messages">{tabArenaMessages}</TabsTrigger>
           <TabsTrigger value="export">{tabExport}</TabsTrigger>
           <TabsTrigger value="user-restrictions">{tabRestrictions}</TabsTrigger>
           <TabsTrigger value="security">{tabSecurity}</TabsTrigger>
           <TabsTrigger value="ui-texts">{tabUiTexts}</TabsTrigger>
           <TabsTrigger value="config">{tabConfig}</TabsTrigger>
+          <TabsTrigger value="announcements">{tabAnnouncements}</TabsTrigger>
           <TabsTrigger value="banned-words">{tabBannedWords}</TabsTrigger>
           <TabsTrigger value="legal">{tabLegal}</TabsTrigger>
           <TabsTrigger value="ai">{tabAi}</TabsTrigger>
@@ -201,6 +206,12 @@ const AdminPage = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="arena-messages">
+          <Card className="p-6">
+            <ArenaMessagesManager />
+          </Card>
+        </TabsContent>
+
         <TabsContent value="export">
           <Card className="p-6">
             <DataExportManager />
@@ -219,14 +230,14 @@ const AdminPage = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="export">
-          <Card className="p-6">
-            <DataExportManager />
-          </Card>
-        </TabsContent>
-
         <TabsContent value="config">
           <SystemConfigManager />
+        </TabsContent>
+
+        <TabsContent value="announcements">
+          <Card className="p-6">
+            <AnnouncementManager />
+          </Card>
         </TabsContent>
 
         <TabsContent value="banned-words">

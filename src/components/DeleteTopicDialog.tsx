@@ -189,7 +189,7 @@ export const DeleteTopicDialog = ({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-3 sm:gap-4">
           <Button
             variant="outline"
             onClick={() => setOpen(false)}

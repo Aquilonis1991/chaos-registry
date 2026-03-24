@@ -1,5 +1,5 @@
 -- Create system_config table for storing all system configuration values
-CREATE TABLE public.system_config (
+CREATE TABLE IF NOT EXISTS public.system_config (
   id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   key text NOT NULL UNIQUE,
   value jsonb NOT NULL,
@@ -13,6 +13,9 @@ CREATE TABLE public.system_config (
 ALTER TABLE public.system_config ENABLE ROW LEVEL SECURITY;
 
 -- Only admins can view and modify system config
+DROP POLICY IF EXISTS "Only admins can view system config" ON public.system_config;
+DROP POLICY IF EXISTS "Only admins can update system config" ON public.system_config;
+DROP POLICY IF EXISTS "Only admins can insert system config" ON public.system_config;
 CREATE POLICY "Only admins can view system config"
 ON public.system_config
 FOR SELECT
@@ -69,4 +72,5 @@ INSERT INTO public.system_config (key, value, category, description) VALUES
   ('mission_vote_reward', '2', 'mission', '參與投票任務獎勵'),
   
   -- 新用戶初始代幣
-  ('new_user_tokens', '50', 'user', '新用戶註冊獲得的初始代幣數量');
+  ('new_user_tokens', '50', 'user', '新用戶註冊獲得的初始代幣數量')
+ON CONFLICT (key) DO NOTHING;

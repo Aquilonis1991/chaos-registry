@@ -10,6 +10,9 @@ interface Announcement {
   priority: number;
   click_count: number;
   created_at: string;
+  announcement_category?: string;
+  style_preset?: number;
+  display_date?: string | null;
 }
 
 export const useAnnouncements = () => {

@@ -92,7 +92,11 @@ const CreateTopicPage = () => {
     if (!keyword) return text;
     const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(escaped, 'gi');
-    return text.replace(regex, (match) => '*'.repeat(match.length));
+    return text.replace(regex, (match) => {
+      const chars = Array.from(match);
+      if (chars.length <= 1) return '***';
+      return `${chars[0]}***`;
+    });
   };
 
   const handleMaskConfirm = () => {
@@ -212,8 +216,8 @@ const CreateTopicPage = () => {
   const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
   const [promptConfigDialogOpen, setPromptConfigDialogOpen] = useState(false);
   const [promptConfigKey, setPromptConfigKey] = useState<string | null>(null);
-  const [allowTimeExtension, setAllowTimeExtension] = useState(false);
-  const [allowOptionAddition, setAllowOptionAddition] = useState(false);
+  const [allowTimeExtension, setAllowTimeExtension] = useState(true);
+  const [allowOptionAddition, setAllowOptionAddition] = useState(true);
 
   // Check daily rewrite usage on mount
   useEffect(() => {

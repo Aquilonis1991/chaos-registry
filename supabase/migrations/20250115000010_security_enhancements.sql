@@ -6,27 +6,46 @@
 -- 4. 審計日誌增強
 -- ============================================
 
+-- 本檔早於建立 update_updated_at 的遷移，須先定義（與 20251007075605 一致，之後 REPLACE 即可）
+CREATE OR REPLACE FUNCTION public.update_updated_at()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
 -- ============================================
 -- 1. 用戶封鎖系統
 -- ============================================
 
 -- 封鎖類型枚舉
-CREATE TYPE block_type AS ENUM (
-  'temporary',    -- 臨時封鎖
-  'permanent',    -- 永久封鎖
-  'warning'       -- 警告狀態
-);
+DO $$ BEGIN
+  CREATE TYPE block_type AS ENUM (
+    'temporary',
+    'permanent',
+    'warning'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 -- 封鎖原因枚舉
-CREATE TYPE block_reason AS ENUM (
-  'spam',              -- 發送垃圾訊息
-  'harassment',        -- 騷擾其他用戶
-  'hate_speech',       -- 仇恨言論
-  'fraud',             -- 詐騙行為
-  'multiple_accounts', -- 多重帳號
-  'vote_manipulation', -- 操控投票
-  'other'              -- 其他原因
-);
+DO $$ BEGIN
+  CREATE TYPE block_reason AS ENUM (
+    'spam',
+    'harassment',
+    'hate_speech',
+    'fraud',
+    'multiple_accounts',
+    'vote_manipulation',
+    'other'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 -- 用戶封鎖表
 CREATE TABLE IF NOT EXISTS user_blocks (
@@ -62,12 +81,16 @@ CREATE INDEX idx_user_blocks_expires ON user_blocks(blocked_until) WHERE blocked
 CREATE TRIGGER update_user_blocks_updated_at
   BEFORE UPDATE ON user_blocks
   FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+  EXECUTE FUNCTION public.update_updated_at();
 
 -- RLS 政策
 ALTER TABLE user_blocks ENABLE ROW LEVEL SECURITY;
 
 -- 用戶可以查看自己的封鎖記錄
+DROP POLICY IF EXISTS "Users can view own blocks" ON public.user_blocks;
+DROP POLICY IF EXISTS "Admins can view all blocks" ON public.user_blocks;
+DROP POLICY IF EXISTS "Admins can create blocks" ON public.user_blocks;
+DROP POLICY IF EXISTS "Admins can update blocks" ON public.user_blocks;
 CREATE POLICY "Users can view own blocks"
   ON user_blocks FOR SELECT
   USING (auth.uid() = user_id);
@@ -75,43 +98,32 @@ CREATE POLICY "Users can view own blocks"
 -- 管理員可以查看所有封鎖
 CREATE POLICY "Admins can view all blocks"
   ON user_blocks FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND is_admin = true
-    )
-  );
+  USING (public.is_admin(auth.uid()));
 
 -- 管理員可以創建封鎖
 CREATE POLICY "Admins can create blocks"
   ON user_blocks FOR INSERT
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND is_admin = true
-    )
-  );
+  WITH CHECK (public.is_admin(auth.uid()));
 
 -- 管理員可以更新封鎖
 CREATE POLICY "Admins can update blocks"
   ON user_blocks FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND is_admin = true
-    )
-  );
+  USING (public.is_admin(auth.uid()));
 
 -- ============================================
 -- 2. IP 黑名單系統
 -- ============================================
 
 -- IP 封鎖類型
-CREATE TYPE ip_block_type AS ENUM (
-  'temporary',
-  'permanent',
-  'suspicious'  -- 可疑但未封鎖，僅記錄
-);
+DO $$ BEGIN
+  CREATE TYPE ip_block_type AS ENUM (
+    'temporary',
+    'permanent',
+    'suspicious'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 -- IP 黑名單表
 CREATE TABLE IF NOT EXISTS ip_blacklist (
@@ -145,55 +157,55 @@ CREATE INDEX idx_ip_blacklist_active ON ip_blacklist(is_active) WHERE is_active 
 CREATE TRIGGER update_ip_blacklist_updated_at
   BEFORE UPDATE ON ip_blacklist
   FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+  EXECUTE FUNCTION public.update_updated_at();
 
 -- RLS 政策
 ALTER TABLE ip_blacklist ENABLE ROW LEVEL SECURITY;
 
 -- 僅管理員可以查看
+DROP POLICY IF EXISTS "Admins can view ip blacklist" ON public.ip_blacklist;
+DROP POLICY IF EXISTS "Admins can manage ip blacklist" ON public.ip_blacklist;
 CREATE POLICY "Admins can view ip blacklist"
   ON ip_blacklist FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND is_admin = true
-    )
-  );
+  USING (public.is_admin(auth.uid()));
 
 -- 僅管理員可以管理
 CREATE POLICY "Admins can manage ip blacklist"
   ON ip_blacklist FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND is_admin = true
-    )
-  );
+  USING (public.is_admin(auth.uid()));
 
 -- ============================================
 -- 3. 內容過濾（敏感詞系統）
 -- ============================================
 
 -- 敏感詞類別
-CREATE TYPE sensitive_word_category AS ENUM (
-  'profanity',      -- 髒話
-  'hate_speech',    -- 仇恨言論
-  'sexual',         -- 色情內容
-  'violence',       -- 暴力內容
-  'political',      -- 政治敏感
-  'fraud',          -- 詐騙相關
-  'personal_info',  -- 個人資訊
-  'spam',           -- 垃圾訊息
-  'other'           -- 其他
-);
+DO $$ BEGIN
+  CREATE TYPE sensitive_word_category AS ENUM (
+    'profanity',
+    'hate_speech',
+    'sexual',
+    'violence',
+    'political',
+    'fraud',
+    'personal_info',
+    'spam',
+    'other'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 -- 處理動作
-CREATE TYPE filter_action AS ENUM (
-  'block',          -- 阻止發布
-  'review',         -- 標記待審核
-  'replace',        -- 替換為星號
-  'warn'            -- 僅警告
-);
+DO $$ BEGIN
+  CREATE TYPE filter_action AS ENUM (
+    'block',
+    'review',
+    'replace',
+    'warn'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 -- 敏感詞表
 CREATE TABLE IF NOT EXISTS sensitive_words (
@@ -225,20 +237,16 @@ CREATE INDEX idx_sensitive_words_active ON sensitive_words(is_active) WHERE is_a
 CREATE TRIGGER update_sensitive_words_updated_at
   BEFORE UPDATE ON sensitive_words
   FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+  EXECUTE FUNCTION public.update_updated_at();
 
 -- RLS 政策
 ALTER TABLE sensitive_words ENABLE ROW LEVEL SECURITY;
 
 -- 僅管理員可見
+DROP POLICY IF EXISTS "Admins can manage sensitive words" ON public.sensitive_words;
 CREATE POLICY "Admins can manage sensitive words"
   ON sensitive_words FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND is_admin = true
-    )
-  );
+  USING (public.is_admin(auth.uid()));
 
 -- ============================================
 -- 4. 審計日誌增強（添加 IP 欄位）

@@ -40,6 +40,7 @@ import { useAiClosingStatement } from "@/hooks/useAiClosingStatement";
 import { isPromptConfigError, getPromptConfigKeyFromError } from "@/lib/promptConfigError";
 import { PromptNotConfiguredDialog } from "@/components/PromptNotConfiguredDialog";
 import { supabase } from "@/integrations/supabase/client";
+import { ArenaSection } from "@/components/arena/ArenaSection";
 
 const VoteDetailPage = () => {
   const { id } = useParams();
@@ -377,7 +378,7 @@ const VoteDetailPage = () => {
   // 等待主題資料時：只顯示頁面骨架（Header），內容區留白，不顯示任何讀取動畫/彈窗
   if (waitingForTopic) {
     return (
-      <div className="min-h-screen bg-background pb-6">
+      <div className="min-h-screen bg-background pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
         <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
           <div className="max-w-screen-xl mx-auto px-5 sm:px-6 py-4">
             <div className="flex items-center gap-4">
@@ -427,7 +428,7 @@ const VoteDetailPage = () => {
 
   return (
     <>
-      <div className="min-h-screen bg-background pb-6">
+      <div className="min-h-screen bg-background pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
         {/* Header：進入詳情即顯示，不擋全螢幕 */}
         <header className="sticky top-0 z-40 bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
           <div className="max-w-screen-xl mx-auto px-5 sm:px-6 py-4">
@@ -459,9 +460,27 @@ const VoteDetailPage = () => {
         <div className="max-w-screen-xl mx-auto px-5 sm:px-6 py-6">
           {/* Topic Info */}
           <div className="mb-6 max-w-4xl mx-auto w-full px-4 sm:px-6">
-            <h2 className="text-2xl font-bold text-foreground mb-3">
-              {topic.title}
-            </h2>
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <h2 className="text-2xl font-bold text-foreground flex-1 min-w-0 pr-2">
+                {topic.title}
+              </h2>
+              <ReportDialog
+                targetType="topic"
+                targetId={id || ""}
+                targetTitle={topic.title}
+                trigger={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 h-10 w-10 text-destructive hover:text-destructive hover:bg-destructive/15"
+                    aria-label={reportButtonText}
+                  >
+                    <Flag className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+                  </Button>
+                }
+              />
+            </div>
 
             <div className="flex flex-wrap gap-2 mb-4">
               {topic.tags.map((tag) => (
@@ -472,89 +491,69 @@ const VoteDetailPage = () => {
             </div>
 
             {topic.description && (
-              <p className="text-muted-foreground mb-4">
+              <p className="text-base leading-relaxed text-foreground/95 mb-5">
                 {topic.description}
               </p>
             )}
 
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <User className="w-4 h-4" />
-                  <span>{topic.creator_name}</span>
+              <div
+                className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground/65"
+                aria-label={getText("vote.detail.meta.ariaLabel", "主題發起與時間資訊")}
+              >
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <User className="w-3.5 h-3.5 shrink-0 opacity-60" aria-hidden />
+                  <span className="truncate">{topic.creator_name}</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Clock className="w-3.5 h-3.5 shrink-0 opacity-60" aria-hidden />
                   <span>{createdAtLabel}</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Clock className="w-3.5 h-3.5 shrink-0 opacity-60" aria-hidden />
                   <span>{remainingTimeLabel}</span>
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="w-full">
-                <div className={`grid gap-3 ${isCreator ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4' : 'grid-cols-2'}`}>
-                  {/* 編輯和刪除按鈕（僅創建者可見）*/}
-                  {isCreator && (
-                    <>
+              {/* 編輯／刪除／曝光（僅創建者） */}
+              {isCreator && (
+                <div className="w-full lg:max-w-md">
+                  <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
+                    <div className="w-full">
+                      <EditTopicDialog
+                        topicId={id || ''}
+                        currentTitle={topic.title}
+                        currentDescription={topic.description}
+                        currentOptions={topic.options.map(opt => opt.text)}
+                        createdAt={topic.created_at}
+                        onEditSuccess={refreshTopic}
+                        triggerClassName="w-full"
+                      />
+                    </div>
+                    <div className="w-full">
+                      <DeleteTopicDialog
+                        topicId={id || ''}
+                        topicTitle={topic.title}
+                        navigateAfterDelete={true}
+                        triggerClassName="w-full"
+                      />
+                    </div>
+                    {topic.exposure_level !== 'high' && (
                       <div className="w-full">
-                        <EditTopicDialog
-                          topicId={id || ''}
-                          currentTitle={topic.title}
-                          currentDescription={topic.description}
-                          currentOptions={topic.options.map(opt => opt.text)}
-                          createdAt={topic.created_at}
-                          onEditSuccess={refreshTopic}
-                          triggerClassName="w-full"
-                        />
-                      </div>
-                      <div className="w-full">
-                        <DeleteTopicDialog
-                          topicId={id || ''}
-                          topicTitle={topic.title}
-                          navigateAfterDelete={true}
-                          triggerClassName="w-full"
-                        />
-                      </div>
-                      {/* 曝光升級按鈕 */}
-                      {topic.exposure_level !== 'high' && (
-                        <div className="w-full">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setExposureDialogOpen(true)}
-                            className="w-full text-primary hover:text-primary"
-                          >
-                            <Sparkles className="w-4 h-4 mr-2" />
-                            {upgradeExposureText}
-                          </Button>
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {/* Report Button */}
-                  <div className="w-full">
-                    <ReportDialog
-                      targetType="topic"
-                      targetId={id || ""}
-                      targetTitle={topic.title}
-                      trigger={
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
-                          className="w-full text-muted-foreground hover:text-destructive"
+                          onClick={() => setExposureDialogOpen(true)}
+                          className="w-full text-primary hover:text-primary"
                         >
-                          <Flag className="w-4 h-4 mr-2" />
-                          {reportButtonText}
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          {upgradeExposureText}
                         </Button>
-                      }
-                    />
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* 曝光升級對話框 */}
@@ -824,6 +823,16 @@ const VoteDetailPage = () => {
           )}
         </div>
           ); })()}
+
+        {/* Arena：代幣餘額下方、投票截止時間上方 */}
+        <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 mb-4">
+          <ArenaSection
+            topicId={id || ""}
+            topicEndAt={topic.end_at || ""}
+            userId={user?.id ?? null}
+            isTopicEnded={isTopicEnded}
+          />
+        </div>
 
         {/* Info Card */}
         <div className="max-w-3xl mx-auto w-full px-4 sm:px-6">

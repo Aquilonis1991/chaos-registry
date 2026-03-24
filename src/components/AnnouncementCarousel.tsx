@@ -1,16 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, type TouchEvent } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
-  ChevronLeft, 
-  ChevronRight, 
   X, 
   Calendar, 
-  Clock, 
   Star,
-  ExternalLink,
   Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -19,6 +15,8 @@ import { format } from "date-fns";
 import { zhTW } from "date-fns/locale";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
+import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
+import { getAnnouncementStyleClass } from "@/lib/announcementStyles";
 
 interface Announcement {
   id: string;
@@ -29,6 +27,9 @@ interface Announcement {
   priority: number;
   click_count: number;
   created_at: string;
+  announcement_category?: string;
+  style_preset?: number;
+  display_date?: string | null;
 }
 
 interface AnnouncementCarouselProps {
@@ -50,25 +51,51 @@ export const AnnouncementCarousel = ({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
   const [isDismissed, setIsDismissed] = useState(false);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchEndX, setTouchEndX] = useState<number | null>(null);
+  const [isTouching, setIsTouching] = useState(false);
+  const [dragDeltaX, setDragDeltaX] = useState(0);
+  const [swipeFxOffset, setSwipeFxOffset] = useState(0);
+
+  const { getConfig, loading: configLoading, configs } = useSystemConfigCache();
+  const announcementMaxDisplay = useMemo(() => {
+    const raw = getConfig<number>("announcement_max_display", 3);
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 1) return 3;
+    return Math.min(Math.max(Math.floor(n), 1), 50);
+  }, [configs]);
 
   useEffect(() => {
+    if (configLoading) return;
+    const fetchAnnouncements = async () => {
+      try {
+        const { data, error } = await supabase.rpc("get_active_announcements", {
+          limit_count: announcementMaxDisplay,
+        });
+        if (error) throw error;
+        setAnnouncements(data || []);
+      } catch (error) {
+        console.error("Error fetching announcements:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchAnnouncements();
-  }, []);
+  }, [configLoading, announcementMaxDisplay]);
 
-  const fetchAnnouncements = async () => {
+  const DISMISS_STORAGE_KEY = "announcement_banner_dismissed";
+  const getTodayStr = () => new Date().toISOString().slice(0, 10);
+
+  useEffect(() => {
     try {
-      const { data, error } = await supabase.rpc('get_active_announcements', {
-        limit_count: 3
-      });
-
-      if (error) throw error;
-      setAnnouncements(data || []);
-    } catch (error) {
-      console.error('Error fetching announcements:', error);
-    } finally {
-      setLoading(false);
+      const stored = localStorage.getItem(DISMISS_STORAGE_KEY);
+      if (stored === getTodayStr()) {
+        setIsDismissed(true);
+      }
+    } catch {
+      /* ignore */
     }
-  };
+  }, []);
 
   const handleAnnouncementClick = async (announcement: Announcement) => {
     try {
@@ -97,45 +124,69 @@ export const AnnouncementCarousel = ({
   };
 
   const handleDismiss = () => {
+    try {
+      localStorage.setItem(DISMISS_STORAGE_KEY, getTodayStr());
+    } catch {
+      /* ignore */
+    }
     setIsDismissed(true);
     onClose?.();
   };
 
-  const getPriorityColor = (priority: number) => {
-    if (priority >= 90) {
-      return "bg-gradient-to-r from-red-500 to-pink-500";
-    } else if (priority >= 70) {
-      return "bg-gradient-to-r from-blue-500 to-purple-500";
-    } else if (priority >= 50) {
-      return "bg-gradient-to-r from-green-500 to-teal-500";
-    } else {
-      return "bg-gradient-to-r from-gray-500 to-slate-500";
+  const SWIPE_THRESHOLD = 40;
+  const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {
+    setIsTouching(true);
+    setTouchStartX(e.touches[0].clientX);
+    setTouchEndX(null);
+    setDragDeltaX(0);
+    setSwipeFxOffset(0);
+  };
+  const handleTouchMove = (e: TouchEvent<HTMLDivElement>) => {
+    const x = e.touches[0].clientX;
+    setTouchEndX(x);
+    if (touchStartX !== null) {
+      setDragDeltaX(x - touchStartX);
     }
   };
+  const handleTouchEnd = () => {
+    setIsTouching(false);
+    const delta = touchStartX !== null && touchEndX !== null ? touchStartX - touchEndX : 0;
 
-  const getPriorityBadge = (priority: number) => {
-    if (priority >= 90) {
-      return (
-        <Badge variant="destructive" className="flex items-center gap-1">
-          <Star className="w-3 h-3" />
-          {getText('announcement.badge.critical', '重要')}
-        </Badge>
-      );
-    } else if (priority >= 70) {
-      return (
-        <Badge variant="default" className="flex items-center gap-1">
-          <Star className="w-3 h-3" />
-          {getText('announcement.badge.high', '一般')}
-        </Badge>
-      );
+    if (announcements.length <= 1 || touchStartX === null || touchEndX === null) return;
+    if (Math.abs(delta) < SWIPE_THRESHOLD) {
+      setDragDeltaX(0);
+      return;
+    }
+    if (delta > 0) {
+      handleNext();
+      setSwipeFxOffset(-10);
     } else {
+      handlePrev();
+      setSwipeFxOffset(10);
+    }
+    window.setTimeout(() => setSwipeFxOffset(0), 180);
+    setDragDeltaX(0);
+  };
+
+    const getCategoryBadge = (a: Announcement, variant: "onGradient" | "onLight" = "onGradient") => {
+    const cat = a.announcement_category?.trim() || getText("announcement.badge.default", "一般");
+    if (variant === "onLight") {
       return (
-        <Badge variant="outline" className="flex items-center gap-1">
+        <Badge variant="secondary" className="flex items-center gap-1 shrink-0">
           <Star className="w-3 h-3" />
-          {getText('announcement.badge.normal', '通知')}
+          {cat}
         </Badge>
       );
     }
+    return (
+      <Badge
+        variant="secondary"
+        className="flex items-center gap-1 border border-white/30 bg-white/20 text-white"
+      >
+        <Star className="w-3 h-3" />
+        {cat}
+      </Badge>
+    );
   };
 
   if (loading) {
@@ -151,21 +202,61 @@ export const AnnouncementCarousel = ({
   }
 
   const currentAnnouncement = announcements[currentIndex];
+  const dragRatio = Math.min(Math.abs(dragDeltaX) / 160, 1);
+  const visualOffset = dragDeltaX * 0.18 + swipeFxOffset;
+  const visualScale = 1 - dragRatio * 0.03;
+  const visualOpacity = 1 - dragRatio * 0.2;
+  const edgeGlowSide = dragDeltaX > 0 ? "left" : "right";
 
   return (
     <>
       <Card className={cn(
         "relative overflow-hidden transition-all duration-300 hover:shadow-lg",
-        getPriorityColor(currentAnnouncement.priority),
+        getAnnouncementStyleClass(currentAnnouncement.style_preset),
         className
-      )}>
-        <CardContent className="p-4">
+      )}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      >
+        <CardContent
+          className="p-4 relative"
+          style={{
+            transform: `translateX(${visualOffset}px) scale(${visualScale})`,
+            opacity: visualOpacity,
+            transition: isTouching
+              ? "none"
+              : "transform 220ms ease, opacity 220ms ease",
+          }}
+        >
+          {announcements.length > 1 && dragRatio > 0.05 && (
+            <div
+              aria-hidden
+              className={cn(
+                "pointer-events-none absolute top-0 bottom-0 w-12",
+                edgeGlowSide === "left" ? "left-0" : "right-0"
+              )}
+              style={{
+                background:
+                  edgeGlowSide === "left"
+                    ? "linear-gradient(to right, rgba(255,255,255,0.32), rgba(255,255,255,0))"
+                    : "linear-gradient(to left, rgba(255,255,255,0.32), rgba(255,255,255,0))",
+                opacity: dragRatio,
+              }}
+            />
+          )}
           <div className="flex items-center justify-between text-white">
-            <div className="flex-1 cursor-pointer" onClick={() => handleAnnouncementClick(currentAnnouncement)}>
-              <div className="flex items-center gap-2 mb-2">
-                {getPriorityBadge(currentAnnouncement.priority)}
+            <div className="flex-1 cursor-pointer pr-10" onClick={() => handleAnnouncementClick(currentAnnouncement)}>
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                {getCategoryBadge(currentAnnouncement)}
                 <span className="text-xs opacity-80">
-                  {format(new Date(currentAnnouncement.created_at), 'MM/dd', { locale: zhTW })}
+                  {currentAnnouncement.display_date
+                    ? format(
+                        new Date(currentAnnouncement.display_date + "T12:00:00"),
+                        "yyyy/MM/dd",
+                        { locale: zhTW }
+                      )
+                    : format(new Date(currentAnnouncement.created_at), "MM/dd", { locale: zhTW })}
                 </span>
               </div>
               <h3 className="font-bold text-lg mb-1 line-clamp-1">
@@ -177,44 +268,18 @@ export const AnnouncementCarousel = ({
                 </p>
               )}
             </div>
-
-            <div className="flex items-center gap-2 ml-4">
-              {announcements.length > 1 && (
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handlePrev}
-                    className="text-white hover:bg-white/20 h-8 w-8 p-0"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </Button>
-                  <span className="text-xs opacity-80">
-                    {currentIndex + 1}/{announcements.length}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleNext}
-                    className="text-white hover:bg-white/20 h-8 w-8 p-0"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
-
-              {showCloseButton && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleDismiss}
-                  className="text-white hover:bg-white/20 h-8 w-8 p-0"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              )}
-            </div>
           </div>
+
+          {showCloseButton && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDismiss}
+              className="absolute right-2 top-2 text-white hover:bg-white/20 h-8 w-8 p-0"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          )}
 
           {/* Progress dots */}
           {announcements.length > 1 && (
@@ -240,9 +305,9 @@ export const AnnouncementCarousel = ({
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {selectedAnnouncement && getPriorityBadge(selectedAnnouncement.priority)}
-              {selectedAnnouncement?.title}
+            <DialogTitle className="flex flex-wrap items-center gap-2">
+              {selectedAnnouncement && getCategoryBadge(selectedAnnouncement, "onLight")}
+              <span className="break-words">{selectedAnnouncement?.title}</span>
             </DialogTitle>
           </DialogHeader>
           
@@ -253,11 +318,6 @@ export const AnnouncementCarousel = ({
                   <Calendar className="w-4 h-4" />
                 {getText('announcement.dialog.publishedAt', '發布時間：')}
                 {format(new Date(selectedAnnouncement.created_at), 'yyyy年MM月dd日 HH:mm', { locale: zhTW })}
-                </div>
-                <div className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
-                {getText('announcement.dialog.clicks', '點擊數：')}
-                {selectedAnnouncement.click_count}
                 </div>
               </div>
 

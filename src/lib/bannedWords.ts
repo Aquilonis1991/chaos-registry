@@ -15,6 +15,22 @@ export interface BannedWordCheckResult {
 }
 
 /**
+ * MASK 規則統一：
+ * - 命中長度 > 1：保留第一字，其餘改為 ***
+ * - 命中長度 = 1：整段改為 ***
+ */
+export const maskMatchedKeyword = (text: string, keyword: string): string => {
+  if (!text || !keyword) return text;
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(escaped, 'gi');
+  return text.replace(regex, (match) => {
+    const chars = Array.from(match);
+    if (chars.length <= 1) return '***';
+    return `${chars[0]}***`;
+  });
+};
+
+/**
  * 檢查文本是否包含禁字
  * @param text 要檢查的文本
  * @param checkLevels 要檢查的級別（預設檢查所有級別）

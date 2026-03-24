@@ -103,9 +103,9 @@ Deno.serve(async (req) => {
     const { data: configData, error: configError } = await supabaseClient
       .from('system_config')
       .select('key, value')
-      .in('key', ['mission_watch_ad_limit', 'max_ads_per_day', 'mission_watch_ad_reward', 'ad_reward_amount']);
+      .in('key', ['mission_watch_ad_limit', 'mission_watch_ad_reward']);
     
-    // 構建配置映射
+    // 構建配置映射（已統一使用 mission_watch_ad_limit / mission_watch_ad_reward）
     const configMap: Record<string, any> = {};
     if (configData) {
       configData.forEach(item => {
@@ -118,13 +118,8 @@ Deno.serve(async (req) => {
       });
     }
     
-    // 優先使用 mission_watch_ad_limit，如果不存在則使用 max_ads_per_day
-    const MAX_ADS_PER_DAY = configMap['mission_watch_ad_limit'] ?? 
-      configMap['max_ads_per_day'] ?? 10;
-    
-    // 優先使用 mission_watch_ad_reward，如果不存在則使用 ad_reward_amount
-    const AD_REWARD = configMap['mission_watch_ad_reward'] ?? 
-      configMap['ad_reward_amount'] ?? 5;
+    const MAX_ADS_PER_DAY = configMap['mission_watch_ad_limit'] ?? 10;
+    const AD_REWARD = configMap['mission_watch_ad_reward'] ?? 5;
     
     console.log('[watch-ad] config values', { requestId, MAX_ADS_PER_DAY, AD_REWARD, configMap });
 

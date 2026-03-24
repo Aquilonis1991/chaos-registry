@@ -3,29 +3,34 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Eye, 
-  Calendar, 
-  Star, 
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Calendar,
+  Star,
   Clock,
   CheckCircle,
   XCircle,
-  AlertCircle,
-  Loader2
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { zhTW } from "date-fns/locale";
+import { useSystemConfig } from "@/hooks/useSystemConfig";
+import { invalidateConfigCache } from "@/hooks/useSystemConfigCache";
+import {
+  ANNOUNCEMENT_CATEGORIES,
+  ANNOUNCEMENT_STYLE_PRESETS,
+  type AnnouncementCategory,
+} from "@/lib/announcementStyles";
 
 interface Announcement {
   id: string;
@@ -37,46 +42,85 @@ interface Announcement {
   start_date: string;
   end_date: string;
   is_active: boolean;
-  click_count: number;
   created_at: string;
   updated_at: string;
   created_by?: string;
+  announcement_category?: string;
+  style_preset?: number;
+  display_date?: string | null;
 }
 
-const AnnouncementManager = () => {
+type Props = {
+  /** 嵌入系統配置「公告顯示」分頁時縮小標題區 */
+  embedded?: boolean;
+};
+
+const AnnouncementManager = ({ embedded = false }: Props) => {
+  const { configs, updateConfig } = useSystemConfig();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [displaySaving, setDisplaySaving] = useState(false);
+  const [displayCountInput, setDisplayCountInput] = useState("3");
 
-  // Form state
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [summary, setSummary] = useState("");
   const [imageUrl, setImageUrl] = useState("");
-  const [priority, setPriority] = useState(0);
+  const [priority, setPriority] = useState(50);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [announcementCategory, setAnnouncementCategory] = useState<AnnouncementCategory>("一般");
+  const [stylePreset, setStylePreset] = useState(1);
+  const [displayDate, setDisplayDate] = useState("");
+
+  const announcementMaxDisplayConfig = configs.find(
+    (c) => c.key === "announcement_max_display"
+  );
+
+  useEffect(() => {
+    if (!announcementMaxDisplayConfig) return;
+    const raw = announcementMaxDisplayConfig.value;
+    const n =
+      typeof raw === "number"
+        ? raw
+        : typeof raw === "string"
+          ? Number(raw)
+          : Number.NaN;
+    const safe = Number.isFinite(n) ? Math.max(1, Math.min(50, Math.floor(n))) : 3;
+    setDisplayCountInput(String(safe));
+  }, [announcementMaxDisplayConfig?.id, announcementMaxDisplayConfig?.value]);
 
   useEffect(() => {
     fetchAnnouncements();
   }, []);
 
+  const isRpcMissingError = (error: unknown) => {
+    const message =
+      typeof error === "object" && error !== null && "message" in error
+        ? String((error as { message?: unknown }).message || "")
+        : "";
+    return /function .*admin_.*announcement.* does not exist|Could not find the function/i.test(
+      message
+    );
+  };
+
   const fetchAnnouncements = async () => {
     try {
       const { data, error } = await supabase
-        .from('announcements')
-        .select('*')
-        .order('priority', { ascending: false })
-        .order('created_at', { ascending: false });
+        .from("announcements")
+        .select("*")
+        .order("priority", { ascending: false })
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       setAnnouncements(data || []);
     } catch (error) {
-      console.error('Error fetching announcements:', error);
-      toast.error('獲取公告列表失敗');
+      console.error("Error fetching announcements:", error);
+      toast.error("獲取公告列表失敗");
     } finally {
       setLoading(false);
     }
@@ -87,10 +131,15 @@ const AnnouncementManager = () => {
     setContent("");
     setSummary("");
     setImageUrl("");
-    setPriority(0);
-    setStartDate("");
-    setEndDate("");
+    setPriority(50);
+    const now = new Date();
+    const week = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    setStartDate(now.toISOString().slice(0, 16));
+    setEndDate(week.toISOString().slice(0, 16));
     setIsActive(true);
+    setAnnouncementCategory("一般");
+    setStylePreset(1);
+    setDisplayDate("");
     setEditingAnnouncement(null);
   };
 
@@ -99,25 +148,48 @@ const AnnouncementManager = () => {
     setContent(announcement.content);
     setSummary(announcement.summary || "");
     setImageUrl(announcement.image_url || "");
-    setPriority(announcement.priority);
+    setPriority(
+      Math.min(100, Math.max(1, Number(announcement.priority) || 50))
+    );
     setStartDate(new Date(announcement.start_date).toISOString().slice(0, 16));
     setEndDate(new Date(announcement.end_date).toISOString().slice(0, 16));
     setIsActive(announcement.is_active);
+    const cat = announcement.announcement_category as AnnouncementCategory | undefined;
+    setAnnouncementCategory(
+      cat && ANNOUNCEMENT_CATEGORIES.includes(cat) ? cat : "一般"
+    );
+    setStylePreset(
+      typeof announcement.style_preset === "number" &&
+        announcement.style_preset >= 1 &&
+        announcement.style_preset <= 8
+        ? announcement.style_preset
+        : 1
+    );
+    setDisplayDate(
+      announcement.display_date
+        ? String(announcement.display_date).slice(0, 10)
+        : ""
+    );
     setEditingAnnouncement(announcement);
     setIsDialogOpen(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!title.trim() || !content.trim()) {
-      toast.error('請填寫標題和內容');
+      toast.error("請填寫標題和內容");
       return;
     }
 
     if (new Date(endDate) <= new Date(startDate)) {
-      toast.error('結束時間必須晚於開始時間');
+      toast.error("結束時間必須晚於開始時間");
       return;
+    }
+
+    const p = Math.min(100, Math.max(1, Math.floor(Number(priority)) || 50));
+    if (p !== Number(priority)) {
+      setPriority(p);
     }
 
     setIsSubmitting(true);
@@ -128,103 +200,177 @@ const AnnouncementManager = () => {
         content: content.trim(),
         summary: summary.trim() || null,
         image_url: imageUrl.trim() || null,
-        priority,
+        priority: p,
         start_date: startDate,
         end_date: endDate,
         is_active: isActive,
+        announcement_category: announcementCategory,
+        style_preset: stylePreset,
+        display_date: displayDate.trim() ? displayDate.trim() : null,
       };
 
       if (editingAnnouncement) {
-        // Update existing announcement
-        const { error } = await supabase
-          .from('announcements')
-          .update(announcementData)
-          .eq('id', editingAnnouncement.id);
-
-        if (error) throw error;
-        toast.success('公告更新成功');
+        const { error: rpcError } = await supabase.rpc("admin_update_announcement", {
+          p_id: editingAnnouncement.id,
+          p_title: announcementData.title,
+          p_content: announcementData.content,
+          p_summary: announcementData.summary,
+          p_image_url: announcementData.image_url,
+          p_priority: announcementData.priority,
+          p_start_date: announcementData.start_date,
+          p_end_date: announcementData.end_date,
+          p_is_active: announcementData.is_active,
+          p_announcement_category: announcementData.announcement_category,
+          p_style_preset: announcementData.style_preset,
+          p_display_date: announcementData.display_date,
+        });
+        if (rpcError) {
+          if (!isRpcMissingError(rpcError)) throw rpcError;
+          // fallback：若環境尚未套用 RPC migration，先回退舊的直接 update 路徑
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from("announcements")
+            .update(announcementData)
+            .eq("id", editingAnnouncement.id)
+            .select("id");
+          if (fallbackError) throw fallbackError;
+          if (!fallbackData || fallbackData.length === 0) {
+            throw new Error("編輯未生效（可能無權限或資料已不存在）");
+          }
+        }
+        toast.success("公告更新成功");
       } else {
-        // Create new announcement
-        const { error } = await supabase
-          .from('announcements')
-          .insert(announcementData);
-
-        if (error) throw error;
-        toast.success('公告創建成功');
+        const { error: rpcError } = await supabase.rpc("admin_create_announcement", {
+          p_title: announcementData.title,
+          p_content: announcementData.content,
+          p_summary: announcementData.summary,
+          p_image_url: announcementData.image_url,
+          p_priority: announcementData.priority,
+          p_start_date: announcementData.start_date,
+          p_end_date: announcementData.end_date,
+          p_is_active: announcementData.is_active,
+          p_announcement_category: announcementData.announcement_category,
+          p_style_preset: announcementData.style_preset,
+          p_display_date: announcementData.display_date,
+        });
+        if (rpcError) {
+          if (!isRpcMissingError(rpcError)) throw rpcError;
+          // fallback：若環境尚未套用 RPC migration，先回退舊的直接 insert 路徑
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from("announcements")
+            .insert(announcementData)
+            .select("id");
+          if (fallbackError) throw fallbackError;
+          if (!fallbackData || fallbackData.length === 0) {
+            throw new Error("新增未生效（可能無權限或資料未寫入）");
+          }
+        }
+        toast.success("公告創建成功");
       }
 
       await fetchAnnouncements();
       setIsDialogOpen(false);
       resetForm();
-    } catch (error: any) {
-      console.error('Error saving announcement:', error);
-      toast.error('保存公告失敗');
+    } catch (error: unknown) {
+      console.error("Error saving announcement:", error);
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "保存公告失敗";
+      toast.error(message, {
+        description: isRpcMissingError(error)
+          ? "偵測到後端尚未套用公告管理 RPC，請執行 supabase db push。"
+          : undefined,
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('確定要刪除這個公告嗎？')) return;
+    if (!confirm("確定要刪除這個公告嗎？")) return;
 
     try {
-      const { error } = await supabase
-        .from('announcements')
-        .delete()
-        .eq('id', id);
-
+      const { error } = await supabase.rpc("admin_delete_announcement", { p_id: id });
       if (error) throw error;
-      toast.success('公告刪除成功');
+      toast.success("公告刪除成功");
       await fetchAnnouncements();
     } catch (error) {
-      console.error('Error deleting announcement:', error);
-      toast.error('刪除公告失敗');
+      console.error("Error deleting announcement:", error);
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "刪除公告失敗";
+      toast.error(message);
     }
   };
 
   const handleToggleActive = async (id: string, currentStatus: boolean) => {
     try {
-      const { error } = await supabase
-        .from('announcements')
-        .update({ is_active: !currentStatus })
-        .eq('id', id);
-
+      const { error } = await supabase.rpc("admin_toggle_announcement_active", {
+        p_id: id,
+        p_is_active: !currentStatus,
+      });
       if (error) throw error;
-      toast.success(`公告已${!currentStatus ? '啟用' : '停用'}`);
+      toast.success(`公告已${!currentStatus ? "啟用" : "停用"}`);
       await fetchAnnouncements();
     } catch (error) {
-      console.error('Error toggling announcement status:', error);
-      toast.error('更新公告狀態失敗');
+      console.error("Error toggling announcement status:", error);
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "更新公告狀態失敗";
+      toast.error(message);
     }
   };
 
   const getStatusBadge = (announcement: Announcement) => {
     const now = new Date();
-    const startDate = new Date(announcement.start_date);
-    const endDate = new Date(announcement.end_date);
+    const start = new Date(announcement.start_date);
+    const end = new Date(announcement.end_date);
 
     if (!announcement.is_active) {
       return <Badge variant="secondary">已停用</Badge>;
     }
 
-    if (now < startDate) {
+    if (now < start) {
       return <Badge variant="outline">未開始</Badge>;
     }
 
-    if (now > endDate) {
+    if (now > end) {
       return <Badge variant="destructive">已過期</Badge>;
     }
 
     return <Badge variant="default">進行中</Badge>;
   };
 
-  const getPriorityBadge = (priority: number) => {
-    if (priority >= 90) {
-      return <Badge variant="destructive" className="flex items-center gap-1"><Star className="w-3 h-3" />高優先級</Badge>;
-    } else if (priority >= 70) {
-      return <Badge variant="default" className="flex items-center gap-1"><Star className="w-3 h-3" />中優先級</Badge>;
-    } else {
-      return <Badge variant="outline" className="flex items-center gap-1"><Star className="w-3 h-3" />低優先級</Badge>;
+  const getWeightLabel = (w: number) => {
+    if (w >= 80) return "高";
+    if (w >= 50) return "中";
+    return "低";
+  };
+
+  const saveAnnouncementMaxDisplay = async () => {
+    if (!announcementMaxDisplayConfig) {
+      toast.error("找不到 announcement_max_display 設定");
+      return;
+    }
+    const n = parseInt(displayCountInput.trim(), 10);
+    if (Number.isNaN(n) || n < 1 || n > 50) {
+      toast.error("請輸入 1～50 的整數");
+      return;
+    }
+    setDisplaySaving(true);
+    try {
+      const success = await updateConfig(announcementMaxDisplayConfig.id, n);
+      if (!success) {
+        toast.error("儲存失敗");
+        return;
+      }
+      invalidateConfigCache();
+      toast.success("前台公告顯示則數已更新");
+      setDisplayCountInput(String(n));
+    } finally {
+      setDisplaySaving(false);
     }
   };
 
@@ -238,26 +384,69 @@ const AnnouncementManager = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold">前台公告顯示則數</p>
+              <p className="text-xs text-muted-foreground">
+                `announcement_max_display`：公告輪播一次向 get_active_announcements 請求的最多筆數（1～50）。
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Input
+                value={displayCountInput}
+                onChange={(e) => setDisplayCountInput(e.target.value)}
+                type="number"
+                min={1}
+                max={50}
+                step={1}
+                className="w-28"
+              />
+              <Button
+                onClick={saveAnnouncementMaxDisplay}
+                disabled={displaySaving || !announcementMaxDisplayConfig}
+              >
+                {displaySaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "儲存"}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
           <h2 className="text-2xl font-bold">公告管理</h2>
-          <p className="text-muted-foreground">管理平台公告內容和顯示設定</p>
+          <p className="text-muted-foreground">管理平台公告內容與前台輪播顯示</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            分類、背景配色、顯示日期、權重（1～100）、排程（開始／結束時間）；前台僅在排程內顯示。
+          </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+
+      <div className="flex w-full shrink-0 justify-end sm:w-auto">
+        <Dialog
+          open={isDialogOpen}
+          onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) resetForm();
+          }}
+        >
           <DialogTrigger asChild>
-            <Button onClick={resetForm}>
+            <Button
+              onClick={() => {
+                resetForm();
+                setIsDialogOpen(true);
+              }}
+            >
               <Plus className="w-4 h-4 mr-2" />
               新增公告
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>
-                {editingAnnouncement ? '編輯公告' : '新增公告'}
-              </DialogTitle>
+              <DialogTitle>{editingAnnouncement ? "編輯公告" : "新增公告"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="title">公告標題 *</Label>
                   <Input
@@ -268,43 +457,95 @@ const AnnouncementManager = () => {
                     maxLength={100}
                     required
                   />
-                  <div className="text-xs text-muted-foreground">
-                    {title.length}/100 字元
-                  </div>
+                  <div className="text-xs text-muted-foreground">{title.length}/100 字元</div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="priority">優先級</Label>
-                  <Select value={priority.toString()} onValueChange={(value) => setPriority(parseInt(value))}>
-                    <SelectTrigger>
+                  <Label htmlFor="category">分類 *</Label>
+                  <Select
+                    value={announcementCategory}
+                    onValueChange={(v) => setAnnouncementCategory(v as AnnouncementCategory)}
+                  >
+                    <SelectTrigger id="category">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="0">低 (0)</SelectItem>
-                      <SelectItem value="50">中低 (50)</SelectItem>
-                      <SelectItem value="70">中 (70)</SelectItem>
-                      <SelectItem value="90">高 (90)</SelectItem>
-                      <SelectItem value="100">最高 (100)</SelectItem>
+                      {ANNOUNCEMENT_CATEGORIES.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="summary">公告摘要</Label>
-                <Input
-                  id="summary"
-                  value={summary}
-                  onChange={(e) => setSummary(e.target.value)}
-                  placeholder="簡短摘要（選填）"
-                  maxLength={200}
-                />
-                <div className="text-xs text-muted-foreground">
-                  {summary.length}/200 字元
+                <Label>背景配色（前台輪播）*</Label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {ANNOUNCEMENT_STYLE_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => setStylePreset(preset.id)}
+                      className={`rounded-lg border-2 p-2 text-left transition-all ${
+                        stylePreset === preset.id
+                          ? "border-primary ring-2 ring-primary/30"
+                          : "border-transparent hover:border-muted-foreground/30"
+                      }`}
+                    >
+                      <div
+                        className={`h-10 w-full rounded-md ${preset.className} mb-1`}
+                      />
+                      <span className="text-xs font-medium">{preset.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="displayDate">顯示日期（選填）</Label>
+                  <Input
+                    id="displayDate"
+                    type="date"
+                    value={displayDate}
+                    onChange={(e) => setDisplayDate(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    用於前台卡片顯示；未填則顯示建立時間日期。
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="priority">公告權重（1～100）*</Label>
+                  <Input
+                    id="priority"
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={priority}
+                    onChange={(e) => setPriority(Number(e.target.value))}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    數字越高排序越前（目前：{getWeightLabel(priority)}）
+                  </p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="content">公告內容 *</Label>
+                <Label htmlFor="summary">公告摘要（選填）</Label>
+                <Input
+                  id="summary"
+                  value={summary}
+                  onChange={(e) => setSummary(e.target.value)}
+                  placeholder="簡短摘要"
+                  maxLength={200}
+                />
+                <div className="text-xs text-muted-foreground">{summary.length}/200 字元</div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="content">公告內文 *</Label>
                 <Textarea
                   id="content"
                   value={content}
@@ -314,13 +555,11 @@ const AnnouncementManager = () => {
                   maxLength={1000}
                   required
                 />
-                <div className="text-xs text-muted-foreground">
-                  {content.length}/1000 字元
-                </div>
+                <div className="text-xs text-muted-foreground">{content.length}/1000 字元</div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="imageUrl">圖片網址</Label>
+                <Label htmlFor="imageUrl">圖片網址（選填）</Label>
                 <Input
                   id="imageUrl"
                   value={imageUrl}
@@ -330,9 +569,9 @@ const AnnouncementManager = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="startDate">開始時間 *</Label>
+                  <Label htmlFor="startDate">開始時間 *（到達後顯示）</Label>
                   <Input
                     id="startDate"
                     type="datetime-local"
@@ -342,7 +581,7 @@ const AnnouncementManager = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="endDate">結束時間 *</Label>
+                  <Label htmlFor="endDate">結束時間 *（到達後下架）</Label>
                   <Input
                     id="endDate"
                     type="datetime-local"
@@ -354,20 +593,12 @@ const AnnouncementManager = () => {
               </div>
 
               <div className="flex items-center space-x-2">
-                <Switch
-                  id="isActive"
-                  checked={isActive}
-                  onCheckedChange={setIsActive}
-                />
-                <Label htmlFor="isActive">立即啟用</Label>
+                <Switch id="isActive" checked={isActive} onCheckedChange={setIsActive} />
+                <Label htmlFor="isActive">啟用（停用則前台永不顯示）</Label>
               </div>
 
               <div className="flex justify-end space-x-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
-                >
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   取消
                 </Button>
                 <Button type="submit" disabled={isSubmitting}>
@@ -377,13 +608,14 @@ const AnnouncementManager = () => {
                       保存中...
                     </>
                   ) : (
-                    '保存'
+                    "保存"
                   )}
                 </Button>
               </div>
             </form>
           </DialogContent>
         </Dialog>
+      </div>
       </div>
 
       <Card>
@@ -392,10 +624,12 @@ const AnnouncementManager = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>標題</TableHead>
-                <TableHead>優先級</TableHead>
+                <TableHead>分類</TableHead>
+                <TableHead>配色</TableHead>
+                <TableHead>權重</TableHead>
+                <TableHead>顯示日</TableHead>
                 <TableHead>狀態</TableHead>
-                <TableHead>時間範圍</TableHead>
-                <TableHead>點擊數</TableHead>
+                <TableHead>排程</TableHead>
                 <TableHead>操作</TableHead>
               </TableRow>
             </TableHeader>
@@ -403,37 +637,60 @@ const AnnouncementManager = () => {
               {announcements.map((announcement) => (
                 <TableRow key={announcement.id}>
                   <TableCell>
-                    <div className="space-y-1">
-                      <div className="font-medium">{announcement.title}</div>
+                    <div className="space-y-1 max-w-[200px]">
+                      <div className="font-medium line-clamp-2">{announcement.title}</div>
                       {announcement.summary && (
-                        <div className="text-sm text-muted-foreground">
+                        <div className="text-sm text-muted-foreground line-clamp-1">
                           {announcement.summary}
                         </div>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
-                    {getPriorityBadge(announcement.priority)}
+                    <Badge variant="outline">
+                      {announcement.announcement_category || "一般"}
+                    </Badge>
                   </TableCell>
                   <TableCell>
-                    {getStatusBadge(announcement)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {format(new Date(announcement.start_date), 'MM/dd HH:mm', { locale: zhTW })}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {format(new Date(announcement.end_date), 'MM/dd HH:mm', { locale: zhTW })}
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`h-6 w-10 rounded shrink-0 ${
+                          ANNOUNCEMENT_STYLE_PRESETS.find(
+                            (p) => p.id === (announcement.style_preset ?? 1)
+                          )?.className ?? ANNOUNCEMENT_STYLE_PRESETS[0].className
+                        }`}
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        {ANNOUNCEMENT_STYLE_PRESETS.find(
+                          (p) => p.id === (announcement.style_preset ?? 1)
+                        )?.label ?? "—"}
+                      </span>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
-                      <Eye className="w-3 h-3" />
-                      {announcement.click_count}
+                      <Star className="w-3 h-3" />
+                      {announcement.priority}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm whitespace-nowrap">
+                    {announcement.display_date
+                      ? format(new Date(announcement.display_date + "T12:00:00"), "yyyy/MM/dd", {
+                          locale: zhTW,
+                        })
+                      : "—"}
+                  </TableCell>
+                  <TableCell>{getStatusBadge(announcement)}</TableCell>
+                  <TableCell>
+                    <div className="space-y-1 text-xs">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3 shrink-0" />
+                        {format(new Date(announcement.start_date), "MM/dd HH:mm", { locale: zhTW })}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-3 h-3 shrink-0" />
+                        {format(new Date(announcement.end_date), "MM/dd HH:mm", { locale: zhTW })}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>

@@ -8,7 +8,10 @@
     "**/.vite/**": true,
     "**/supabase/**": true,
     "**/sql_patches/**": true,
-    "**/logs/**": true
+    "**/logs/**": true,
+    "**/native-ad-plugin/android/build/**": true,
+    "**/native-ad-plugin/android/.gradle/**": true,
+    "**/native-ad-plugin/**/intermediates/**": true
   },
   "search.exclude": {
     "**/node_modules": true,
@@ -18,7 +21,8 @@
     "**/.git": true,
     "**/*.log": true,
     "**/supabase": true,
-    "**/sql_patches": true
+    "**/sql_patches": true,
+    "**/native-ad-plugin/android/build": true
   },
   "typescript.tsserver.maxTsServerMemory": 4096,
   "typescript.disableAutomaticTypeAcquisition": true,

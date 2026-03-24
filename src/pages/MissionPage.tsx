@@ -66,7 +66,7 @@ const MissionPage = () => {
       login7DaysReward: configs['mission_7days_login_reward_tokens'] ?? 100,
       watchAdReward: configs['mission_watch_ad_reward'] ?? 5,
       watchAdLimit: configs['mission_watch_ad_limit'] ?? 10,
-      dailyLoginReward: configs['mission_daily_login_reward'] ?? configs['daily_login_reward'] ?? 3,
+      dailyLoginReward: configs['mission_daily_login_reward'] ?? 3,
     };
 
     // 調試日誌：檢查觀看廣告獎勵配置

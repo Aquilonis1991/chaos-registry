@@ -97,7 +97,10 @@ export const useTopicOperations = () => {
         }
       }
 
-      const exposureCost = (exposureCosts as any)[data.exposure_level] ?? 30;
+      const exposureCost =
+        (exposureCosts as any)[data.exposure_level]
+        ?? (data.exposure_level === 'normal' ? (exposureCosts as any).low : undefined)
+        ?? 30;
       const durationCost = (durationCosts as any)[data.duration_days.toString()] ?? 0;
 
       // 計算總價：(曝光 + 天數 + 基礎) - 折扣，最小為 0

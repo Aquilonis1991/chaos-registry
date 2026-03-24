@@ -20,10 +20,36 @@ CREATE TABLE IF NOT EXISTS public.announcements (
   CONSTRAINT valid_date_range CHECK (end_date > start_date)
 );
 
+-- 遠端若已有舊版 announcements，CREATE TABLE IF NOT EXISTS 不會補欄位，需手動對齊
+ALTER TABLE public.announcements ADD COLUMN IF NOT EXISTS title TEXT;
+ALTER TABLE public.announcements ADD COLUMN IF NOT EXISTS content TEXT;
+ALTER TABLE public.announcements ADD COLUMN IF NOT EXISTS summary TEXT;
+ALTER TABLE public.announcements ADD COLUMN IF NOT EXISTS image_url TEXT;
+ALTER TABLE public.announcements ADD COLUMN IF NOT EXISTS priority INTEGER;
+ALTER TABLE public.announcements ADD COLUMN IF NOT EXISTS start_date TIMESTAMPTZ;
+ALTER TABLE public.announcements ADD COLUMN IF NOT EXISTS end_date TIMESTAMPTZ;
+ALTER TABLE public.announcements ADD COLUMN IF NOT EXISTS is_active BOOLEAN;
+ALTER TABLE public.announcements ADD COLUMN IF NOT EXISTS click_count INTEGER;
+ALTER TABLE public.announcements ADD COLUMN IF NOT EXISTS created_by UUID;
+ALTER TABLE public.announcements ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ;
+ALTER TABLE public.announcements ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
+UPDATE public.announcements SET priority = COALESCE(priority, 0);
+UPDATE public.announcements SET start_date = COALESCE(start_date, now()) WHERE start_date IS NULL;
+UPDATE public.announcements SET end_date = COALESCE(end_date, start_date + interval '30 days') WHERE end_date IS NULL;
+UPDATE public.announcements SET is_active = COALESCE(is_active, true);
+UPDATE public.announcements SET click_count = COALESCE(click_count, 0);
+UPDATE public.announcements SET title = COALESCE(NULLIF(trim(title), ''), '（無標題）') WHERE title IS NULL;
+UPDATE public.announcements SET content = COALESCE(NULLIF(trim(content), ''), '—') WHERE content IS NULL;
+
 -- Enable RLS
 ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
 
 -- Policies for announcements
+DROP POLICY IF EXISTS "Anyone can view active announcements" ON public.announcements;
+DROP POLICY IF EXISTS "Admins can view all announcements" ON public.announcements;
+DROP POLICY IF EXISTS "Admins can insert announcements" ON public.announcements;
+DROP POLICY IF EXISTS "Admins can update announcements" ON public.announcements;
+DROP POLICY IF EXISTS "Admins can delete announcements" ON public.announcements;
 CREATE POLICY "Anyone can view active announcements"
   ON public.announcements FOR SELECT
   USING (
@@ -54,6 +80,8 @@ CREATE INDEX IF NOT EXISTS idx_announcements_priority ON public.announcements(pr
 CREATE INDEX IF NOT EXISTS idx_announcements_dates ON public.announcements(start_date, end_date);
 
 -- Function to get active announcements (max 3, ordered by priority)
+-- 遠端若已有不同 OUT 欄位版本，無法直接 REPLACE，需先 DROP
+DROP FUNCTION IF EXISTS public.get_active_announcements(integer);
 CREATE OR REPLACE FUNCTION public.get_active_announcements(limit_count INTEGER DEFAULT 3)
 RETURNS TABLE (
   id UUID,
@@ -124,48 +152,54 @@ END;
 $$;
 
 -- Create trigger for updated_at
+DROP TRIGGER IF EXISTS update_announcements_updated_at ON public.announcements;
 CREATE TRIGGER update_announcements_updated_at
   BEFORE UPDATE ON public.announcements
   FOR EACH ROW
   EXECUTE FUNCTION public.update_updated_at();
 
--- Insert sample announcements for testing
-INSERT INTO public.announcements (
-  title, 
-  content, 
-  summary, 
-  priority, 
-  start_date, 
-  end_date,
-  is_active
-) VALUES 
-(
-  '歡迎使用投票亂戰！',
-  '歡迎來到投票亂戰平台！在這裡您可以發起各種有趣的投票話題，參與討論，與其他用戶互動。我們提供豐富的標籤系統和曝光方案，讓您的話題獲得更多關注。立即開始您的投票之旅吧！',
-  '歡迎來到投票亂戰平台！開始您的投票之旅。',
-  100,
-  now() - interval '1 day',
-  now() + interval '30 days',
-  true
-),
-(
-  '新功能上線：免費票機制',
-  '我們推出了全新的免費票機制！每位用戶每日每主題可免費投票一次，讓您更容易參與討論。同時，連續登入5天還能獲得免費發起主題的資格。快來體驗這些新功能吧！',
-  '新功能：每日免費投票 + 免費發起主題資格',
-  90,
-  now(),
-  now() + interval '15 days',
-  true
-),
-(
-  '平台規則提醒',
-  '為了維護良好的討論環境，請遵守以下規則：1. 不得發布仇恨言論或歧視性內容 2. 不得發布色情或暴力內容 3. 不得發布虛假信息或惡意釣魚 4. 尊重其他用戶的觀點 5. 合理使用檢舉功能。違反規則的用戶將面臨警告或封號處理。',
-  '請遵守平台規則，維護良好的討論環境。',
-  80,
-  now(),
-  now() + interval '7 days',
-  true
-);
+-- Insert sample announcements for testing（僅在尚無資料時）
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.announcements LIMIT 1) THEN
+    INSERT INTO public.announcements (
+      title,
+      content,
+      summary,
+      priority,
+      start_date,
+      end_date,
+      is_active
+    ) VALUES
+    (
+      '歡迎使用投票亂戰！',
+      '歡迎來到投票亂戰平台！在這裡您可以發起各種有趣的投票話題，參與討論，與其他用戶互動。我們提供豐富的標籤系統和曝光方案，讓您的話題獲得更多關注。立即開始您的投票之旅吧！',
+      '歡迎來到投票亂戰平台！開始您的投票之旅。',
+      100,
+      now() - interval '1 day',
+      now() + interval '30 days',
+      true
+    ),
+    (
+      '新功能上線：免費票機制',
+      '我們推出了全新的免費票機制！每位用戶每日每主題可免費投票一次，讓您更容易參與討論。同時，連續登入5天還能獲得免費發起主題的資格。快來體驗這些新功能吧！',
+      '新功能：每日免費投票 + 免費發起主題資格',
+      90,
+      now(),
+      now() + interval '15 days',
+      true
+    ),
+    (
+      '平台規則提醒',
+      '為了維護良好的討論環境，請遵守以下規則：1. 不得發布仇恨言論或歧視性內容 2. 不得發布色情或暴力內容 3. 不得發布虛假信息或惡意釣魚 4. 尊重其他用戶的觀點 5. 合理使用檢舉功能。違反規則的用戶將面臨警告或封號處理。',
+      '請遵守平台規則，維護良好的討論環境。',
+      80,
+      now(),
+      now() + interval '7 days',
+      true
+    );
+  END IF;
+END $$;
 
 -- Add system config for announcement settings
 INSERT INTO public.system_config (key, value, category, description) VALUES

@@ -145,10 +145,7 @@ BEGIN
   WHERE user_id = p_user_id
     AND normalized_tag NOT IN (SELECT normalized_tag FROM upserted);
 
-  -- 如果沒有任何統計結果，清除舊資料
-  IF NOT EXISTS (SELECT 1 FROM tag_stats) THEN
-    DELETE FROM public.user_tag_preferences WHERE user_id = p_user_id;
-  END IF;
+  -- 注意：不可在此使用 tag_stats（CTE 僅屬於上一段 WITH，否則會誤判為資料表 tag_stats）
 END;
 $$;
 

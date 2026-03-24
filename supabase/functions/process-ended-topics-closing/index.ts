@@ -48,6 +48,9 @@ Deno.serve(async (req) => {
 
     for (const topicId of toProcess) {
       try {
+        const { error: purgeErr } = await supabase.rpc("purge_arena_on_topic_end", { p_topic_id: topicId });
+        if (purgeErr) console.warn(`[process-ended-topics-closing] arena purge ${topicId}:`, purgeErr.message);
+
         const res = await fetch(`${supabaseUrl}/functions/v1/generate-ai-closing`, {
           method: "POST",
           headers: {

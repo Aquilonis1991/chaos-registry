@@ -7,6 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Eye, User } from "lucide-react";
@@ -30,6 +38,9 @@ const AuthPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   const envPublicSiteUrl = import.meta.env.VITE_PUBLIC_SITE_URL?.trim();
   const defaultSiteUrl = "https://chaos-registry.vercel.app";
@@ -402,6 +413,77 @@ const AuthPage = () => {
     navigate("/home", { replace: true });
   };
 
+  const providerDisplayNameMap: Record<string, string> = {
+    google: "Google",
+    apple: "Apple",
+    discord: "Discord",
+    x: "X",
+    line: "LINE",
+  };
+
+  const handleSendResetEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const targetEmail = resetEmail.trim();
+    if (!targetEmail) {
+      toast.error("請先輸入電子郵件");
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      const { data: providerCheckData, error: providerCheckError } = await supabase.functions.invoke(
+        "check-auth-providers",
+        {
+          body: { email: targetEmail },
+        }
+      );
+      if (providerCheckError) throw providerCheckError;
+
+      const providers = Array.isArray(providerCheckData?.providers)
+        ? (providerCheckData.providers as string[])
+        : [];
+      const isSocialOnly = Boolean(providerCheckData?.isSocialOnly);
+
+      if (isSocialOnly && providers.length > 0) {
+        const providerNames = providers
+          .filter((provider) => provider !== "email")
+          .map((provider) => providerDisplayNameMap[provider] || provider)
+          .join(" / ");
+        toast.error(`此帳號使用 ${providerNames} 登入`, {
+          description: "請改用對應第三方登入，不支援密碼重設。",
+        });
+        return;
+      }
+
+      const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
+        redirectTo: `${publicSiteUrl}/auth/reset-password`,
+      });
+      if (error) throw error;
+
+      toast.success(
+        getText('auth_reset_sent', '重設密碼信已送出，請至信箱查看'),
+        {
+          description:
+            providers.filter((provider) => provider !== "email").length > 0
+              ? `此帳號亦綁定 ${providers
+                  .filter((provider) => provider !== "email")
+                  .map((provider) => providerDisplayNameMap[provider] || provider)
+                  .join(" / ")}。若忘記第三方密碼，請到該平台重設。`
+              : getText(
+                  'auth_reset_social_hint',
+                  '若此帳號使用 Google / Apple / Discord / X / LINE 註冊，請改用第三方登入。'
+                ),
+        }
+      );
+      setResetOpen(false);
+      setResetEmail("");
+    } catch (error: any) {
+      toast.error(error?.message || "寄送失敗，請稍後再試");
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   if (textsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -468,6 +550,53 @@ const AuthPage = () => {
                     disabled={loading}
                     className="h-12 sm:h-10 text-base sm:text-sm"
                   />
+                </div>
+                <div className="flex justify-end">
+                  <Dialog
+                    open={resetOpen}
+                    onOpenChange={(open) => {
+                      setResetOpen(open);
+                      if (open) setResetEmail(email.trim());
+                    }}
+                  >
+                    <DialogTrigger asChild>
+                      <Button type="button" variant="link" className="h-auto p-0 text-sm">
+                        忘記密碼？
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>{getText('auth_forgot_password_title', '忘記密碼')}</DialogTitle>
+                        <DialogDescription>
+                          {getText('auth_forgot_password_desc', '輸入你的註冊信箱，我們會寄送重設密碼連結。')}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <form onSubmit={handleSendResetEmail} className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="reset-email">電子郵件</Label>
+                          <Input
+                            id="reset-email"
+                            type="email"
+                            value={resetEmail}
+                            onChange={(e) => setResetEmail(e.target.value)}
+                            placeholder="your@email.com"
+                            required
+                            disabled={resetLoading}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {getText(
+                            'auth_reset_social_hint',
+                            '若此帳號使用 Google / Apple / Discord / X / LINE 註冊，請改用第三方登入。'
+                          )}
+                        </p>
+                        <Button type="submit" className="w-full" disabled={resetLoading}>
+                          {resetLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          {getText('auth_reset_send_button', '發送重設連結')}
+                        </Button>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
                 </div>
                 <Button type="submit" className="w-full h-12 sm:h-10 text-base sm:text-sm font-medium" disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-5 w-5 sm:h-4 sm:w-4 animate-spin" />}

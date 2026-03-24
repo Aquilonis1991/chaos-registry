@@ -6,6 +6,17 @@ import { useUIText } from "@/hooks/useUIText";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { checkBannedWords, getBannedWordErrorMessage, maskMatchedKeyword } from "@/lib/bannedWords";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -51,6 +62,10 @@ export function ArenaSection({
   const [inputText, setInputText] = useState("");
   const [buyShield, setBuyShield] = useState(false);
   const [posting, setPosting] = useState(false);
+  const [maskOpen, setMaskOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [maskKeyword, setMaskKeyword] = useState("");
+  const [reviewKeyword, setReviewKeyword] = useState("");
   const [voteIds, setVoteIds] = useState<Set<string>>(new Set());
   /** 留言 user_id → profiles.nickname（暱稱，單次批次查詢） */
   const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
@@ -145,19 +160,13 @@ export function ArenaSection({
     fetchMyVotes();
   }, [fetchMyVotes]);
 
-  const handlePost = async () => {
+  const doPost = async (content: string) => {
     if (!userId) return;
-    const t = (inputText || "").trim();
-    if (!t) return;
-    if (t.length > maxLen) {
-      toast.error(getText("arena.toast.maxChars", "最多 {{max}} 字").replace("{{max}}", String(maxLen)));
-      return;
-    }
     setPosting(true);
     try {
-      const { data, error } = await supabase.rpc("post_arena_message", {
+      const { error } = await supabase.rpc("post_arena_message", {
         p_topic_id: topicId,
-        p_content: t,
+        p_content: content,
         p_buy_shield: buyShield,
       });
       if (error) throw error;
@@ -188,6 +197,39 @@ export function ArenaSection({
     } finally {
       setPosting(false);
     }
+  };
+
+  const handlePost = async () => {
+    if (!userId) return;
+    const t = (inputText || "").trim();
+    if (!t) return;
+    if (t.length > maxLen) {
+      toast.error(getText("arena.toast.maxChars", "最多 {{max}} 字").replace("{{max}}", String(maxLen)));
+      return;
+    }
+    const bannedLevels = getConfig("arena_banned_check_levels", ["A", "B", "C", "D", "E"]) as string[];
+    const bannedCheck = await checkBannedWords(t, bannedLevels);
+    if (bannedCheck.found) {
+      if (bannedCheck.action === "block") {
+        toast.error(getBannedWordErrorMessage(bannedCheck), {
+          description: getText("topic.banned.description", "發現禁字：{{keyword}}（級別：{{level}}）")
+            .replace("{{keyword}}", bannedCheck.keyword || "")
+            .replace("{{level}}", bannedCheck.level || ""),
+        });
+        return;
+      }
+      if (bannedCheck.action === "mask") {
+        setMaskKeyword(bannedCheck.keyword || "");
+        setMaskOpen(true);
+        return;
+      }
+      if (bannedCheck.action === "review") {
+        setReviewKeyword(bannedCheck.keyword || "");
+        setReviewOpen(true);
+        return;
+      }
+    }
+    await doPost(t);
   };
 
   const handleVote = async (messageId: string, voteType: "upvote" | "downvote") => {
@@ -463,12 +505,57 @@ export function ArenaSection({
             <Button variant="outline" onClick={() => setInputOpen(false)}>
               {getText("arena.cancel", "取消")}
             </Button>
-            <Button onClick={handlePost} disabled={posting || !inputText.trim()}>
+            <Button onClick={() => void handlePost()} disabled={posting || !inputText.trim()}>
               {posting ? getText("arena.submitting", "發表中...") : getText("arena.submit", "發表")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AlertDialog open={maskOpen} onOpenChange={setMaskOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{getText("topic.mask.title", "內容包含敏感字詞")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {getText("topic.mask.description", "發現敏感字詞「{{keyword}}」，將依規則遮罩後再送出。是否確認？")
+                .replace("{{keyword}}", maskKeyword)}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-2">
+            <AlertDialogCancel>{getText("arena.cancel", "取消")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const masked = maskMatchedKeyword(inputText, maskKeyword);
+                setInputText(masked);
+                setMaskOpen(false);
+              }}
+            >
+              {getText("topic.mask.confirm", "確認遮罩")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={reviewOpen} onOpenChange={setReviewOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{getText("topic.review.title", "內容需經審核")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {getText("topic.review.description", "發現需審核字詞「{{keyword}}」。仍要送出嗎？送出後將進入審核流程。")
+                .replace("{{keyword}}", reviewKeyword)}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-2">
+            <AlertDialogCancel>{getText("arena.cancel", "取消")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setReviewOpen(false);
+                void doPost(inputText.trim());
+              }}
+            >
+              {getText("topic.review.confirm", "仍要送出")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 

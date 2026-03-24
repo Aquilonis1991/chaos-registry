@@ -1,5 +1,5 @@
--- 觀點角鬥場留言：新增禁字檢查（後端強制）
--- 預設檢查等級 A~E；可用 system_config.arena_banned_check_levels(JSON array) 覆蓋
+-- 更新 post_arena_message：僅 block/mask 擋下，review 允許寫入
+-- 20260324103000 已執行，此 migration 補上 action 分支邏輯
 
 CREATE OR REPLACE FUNCTION public.post_arena_message(
   p_topic_id UUID,

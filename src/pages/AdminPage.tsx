@@ -149,7 +149,7 @@ const AdminPage = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl pt-[calc(1.5rem+env(safe-area-inset-top,0px))]">
+    <div className="container mx-auto p-6 max-w-screen-2xl pt-[calc(1.5rem+env(safe-area-inset-top,0px))]">
       <h1 className="text-3xl font-bold mb-6">{headerTitle}</h1>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

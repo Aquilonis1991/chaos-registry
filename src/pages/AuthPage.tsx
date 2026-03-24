@@ -49,6 +49,7 @@ const AuthPage = () => {
 
   const emailRedirectUrl = `${publicSiteUrl}/auth/verify-redirect`;
   const appDeepLinkCallback = "votechaos://auth/callback";
+  const appDeepLinkReset = "votechaos://auth/callback";
 
   devLog('[AuthPage] Configured redirect URL:', emailRedirectUrl);
 
@@ -421,8 +422,7 @@ const AuthPage = () => {
     line: "LINE",
   };
 
-  const handleSendResetEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendResetEmail = async () => {
     const targetEmail = resetEmail.trim();
     if (!targetEmail) {
       toast.error("請先輸入電子郵件");
@@ -456,7 +456,7 @@ const AuthPage = () => {
       }
 
       const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
-        redirectTo: `${publicSiteUrl}/auth/reset-password`,
+        redirectTo: appDeepLinkReset,
       });
       if (error) throw error;
 
@@ -571,7 +571,7 @@ const AuthPage = () => {
                           {getText('auth_forgot_password_desc', '輸入你的註冊信箱，我們會寄送重設密碼連結。')}
                         </DialogDescription>
                       </DialogHeader>
-                      <form onSubmit={handleSendResetEmail} className="space-y-4">
+                      <div className="space-y-4">
                         <div className="space-y-2">
                           <Label htmlFor="reset-email">電子郵件</Label>
                           <Input
@@ -590,11 +590,11 @@ const AuthPage = () => {
                             '若此帳號使用 Google / Apple / Discord / X / LINE 註冊，請改用第三方登入。'
                           )}
                         </p>
-                        <Button type="submit" className="w-full" disabled={resetLoading}>
+                        <Button type="button" className="w-full" disabled={resetLoading} onClick={handleSendResetEmail}>
                           {resetLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                           {getText('auth_reset_send_button', '發送重設連結')}
                         </Button>
-                      </form>
+                      </div>
                     </DialogContent>
                   </Dialog>
                 </div>

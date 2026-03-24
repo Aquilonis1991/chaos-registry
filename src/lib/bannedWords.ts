@@ -12,6 +12,14 @@ export interface BannedWordCheckResult {
   action?: 'block' | 'mask' | 'review';
   category?: string;
   errorMessage?: string;
+  /** 來自 validateTopicContent 時：命中區塊類型 */
+  blockType?: 'title' | 'description' | 'option' | 'tag' | 'category';
+  /** 命中區塊的原始內容（用於 mask 套用） */
+  blockValue?: string;
+  /** 若 blockType 為 option，該選項在陣列中的索引 */
+  optionIndex?: number;
+  /** 若 blockType 為 tag，該標籤在陣列中的索引 */
+  tagIndex?: number;
 }
 
 /**
@@ -85,7 +93,7 @@ export const validateTopicContent = async (
   checkLevels: string[] = ['A', 'B', 'C', 'D', 'E', 'F']
 ): Promise<BannedWordCheckResult> => {
   try {
-    const textBlocks: Array<{ content: string; type: string }> = [];
+    const textBlocks: Array<{ content: string; type: 'title' | 'description' | 'option' | 'tag' | 'category'; optionIndex?: number; tagIndex?: number }> = [];
 
     if (title) {
       textBlocks.push({ content: title, type: 'title' });
@@ -100,17 +108,17 @@ export const validateTopicContent = async (
         ? options as string[]
         : (options as Array<{ text: string }>).map(opt => opt.text);
 
-      optionTexts.forEach(opt => {
+      optionTexts.forEach((opt, idx) => {
         if (opt) {
-          textBlocks.push({ content: opt, type: 'option' });
+          textBlocks.push({ content: opt, type: 'option', optionIndex: idx });
         }
       });
     }
 
     if (tags && tags.length > 0) {
-      tags.forEach(tag => {
+      tags.forEach((tag, idx) => {
         if (tag) {
-          textBlocks.push({ content: tag, type: 'tag' });
+          textBlocks.push({ content: tag, type: 'tag', tagIndex: idx });
         }
       });
     }
@@ -124,7 +132,11 @@ export const validateTopicContent = async (
       if (result.found) {
         return {
           ...result,
-          errorMessage: result.errorMessage || `內容包含不當字詞（區塊：${block.type}）`
+          errorMessage: result.errorMessage || `內容包含不當字詞（區塊：${block.type}）`,
+          blockType: block.type,
+          blockValue: block.content,
+          optionIndex: block.optionIndex,
+          tagIndex: block.tagIndex,
         };
       }
     }

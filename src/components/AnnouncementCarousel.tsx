@@ -83,6 +83,20 @@ export const AnnouncementCarousel = ({
     fetchAnnouncements();
   }, [configLoading, announcementMaxDisplay]);
 
+  const DISMISS_STORAGE_KEY = "announcement_banner_dismissed";
+  const getTodayStr = () => new Date().toISOString().slice(0, 10);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(DISMISS_STORAGE_KEY);
+      if (stored === getTodayStr()) {
+        setIsDismissed(true);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const handleAnnouncementClick = async (announcement: Announcement) => {
     try {
       // Increment click count
@@ -110,6 +124,11 @@ export const AnnouncementCarousel = ({
   };
 
   const handleDismiss = () => {
+    try {
+      localStorage.setItem(DISMISS_STORAGE_KEY, getTodayStr());
+    } catch {
+      /* ignore */
+    }
     setIsDismissed(true);
     onClose?.();
   };
@@ -149,7 +168,7 @@ export const AnnouncementCarousel = ({
     setDragDeltaX(0);
   };
 
-  const getCategoryBadge = (a: Announcement, variant: "onGradient" | "onLight" = "onGradient") => {
+    const getCategoryBadge = (a: Announcement, variant: "onGradient" | "onLight" = "onGradient") => {
     const cat = a.announcement_category?.trim() || getText("announcement.badge.default", "一般");
     if (variant === "onLight") {
       return (

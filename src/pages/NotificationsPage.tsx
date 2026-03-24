@@ -1,13 +1,13 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Loader2, Bell, CheckCheck, AlertCircle, MessageSquare, Info } from "lucide-react";
+import { ArrowLeft, Loader2, Bell, CheckCheck, AlertCircle, MessageSquare, Info, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { zhTW } from "date-fns/locale";
 import {
   Tabs,
@@ -29,6 +29,17 @@ interface Notification {
   expires_at: string | null;
 }
 
+interface ActiveAnnouncement {
+  id: string;
+  title: string;
+  content: string;
+  summary?: string | null;
+  image_url?: string | null;
+  created_at: string;
+  announcement_category?: string | null;
+  display_date?: string | null;
+}
+
 interface ContactReply {
   message_id: string;
   message_title: string;
@@ -47,6 +58,8 @@ const NotificationsPage = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [contactReplies, setContactReplies] = useState<ContactReply[]>([]);
   const [contactLoading, setContactLoading] = useState(true);
+  const [activeAnnouncements, setActiveAnnouncements] = useState<ActiveAnnouncement[]>([]);
+  const [activeAnnouncementsLoading, setActiveAnnouncementsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'unread' | 'announcement' | 'personal' | 'contact'>('all');
   const { language } = useLanguage();
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
@@ -65,6 +78,7 @@ const NotificationsPage = () => {
   const toastMarkAllError = getText('notifications.toast.markAllError', '標記失敗');
   const emptyUnreadText = getText('notifications.empty.unread', '沒有未讀通知');
   const emptyAllText = getText('notifications.empty.all', '沒有通知');
+  const emptyAnnouncementText = getText('notifications.empty.announcement', '暫無公告');
   const emptyContactText = getText('notifications.empty.contact', '尚未收到客服回覆');
   const unreadBadgeText = getText('notifications.badge.unread', '未讀');
   const markAsReadButtonText = getText('notifications.list.markAsRead', '標記為已讀');
@@ -125,17 +139,38 @@ const NotificationsPage = () => {
     }
   }, [user?.id, toastContactLoadError]);
 
+  const fetchActiveAnnouncements = useCallback(async () => {
+    try {
+      setActiveAnnouncementsLoading(true);
+      const { data, error } = await supabase.rpc("get_active_announcements", {
+        limit_count: 20,
+      });
+      if (error) throw error;
+      setActiveAnnouncements((data || []) as ActiveAnnouncement[]);
+    } catch (err) {
+      console.error("Fetch active announcements error:", err);
+    } finally {
+      setActiveAnnouncementsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!user) {
       setNotifications([]);
       setContactReplies([]);
+      setActiveAnnouncements([]);
       setLoading(false);
       setContactLoading(false);
+      setActiveAnnouncementsLoading(false);
       return;
     }
 
-    void Promise.allSettled([fetchNotifications(), fetchContactReplies()]);
-  }, [user?.id, fetchNotifications, fetchContactReplies]);
+    void Promise.allSettled([
+      fetchNotifications(),
+      fetchContactReplies(),
+      fetchActiveAnnouncements(),
+    ]);
+  }, [user?.id, fetchNotifications, fetchContactReplies, fetchActiveAnnouncements]);
 
   if (uiTextsLoading) {
     return (
@@ -333,6 +368,121 @@ const NotificationsPage = () => {
     );
   };
 
+  const renderAnnouncementTab = () => {
+    const announcementNotifications = notifications.filter((n) => n.type === "announcement");
+    const hasActiveAnnouncements = activeAnnouncements.length > 0;
+    const hasAnnouncementNotifications = announcementNotifications.length > 0;
+    const hasAny = hasActiveAnnouncements || hasAnnouncementNotifications;
+
+    if (loading || activeAnnouncementsLoading) {
+      return (
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      );
+    }
+
+    if (!hasAny) {
+      return (
+        <Card>
+          <CardContent className="p-12">
+            <div className="text-center">
+              <AlertCircle className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground text-lg">{emptyAnnouncementText}</p>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        {/* 當前公告（來自 announcements 表） */}
+        {activeAnnouncements.map((ann) => (
+          <Card key={`active-${ann.id}`} className="hover:shadow-md transition-shadow border-l-4 border-l-primary">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="mt-1">
+                  <AlertCircle className="w-5 h-5 text-blue-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <h3 className="font-semibold text-foreground">{ann.title}</h3>
+                    <Badge variant="outline" className="text-xs flex items-center gap-1">
+                      <Star className="w-3 h-3" />
+                      {ann.announcement_category?.trim() || getText("announcement.badge.default", "一般")}
+                    </Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      {getText("notifications.badge.currentAnnouncement", "當前公告")}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-3">
+                    {ann.summary || ann.content}
+                  </p>
+                  {ann.image_url && (
+                    <img
+                      src={ann.image_url}
+                      alt=""
+                      className="mt-2 w-full max-h-32 object-cover rounded-md"
+                      onError={(e) => { e.currentTarget.style.display = "none"; }}
+                    />
+                  )}
+                  <span className="text-xs text-muted-foreground mt-2 block">
+                    {ann.display_date
+                      ? format(new Date(ann.display_date + "T12:00:00"), "yyyy/MM/dd", { locale: zhTW })
+                      : formatDistanceToNow(new Date(ann.created_at), { addSuffix: true, locale: zhTW })}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+        {/* 公告類通知（來自 notifications 表） */}
+        {announcementNotifications.map((notification) => (
+          <Card
+            key={notification.id}
+            className={`hover:shadow-md transition-shadow ${!notification.is_read ? "border-primary border-2" : ""}`}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="mt-1">{getNotificationIcon(notification.type)}</div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-foreground">{notification.title}</h3>
+                    <Badge variant="outline" className="text-xs">
+                      {getNotificationTypeLabel(notification.type)}
+                    </Badge>
+                    {!notification.is_read && (
+                      <Badge variant="default" className="text-xs">
+                        {unreadBadgeText}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">{notification.content}</p>
+                  <div className="flex items-center justify-between mt-3">
+                    <span className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: zhTW })}
+                    </span>
+                    {!notification.is_read && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => markAsRead(notification.id)}
+                        className="text-xs"
+                      >
+                        {markAsReadButtonText}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  };
+
   const renderContactReplies = () => {
     if (contactLoading) {
       return (
@@ -400,7 +550,8 @@ const NotificationsPage = () => {
 
   // 未讀計數排除客服回覆（客服回覆有獨立的標籤頁）
   const unreadCount = notifications.filter((n) => !n.is_read && n.type !== 'contact').length;
-  const announcementCount = notifications.filter((n) => n.type === 'announcement').length;
+  const announcementCount =
+    activeAnnouncements.length + notifications.filter((n) => n.type === "announcement").length;
   const personalCount = notifications.filter((n) => n.type === 'personal').length;
   const contactCount = contactReplies.length;
   const headerSubtitle = unreadCount > 0
@@ -508,7 +659,7 @@ const NotificationsPage = () => {
             {renderNotificationList('unread')}
           </TabsContent>
           <TabsContent value="announcement" className="mt-6">
-            {renderNotificationList('announcement')}
+            {renderAnnouncementTab()}
           </TabsContent>
           <TabsContent value="personal" className="mt-6">
             {renderNotificationList('personal')}

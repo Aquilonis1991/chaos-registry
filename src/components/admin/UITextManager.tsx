@@ -191,10 +191,15 @@ export const UITextManager = () => {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<UIText> }) => {
-      const { error } = await supabase
-        .from('ui_texts')
-        .update(updates)
-        .eq('id', id);
+      const { error } = await supabase.rpc('admin_update_ui_text', {
+        p_id: id,
+        p_value: updates.value ?? '',
+        p_zh: updates.zh ?? '',
+        p_en: updates.en ?? null,
+        p_ja: updates.ja ?? null,
+        p_description: updates.description ?? null,
+        p_category: updates.category ?? null,
+      });
 
       if (error) throw error;
     },

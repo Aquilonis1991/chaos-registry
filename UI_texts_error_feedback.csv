@@ -28,4 +28,5 @@ webAdminOnly.message,error_feedback,一般用戶請使用手機 App 版本。如
 webAdminOnly.buttonAndroid,error_feedback,Google Play 下載,Get it on Google Play,Google Play で入手,網頁版限制頁：Android 商店按鈕
 webAdminOnly.buttonIos,error_feedback,App Store 下載,Download on the App Store,App Store で入手,網頁版限制頁：iOS 商店按鈕
 webAdminOnly.signOut,error_feedback,登出,Sign out,ログアウト,網頁版限制頁：登出按鈕
+webAdminOnly.linkProfile,error_feedback,前往個人頁面,Go to profile,プロフィールへ,網頁版限制頁：進入個人頁連結
 

@@ -48,6 +48,16 @@ export const WebAdminOnlyPage = () => {
             )}
           </p>
 
+          {user && (
+            <Link
+              to="/profile"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
+            >
+              <UserRound className="h-4 w-4 shrink-0" />
+              {getText("webAdminOnly.linkProfile", "前往個人頁面")}
+            </Link>
+          )}
+
           {(androidStoreUrl || iosStoreUrl) && (
             <div className="flex flex-col gap-2">
               {androidStoreUrl ? (

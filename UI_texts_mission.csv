@@ -14,4 +14,8 @@ mission.dailyLogin.success,mission,簽到成功！獲得 {{amount}} 代幣,Login
 mission.dailyLogin.alreadyClaimed,mission,今日已簽到,Already claimed today,本日は既に受け取り済み,今日已簽到的訊息
 mission.dailyLogin.failed,mission,簽到失敗,Failed to claim login reward,ログインボーナスの受け取りに失敗しました,簽到失敗的錯誤訊息
 mission.dailyLogin.notLoggedIn,mission,請先登入,Please log in first,まずログインしてください,未登入時簽到的錯誤訊息
+mission.list.5.name,mission,形象更新,Identity Refresh,プロフィール更新,任務列表：修改暱稱任務名稱
+mission.list.5.description,mission,成功修改一次暱稱,Change your nickname once,ニックネームを1回変更する,任務列表：修改暱稱任務說明
+mission.list.5.condition,mission,修改暱稱 1 次,Change nickname 1 time,ニックネームを1回変更する,任務列表：修改暱稱任務條件
+profile.nickname.editHint,profile,點擊暱稱即可編輯，輸入新名稱後按右側勾勾儲存。,Tap your nickname to edit it, then press the check icon to save.,ニックネームをタップして編集し、新しい名前を入力してチェックアイコンで保存します。,個人頁：暱稱修改方式說明
 

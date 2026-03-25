@@ -491,6 +491,10 @@ const ProfilePage = () => {
   const reviewDialogMessage = reviewDialogTemplate.replace('{{keyword}}', pendingReviewKeyword || '');
   const reviewDialogCancelText = getText('common.button.cancel', '取消');
   const reviewDialogConfirmText = getText('common.button.confirm', '確認');
+  const nicknameEditHint = getText(
+    'profile.nickname.editHint',
+    '點擊暱稱即可編輯，輸入新名稱後按右側勾勾儲存。'
+  );
 
   return (
     <>
@@ -599,6 +603,9 @@ const ProfilePage = () => {
                       </div>
                     )}
                   </div>
+                  <p className="text-xs text-primary-foreground/80 text-center">
+                    {nicknameEditHint}
+                  </p>
 
                   {/* 3. 側寫 (Description) - 字體較小 */}
                   {assessmentResult?.description && (

@@ -22,6 +22,7 @@ const MISSION_ID_MAP: Record<string, string> = {
   "2": "vote_lover",      // 投票愛好者
   "3": "topic_creator",   // 話題創造者
   "4": "login_7days",     // 7天登入
+  "5": "nickname_editor", // 修改暱稱
 };
 
 interface LoginStreakInfo {
@@ -64,6 +65,7 @@ const MissionPage = () => {
       createTopicReward: configs['mission_create_topic_reward'] ?? 50,
       login7DaysTarget: configs['mission_7days_login_target'] ?? 7,
       login7DaysReward: configs['mission_7days_login_reward_tokens'] ?? 100,
+      nicknameEditReward: configs['mission_nickname_change_reward'] ?? 20,
       watchAdReward: configs['mission_watch_ad_reward'] ?? 5,
       watchAdLimit: configs['mission_watch_ad_limit'] ?? 10,
       dailyLoginReward: configs['mission_daily_login_reward'] ?? 3,
@@ -105,6 +107,9 @@ const MissionPage = () => {
     const login7DaysReward = typeof missionConfigs.login7DaysReward === 'number'
       ? missionConfigs.login7DaysReward
       : Number(missionConfigs.login7DaysReward) || 100;
+    const nicknameEditReward = typeof missionConfigs.nicknameEditReward === 'number'
+      ? missionConfigs.nicknameEditReward
+      : Number(missionConfigs.nicknameEditReward) || 20;
 
     const templates = [
       {
@@ -138,6 +143,14 @@ const MissionPage = () => {
         condition: `連續登入 ${login7DaysTarget} 天`,
         reward: login7DaysReward,
         target: login7DaysTarget,
+      },
+      {
+        id: "5",
+        name: "形象更新",
+        description: "成功修改一次暱稱",
+        condition: "修改暱稱 1 次",
+        reward: nicknameEditReward,
+        target: 1,
       },
     ];
 
@@ -197,10 +210,15 @@ const MissionPage = () => {
           progress: Math.min((streakForDisplay / target) * 100, 100),
           completed: streakForDisplay >= target
         };
+      case "5": // 修改暱稱
+        return {
+          progress: profile?.nickname_updated_at ? 100 : 0,
+          completed: Boolean(profile?.nickname_updated_at)
+        };
       default:
         return { progress: 0, completed: false };
     }
-  }, [statsLoading, stats, userMissions, localizedMissions, displayedStreak]);
+  }, [statsLoading, stats, userMissions, localizedMissions, displayedStreak, profile?.nickname_updated_at]);
 
   const applyLoginStreakInfo = useCallback((info: LoginStreakInfo | null) => {
     setLoginStreakInfo(info);

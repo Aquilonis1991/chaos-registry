@@ -46,7 +46,8 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
-  const [allJoinedTopicIds, setAllJoinedTopicIds] = useState<string[]>([]); // 緩存參與過的所有 topic IDs
+  /** 依 created_at 降序、且已通過 end_at 寬限篩選的 topic id（供「參與過」正確分頁） */
+  const [joinedTopicIdsSorted, setJoinedTopicIdsSorted] = useState<string[]>([]);
   const { getConfig } = useSystemConfigCache();
   const graceDaysConfig = getConfig('home_expired_topic_grace_days', 3);
   const expiredGraceDays = Math.max(Number(graceDaysConfig) || 0, 0);
@@ -59,7 +60,7 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
       setLoadingMore(false);
       if (filter === 'joined') {
         setTopics([]);
-        setAllJoinedTopicIds([]);
+        setJoinedTopicIdsSorted([]);
       }
       // 熱門/最新：不先清空列表，等 fetch 完成再更新，避免高級卡樣式一瞬間跑掉
     }
@@ -265,6 +266,10 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
       return;
     }
 
+    const graceCutoffDate = new Date(Date.now() - expiredGraceDays * 24 * 60 * 60 * 1000);
+    const graceCutoffISO = graceCutoffDate.toISOString();
+    const IN_CHUNK = 120;
+
     try {
       if (reset || currentOffset === 0) {
         setLoading(true);
@@ -273,83 +278,114 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
       }
       setError(null);
 
-      // 計入：投票過（含免費票/代幣票）或自己建立的主題
-      // 為了性能，我們只在首次載入時獲取所有 ID，之後使用緩存
-      let allTopicIds: string[] = [];
-      
-      if (reset || currentOffset === 0 || allJoinedTopicIds.length === 0) {
-        // 首次載入或重置時，獲取所有相關的 topic IDs
+      let sortedIds: string[] = joinedTopicIdsSorted;
+
+      const shouldRebuildIndex =
+        reset || currentOffset === 0 || joinedTopicIdsSorted.length === 0;
+
+      if (shouldRebuildIndex) {
         const [
           { data: tokenVotes, error: tokenVotesError },
           { data: freeVotes, error: freeVotesError },
           { data: createdTopics, error: createdTopicsError },
+          { data: participants, error: participantsError },
+          { data: optionLogs, error: optionLogsError },
+          { data: extLogs, error: extLogsError },
         ] = await Promise.all([
-          supabase
-            .from('votes')
-            .select('topic_id')
-            .eq('user_id', userId),
-          supabase
-            .from('free_votes')
-            .select('topic_id')
-            .eq('user_id', userId),
-          supabase
-            .from('topics')
-            .select('id')
-            .eq('creator_id', userId)
+          supabase.from('votes').select('topic_id').eq('user_id', userId),
+          supabase.from('free_votes').select('topic_id').eq('user_id', userId),
+          supabase.from('topics').select('id').eq('creator_id', userId),
+          supabase.from('topic_participants').select('topic_id').eq('user_id', userId),
+          supabase.from('topic_option_logs').select('topic_id').eq('user_id', userId),
+          supabase.from('topic_extension_logs').select('topic_id').eq('user_id', userId),
         ]);
 
         if (tokenVotesError) throw tokenVotesError;
         if (freeVotesError) throw freeVotesError;
         if (createdTopicsError) throw createdTopicsError;
+        if (participantsError) console.warn('[joined topics] topic_participants:', participantsError);
+        if (optionLogsError) console.warn('[joined topics] topic_option_logs:', optionLogsError);
+        if (extLogsError) console.warn('[joined topics] topic_extension_logs:', extLogsError);
 
-        const topicIds = [
-          ...(tokenVotes?.map(v => v.topic_id) || []),
-          ...(freeVotes?.map(v => v.topic_id) || []),
-          ...(createdTopics?.map(t => t.id) || [])
-        ];
+        const rawIdSet = new Set<string>();
+        tokenVotes?.forEach((v) => v.topic_id && rawIdSet.add(v.topic_id));
+        freeVotes?.forEach((v) => v.topic_id && rawIdSet.add(v.topic_id));
+        createdTopics?.forEach((t) => t.id && rawIdSet.add(t.id));
+        participants?.forEach((p) => p.topic_id && rawIdSet.add(p.topic_id));
+        optionLogs?.forEach((r) => r.topic_id && rawIdSet.add(r.topic_id));
+        extLogs?.forEach((r) => r.topic_id && rawIdSet.add(r.topic_id));
 
-        allTopicIds = [...new Set(topicIds)];
-        setAllJoinedTopicIds(allTopicIds); // 緩存所有 IDs
-      } else {
-        // 使用緩存的 IDs
-        allTopicIds = allJoinedTopicIds;
+        const allRawIds = Array.from(rawIdSet);
+
+        if (allRawIds.length === 0) {
+          setJoinedTopicIdsSorted([]);
+          setTopics([]);
+          setHasMore(false);
+          setOffset(0);
+          return;
+        }
+
+        const metaRows: { id: string; created_at: string }[] = [];
+        for (let i = 0; i < allRawIds.length; i += IN_CHUNK) {
+          const chunk = allRawIds.slice(i, i + IN_CHUNK);
+          const { data: meta, error: metaErr } = await supabase
+            .from('topics')
+            .select('id, created_at')
+            .in('id', chunk)
+            .gte('end_at', graceCutoffISO);
+          if (metaErr) throw metaErr;
+          (meta || []).forEach((row: any) => {
+            if (row?.id) metaRows.push({ id: row.id, created_at: row.created_at });
+          });
+        }
+
+        const byId = new Map<string, { id: string; created_at: string }>();
+        for (const r of metaRows) byId.set(r.id, r);
+
+        sortedIds = Array.from(byId.values())
+          .sort(
+            (a, b) =>
+              new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          )
+          .map((r) => r.id);
+
+        setJoinedTopicIdsSorted(sortedIds);
       }
 
-      if (allTopicIds.length === 0) {
-        setTopics([]);
+      const pageIds = sortedIds.slice(currentOffset, currentOffset + limit);
+
+      if (pageIds.length === 0) {
         setHasMore(false);
-        setLoading(false);
-        setLoadingMore(false);
+        if (reset || currentOffset === 0) setTopics([]);
         return;
       }
 
-      // 分頁處理：從所有 ID 中取出一部分
-      const paginatedTopicIds = allTopicIds.slice(currentOffset, currentOffset + limit);
-      
-      if (paginatedTopicIds.length === 0) {
-        setHasMore(false);
-        setLoading(false);
-        setLoadingMore(false);
-        return;
-      }
-
-      const graceCutoffDate = new Date(Date.now() - expiredGraceDays * 24 * 60 * 60 * 1000);
-      const { data, error: fetchError } = await supabase
-        .from('topics')
-        .select(`
+      const detailRows: any[] = [];
+      for (let i = 0; i < pageIds.length; i += IN_CHUNK) {
+        const chunk = pageIds.slice(i, i + IN_CHUNK);
+        const { data, error: fetchError } = await supabase
+          .from('topics')
+          .select(
+            `
           *,
           profiles:creator_id (
             nickname,
             avatar
           )
-        `)
-        .in('id', paginatedTopicIds)
-        .gte('end_at', graceCutoffDate.toISOString())
-        .order('created_at', { ascending: false });
+        `
+          )
+          .in('id', chunk);
+        if (fetchError) throw fetchError;
+        (data || []).forEach((t) => detailRows.push(t));
+      }
 
-      if (fetchError) throw fetchError;
+      const order = new Map(pageIds.map((id, idx) => [id, idx]));
+      const sortedPage = detailRows.sort(
+        (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0)
+      );
 
-      const processedTopics: Topic[] = (data || []).map(topic => {
+      const data = sortedPage;
+      const processedTopics: Topic[] = (data || []).map((topic) => {
         const totalVotes = topic.options?.reduce(
           (sum: number, opt: any) => sum + (opt.votes || 0),
           0
@@ -373,33 +409,16 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
         };
       });
 
-      // 判斷是否還有更多資料
-      const hasMoreData = currentOffset + processedTopics.length < allTopicIds.length;
+      const nextOffset = currentOffset + pageIds.length;
+      const hasMoreData = nextOffset < sortedIds.length;
       setHasMore(hasMoreData);
 
-      // 更新主題列表（累積或重置）
-      // 嚴格去重：確保同一主題不會重複顯示
       if (reset || currentOffset === 0) {
-        // 重置時也要去重（防止初始載入時有重複）
-        setTopics(prev => {
-          const existingIds = new Set(prev.map(t => t.id));
-          const newTopics = processedTopics.filter(t => !existingIds.has(t.id));
-          return newTopics.length > 0 ? newTopics : processedTopics;
-        });
-        setOffset(processedTopics.length);
+        setTopics(processedTopics);
+        setOffset(nextOffset);
       } else {
-        // 累積模式：嚴格避免重複
-        setTopics(prev => {
-          const existingIds = new Set(prev.map(t => t.id));
-          const newTopics = processedTopics.filter(t => !existingIds.has(t.id));
-          if (newTopics.length === 0) {
-            // 如果所有新主題都已存在，可能是分頁問題，停止載入更多
-            setHasMore(false);
-            return prev;
-          }
-          return [...prev, ...newTopics];
-        });
-        setOffset(prev => prev + processedTopics.length);
+        setTopics((prev) => [...prev, ...processedTopics]);
+        setOffset(nextOffset);
       }
     } catch (err: any) {
       console.error('Error fetching joined topics:', err);
@@ -419,7 +438,7 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
         setOffset(0);
         setHasMore(true);
         setLoadingMore(false);
-        setAllJoinedTopicIds([]); // 清除緩存的 IDs
+        setJoinedTopicIdsSorted([]); // 清除緩存的排序 id
       }
       fetchJoinedTopics(0, true);
     }
@@ -430,7 +449,12 @@ export const useTopics = (options: UseTopicsOptions = {}) => {
     setTopics([]);
     setOffset(0);
     setHasMore(true);
-    fetchTopics(0, true);
+    if (filter === 'joined') {
+      setJoinedTopicIdsSorted([]);
+      fetchJoinedTopics(0, true);
+    } else {
+      fetchTopics(0, true);
+    }
   };
 
   // 載入更多（無限滾動）

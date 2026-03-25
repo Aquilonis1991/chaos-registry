@@ -16,6 +16,8 @@ const ResetPasswordPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [ready, setReady] = useState(false);
+  const passwordPolicyHint =
+    "Password should contain at least one character of each: abcdefghijklmnopqrstuvwxyz, ABCDEFGHIJKLMNOPQRSTUVWXYZ, 0123456789.";
 
   const hashParams = useMemo(() => {
     if (typeof window === "undefined") return new URLSearchParams();
@@ -82,6 +84,10 @@ const ResetPasswordPage = () => {
     }
     if (password.length < 8) {
       toast.error("密碼至少 8 個字元");
+      return;
+    }
+    if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+      toast.error(passwordPolicyHint);
       return;
     }
 

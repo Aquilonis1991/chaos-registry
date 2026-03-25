@@ -79,8 +79,8 @@ export const useTopicHistory = (userId: string | undefined, options?: { timeFilt
           .from('topic_participants')
           .select('topic_id')
           .eq('user_id', userId),
-        (supabase as any)
-          .from('topic_option_add_logs')
+        supabase
+          .from('topic_option_logs')
           .select('topic_id')
           .eq('user_id', userId),
         (supabase as any)

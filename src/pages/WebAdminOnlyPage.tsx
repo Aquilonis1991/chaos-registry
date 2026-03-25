@@ -4,6 +4,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { useAuth } from "@/hooks/useAuth";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
+import { Link } from "react-router-dom";
 
 /**
  * 網頁版僅限管理員使用頁面
@@ -47,6 +48,14 @@ export const WebAdminOnlyPage = () => {
               "一般用戶請使用手機 App 版本。如需使用網頁版，請聯繫系統管理員。"
             )}
           </p>
+          {user ? (
+            <p className="text-xs text-muted-foreground">
+              {getText("webAdminOnly.profileHint", "若需查看帳號資料，請前往")}{" "}
+              <Link to="/profile" className="underline underline-offset-2 hover:text-foreground">
+                {getText("webAdminOnly.profileLinkText", "個人頁面")}
+              </Link>
+            </p>
+          ) : null}
 
           {(androidStoreUrl || iosStoreUrl) && (
             <div className="flex flex-col gap-2">

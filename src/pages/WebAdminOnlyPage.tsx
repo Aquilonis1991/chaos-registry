@@ -1,9 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExternalLink } from "lucide-react";
+import { UserRound } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { useAuth } from "@/hooks/useAuth";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
+import { Link } from "react-router-dom";
 
 /**
  * 網頁版僅限管理員使用頁面

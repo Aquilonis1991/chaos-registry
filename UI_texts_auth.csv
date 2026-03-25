@@ -39,6 +39,7 @@ auth_verifyRedirect_openApp,auth,立即開啟 App,Open the app,アプリを開�
 auth_verifyRedirect_download,auth,下載或更新 App,Download / Update the app,アプリをダウンロード／アップデート,驗證跳轉頁：下載備援按鈕
 auth_verifyRedirect_footer,auth,若仍無法開啟，請確認 App 已安裝或稍後再試。,If it doesn’t open, ensure the app is installed or try again later.,開かない場合はアプリがインストールされているかご確認ください。,驗證跳轉頁：備註
 auth_verifyRedirect_waiting,auth,正在等待 App 回應...,Waiting for the app...,アプリの応答を待っています…,驗證跳轉頁：等待提示
+auth_forgot_password_link,auth,忘記密碼？,Forgot password?,パスワードをお忘れですか？,登入頁：忘記密碼連結文字
 
 
 

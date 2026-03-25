@@ -561,7 +561,7 @@ const AuthPage = () => {
                   >
                     <DialogTrigger asChild>
                       <Button type="button" variant="link" className="h-auto p-0 text-sm">
-                        忘記密碼？
+                        {getText('auth_forgot_password_link', '忘記密碼？')}
                       </Button>
                     </DialogTrigger>
                     <DialogContent>

@@ -54,25 +54,72 @@ export const useTopicHistory = (userId: string | undefined, options?: { timeFilt
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
       const minDate = !isAdmin ? oneYearAgo : null;
 
-      // 構建查詢
+      // 先收集「參與過」的 topic id：
+      // - 自己建立
+      // - 投票過（votes）
+      // - topic_participants 紀錄
+      // - 新增選項紀錄
+      // - 延長時間紀錄
+      const [
+        createdTopicsResult,
+        votedTopicsResult,
+        participantTopicsResult,
+        optionAddedTopicsResult,
+        extendedTopicsResult,
+      ] = await Promise.all([
+        supabase
+          .from('topics')
+          .select('id')
+          .eq('creator_id', userId),
+        supabase
+          .from('votes')
+          .select('topic_id')
+          .eq('user_id', userId),
+        supabase
+          .from('topic_participants')
+          .select('topic_id')
+          .eq('user_id', userId),
+        (supabase as any)
+          .from('topic_option_add_logs')
+          .select('topic_id')
+          .eq('user_id', userId),
+        (supabase as any)
+          .from('topic_extension_logs')
+          .select('topic_id')
+          .eq('user_id', userId),
+      ]);
+
+      const idSet = new Set<string>();
+      (createdTopicsResult.data || []).forEach((row: any) => row?.id && idSet.add(row.id));
+      (votedTopicsResult.data || []).forEach((row: any) => row?.topic_id && idSet.add(row.topic_id));
+      (participantTopicsResult.data || []).forEach((row: any) => row?.topic_id && idSet.add(row.topic_id));
+      ((optionAddedTopicsResult.data as any[]) || []).forEach((row: any) => row?.topic_id && idSet.add(row.topic_id));
+      ((extendedTopicsResult.data as any[]) || []).forEach((row: any) => row?.topic_id && idSet.add(row.topic_id));
+
+      const topicIds = Array.from(idSet);
+      if (topicIds.length === 0) {
+        setTopics([]);
+        return;
+      }
+
+      // 以收集到的 topic id 再查完整主題資料
       let query = supabase
         .from('topics')
         .select('*')
-        .eq('creator_id', userId);
+        .in('id', topicIds);
 
-      // 應用時間篩選
+      // 應用時間篩選（以主題建立時間為準）
       if (startDate) {
         query = query.gte('created_at', startDate.toISOString());
       }
-      
-      // 如果不是管理員，限制在1年內
+
+      // 如果不是管理員，限制在 1 年內
       if (minDate) {
         const effectiveMinDate = startDate && startDate > minDate ? startDate : minDate;
         query = query.gte('created_at', effectiveMinDate.toISOString());
       }
 
-      const { data, error: fetchError } = await query
-        .order('created_at', { ascending: false });
+      const { data, error: fetchError } = await query.order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
 

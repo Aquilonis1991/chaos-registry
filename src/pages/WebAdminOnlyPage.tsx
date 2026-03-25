@@ -4,7 +4,10 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { useAuth } from "@/hooks/useAuth";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
-import { Link } from "react-router-dom";
+
+const ANDROID_PACKAGE = "com.votechaos.app";
+const DEFAULT_ANDROID_STORE_URL = `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE}`;
+const DEFAULT_IOS_STORE_URL = "https://apps.apple.com/app/id000000000";
 
 /**
  * 網頁版僅限管理員使用頁面
@@ -23,8 +26,10 @@ export const WebAdminOnlyPage = () => {
   const { user, signOut } = useAuth();
   const { getConfig } = useSystemConfigCache();
 
-  const androidStoreUrl = normalizeStoreUrl(getConfig("app_store_url_android", ""));
-  const iosStoreUrl = normalizeStoreUrl(getConfig("app_store_url_ios", ""));
+  const androidStoreUrl =
+    normalizeStoreUrl(getConfig("app_store_url_android", "")) || DEFAULT_ANDROID_STORE_URL;
+  const iosStoreUrl =
+    normalizeStoreUrl(getConfig("app_store_url_ios", "")) || DEFAULT_IOS_STORE_URL;
 
   // 強制輸出日誌以供除錯 (保留基本日誌)
   if (typeof window !== "undefined") {
@@ -48,41 +53,26 @@ export const WebAdminOnlyPage = () => {
               "一般用戶請使用手機 App 版本。如需使用網頁版，請聯繫系統管理員。"
             )}
           </p>
-          {user ? (
-            <p className="text-xs text-muted-foreground">
-              {getText("webAdminOnly.profileHint", "若需查看帳號資料，請前往")}{" "}
-              <Link to="/profile" className="underline underline-offset-2 hover:text-foreground">
-                {getText("webAdminOnly.profileLinkText", "個人頁面")}
-              </Link>
-            </p>
-          ) : null}
-
-          {(androidStoreUrl || iosStoreUrl) && (
-            <div className="flex flex-col gap-2">
-              {androidStoreUrl ? (
-                <a
-                  href={androidStoreUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 transition-colors"
-                >
-                  <ExternalLink className="h-4 w-4 shrink-0" />
-                  {getText("webAdminOnly.buttonAndroid", "Google Play 下載")}
-                </a>
-              ) : null}
-              {iosStoreUrl ? (
-                <a
-                  href={iosStoreUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 transition-colors"
-                >
-                  <ExternalLink className="h-4 w-4 shrink-0" />
-                  {getText("webAdminOnly.buttonIos", "App Store 下載")}
-                </a>
-              ) : null}
-            </div>
-          )}
+          <div className="flex flex-col gap-2">
+            <a
+              href={androidStoreUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 transition-colors"
+            >
+              <ExternalLink className="h-4 w-4 shrink-0" />
+              {getText("webAdminOnly.buttonAndroid", "Google Play 下載")}
+            </a>
+            <a
+              href={iosStoreUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 transition-colors"
+            >
+              <ExternalLink className="h-4 w-4 shrink-0" />
+              {getText("webAdminOnly.buttonIos", "App Store 下載")}
+            </a>
+          </div>
 
           {user && (
             <div className="text-xs font-mono bg-black/5 p-2 rounded break-all">

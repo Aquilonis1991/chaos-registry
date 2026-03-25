@@ -1,24 +1,41 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShieldX } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ExternalLink } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
-import { useState, useEffect } from "react";
+import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
+
+const ANDROID_PACKAGE = "com.votechaos.app";
+const DEFAULT_ANDROID_STORE_URL = `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE}`;
+const DEFAULT_IOS_STORE_URL = "https://apps.apple.com/app/id000000000";
 
 /**
  * 網頁版僅限管理員使用頁面
- * 
+ *
  * 若用戶使用網頁版登入且非管理員，將被導向此頁面。
  */
+function normalizeStoreUrl(raw: unknown): string {
+  if (raw == null) return "";
+  if (typeof raw === "string") return raw.trim();
+  return String(raw).trim();
+}
+
 export const WebAdminOnlyPage = () => {
   const { language } = useLanguage();
   const { getText } = useUIText(language);
   const { user, signOut } = useAuth();
+  const { getConfig } = useSystemConfigCache();
+
+  const androidStoreUrl =
+    normalizeStoreUrl(getConfig("app_store_url_android", "")) || DEFAULT_ANDROID_STORE_URL;
+  const iosStoreUrl =
+    normalizeStoreUrl(getConfig("app_store_url_ios", "")) || DEFAULT_IOS_STORE_URL;
 
   // 強制輸出日誌以供除錯 (保留基本日誌)
-  if (typeof window !== 'undefined') {
-    window.console?.log?.('[WebAdminOnlyPage] Page rendered - Non-admin user blocked', { userId: user?.id });
+  if (typeof window !== "undefined") {
+    window.console?.log?.("[WebAdminOnlyPage] Page rendered - Non-admin user blocked", {
+      userId: user?.id,
+    });
   }
 
   return (
@@ -26,13 +43,37 @@ export const WebAdminOnlyPage = () => {
       <Card className="max-w-lg w-full">
         <CardHeader>
           <CardTitle className=" text-center text-xl text-destructive font-bold">
-            {getText('admin.web_restricted', '網頁版僅限管理員使用')}
+            {getText("webAdminOnly.title", "網頁版僅限管理員使用")}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground mb-4">
-            {getText('webAdminOnly.message', '一般用戶請使用手機 App 版本。如需使用網頁版，請聯繫系統管理員。')}
+          <p className="text-sm text-muted-foreground">
+            {getText(
+              "webAdminOnly.message",
+              "一般用戶請使用手機 App 版本。如需使用網頁版，請聯繫系統管理員。"
+            )}
           </p>
+          <div className="flex flex-col gap-2">
+            <a
+              href={androidStoreUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 transition-colors"
+            >
+              <ExternalLink className="h-4 w-4 shrink-0" />
+              {getText("webAdminOnly.buttonAndroid", "Google Play 下載")}
+            </a>
+            <a
+              href={iosStoreUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 transition-colors"
+            >
+              <ExternalLink className="h-4 w-4 shrink-0" />
+              {getText("webAdminOnly.buttonIos", "App Store 下載")}
+            </a>
+          </div>
+
           {user && (
             <div className="text-xs font-mono bg-black/5 p-2 rounded break-all">
               <p>User ID: {user.id}</p>
@@ -41,17 +82,17 @@ export const WebAdminOnlyPage = () => {
 
           <div className="flex flex-col gap-2">
             <button
+              type="button"
               onClick={() => signOut()}
               className="w-full px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md text-sm font-medium transition-colors"
             >
-              登出 (Sign Out)
+              {getText("webAdminOnly.signOut", "登出")}
             </button>
           </div>
         </CardContent>
       </Card>
-    </div >
+    </div>
   );
 };
 
 export default WebAdminOnlyPage;
-

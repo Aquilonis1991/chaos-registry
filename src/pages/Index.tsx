@@ -7,6 +7,7 @@ import WebAdminOnlyPage from "./WebAdminOnlyPage";
 const Index = () => {
   const { user, isAnonymous, loading } = useAuth();
   const { isAdmin, isLoading: adminLoading } = useAdmin();
+  const shouldCheckAdmin = !isNative() && !!user && !isAnonymous;
 
   console.log('[Index] Render:', {
     hasUser: !!user,
@@ -18,7 +19,8 @@ const Index = () => {
   });
 
   // 載入中顯示載入畫面
-  if (loading || adminLoading) {
+  // 僅在需要做網頁版管理員檢查時才等待 adminLoading，避免一般用戶卡在轉圈
+  if (loading || (shouldCheckAdmin && adminLoading)) {
     console.log(`[Index] Still loading... (Auth: ${loading}, Admin: ${adminLoading})`);
     return (
       <div className="min-h-screen bg-gradient-primary flex items-center justify-center flex-col gap-4 pt-[env(safe-area-inset-top,0px)]">
@@ -31,7 +33,7 @@ const Index = () => {
   }
 
   // 網頁版管理員檢查 - 必須明確處理所有情況
-  if (!isNative() && user && !isAnonymous) {
+  if (shouldCheckAdmin) {
     console.log('[Index] Web version, user logged in, checking admin status:', isAdmin);
 
     // 如果管理員狀態還在載入中（undefined），繼續等待

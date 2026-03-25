@@ -222,8 +222,8 @@ export const useAdmin = () => {
     cachedStatus
   });
 
-  // 如果 auth 還在載入，isLoading 應該為 true
-  const finalLoading = authLoading || isLoading;
+  // 如果 auth 還在載入，isLoading 應該為 true；逾時後不再阻塞 UI
+  const finalLoading = authLoading || (isLoading && !adminCheckTimedOut);
 
   // 重要：優先使用查詢結果，如果查詢還在進行且有快取，使用快取
   let result: boolean | undefined;

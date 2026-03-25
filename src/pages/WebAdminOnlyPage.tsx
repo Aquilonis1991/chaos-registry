@@ -1,11 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExternalLink } from "lucide-react";
-import { UserRound } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { useAuth } from "@/hooks/useAuth";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
-import { Link } from "react-router-dom";
 
 /**
  * 網頁版僅限管理員使用頁面
@@ -49,16 +47,6 @@ export const WebAdminOnlyPage = () => {
               "一般用戶請使用手機 App 版本。如需使用網頁版，請聯繫系統管理員。"
             )}
           </p>
-
-          {user && (
-            <Link
-              to="/profile"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
-            >
-              <UserRound className="h-4 w-4 shrink-0" />
-              {getText("webAdminOnly.linkProfile", "前往個人頁面")}
-            </Link>
-          )}
 
           {(androidStoreUrl || iosStoreUrl) && (
             <div className="flex flex-col gap-2">

@@ -29,6 +29,7 @@ import LegalPage from "./pages/LegalPage";
 import MarketingPage from "./pages/MarketingPage";
 import AboutPage from "./pages/AboutPage";
 import AuthPage from "./pages/AuthPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import VerifyRedirectPage from "./pages/VerifyRedirectPage";
 import { OAuthCallbackPage } from "./pages/OAuthCallbackPage";
 import { DeepLinkRedirectPage } from "./pages/DeepLinkRedirectPage";
@@ -76,6 +77,7 @@ const App = () => (
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/auth" element={<AuthPage />} />
+                  <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
                   <Route path="/auth/callback" element={<OAuthCallbackPage />} />
                   <Route path="/auth/deep-link-redirect" element={<DeepLinkRedirectPage />} />
                   <Route path="/auth/verify-redirect" element={<VerifyRedirectPage />} />

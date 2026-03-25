@@ -13,6 +13,7 @@ export interface Profile {
     notifications: boolean;
     created_at: string;
     updated_at: string;
+    nickname_updated_at?: string | null;
     is_deleted?: boolean;
     deleted_reason?: string | null;
 }
@@ -44,12 +45,24 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
                 setLoading(true);
             }
 
-            // Fetch full profile data for authenticated user
-            const { data, error } = await supabase
+            // Fetch full profile data for authenticated user.
+            // Backward compatibility: some deployed DBs may not have nickname_updated_at yet.
+            let { data, error } = await supabase
                 .from('profiles')
-                .select('id, nickname, avatar, tokens, ad_watch_count, last_login, notifications, created_at, updated_at, is_deleted, deleted_reason')
+                .select('id, nickname, avatar, tokens, ad_watch_count, last_login, notifications, created_at, updated_at, nickname_updated_at, is_deleted, deleted_reason')
                 .eq('id', user.id)
                 .single();
+
+            if (error?.code === '42703' && error?.message?.includes('nickname_updated_at')) {
+                console.warn('[ProfileContext] nickname_updated_at missing in DB, fallback select without this column.');
+                const fallback = await supabase
+                    .from('profiles')
+                    .select('id, nickname, avatar, tokens, ad_watch_count, last_login, notifications, created_at, updated_at, is_deleted, deleted_reason')
+                    .eq('id', user.id)
+                    .single();
+                data = fallback.data ? { ...fallback.data, nickname_updated_at: null } as Profile : null;
+                error = fallback.error;
+            }
 
             if (error) throw error;
 

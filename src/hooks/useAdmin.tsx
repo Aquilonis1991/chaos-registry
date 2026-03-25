@@ -2,11 +2,13 @@ import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { devLog } from "@/lib/devLog";
-import { useCallback, useMemo, useEffect, useRef, useState } from "react";
+import { useMemo, useEffect, useRef, useState } from "react";
 
 // 本地快取鍵名
 const ADMIN_CACHE_KEY = 'admin_status_cache';
 const ADMIN_CACHE_EXPIRY = 5 * 60 * 1000; // 5分鐘過期
+/** UI 層：管理員狀態查詢超過此時間仍無結果，強制結束 loading（避免無限轉圈） */
+const ADMIN_STATUS_UI_MAX_MS = 8000;
 
 interface AdminCache {
   userId: string;
@@ -186,6 +188,29 @@ export const useAdmin = () => {
     placeholderData: cachedStatus !== null ? cachedStatus : undefined,
   });
 
+  const [adminCheckTimedOut, setAdminCheckTimedOut] = useState(false);
+
+  useEffect(() => {
+    setAdminCheckTimedOut(false);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setAdminCheckTimedOut(false);
+    }
+  }, [isLoading]);
+
+  useEffect(() => {
+    if (!user?.id || authLoading || !isLoading) return;
+    const t = window.setTimeout(() => {
+      console.warn(
+        '[useAdmin] Admin status check exceeded UI max wait; unlocking loading (treat as non-admin if still unknown)'
+      );
+      setAdminCheckTimedOut(true);
+    }, ADMIN_STATUS_UI_MAX_MS);
+    return () => window.clearTimeout(t);
+  }, [user?.id, authLoading, isLoading]);
+
   devLog('[useAdmin] Query state:', {
     isAdmin,
     isLoading,
@@ -197,8 +222,8 @@ export const useAdmin = () => {
     cachedStatus
   });
 
-  // 如果 auth 還在載入，isLoading 應該為 true
-  const finalLoading = authLoading || isLoading;
+  // 如果 auth 還在載入，isLoading 應該為 true；逾時後不再阻塞 UI
+  const finalLoading = authLoading || (isLoading && !adminCheckTimedOut);
 
   // 重要：優先使用查詢結果，如果查詢還在進行且有快取，使用快取
   let result: boolean | undefined;
@@ -222,6 +247,13 @@ export const useAdmin = () => {
       devLog('[useAdmin] Query completed but result is undefined, defaulting to false (non-admin)');
     }
   }
+
+  if (adminCheckTimedOut && result === undefined) {
+    result = false;
+    devLog('[useAdmin] UI timeout: defaulting isAdmin to false (non-admin)');
+  }
+
+  const adminQuerySettled = !isLoading || adminCheckTimedOut;
 
   // 計算最終的 isAdmin 結果（用於 isSuperAdmin 查詢的 enabled 條件）
   // 簡化邏輯：直接使用 result 和 isAdmin，確保查詢能正確執行
@@ -247,20 +279,25 @@ export const useAdmin = () => {
   // 簡化邏輯：直接使用 result 和 isAdmin
   const isSuperAdminQueryEnabled = useMemo(() => {
     // 確保用戶已登入、auth 已載入、isAdmin 查詢已完成且結果為 true
-    const enabled = !!user?.id && !authLoading && !isLoading && (isAdmin === true || result === true);
+    const enabled =
+      !!user?.id &&
+      !authLoading &&
+      adminQuerySettled &&
+      (isAdmin === true || result === true);
     devLog('[useAdmin] 🔧 isSuperAdminQueryEnabled calculation:', {
       hasUserId: !!user?.id,
       userId: user?.id,
       notAuthLoading: !authLoading,
       authLoading,
-      notIsLoading: !isLoading,
+      adminQuerySettled,
       isLoading,
+      adminCheckTimedOut,
       isAdmin,
       result,
       enabled
     });
     return enabled;
-  }, [user?.id, authLoading, isLoading, isAdmin, result]);
+  }, [user?.id, authLoading, adminQuerySettled, isLoading, adminCheckTimedOut, isAdmin, result]);
 
   // 使用 ref 來追蹤查詢結果，避免狀態更新延遲問題
   const isSuperAdminRef = useRef<boolean>(false);

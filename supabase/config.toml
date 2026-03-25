@@ -10,3 +10,6 @@ verify_jwt = false
 # 獨立的 callback 處理函數，禁用 JWT 驗證
 [functions.line-auth-callback]
 verify_jwt = false
+
+[functions.check-auth-providers]
+verify_jwt = false

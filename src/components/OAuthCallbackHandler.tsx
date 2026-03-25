@@ -15,6 +15,16 @@ export const OAuthCallbackHandler = () => {
   // 使用 ref 來追蹤已處理的回調，避免重複處理
   const processedCallbacksRef = useRef<Set<string>>(new Set());
 
+  const navigateAfterAuth = (callbackUrl: string, params: Record<string, string>) => {
+    const type = params.type || "";
+    const isRecovery = type === "recovery" || callbackUrl.includes("type=recovery");
+    if (isRecovery) {
+      navigate("/auth/reset-password", { replace: true });
+      return;
+    }
+    navigateAfterAuth(callbackUrl, params);
+  };
+
   useEffect(() => {
     if (!isNative()) return;
 
@@ -58,7 +68,7 @@ export const OAuthCallbackHandler = () => {
             console.log('[OAuthCallbackHandler] ✅ Session exists, login was successful');
             toast.success('登入成功');
             setIsProcessing(false);
-            navigate('/home', { replace: true });
+            navigateAfterAuth(callbackUrl, params);
             return;
           } else {
             console.log('[OAuthCallbackHandler] ⚠️ No session found, attempting to set session from duplicate callback');
@@ -81,7 +91,7 @@ export const OAuthCallbackHandler = () => {
                 console.log('[OAuthCallbackHandler] ✅ Session established from duplicate callback');
                 toast.success('登入成功');
                 setIsProcessing(false);
-                navigate('/home', { replace: true });
+                navigateAfterAuth(callbackUrl, params);
                 return;
               } else {
                 console.error('[OAuthCallbackHandler] ⚠️ setSession returned but no session data');
@@ -116,7 +126,7 @@ export const OAuthCallbackHandler = () => {
             console.log('[OAuthCallbackHandler] ✅ Session exists, login was successful despite duplicate callback');
             toast.success('登入成功');
             setIsProcessing(false);
-            navigate('/home', { replace: true });
+            navigateAfterAuth(callbackUrl, params);
             return;
           }
           console.log('[OAuthCallbackHandler] ⚠️ First session check: no session, error:', sessionError1);
@@ -131,7 +141,7 @@ export const OAuthCallbackHandler = () => {
             console.log('[OAuthCallbackHandler] ✅ Session found after retry, login was successful');
             toast.success('登入成功');
             setIsProcessing(false);
-            navigate('/home', { replace: true });
+            navigateAfterAuth(callbackUrl, params);
             return;
           }
           console.log('[OAuthCallbackHandler] ⚠️ Second session check: no session, error:', sessionError2);
@@ -144,7 +154,7 @@ export const OAuthCallbackHandler = () => {
               console.log('[OAuthCallbackHandler] ✅ Session refreshed successfully');
               toast.success('登入成功');
               setIsProcessing(false);
-              navigate('/home', { replace: true });
+              navigateAfterAuth(callbackUrl, params);
               return;
             }
             console.log('[OAuthCallbackHandler] ⚠️ Refresh session: no session, error:', refreshError);
@@ -165,7 +175,7 @@ export const OAuthCallbackHandler = () => {
                 console.log('[OAuthCallbackHandler] ✅ Session found after user check, login was successful');
                 toast.success('登入成功');
                 setIsProcessing(false);
-                navigate('/home', { replace: true });
+                navigateAfterAuth(callbackUrl, params);
                 return;
               }
               console.log('[OAuthCallbackHandler] ⚠️ Third session check: no session, error:', sessionError3);
@@ -219,7 +229,7 @@ export const OAuthCallbackHandler = () => {
                   console.log('[OAuthCallbackHandler] ✅ Session established from old callbackId format');
                   toast.success('登入成功');
                   setIsProcessing(false);
-                  navigate('/home', { replace: true });
+                  navigateAfterAuth(callbackUrl, params);
                   return;
                 }
               }
@@ -230,7 +240,7 @@ export const OAuthCallbackHandler = () => {
             console.log('[OAuthCallbackHandler] ✅ Session exists for old callbackId format');
             toast.success('登入成功');
             setIsProcessing(false);
-            navigate('/home', { replace: true });
+            navigateAfterAuth(callbackUrl, params);
             return;
           }
         }
@@ -267,7 +277,7 @@ export const OAuthCallbackHandler = () => {
               console.log('[OAuthCallbackHandler] ✅ Session exists, login was successful despite error');
               toast.success('登入成功');
               setIsProcessing(false);
-              navigate('/home', { replace: true });
+              navigateAfterAuth(callbackUrl, params);
               return;
             }
             console.log('[OAuthCallbackHandler] ⚠️ First session check: no session, error:', sessionError1);
@@ -282,7 +292,7 @@ export const OAuthCallbackHandler = () => {
               console.log('[OAuthCallbackHandler] ✅ Session found after retry, login was successful');
               toast.success('登入成功');
               setIsProcessing(false);
-              navigate('/home', { replace: true });
+              navigateAfterAuth(callbackUrl, params);
               return;
             }
             console.log('[OAuthCallbackHandler] ⚠️ Second session check: no session, error:', sessionError2);
@@ -295,7 +305,7 @@ export const OAuthCallbackHandler = () => {
                 console.log('[OAuthCallbackHandler] ✅ Session refreshed successfully');
                 toast.success('登入成功');
                 setIsProcessing(false);
-                navigate('/home', { replace: true });
+                navigateAfterAuth(callbackUrl, params);
                 return;
               }
               console.log('[OAuthCallbackHandler] ⚠️ Refresh session: no session, error:', refreshError);
@@ -316,7 +326,7 @@ export const OAuthCallbackHandler = () => {
                   console.log('[OAuthCallbackHandler] ✅ Session found after user check, login was successful');
                   toast.success('登入成功');
                   setIsProcessing(false);
-                  navigate('/home', { replace: true });
+                  navigateAfterAuth(callbackUrl, params);
                   return;
                 }
                 console.log('[OAuthCallbackHandler] ⚠️ Third session check: no session, error:', sessionError3);
@@ -486,9 +496,9 @@ export const OAuthCallbackHandler = () => {
                           });
                         }
                         
-                        // Session 已設置，導航到首頁
+                        // Session 已設置，依流程導向（recovery 則進重設密碼）
                         setIsProcessing(false);
-                        navigate('/home', { replace: true });
+                        navigateAfterAuth(callbackUrl, params);
                         return;
                       } else {
                         console.warn('[OAuthCallbackHandler] ⚠️ Token verified but no session returned');
@@ -578,9 +588,9 @@ export const OAuthCallbackHandler = () => {
               console.log('[OAuthCallbackHandler] Session set successfully, user authenticated:', sessionData.session.user.email || sessionData.session.user.id);
               toast.success('登入成功！');
               
-              // 認證成功，導航到首頁
+              // 認證成功，依流程導向（recovery 則進重設密碼）
               setTimeout(() => {
-                navigate('/home', { replace: true });
+                navigateAfterAuth(callbackUrl, params);
                 setIsProcessing(false);
               }, 300);
               return;
@@ -611,7 +621,7 @@ export const OAuthCallbackHandler = () => {
             toast.success('登入成功！');
             
             setTimeout(() => {
-              navigate('/home', { replace: true });
+              navigateAfterAuth(callbackUrl, params);
               setIsProcessing(false);
             }, 300);
             return;

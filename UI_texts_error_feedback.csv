@@ -25,4 +25,7 @@ errorFeedback.section.clientInfo,error_feedback,客戶端資訊,Client Info,ク�
 webAdminOnly.title,error_feedback,網頁版僅限管理員使用,Web Version Admin Only,ウェブ版は管理者のみ,網頁版僅限管理員使用標題
 webAdminOnly.description,error_feedback,此網頁版本僅供管理員使用,This web version is for administrators only,このウェブ版は管理者専用です,網頁版僅限管理員使用描述
 webAdminOnly.message,error_feedback,一般用戶請使用手機 App 版本。如需使用網頁版，請聯繫系統管理員。,Regular users should use the mobile app. To access the web version, please contact the system administrator.,一般ユーザーはモバイルアプリをご利用ください。ウェブ版へのアクセスが必要な場合は、システム管理者にお問い合わせください。,網頁版僅限管理員使用訊息
+webAdminOnly.buttonAndroid,error_feedback,Google Play 下載,Get it on Google Play,Google Play で入手,網頁版限制頁：Android 商店按鈕
+webAdminOnly.buttonIos,error_feedback,App Store 下載,Download on the App Store,App Store で入手,網頁版限制頁：iOS 商店按鈕
+webAdminOnly.signOut,error_feedback,登出,Sign out,ログアウト,網頁版限制頁：登出按鈕
 

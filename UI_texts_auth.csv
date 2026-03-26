@@ -41,6 +41,33 @@ auth_verifyRedirect_footer,auth,若仍無法開啟，請確認 App 已安裝或�
 auth_verifyRedirect_waiting,auth,正在等待 App 回應...,Waiting for the app...,アプリの応答を待っています…,驗證跳轉頁：等待提示
 auth_forgot_password_link,auth,忘記密碼？,Forgot password?,パスワードをお忘れですか？,登入頁：忘記密碼連結文字
 
+auth_unknown_error,auth,未知錯誤,Unknown error,不明なエラー,通用：未知錯誤
+auth_line_native_only,auth,LINE 登入僅支援 APP 版本,LINE login is only supported in the app,LINEログインはアプリ版のみ対応,登入頁：LINE 登入限制（僅 APP）
+
+auth_anonymous_mode_title,auth,進入匿名瀏覽模式,Entered anonymous browsing mode,匿名閲覧モードに入りました,登入頁：匿名瀏覽泡泡標題
+auth_anonymous_mode_desc,auth,您可以瀏覽內容，但需要註冊才能投票,You can browse content, but you need to sign up to vote,閲覧はできますが、投票するには登録が必要です,登入頁：匿名瀏覽泡泡說明
+
+auth_reset_email_required,auth,請先輸入電子郵件,Please enter your email first,先にメールアドレスを入力してください,忘記密碼：未輸入信箱提示
+auth_reset_send_failed,auth,寄送失敗，請稍後再試,Failed to send. Please try again later,送信に失敗しました。しばらくしてから再試行してください,忘記密碼：寄送失敗通用提示
+auth_reset_social_only_title_template,auth,此帳號使用 {{providers}} 登入,This account signs in with {{providers}},このアカウントは{{providers}}でログインします,忘記密碼：社群帳號提示標題（模板）
+auth_reset_social_only_desc,auth,請改用對應第三方登入，不支援密碼重設。,Please use the corresponding social login. Password reset is not supported.,該当する外部ログインをご利用ください。パスワードリセットには対応していません。,忘記密碼：社群帳號不支援密碼重設說明
+auth_reset_social_bound_template,auth,此帳號亦綁定 {{providers}}。若忘記第三方密碼，請到該平台重設。,This account is also linked to {{providers}}. If you forgot your social password, reset it on that platform.,このアカウントは{{providers}}とも連携されています。外部のパスワードを忘れた場合は各プラットフォームで再設定してください。,忘記密碼：綁定社群帳號補充說明（模板）
+
+auth.oauthCallback.loginSuccess,auth,登入成功,Login successful,ログイン成功,OAuth 回調：成功泡泡（無驚嘆號）
+auth.oauthCallback.loginSuccessExclamation,auth,登入成功！,Login successful!,ログインに成功しました！,OAuth 回調：成功泡泡（含驚嘆號）
+auth.oauthCallback.loginFailed,auth,登入失敗,Login failed,ログインに失敗しました,OAuth 回調：失敗泡泡標題
+auth.oauthCallback.retry,auth,請重新嘗試。,Please try again.,もう一度お試しください。,OAuth 回調：通用重試提示
+auth.oauthCallback.sessionCreateFailed,auth,無法建立登入狀態。請重新嘗試。,Unable to create a login session. Please try again.,ログイン状態を作成できませんでした。もう一度お試しください。,OAuth 回調：無法建立 session
+auth.oauthCallback.processingFailed,auth,處理登入時發生錯誤。請重新嘗試。,An error occurred while signing in. Please try again.,ログイン処理中にエラーが発生しました。もう一度お試しください。,OAuth 回調：處理登入錯誤
+auth.oauthCallback.codeAlreadyUsed,auth,授權碼已被使用。請重新嘗試登入。,Authorization code was already used. Please try signing in again.,認可コードは既に使用されています。再度ログインしてください。,OAuth 回調：授權碼已使用
+auth.oauthCallback.edgeIncomplete,auth,Edge Function 返回的資料不完整,Edge Function returned incomplete data,Edge Function の返却データが不完全です,OAuth 回調：Edge 回傳資料不完整
+auth.oauthCallback.edgeErrorTemplate,auth,Edge Function 錯誤：{{status}},Edge Function error: {{status}},Edge Function エラー：{{status}},OAuth 回調：Edge 錯誤模板
+auth.oauthCallback.cannotHandle,auth,無法處理登入回調,Unable to handle sign-in callback,ログインコールバックを処理できません,OAuth 回調：無法處理回調
+auth.oauthCallback.authProcessFailed,auth,認證處理失敗,Authentication processing failed,認証処理に失敗しました,OAuth 回調：認證處理失敗
+auth.oauthCallback.authProcessError,auth,處理認證時發生錯誤,An error occurred while processing authentication,認証処理中にエラーが発生しました,OAuth 回調：處理認證錯誤
+auth.oauthCallback.authProcessFailedRetry,auth,認證處理失敗，請重試,Authentication failed. Please try again,認証に失敗しました。再試行してください,OAuth 回調：認證失敗請重試
+auth.oauthCallback.handleCallbackError,auth,處理登入回調時發生錯誤,An error occurred while handling the sign-in callback,ログインコールバックの処理中にエラーが発生しました,OAuth 回調：處理回調發生錯誤
+
 
 
 

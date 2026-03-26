@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { isNative } from "@/lib/capacitor";
 import { devLog } from "@/lib/devLog";
 import { toast } from "sonner";
+import { useUIText } from "@/hooks/useUIText";
 
 /**
  * OAuthCallbackHandler - 處理 OAuth 回調（Deep Link）
@@ -11,9 +12,28 @@ import { toast } from "sonner";
  */
 export const OAuthCallbackHandler = () => {
   const navigate = useNavigate();
+  const { getText } = useUIText();
   const [isProcessing, setIsProcessing] = useState(false);
   // 使用 ref 來追蹤已處理的回調，避免重複處理
   const processedCallbacksRef = useRef<Set<string>>(new Set());
+
+  const toastLoginSuccess = () => toast.success(getText('auth.oauthCallback.loginSuccess', '登入成功'));
+  const toastLoginFailedRetry = () =>
+    toast.error(getText('auth.oauthCallback.loginFailed', '登入失敗'), {
+      description: getText('auth.oauthCallback.retry', '請重新嘗試。')
+    });
+  const toastLoginFailedSessionCreate = () =>
+    toast.error(getText('auth.oauthCallback.loginFailed', '登入失敗'), {
+      description: getText('auth.oauthCallback.sessionCreateFailed', '無法建立登入狀態。請重新嘗試。')
+    });
+  const toastLoginFailedProcessing = () =>
+    toast.error(getText('auth.oauthCallback.loginFailed', '登入失敗'), {
+      description: getText('auth.oauthCallback.processingFailed', '處理登入時發生錯誤。請重新嘗試。')
+    });
+  const toastLoginFailedCodeAlreadyUsed = () =>
+    toast.error(getText('auth.oauthCallback.loginFailed', '登入失敗'), {
+      description: getText('auth.oauthCallback.codeAlreadyUsed', '授權碼已被使用。請重新嘗試登入。')
+    });
 
   const navigateAfterAuth = (callbackUrl: string, params: Record<string, string>) => {
     const type = params.type || "";
@@ -22,7 +42,7 @@ export const OAuthCallbackHandler = () => {
       navigate("/auth/reset-password", { replace: true });
       return;
     }
-    navigateAfterAuth(callbackUrl, params);
+    navigate("/home", { replace: true });
   };
 
   useEffect(() => {
@@ -66,7 +86,7 @@ export const OAuthCallbackHandler = () => {
           const { data: { session } } = await supabase.auth.getSession();
           if (session) {
             console.log('[OAuthCallbackHandler] ✅ Session exists, login was successful');
-            toast.success('登入成功');
+            toastLoginSuccess();
             setIsProcessing(false);
             navigateAfterAuth(callbackUrl, params);
             return;
@@ -81,32 +101,26 @@ export const OAuthCallbackHandler = () => {
               
               if (sessionError) {
                 console.error('[OAuthCallbackHandler] Failed to set session from duplicate callback:', sessionError);
-                toast.error('登入失敗', {
-                  description: '無法建立登入狀態。請重新嘗試。'
-                });
+                toastLoginFailedSessionCreate();
                 setIsProcessing(false);
                 navigate('/auth', { replace: true });
                 return;
               } else if (sessionData.session) {
                 console.log('[OAuthCallbackHandler] ✅ Session established from duplicate callback');
-                toast.success('登入成功');
+                toastLoginSuccess();
                 setIsProcessing(false);
                 navigateAfterAuth(callbackUrl, params);
                 return;
               } else {
                 console.error('[OAuthCallbackHandler] ⚠️ setSession returned but no session data');
-                toast.error('登入失敗', {
-                  description: '無法建立登入狀態。請重新嘗試。'
-                });
+                toastLoginFailedSessionCreate();
                 setIsProcessing(false);
                 navigate('/auth', { replace: true });
                 return;
               }
             } catch (err) {
               console.error('[OAuthCallbackHandler] Exception setting session from duplicate callback:', err);
-              toast.error('登入失敗', {
-                description: '處理登入時發生錯誤。請重新嘗試。'
-              });
+              toastLoginFailedProcessing();
               setIsProcessing(false);
               navigate('/auth', { replace: true });
               return;
@@ -124,7 +138,7 @@ export const OAuthCallbackHandler = () => {
           let { data: { session }, error: sessionError1 } = await supabase.auth.getSession();
           if (session) {
             console.log('[OAuthCallbackHandler] ✅ Session exists, login was successful despite duplicate callback');
-            toast.success('登入成功');
+            toastLoginSuccess();
             setIsProcessing(false);
             navigateAfterAuth(callbackUrl, params);
             return;
@@ -139,7 +153,7 @@ export const OAuthCallbackHandler = () => {
           let { data: { session: session2 }, error: sessionError2 } = await supabase.auth.getSession();
           if (session2) {
             console.log('[OAuthCallbackHandler] ✅ Session found after retry, login was successful');
-            toast.success('登入成功');
+            toastLoginSuccess();
             setIsProcessing(false);
             navigateAfterAuth(callbackUrl, params);
             return;
@@ -152,7 +166,7 @@ export const OAuthCallbackHandler = () => {
             const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
             if (refreshData?.session) {
               console.log('[OAuthCallbackHandler] ✅ Session refreshed successfully');
-              toast.success('登入成功');
+              toastLoginSuccess();
               setIsProcessing(false);
               navigateAfterAuth(callbackUrl, params);
               return;
@@ -173,7 +187,7 @@ export const OAuthCallbackHandler = () => {
               const { data: sessionData, error: sessionError3 } = await supabase.auth.getSession();
               if (sessionData?.session) {
                 console.log('[OAuthCallbackHandler] ✅ Session found after user check, login was successful');
-                toast.success('登入成功');
+                toastLoginSuccess();
                 setIsProcessing(false);
                 navigateAfterAuth(callbackUrl, params);
                 return;
@@ -197,9 +211,7 @@ export const OAuthCallbackHandler = () => {
           
           // ✅ 顯示友好的錯誤訊息，並允許用戶重試
           console.log('[OAuthCallbackHandler] ⚠️ No session found after all attempts');
-          toast.error('登入失敗', {
-            description: '授權碼已被使用。請重新嘗試登入。'
-          });
+          toastLoginFailedCodeAlreadyUsed();
           setIsProcessing(false);
           // 不導航到 /auth，讓用戶可以立即重試
           return;
@@ -227,7 +239,7 @@ export const OAuthCallbackHandler = () => {
                 });
                 if (sessionData.session) {
                   console.log('[OAuthCallbackHandler] ✅ Session established from old callbackId format');
-                  toast.success('登入成功');
+                  toastLoginSuccess();
                   setIsProcessing(false);
                   navigateAfterAuth(callbackUrl, params);
                   return;
@@ -238,7 +250,7 @@ export const OAuthCallbackHandler = () => {
             }
           } else {
             console.log('[OAuthCallbackHandler] ✅ Session exists for old callbackId format');
-            toast.success('登入成功');
+            toastLoginSuccess();
             setIsProcessing(false);
             navigateAfterAuth(callbackUrl, params);
             return;
@@ -275,7 +287,7 @@ export const OAuthCallbackHandler = () => {
             let { data: { session }, error: sessionError1 } = await supabase.auth.getSession();
             if (session) {
               console.log('[OAuthCallbackHandler] ✅ Session exists, login was successful despite error');
-              toast.success('登入成功');
+              toastLoginSuccess();
               setIsProcessing(false);
               navigateAfterAuth(callbackUrl, params);
               return;
@@ -290,7 +302,7 @@ export const OAuthCallbackHandler = () => {
             let { data: { session: session2 }, error: sessionError2 } = await supabase.auth.getSession();
             if (session2) {
               console.log('[OAuthCallbackHandler] ✅ Session found after retry, login was successful');
-              toast.success('登入成功');
+              toastLoginSuccess();
               setIsProcessing(false);
               navigateAfterAuth(callbackUrl, params);
               return;
@@ -303,7 +315,7 @@ export const OAuthCallbackHandler = () => {
               const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
               if (refreshData?.session) {
                 console.log('[OAuthCallbackHandler] ✅ Session refreshed successfully');
-                toast.success('登入成功');
+                toastLoginSuccess();
                 setIsProcessing(false);
                 navigateAfterAuth(callbackUrl, params);
                 return;
@@ -324,7 +336,7 @@ export const OAuthCallbackHandler = () => {
                 const { data: sessionData, error: sessionError3 } = await supabase.auth.getSession();
                 if (sessionData?.session) {
                   console.log('[OAuthCallbackHandler] ✅ Session found after user check, login was successful');
-                  toast.success('登入成功');
+                  toastLoginSuccess();
                   setIsProcessing(false);
                   navigateAfterAuth(callbackUrl, params);
                   return;
@@ -344,11 +356,9 @@ export const OAuthCallbackHandler = () => {
             processedCallbacksRef.current.delete(callbackId);
             console.log('[OAuthCallbackHandler] Cleared callback from processed list to allow retry:', callbackId.substring(0, 50));
             
-            toast.error('登入失敗', {
-              description: '授權碼已被使用。請重新嘗試登入。'
-            });
+            toastLoginFailedCodeAlreadyUsed();
           } else {
-            toast.error('登入失敗', {
+            toast.error(getText('auth.oauthCallback.loginFailed', '登入失敗'), {
               description: params.error_description || params.error
             });
           }
@@ -531,8 +541,8 @@ export const OAuthCallbackHandler = () => {
               } else {
                 console.error('[OAuthCallbackHandler] Edge Function response missing redirectUrl');
                 console.error('[OAuthCallbackHandler] Response data:', data);
-                toast.error('登入失敗', {
-                  description: 'Edge Function 返回的數據不完整'
+                toast.error(getText('auth.oauthCallback.loginFailed', '登入失敗'), {
+                  description: getText('auth.oauthCallback.edgeIncomplete', 'Edge Function 返回的資料不完整')
                 });
                 setIsProcessing(false);
                 navigate('/auth', { replace: true });
@@ -542,8 +552,9 @@ export const OAuthCallbackHandler = () => {
               console.error('[OAuthCallbackHandler] Edge Function error:', response.status, response.statusText);
               const errorText = await response.text().catch(() => '');
               console.error('[OAuthCallbackHandler] Edge Function error response:', errorText);
-              toast.error('登入失敗', {
-                description: `Edge Function 錯誤: ${response.status}`
+              const edgeErrorTemplate = getText('auth.oauthCallback.edgeErrorTemplate', 'Edge Function 錯誤：{{status}}');
+              toast.error(getText('auth.oauthCallback.loginFailed', '登入失敗'), {
+                description: edgeErrorTemplate.replace('{{status}}', String(response.status))
               });
               setIsProcessing(false);
               navigate('/auth', { replace: true });
@@ -555,8 +566,8 @@ export const OAuthCallbackHandler = () => {
               message: fetchError instanceof Error ? fetchError.message : String(fetchError),
               stack: fetchError instanceof Error ? fetchError.stack : undefined
             });
-            toast.error('登入失敗', {
-              description: '無法處理登入回調'
+            toast.error(getText('auth.oauthCallback.loginFailed', '登入失敗'), {
+              description: getText('auth.oauthCallback.cannotHandle', '無法處理登入回調')
             });
             setIsProcessing(false);
             navigate('/auth', { replace: true });
@@ -576,7 +587,7 @@ export const OAuthCallbackHandler = () => {
 
             if (sessionError) {
               console.error('[OAuthCallbackHandler] Error setting session:', sessionError);
-              toast.error('認證處理失敗', {
+              toast.error(getText('auth.oauthCallback.authProcessFailed', '認證處理失敗'), {
                 description: sessionError.message
               });
               setIsProcessing(false);
@@ -586,7 +597,7 @@ export const OAuthCallbackHandler = () => {
 
             if (sessionData.session && sessionData.session.user) {
               console.log('[OAuthCallbackHandler] Session set successfully, user authenticated:', sessionData.session.user.email || sessionData.session.user.id);
-              toast.success('登入成功！');
+              toast.success(getText('auth.oauthCallback.loginSuccessExclamation', '登入成功！'));
               
               // 認證成功，依流程導向（recovery 則進重設密碼）
               setTimeout(() => {
@@ -597,7 +608,7 @@ export const OAuthCallbackHandler = () => {
             }
           } catch (setSessionError) {
             console.error('[OAuthCallbackHandler] Exception setting session:', setSessionError);
-            toast.error('處理認證時發生錯誤');
+            toast.error(getText('auth.oauthCallback.authProcessError', '處理認證時發生錯誤'));
             setIsProcessing(false);
             navigate('/auth', { replace: true });
             return;
@@ -610,7 +621,7 @@ export const OAuthCallbackHandler = () => {
           
           if (error) {
             console.error('[OAuthCallbackHandler] Error getting session:', error);
-            toast.error('認證處理失敗，請重試');
+            toast.error(getText('auth.oauthCallback.authProcessFailedRetry', '認證處理失敗，請重試'));
             setIsProcessing(false);
             navigate('/auth', { replace: true });
             return;
@@ -618,7 +629,7 @@ export const OAuthCallbackHandler = () => {
 
           if (session && session.user) {
             console.log('[OAuthCallbackHandler] Existing session found, user authenticated:', session.user.email || session.user.id);
-            toast.success('登入成功！');
+            toast.success(getText('auth.oauthCallback.loginSuccessExclamation', '登入成功！'));
             
             setTimeout(() => {
               navigateAfterAuth(callbackUrl, params);
@@ -629,13 +640,13 @@ export const OAuthCallbackHandler = () => {
 
           // 如果沒有 session 也沒有 token，顯示錯誤
           console.warn('[OAuthCallbackHandler] No tokens and no existing session');
-          toast.error('認證處理失敗，請重試');
+          toast.error(getText('auth.oauthCallback.authProcessFailedRetry', '認證處理失敗，請重試'));
           setIsProcessing(false);
           navigate('/auth', { replace: true });
         }
       } catch (error) {
         console.error('[OAuthCallbackHandler] Error handling OAuth callback:', error);
-        toast.error('處理登入回調時發生錯誤');
+        toast.error(getText('auth.oauthCallback.handleCallbackError', '處理登入回調時發生錯誤'));
         setIsProcessing(false);
         navigate('/auth', { replace: true });
       }
@@ -643,7 +654,7 @@ export const OAuthCallbackHandler = () => {
 
     const handleOAuthError = (event: CustomEvent<{ error: string; error_description?: string }>) => {
       console.error('[OAuthCallbackHandler] OAuth error event:', event.detail);
-      toast.error('登入失敗', {
+      toast.error(getText('auth.oauthCallback.loginFailed', '登入失敗'), {
         description: event.detail.error_description || event.detail.error
       });
       setIsProcessing(false);

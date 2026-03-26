@@ -324,7 +324,7 @@ const AuthPage = () => {
       
       // 只支持 APP 登入（網頁版不支持 LINE 登入）
       if (!isNative()) {
-        toast.error('LINE 登入僅支持 APP 版本');
+        toast.error(getText('auth_line_native_only', 'LINE 登入僅支援 APP 版本'));
         return;
       }
       
@@ -402,14 +402,14 @@ const AuthPage = () => {
       console.error(`[AuthPage] [${provider}] Login error:`, err);
       const providerName = 'LINE';
       toast.error(getText('auth_social_login_error', '{{provider}}登入失敗').replace('{{provider}}', providerName), {
-        description: err?.message || '未知錯誤'
+        description: err?.message || getText('auth_unknown_error', '未知錯誤')
       });
     }
   };
 
   const handleAnonymousBrowsing = () => {
-    toast.success("進入匿名瀏覽模式", {
-      description: "您可以瀏覽內容，但需要註冊才能投票"
+    toast.success(getText('auth_anonymous_mode_title', '進入匿名瀏覽模式'), {
+      description: getText('auth_anonymous_mode_desc', '您可以瀏覽內容，但需要註冊才能投票')
     });
     navigate("/home", { replace: true });
   };
@@ -425,7 +425,7 @@ const AuthPage = () => {
   const handleSendResetEmail = async () => {
     const targetEmail = resetEmail.trim();
     if (!targetEmail) {
-      toast.error("請先輸入電子郵件");
+      toast.error(getText('auth_reset_email_required', '請先輸入電子郵件'));
       return;
     }
 
@@ -449,8 +449,9 @@ const AuthPage = () => {
           .filter((provider) => provider !== "email")
           .map((provider) => providerDisplayNameMap[provider] || provider)
           .join(" / ");
-        toast.error(`此帳號使用 ${providerNames} 登入`, {
-          description: "請改用對應第三方登入，不支援密碼重設。",
+        const socialOnlyTitleTemplate = getText('auth_reset_social_only_title_template', '此帳號使用 {{providers}} 登入');
+        toast.error(socialOnlyTitleTemplate.replace('{{providers}}', providerNames), {
+          description: getText('auth_reset_social_only_desc', '請改用對應第三方登入，不支援密碼重設。'),
         });
         return;
       }
@@ -465,10 +466,16 @@ const AuthPage = () => {
         {
           description:
             providers.filter((provider) => provider !== "email").length > 0
-              ? `此帳號亦綁定 ${providers
-                  .filter((provider) => provider !== "email")
-                  .map((provider) => providerDisplayNameMap[provider] || provider)
-                  .join(" / ")}。若忘記第三方密碼，請到該平台重設。`
+              ? getText(
+                  'auth_reset_social_bound_template',
+                  '此帳號亦綁定 {{providers}}。若忘記第三方密碼，請到該平台重設。'
+                ).replace(
+                  '{{providers}}',
+                  providers
+                    .filter((provider) => provider !== "email")
+                    .map((provider) => providerDisplayNameMap[provider] || provider)
+                    .join(" / ")
+                )
               : getText(
                   'auth_reset_social_hint',
                   '若此帳號使用 Google / Apple / Discord / X / LINE 註冊，請改用第三方登入。'
@@ -478,7 +485,7 @@ const AuthPage = () => {
       setResetOpen(false);
       setResetEmail("");
     } catch (error: any) {
-      toast.error(error?.message || "寄送失敗，請稍後再試");
+      toast.error(error?.message || getText('auth_reset_send_failed', '寄送失敗，請稍後再試'));
     } finally {
       setResetLoading(false);
     }

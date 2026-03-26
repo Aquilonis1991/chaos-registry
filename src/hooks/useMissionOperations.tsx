@@ -265,7 +265,7 @@ export const useMissionOperations = () => {
           } catch (timeoutError: any) {
             console.error('[watchAd] ❌ RPC 調用超時:', timeoutError);
             // RPC 超時，直接拋出錯誤（不嘗試備選方案，因為 add_tokens_from_ad_watch 可能不存在或參數不匹配）
-            throw new Error('RPC 調用超時，請檢查網絡連接或稍後再試');
+            throw new Error(getText('mission.watchAd.rpcTimeout', 'RPC 呼叫超時，請檢查網路連線或稍後再試'));
           }
 
           const { data: rpcData, error: tokenError } = rpcResult;
@@ -280,7 +280,16 @@ export const useMissionOperations = () => {
               details: tokenError.details,
               hint: tokenError.hint
             });
-            throw new Error('增加代幣失敗：' + (tokenError.message || '未知錯誤'));
+            const tokenIncreaseFailedTemplate = getText(
+              'mission.watchAd.tokenIncreaseFailedTemplate',
+              '增加代幣失敗：{{reason}}'
+            );
+            throw new Error(
+              tokenIncreaseFailedTemplate.replace(
+                '{{reason}}',
+                tokenError.message || getText('mission.watchAd.unknownError', '未知錯誤')
+              )
+            );
           }
 
 
@@ -299,7 +308,7 @@ export const useMissionOperations = () => {
               p_user_id: user.id,
               p_amount: AD_REWARD,
               p_transaction_type: 'watch_ad',
-              p_description: 'Watched advertisement'
+              p_description: getText('mission.tokenTx.watchAd', '觀看廣告')
             })
           ]).catch(() => {
             // 靜默處理錯誤，不影響主流程
@@ -349,12 +358,12 @@ export const useMissionOperations = () => {
         toast.error(getText('mission.watchAd.notCompleted', '廣告未完整觀看'));
       } else if (error.message?.includes('超時') || error.message?.includes('timeout')) {
         // 網絡超時錯誤，提供更詳細的提示
-        toast.error('網絡連接超時', {
-          description: '請檢查網絡連接，或稍後再試。如果問題持續，請聯繫客服。'
+        toast.error(getText('mission.networkTimeout.title', '網路連線超時'), {
+          description: getText('mission.networkTimeout.desc', '請檢查網路連線，或稍後再試。如果問題持續，請聯繫客服。')
         });
       } else {
         toast.error(getText('mission.watchAd.failed', '觀看廣告失敗'), {
-          description: error.message || '請稍後再試或聯繫客服'
+          description: error.message || getText('mission.watchAd.failedDescDefault', '請稍後再試或聯繫客服')
         });
       }
       throw error;
@@ -447,8 +456,9 @@ export const useMissionOperations = () => {
 
       if (!loginInfo.isNewLogin) {
         console.log('[claimDailyLogin] Not a new login, user already claimed today');
+        const streakDescTemplate = getText('mission.dailyLogin.streakDescTemplate', '當前連續登入 {{days}} 天');
         toast.info(getText('mission.dailyLogin.alreadyClaimed', '今日已簽到'), {
-          description: `當前連續登入 ${loginInfo.currentStreak} 天`
+          description: streakDescTemplate.replace('{{days}}', String(loginInfo.currentStreak))
         });
         return loginInfo;
       }
@@ -480,8 +490,9 @@ export const useMissionOperations = () => {
 
       const loginSuccessMsg = getText('mission.dailyLogin.success', '簽到成功！獲得 {{amount}} 失序值')
         .replace('{{amount}}', loginInfo.rewardTokens.toLocaleString());
+      const successDescTemplate = getText('mission.dailyLogin.successDescTemplate', '連續登入 {{days}} 天');
       toast.success(loginSuccessMsg, {
-        description: `連續登入 ${loginInfo.currentStreak} 天`
+        description: successDescTemplate.replace('{{days}}', String(loginInfo.currentStreak))
       });
 
       return loginInfo;

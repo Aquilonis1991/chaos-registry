@@ -19,3 +19,15 @@ mission.list.5.description,mission,成功修改一次暱稱,Change your nickname
 mission.list.5.condition,mission,修改暱稱 1 次,Change nickname 1 time,ニックネームを1回変更する,任務列表：修改暱稱任務條件
 profile.nickname.editHint,profile,點擊暱稱即可編輯，輸入新名稱後按右側勾勾儲存。,Tap your nickname to edit it, then press the check icon to save.,ニックネームをタップして編集し、新しい名前を入力してチェックアイコンで保存します。,個人頁：暱稱修改方式說明
 
+mission.watchAd.failedDescDefault,mission,請稍後再試或聯繫客服,Please try again later or contact support,しばらくしてから再試行するか、サポートにお問い合わせください,觀看廣告失敗：預設說明（無詳細錯誤時）
+
+mission.networkTimeout.title,mission,網路連線超時,Network connection timed out,ネットワーク接続がタイムアウトしました,通用：網路超時（標題）
+mission.networkTimeout.desc,mission,請檢查網路連線，或稍後再試。如果問題持續，請聯繫客服。,Please check your network connection or try again later. If the problem persists, contact support.,ネットワーク接続をご確認のうえ再試行してください。問題が続く場合はサポートへご連絡ください。,通用：網路超時（說明）
+
+mission.dailyLogin.streakDescTemplate,mission,當前連續登入 {{days}} 天,Current login streak: {{days}} days,連続ログイン：{{days}}日,簽到：連續登入描述模板
+mission.dailyLogin.successDescTemplate,mission,連續登入 {{days}} 天,Login streak: {{days}} days,連続ログイン：{{days}}日,簽到：成功泡泡描述模板
+
+mission.watchAd.rpcTimeout,mission,RPC 呼叫超時，請檢查網路連線或稍後再試,RPC request timed out. Check your network connection or try again later,RPC呼び出しがタイムアウトしました。ネットワーク接続を確認するか、後でもう一度お試しください,觀看廣告：RPC 超時
+mission.watchAd.tokenIncreaseFailedTemplate,mission,增加代幣失敗：{{reason}},Failed to add tokens: {{reason}},トークンの付与に失敗しました：{{reason}},觀看廣告：加幣失敗模板
+mission.watchAd.unknownError,mission,未知錯誤,Unknown error,不明なエラー,觀看廣告：未知錯誤
+mission.tokenTx.watchAd,mission,觀看廣告,Watched advertisement,広告を視聴しました,代幣流水：觀看廣告交易描述

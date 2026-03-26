@@ -42,6 +42,16 @@ export type ArenaMessage = {
   recycled_at?: string | null;
 };
 
+const RECYCLED_BODY_VARIANT_COUNT = 20;
+
+const getStableRecycledVariant = (messageId: string) => {
+  let hash = 0;
+  for (let i = 0; i < messageId.length; i += 1) {
+    hash = (hash * 31 + messageId.charCodeAt(i)) % 2147483647;
+  }
+  return (Math.abs(hash) % RECYCLED_BODY_VARIANT_COUNT) + 1;
+};
+
 export function ArenaSection({
   topicId,
   topicEndAt,
@@ -69,6 +79,8 @@ export function ArenaSection({
   const [voteIds, setVoteIds] = useState<Set<string>>(new Set());
   /** 留言 user_id → profiles.nickname（暱稱，單次批次查詢） */
   const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
+  /** message_id -> 最後一個按斥責的用戶暱稱 */
+  const [lastDownvoterNames, setLastDownvoterNames] = useState<Record<string, string>>({});
 
   const x = getConfig("arena_throne_min_threshold_x", 100) as number;
   const y = getConfig("arena_elite_min_threshold_y", 50) as number;
@@ -116,6 +128,7 @@ export function ArenaSection({
       setMessages(rows);
       if (rows.length === 0) {
         setAuthorNames({});
+        setLastDownvoterNames({});
         return;
       }
       const uids = [...new Set(rows.map((r) => r.user_id))];
@@ -137,6 +150,59 @@ export function ArenaSection({
         if (!next[uid]) next[uid] = fallback;
       });
       setAuthorNames(next);
+
+      const messageIds = rows.map((r) => r.id);
+      const { data: downvotes, error: downvoteErr } = await supabase
+        .from("topic_arena_votes")
+        .select("message_id, user_id, created_at")
+        .in("message_id", messageIds)
+        .eq("vote_type", "downvote")
+        .order("created_at", { ascending: false });
+      if (downvoteErr) {
+        console.warn("[arena] downvotes batch:", downvoteErr.message);
+        setLastDownvoterNames({});
+        return;
+      }
+
+      const latestByMessage: Record<string, string> = {};
+      const voterIdsSet = new Set<string>();
+      (downvotes || []).forEach((v) => {
+        const messageId = String((v as { message_id: string }).message_id);
+        const voterId = String((v as { user_id: string }).user_id);
+        if (!latestByMessage[messageId]) {
+          latestByMessage[messageId] = voterId;
+          voterIdsSet.add(voterId);
+        }
+      });
+
+      const voterIds = [...voterIdsSet];
+      if (voterIds.length === 0) {
+        setLastDownvoterNames({});
+        return;
+      }
+
+      const { data: voterProfiles, error: voterProfilesErr } = await supabase
+        .from("profiles")
+        .select("id, nickname")
+        .in("id", voterIds);
+      if (voterProfilesErr) {
+        console.warn("[arena] downvoter profiles batch:", voterProfilesErr.message);
+        setLastDownvoterNames({});
+        return;
+      }
+
+      const voterNameMap: Record<string, string> = {};
+      voterProfiles?.forEach((p) => {
+        const row = p as { id: string; nickname: string | null };
+        const n = row.nickname;
+        voterNameMap[row.id] = (n && String(n).trim()) || fallback;
+      });
+
+      const latestDownvoterNamesByMessage: Record<string, string> = {};
+      Object.entries(latestByMessage).forEach(([messageId, voterId]) => {
+        latestDownvoterNamesByMessage[messageId] = voterNameMap[voterId] || fallback;
+      });
+      setLastDownvoterNames(latestDownvoterNamesByMessage);
     },
     [topicId, getText]
   );
@@ -281,19 +347,11 @@ export function ArenaSection({
     return Math.max(0, Math.floor(base - decayRate * elapsedMin));
   };
 
-  /** 旁觀者：存在週期已歸零（含後端 recycled_at 或前端推算）且非本人 → 不顯示該列 */
-  const visibleMessages = useMemo(() => {
-    return messages.filter((m) => {
-      if (m.recycled_at) return userId === m.user_id;
-      const expired = !isShielded(m) && displayTtlMinutes(m) <= 0;
-      if (expired && userId !== m.user_id) return false;
-      return true;
-    });
-  }, [messages, userId, ttlTick, decayRate]);
+  /** 回收留言也保留在列表，改為以回收卡呈現 */
+  const visibleMessages = useMemo(() => messages, [messages]);
 
-  /** 當事人：顯示灰色回收卡（後端已回收或前端推算 TTL 已歸零） */
+  /** 顯示灰色回收卡（後端已回收或前端推算 TTL 已歸零） */
   const isRecycledView = (m: ArenaMessage) => {
-    if (!userId || userId !== m.user_id) return false;
     if (m.recycled_at) return true;
     return !isShielded(m) && displayTtlMinutes(m) <= 0;
   };
@@ -310,18 +368,28 @@ export function ArenaSection({
   /** 贊同／斥責：僅 icon + (±X min)，靠右下；完整說明放 aria-label */
   const renderArenaMessageBlock = (m: ArenaMessage, variant: "core" | "elite" | "card") => {
     if (isRecycledView(m)) {
+      const recycledVariant = getStableRecycledVariant(String(m.id));
+      const recycledKey = `arena.recycledBody.${recycledVariant}`;
+      const author = authorNames[m.user_id] ?? getText("arena.userFallback", "用戶");
       const body = getText(
-        "arena.recycledBody",
+        recycledKey,
         "您的留言存在週期已歸零。系統執行回收。最終結果：👍贊同 {{up}} / 👎斥責 {{down}}，感謝您發表廢話。"
       )
         .replace("{{up}}", String(m.upvote_count))
         .replace("{{down}}", String(m.downvote_count));
+      const firstLine = `${author}，${body}`;
+      const finalDownvoter = lastDownvoterNames[m.id] || getText("arena.recycledLastDownvoterNone", "無");
+      const secondLine = getText("arena.recycledLastDownvoter", "最終👎的為 {{name}}").replace(
+        "{{name}}",
+        finalDownvoter
+      );
       return (
         <div
           className="rounded-lg border border-muted-foreground/35 bg-muted/90 px-4 py-3 text-sm text-muted-foreground leading-relaxed"
           role="status"
         >
-          {body}
+          <div>{firstLine}</div>
+          <div className="mt-1">{secondLine}</div>
         </div>
       );
     }

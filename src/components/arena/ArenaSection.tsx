@@ -104,7 +104,7 @@ export function ArenaSection({
       }
       const { data, error } = await supabase
         .from("topic_arena_messages")
-        .select("*")
+        .select("id, topic_id, user_id, content, ttl_minutes, shield_until, upvote_count, downvote_count, is_legacy, created_at, updated_at, recycled_at")
         .eq("topic_id", topicId)
         .order("created_at", { ascending: true });
       if (!opts?.silent) setLoading(false);

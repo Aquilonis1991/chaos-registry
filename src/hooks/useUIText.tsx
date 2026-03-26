@@ -93,7 +93,7 @@ export const useUIText = (language: Language = 'zh') => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('ui_texts')
-        .select('*');
+        .select('key, value, description, category, zh, en, ja, updated_at');
 
       if (error) throw error;
 

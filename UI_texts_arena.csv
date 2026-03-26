@@ -53,3 +53,5 @@ arena.recycledBody.19,arena,留言存在值耗盡，系統已回收。最終：�
 arena.recycledBody.20,arena,留言已回收完畢。最終票數：👍贊同 {{up}} / 👎斥責 {{down}}。,Message was fully recycled. Final votes: 👍 {{up}} / 👎 {{down}}.,コメントは回収完了しました。最終票数：👍 {{up}} / 👎 {{down}}。,回收提示隨機文案 20
 arena.recycledLastDownvoter,arena,最終👎的為 {{name}},Final 👎 by {{name}},最終👎は {{name}},回收卡第二行：最後斥責者
 arena.recycledLastDownvoterNone,arena,無,None,なし,回收卡第二行：沒有斥責者時顯示
+arena.finalDownvoterLabel,arena,最後斥責者：{{name}},Final downvoter: {{name}},最後に反対票を入れた人：{{name}},回收卡第二行標籤
+arena.signatureApproved,arena,核定,Approved,承認,回收卡印章文字

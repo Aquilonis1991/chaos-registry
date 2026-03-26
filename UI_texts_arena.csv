@@ -31,3 +31,25 @@ arena.toast.voteFailed,arena,投票失敗,Vote failed,投票に失敗しまし�
 arena.needLoginVote,arena,請先登入後再互動,Please log in to interact,操作するにはログインしてください,匿名點贊同／斥責時提示
 arena.voted,arena,已投票,Voted,投票済み,已對該留言投過票
 arena.recycledBody,arena,您的留言存在週期已歸零。系統執行回收。最終結果：👍贊同 {{up}} / 👎斥責 {{down}}，感謝您發表廢話。,Your message TTL reached zero and was recycled. Final: 👍 {{up}} / 👎 {{down}}. Thanks for the nonsense.,存在週期がゼロになり回収されました。結果：👍 {{up}} / 👎 {{down}}。,TTL 歸零後僅作者看到的灰色提示卡
+arena.recycledBody.1,arena,留言壽命已結束並完成回收。最終結果：👍贊同 {{up}} / 👎斥責 {{down}}。,Your message reached end-of-life and was recycled. Final: 👍 {{up}} / 👎 {{down}}.,コメントの寿命が終了し回収されました。結果：👍 {{up}} / 👎 {{down}}。,回收提示隨機文案 1
+arena.recycledBody.2,arena,本則留言已到期回收。結算：👍贊同 {{up}} / 👎斥責 {{down}}。,This message expired and was recycled. Result: 👍 {{up}} / 👎 {{down}}.,このコメントは期限切れで回収されました。結果：👍 {{up}} / 👎 {{down}}。,回收提示隨機文案 2
+arena.recycledBody.3,arena,存在週期歸零，系統已回收留言。最終票數：👍贊同 {{up}} / 👎斥責 {{down}}。,TTL hit zero and the message was recycled. Final votes: 👍 {{up}} / 👎 {{down}}.,TTLがゼロになりコメントは回収されました。最終票数：👍 {{up}} / 👎 {{down}}。,回收提示隨機文案 3
+arena.recycledBody.4,arena,留言已從角鬥場退場。成績：👍贊同 {{up}} / 👎斥責 {{down}}。,Your message has left the arena. Score: 👍 {{up}} / 👎 {{down}}.,コメントはアリーナから退場しました。結果：👍 {{up}} / 👎 {{down}}。,回收提示隨機文案 4
+arena.recycledBody.5,arena,本次觀點已完成週期並回收。最終：👍贊同 {{up}} / 👎斥責 {{down}}。,This view completed its cycle and was recycled. Final: 👍 {{up}} / 👎 {{down}}.,この意見はサイクルを終えて回収されました。結果：👍 {{up}} / 👎 {{down}}。,回收提示隨機文案 5
+arena.recycledBody.6,arena,留言已到期下架。最終統計：👍贊同 {{up}} / 👎斥責 {{down}}。,Message expired and was taken down. Final stats: 👍 {{up}} / 👎 {{down}}.,コメントは期限切れで下げられました。最終集計：👍 {{up}} / 👎 {{down}}。,回收提示隨機文案 6
+arena.recycledBody.7,arena,系統已回收此留言。最後結果：👍贊同 {{up}} / 👎斥責 {{down}}。,This message was recycled by the system. Final result: 👍 {{up}} / 👎 {{down}}.,このコメントはシステムにより回収されました。結果：👍 {{up}} / 👎 {{down}}。,回收提示隨機文案 7
+arena.recycledBody.8,arena,時間到，留言已回收。最終比分：👍贊同 {{up}} / 👎斥責 {{down}}。,Time is up, message recycled. Final score: 👍 {{up}} / 👎 {{down}}.,時間切れのためコメントは回収されました。最終スコア：👍 {{up}} / 👎 {{down}}。,回收提示隨機文案 8
+arena.recycledBody.9,arena,觀點存續期已結束。最終回合：👍贊同 {{up}} / 👎斥責 {{down}}。,The view lifetime ended. Final round: 👍 {{up}} / 👎 {{down}}.,意見の存続期間が終了しました。最終結果：👍 {{up}} / 👎 {{down}}。,回收提示隨機文案 9
+arena.recycledBody.10,arena,這則留言已被回收封存。最終票況：👍贊同 {{up}} / 👎斥責 {{down}}。,This message was recycled and archived. Final votes: 👍 {{up}} / 👎 {{down}}.,このコメントは回収・保管されました。最終票数：👍 {{up}} / 👎 {{down}}。,回收提示隨機文案 10
+arena.recycledBody.11,arena,留言週期結束，系統已清場。成績：👍贊同 {{up}} / 👎斥責 {{down}}。,Message cycle ended and it was cleared. Score: 👍 {{up}} / 👎 {{down}}.,コメント周期が終了し、整理されました。結果：👍 {{up}} / 👎 {{down}}。,回收提示隨機文案 11
+arena.recycledBody.12,arena,此留言已完成使命並回收。最終：👍贊同 {{up}} / 👎斥責 {{down}}。,This message completed its mission and was recycled. Final: 👍 {{up}} / 👎 {{down}}.,このコメントは役目を終えて回収されました。結果：👍 {{up}} / 👎 {{down}}。,回收提示隨機文案 12
+arena.recycledBody.13,arena,留言已進入回收狀態。最終互動：👍贊同 {{up}} / 👎斥責 {{down}}。,Message has entered recycled state. Final interactions: 👍 {{up}} / 👎 {{down}}.,コメントは回収状態になりました。最終反応：👍 {{up}} / 👎 {{down}}。,回收提示隨機文案 13
+arena.recycledBody.14,arena,本則內容已結束展示並回收。結果：👍贊同 {{up}} / 👎斥責 {{down}}。,This content finished display and was recycled. Result: 👍 {{up}} / 👎 {{down}}.,この内容は表示期間を終えて回収されました。結果：👍 {{up}} / 👎 {{down}}。,回收提示隨機文案 14
+arena.recycledBody.15,arena,留言已從場上退役。最終數據：👍贊同 {{up}} / 👎斥責 {{down}}。,Message retired from the arena. Final data: 👍 {{up}} / 👎 {{down}}.,コメントはアリーナから引退しました。最終データ：👍 {{up}} / 👎 {{down}}。,回收提示隨機文案 15
+arena.recycledBody.16,arena,觀點時效結束，系統完成回收。最終：👍贊同 {{up}} / 👎斥責 {{down}}。,The view expired and was recycled. Final: 👍 {{up}} / 👎 {{down}}.,意見の有効期限が終了し、回収されました。結果：👍 {{up}} / 👎 {{down}}。,回收提示隨機文案 16
+arena.recycledBody.17,arena,留言已落幕回收。最終統計：👍贊同 {{up}} / 👎斥責 {{down}}。,Message concluded and was recycled. Final stats: 👍 {{up}} / 👎 {{down}}.,コメントは終了して回収されました。最終集計：👍 {{up}} / 👎 {{down}}。,回收提示隨機文案 17
+arena.recycledBody.18,arena,這則發言已完成回合並回收。最終結果：👍贊同 {{up}} / 👎斥責 {{down}}。,This statement completed its round and was recycled. Final: 👍 {{up}} / 👎 {{down}}.,この発言はラウンド終了後に回収されました。結果：👍 {{up}} / 👎 {{down}}。,回收提示隨機文案 18
+arena.recycledBody.19,arena,留言存在值耗盡，系統已回收。最終：👍贊同 {{up}} / 👎斥責 {{down}}。,Message lifetime was exhausted and recycled. Final: 👍 {{up}} / 👎 {{down}}.,コメントの存続値が尽き、回収されました。結果：👍 {{up}} / 👎 {{down}}。,回收提示隨機文案 19
+arena.recycledBody.20,arena,留言已回收完畢。最終票數：👍贊同 {{up}} / 👎斥責 {{down}}。,Message was fully recycled. Final votes: 👍 {{up}} / 👎 {{down}}.,コメントは回収完了しました。最終票数：👍 {{up}} / 👎 {{down}}。,回收提示隨機文案 20
+arena.recycledLastDownvoter,arena,最終👎的為 {{name}},Final 👎 by {{name}},最終👎は {{name}},回收卡第二行：最後斥責者
+arena.recycledLastDownvoterNone,arena,無,None,なし,回收卡第二行：沒有斥責者時顯示

@@ -105,7 +105,7 @@ export const useTopicHistory = (userId: string | undefined, options?: { timeFilt
       // 以收集到的 topic id 再查完整主題資料
       let query = supabase
         .from('topics')
-        .select('*')
+        .select('id, title, description, tags, status, created_at, end_at, exposure_level, duration_days, options')
         .in('id', topicIds);
 
       // 應用時間篩選（以主題建立時間為準）

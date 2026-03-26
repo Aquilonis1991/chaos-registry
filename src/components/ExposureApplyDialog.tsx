@@ -69,7 +69,7 @@ export const ExposureApplyDialog = ({
     try {
       const { data, error } = await (supabase as any)
         .from('exposure_limits')
-        .select('*')
+        .select('exposure_level, daily_limit, max_concurrent, min_votes_required, cooldown_hours, price, sort_weight_multiplier, top_duration_minutes')
         .order('value', { ascending: true });
 
       if (error) throw error;

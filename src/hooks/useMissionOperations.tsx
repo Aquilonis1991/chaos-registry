@@ -48,10 +48,14 @@ export const useMissionOperations = () => {
     try {
       // 注意：Supabase RPC 目前不直接支援 AbortController
       // 但我們可以使用 Promise.race，並在超時後記錄警告
-      const rpcPromise = supabase.rpc('complete_mission_safe' as any, {
-        p_user_id: user.id,
-        p_mission_id: missionId
-      });
+      // 暱稱任務：不在改名時直接發獎；由任務頁點擊領取時發獎（且不可重複）。
+      // 允許「可偽造完成」：此 RPC 不驗證 nickname_updated_at。
+      const rpcPromise = missionId === 'nickname_editor'
+        ? supabase.rpc('complete_nickname_mission_once' as any)
+        : supabase.rpc('complete_mission_safe' as any, {
+          p_user_id: user.id,
+          p_mission_id: missionId
+        });
 
       const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) =>
         setTimeout(() => {
@@ -90,7 +94,7 @@ export const useMissionOperations = () => {
 
     if (rpcError) {
       console.error('Complete mission RPC error:', rpcError);
-      throw new Error('完成任務失敗');
+      throw new Error(rpcError.message || '完成任務失敗');
     }
 
     if (!result || result.length === 0) {

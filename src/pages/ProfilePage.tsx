@@ -235,6 +235,21 @@ const ProfilePage = () => {
     // 刷新 profile 數據
     await refreshProfile();
 
+    // 暱稱任務：改名成功後只「標記可領取」，不直接派發獎勵
+    // 注意：此 RPC 故意不依賴 nickname_updated_at，避免 DB schema cache/trigger 尚未就緒導致任務一直無法領取。
+    try {
+      const { data: readyResult, error: readyError } = await supabase.rpc('mark_nickname_mission_ready' as any);
+      if (readyError) {
+        console.warn('[ProfilePage] mark_nickname_mission_ready failed:', readyError);
+        // 不影響改名成功；只提示可選資訊
+      } else if (readyResult && Array.isArray(readyResult) && readyResult[0]?.success) {
+        // 不主動發獎；可選提示（避免干擾使用者）
+        // toast.info('暱稱任務已可領取', { description: '請至「任務」頁面點擊領取獎勵' });
+      }
+    } catch (e) {
+      console.warn('[ProfilePage] mark_nickname_mission_ready exception:', e);
+    }
+
     setTempNickname(nickname);
     setIsEditingName(false);
     toast.success(getText('profile.nameUpdated', '名稱已更新'));

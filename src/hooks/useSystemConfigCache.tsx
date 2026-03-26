@@ -10,7 +10,7 @@ const fetchSystemConfig = async (): Promise<Record<string, any>> => {
     // 改為直接從資料庫讀取，與 Admin 後台邏輯保持一致
     const { data, error } = await supabase
       .from('system_config')
-      .select('*')
+      .select('key, value, category')
       .order('category', { ascending: true })
       .order('key', { ascending: true });
 

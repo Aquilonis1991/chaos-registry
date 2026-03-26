@@ -240,7 +240,7 @@ export const useTokenHistory = (userId: string | undefined, options?: { timeFilt
       // 構建查詢
       let query = supabase
         .from('token_transactions')
-        .select('*')
+        .select('id, amount, transaction_type, description, reference_id, created_at')
         .eq('user_id', userId);
 
       // 應用時間篩選

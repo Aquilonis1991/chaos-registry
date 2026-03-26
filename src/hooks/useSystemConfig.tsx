@@ -19,7 +19,7 @@ export const useSystemConfig = () => {
     try {
       const { data, error } = await supabase
         .from('system_config')
-        .select('*')
+        .select('id, key, value, category, description, updated_at')
         .order('category', { ascending: true })
         .order('key', { ascending: true });
 
@@ -133,7 +133,7 @@ export const useSystemConfig = () => {
         // 重新獲取以確認
         const { data: checkData, error: checkError } = await supabase
           .from('system_config')
-          .select('*')
+          .select('id, key, value, category, description, updated_at')
           .eq('id', id)
           .single();
         

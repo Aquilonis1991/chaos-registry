@@ -100,7 +100,7 @@ const NotificationsPage = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('notifications')
-        .select('*')
+        .select('id, type, title, content, is_read, read_at, created_at, expires_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 

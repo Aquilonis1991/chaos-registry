@@ -379,17 +379,32 @@ export function ArenaSection({
         .replace("{{down}}", String(m.downvote_count));
       const firstLine = `${author}，${body}`;
       const finalDownvoter = lastDownvoterNames[m.id] || getText("arena.recycledLastDownvoterNone", "無");
-      const secondLine = getText("arena.recycledLastDownvoter", "最終👎的為 {{name}}").replace(
+      const secondLine = getText("arena.finalDownvoterLabel", "最後斥責者：{{name}}").replace(
         "{{name}}",
         finalDownvoter
       );
+      const stampApproved = getText("arena.signatureApproved", "核定");
       return (
         <div
           className="rounded-lg border border-muted-foreground/35 bg-muted/90 px-4 py-3 text-sm text-muted-foreground leading-relaxed"
           role="status"
         >
           <div>{firstLine}</div>
-          <div className="mt-1">{secondLine}</div>
+          <div className="mt-1 flex items-center justify-between gap-3">
+            <div>{secondLine}</div>
+            <div
+              className="h-14 w-14 shrink-0 rotate-[-10deg] rounded-md border-2 border-red-600/85 bg-red-500/10 text-red-700 dark:text-red-400 flex items-center justify-center"
+              aria-label={`${stampApproved}：${finalDownvoter}`}
+              title={`${stampApproved}：${finalDownvoter}`}
+            >
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] font-bold tracking-wider">{stampApproved}</span>
+                <span className="text-[11px] font-semibold leading-none [writing-mode:vertical-rl] [text-orientation:upright]">
+                  {finalDownvoter}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       );
     }

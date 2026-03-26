@@ -47,7 +47,7 @@ const MissionPage = () => {
   const [loginStreakInfo, setLoginStreakInfo] = useState<LoginStreakInfo | null>(null);
   const [displayedStreak, setDisplayedStreak] = useState(0);
   const [loadingStreak, setLoadingStreak] = useState(true);
-  const [userMissions, setUserMissions] = useState<Record<string, { completed: boolean; completed_at: string | null }>>({});
+  const [userMissions, setUserMissions] = useState<Record<string, { completed: boolean; completed_at: string | null; progress?: number | null }>>({});
   const [loadingMissions, setLoadingMissions] = useState(true);
   const [claimingMissionId, setClaimingMissionId] = useState<string | null>(null);
   // 追蹤最近一次顯示的 toast，避免重複顯示
@@ -174,6 +174,7 @@ const MissionPage = () => {
 
     const dbMissionId = MISSION_ID_MAP[missionId];
     const isClaimed = dbMissionId ? userMissions[dbMissionId]?.completed === true : false;
+    const markedProgress = dbMissionId ? (userMissions[dbMissionId]?.progress ?? 0) : 0;
 
     // 獲取該任務的目標值 (從 localizedMissions 查找)
     const missionTemplate = localizedMissions.find(m => m.id === missionId);
@@ -212,8 +213,8 @@ const MissionPage = () => {
         };
       case "5": // 修改暱稱
         return {
-          progress: profile?.nickname_updated_at ? 100 : 0,
-          completed: Boolean(profile?.nickname_updated_at)
+          progress: (profile?.nickname_updated_at || markedProgress >= 100) ? 100 : 0,
+          completed: Boolean(profile?.nickname_updated_at) || markedProgress >= 100
         };
       default:
         return { progress: 0, completed: false };
@@ -277,16 +278,17 @@ const MissionPage = () => {
       setLoadingMissions(true);
       const { data, error } = await supabase
         .from('user_missions')
-        .select('mission_id, completed, completed_at')
+        .select('mission_id, completed, completed_at, progress')
         .eq('user_id', user.id);
 
       if (error) throw error;
 
-      const missionsMap: Record<string, { completed: boolean; completed_at: string | null }> = {};
+      const missionsMap: Record<string, { completed: boolean; completed_at: string | null; progress?: number | null }> = {};
       data?.forEach((mission) => {
         missionsMap[mission.mission_id] = {
           completed: mission.completed,
           completed_at: mission.completed_at,
+          progress: (mission as any).progress ?? null,
         };
       });
 

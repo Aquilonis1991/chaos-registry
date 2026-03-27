@@ -93,26 +93,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           // 清除匿名ID
           localStorage.removeItem('anonymous_id');
 
-          // 更新最後登入時間（僅在登入時，不是每次狀態變化）
-          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-            try {
-              // 異步更新，不阻塞 UI
-              supabase
-                .from('profiles')
-                .update({
-                  last_login: new Date().toISOString(),
-                  last_login_date: new Date().toISOString().split('T')[0]
-                })
-                .eq('id', session.user.id)
-                .then(({ error }) => {
-                  if (error) {
-                    console.warn('[AuthContext] Failed to update last_login:', error);
-                  }
-                });
-            } catch (error) {
-              console.warn('[AuthContext] Error updating last_login:', error);
-            }
-          }
+          // 注意：這裡不要在登入事件自動更新 profiles 欄位。
+          // 每日簽到必須只由任務頁「立即簽到」按鈕觸發 record_daily_login。
         } else {
           // 登出時保持匿名狀態
           const anonId = getOrCreateAnonymousId();

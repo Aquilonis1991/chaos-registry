@@ -125,6 +125,12 @@ export default function ArenaMessagesManager() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      // 進入頁面或手動重新載入時，先同步一次存在週期衰減/回收，盡量對齊前台剩餘時間狀態
+      try {
+        await (supabase as any).rpc("decay_arena_ttl", { p_minutes: 30 });
+      } catch (decayError) {
+        console.warn("[admin][arena] decay_arena_ttl failed:", decayError);
+      }
       const topicIdTrim = topicFilter.trim();
       const list = await fetchAllArenaRows(topicIdTrim);
       setRows(list);

@@ -500,7 +500,7 @@ export function ArenaSection({
               </div>
             </div>
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground/80">
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[9px] text-muted-foreground/80">
             {createdAtText && (
               <span>
                 {getText("arena.createdAtLabel", "留言時間：")}
@@ -619,7 +619,7 @@ export function ArenaSection({
           </p>
         )}
         {createdAtText && (
-          <p className="mt-2 text-[11px] text-muted-foreground/80">
+          <p className="mt-2 text-[9px] text-muted-foreground/80">
             {getText("arena.createdAtLabel", "留言時間：")}
             {createdAtText}
           </p>

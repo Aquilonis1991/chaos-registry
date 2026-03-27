@@ -42,16 +42,6 @@ export type ArenaMessage = {
   recycled_at?: string | null;
 };
 
-const RECYCLED_BODY_VARIANT_COUNT = 20;
-
-const getStableRecycledVariant = (messageId: string) => {
-  let hash = 0;
-  for (let i = 0; i < messageId.length; i += 1) {
-    hash = (hash * 31 + messageId.charCodeAt(i)) % 2147483647;
-  }
-  return (Math.abs(hash) % RECYCLED_BODY_VARIANT_COUNT) + 1;
-};
-
 export function ArenaSection({
   topicId,
   topicEndAt,
@@ -79,8 +69,6 @@ export function ArenaSection({
   const [voteIds, setVoteIds] = useState<Set<string>>(new Set());
   /** 留言 user_id → profiles.nickname（暱稱，單次批次查詢） */
   const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
-  /** message_id -> 最後一個按斥責的用戶暱稱 */
-  const [lastDownvoterNames, setLastDownvoterNames] = useState<Record<string, string>>({});
 
   const x = getConfig("arena_throne_min_threshold_x", 100) as number;
   const y = getConfig("arena_elite_min_threshold_y", 50) as number;
@@ -128,7 +116,6 @@ export function ArenaSection({
       setMessages(rows);
       if (rows.length === 0) {
         setAuthorNames({});
-        setLastDownvoterNames({});
         return;
       }
       const uids = [...new Set(rows.map((r) => r.user_id))];
@@ -150,59 +137,6 @@ export function ArenaSection({
         if (!next[uid]) next[uid] = fallback;
       });
       setAuthorNames(next);
-
-      const messageIds = rows.map((r) => r.id);
-      const { data: downvotes, error: downvoteErr } = await supabase
-        .from("topic_arena_votes")
-        .select("message_id, user_id, created_at")
-        .in("message_id", messageIds)
-        .eq("vote_type", "downvote")
-        .order("created_at", { ascending: false });
-      if (downvoteErr) {
-        console.warn("[arena] downvotes batch:", downvoteErr.message);
-        setLastDownvoterNames({});
-        return;
-      }
-
-      const latestByMessage: Record<string, string> = {};
-      const voterIdsSet = new Set<string>();
-      (downvotes || []).forEach((v) => {
-        const messageId = String((v as { message_id: string }).message_id);
-        const voterId = String((v as { user_id: string }).user_id);
-        if (!latestByMessage[messageId]) {
-          latestByMessage[messageId] = voterId;
-          voterIdsSet.add(voterId);
-        }
-      });
-
-      const voterIds = [...voterIdsSet];
-      if (voterIds.length === 0) {
-        setLastDownvoterNames({});
-        return;
-      }
-
-      const { data: voterProfiles, error: voterProfilesErr } = await supabase
-        .from("profiles")
-        .select("id, nickname")
-        .in("id", voterIds);
-      if (voterProfilesErr) {
-        console.warn("[arena] downvoter profiles batch:", voterProfilesErr.message);
-        setLastDownvoterNames({});
-        return;
-      }
-
-      const voterNameMap: Record<string, string> = {};
-      voterProfiles?.forEach((p) => {
-        const row = p as { id: string; nickname: string | null };
-        const n = row.nickname;
-        voterNameMap[row.id] = (n && String(n).trim()) || fallback;
-      });
-
-      const latestDownvoterNamesByMessage: Record<string, string> = {};
-      Object.entries(latestByMessage).forEach(([messageId, voterId]) => {
-        latestDownvoterNamesByMessage[messageId] = voterNameMap[voterId] || fallback;
-      });
-      setLastDownvoterNames(latestDownvoterNamesByMessage);
     },
     [topicId, getText]
   );
@@ -368,25 +302,24 @@ export function ArenaSection({
   /** 贊同／斥責：僅 icon + (±X min)，靠右下；完整說明放 aria-label */
   const renderArenaMessageBlock = (m: ArenaMessage, variant: "core" | "elite" | "card") => {
     if (isRecycledView(m)) {
-      const recycledVariant = getStableRecycledVariant(String(m.id));
-      const recycledKey = `arena.recycledBody.${recycledVariant}`;
       const author = authorNames[m.user_id] ?? getText("arena.userFallback", "用戶");
       const body = getText(
-        recycledKey,
-        "您的留言存在週期已歸零。系統執行回收。最終結果：👍贊同 {{up}} / 👎斥責 {{down}}，感謝您發表廢話。"
+        "arena.recycledBodyAutoCleanup",
+        "數據完整度不足以維持在場，執行自動清理。最終：👍 {{up}} / 👎 {{down}}"
       )
         .replace("{{up}}", String(m.upvote_count))
         .replace("{{down}}", String(m.downvote_count));
       const firstLine = `${author}，${body}`;
-      const finalDownvoter = lastDownvoterNames[m.id] || getText("arena.recycledLastDownvoterNone", "無");
-      const secondLine = getText("arena.finalDownvoterLabel", "最後斥責者：{{name}}").replace(
-        "{{name}}",
-        finalDownvoter
-      );
+      const approverName = getText("arena.finalApproverSystem", "系統自動回收");
+      const secondLine = getText("arena.finalApproverLabel", "最終核定員：{{name}}").replace("{{name}}", approverName);
       const stampApproved = getText("arena.signatureApproved", "已核定");
+      const isOwner = userId === m.user_id;
       return (
         <div
-          className="rounded-lg border border-muted-foreground/35 bg-muted/90 px-4 py-3 text-sm text-muted-foreground leading-relaxed"
+          className={cn(
+            "rounded-lg border border-muted-foreground/35 bg-muted/90 px-4 py-3 text-sm text-muted-foreground leading-relaxed",
+            isOwner && "border-dashed"
+          )}
           role="status"
         >
           <div>{firstLine}</div>
@@ -394,11 +327,11 @@ export function ArenaSection({
             <div>{secondLine}</div>
             <div
               className="shrink-0 rotate-[-10deg] rounded-md border-2 border-red-600/85 bg-red-500/10 px-2 py-1 text-red-700 dark:text-red-400"
-              aria-label={`${stampApproved}：${finalDownvoter}`}
-              title={`${stampApproved}：${finalDownvoter}`}
+              aria-label={`${stampApproved}：${approverName}`}
+              title={`${stampApproved}：${approverName}`}
             >
               <div className="flex min-w-[72px] flex-col items-center justify-center whitespace-nowrap text-center leading-tight">
-                <span className="text-[12px] font-semibold">{finalDownvoter}</span>
+                <span className="text-[12px] font-semibold">{approverName}</span>
                 <span className="mt-0.5 text-[10px] font-bold tracking-wider">{stampApproved}</span>
               </div>
             </div>

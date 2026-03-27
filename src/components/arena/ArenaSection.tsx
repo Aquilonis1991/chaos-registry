@@ -67,6 +67,7 @@ export function ArenaSection({
   const [maskKeyword, setMaskKeyword] = useState("");
   const [reviewKeyword, setReviewKeyword] = useState("");
   const [voteIds, setVoteIds] = useState<Set<string>>(new Set());
+  const [showAllMessages, setShowAllMessages] = useState(false);
   /** 留言 user_id → profiles.nickname（暱稱，單次批次查詢） */
   const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
 
@@ -159,6 +160,10 @@ export function ArenaSection({
   useEffect(() => {
     fetchMyVotes();
   }, [fetchMyVotes]);
+
+  useEffect(() => {
+    setShowAllMessages(false);
+  }, [topicId]);
 
   const doPost = async (content: string) => {
     if (!userId) return;
@@ -290,14 +295,34 @@ export function ArenaSection({
     return !isShielded(m) && displayTtlMinutes(m) <= 0;
   };
 
-  const core = visibleMessages.filter((m) => net(m) >= x).sort((a, b) => net(b) - net(a))[0];
-  const elite = visibleMessages
-    .filter((m) => m.id !== core?.id && net(m) >= y)
-    .sort((a, b) => net(b) - net(a))
-    .slice(0, 3);
-  const mundane = visibleMessages.filter(
-    (m) => m.id !== core?.id && !elite.some((e) => e.id === m.id)
+  const activeMessages = useMemo(
+    () => visibleMessages.filter((m) => !isRecycledView(m)),
+    [visibleMessages, ttlTick, decayRate, userId]
   );
+  const core = activeMessages.filter((m) => net(m) >= x).sort((a, b) => net(b) - net(a))[0];
+  const elite = useMemo(() => {
+    return activeMessages
+      .filter((m) => m.id !== core?.id && net(m) >= y)
+      .sort((a, b) => net(b) - net(a))
+      .slice(0, 3);
+  }, [activeMessages, core?.id, y]);
+  const eliteIdSet = useMemo(() => new Set(elite.map((m) => m.id)), [elite]);
+  const nonEliteSortedByTime = useMemo(() => {
+    return visibleMessages
+      .filter((m) => m.id !== core?.id && !eliteIdSet.has(m.id))
+      .sort((a, b) => {
+        const aRecycled = isRecycledView(a);
+        const bRecycled = isRecycledView(b);
+        if (aRecycled !== bRecycled) return aRecycled ? 1 : -1;
+        const aTime = new Date(a.updated_at || a.created_at).getTime();
+        const bTime = new Date(b.updated_at || b.created_at).getTime();
+        if (bTime !== aTime) return bTime - aTime;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+  }, [visibleMessages, core?.id, eliteIdSet, ttlTick, decayRate, userId]);
+  const collapsedNonElite = nonEliteSortedByTime.slice(0, 3);
+  const displayedNonElite = showAllMessages ? nonEliteSortedByTime : collapsedNonElite;
+  const hasHiddenMessages = nonEliteSortedByTime.length > collapsedNonElite.length;
 
   /** 贊同／斥責：僅 icon + (±X min)，靠右下；完整說明放 aria-label */
   const renderArenaMessageBlock = (m: ArenaMessage, variant: "core" | "elite" | "card") => {
@@ -632,20 +657,38 @@ export function ArenaSection({
         </div>
       )}
 
-      {mundane.map((m) => (
-        <Card
-          key={m.id}
-          className={cn(
-            "font-sans mb-2",
-            isRecycledView(m)
-              ? "border border-muted-foreground/40 bg-muted/70"
-              : "border-0 !bg-gradient-to-br from-gray-100 to-transparent dark:from-gray-800/50 dark:to-transparent",
-            userId === m.user_id && !isRecycledView(m) && "border border-dashed border-primary/50"
-          )}
-        >
-          <CardContent className="p-4">{renderArenaMessageBlock(m, "card")}</CardContent>
-        </Card>
-      ))}
+      {displayedNonElite.length > 0 && (
+        <div className="space-y-2 mb-4">
+          {displayedNonElite.map((m) => (
+            <div
+              key={m.id}
+              className={cn(
+                "p-4 rounded-lg border shadow-sm",
+                isRecycledView(m)
+                  ? "border border-muted-foreground/40 bg-muted/60 text-foreground"
+                  : "border-slate-300/70 dark:border-slate-700 bg-gradient-to-br from-gray-100 to-transparent dark:from-gray-800/50 dark:to-transparent text-foreground"
+              )}
+            >
+              {renderArenaMessageBlock(m, "card")}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {(hasHiddenMessages || showAllMessages) && (
+        <div className="mb-2 flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAllMessages((v) => !v)}
+          >
+            {showAllMessages
+              ? getText("arena.collapseMessages", "收合留言")
+              : getText("arena.expandMessages", "展開全部留言")}
+          </Button>
+        </div>
+      )}
 
       {postDialog}
         </>

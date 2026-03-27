@@ -323,7 +323,6 @@ export function ArenaSection({
   const collapsedNonElite = nonEliteSortedByTime.slice(0, 3);
   const displayedNonElite = showAllMessages ? nonEliteSortedByTime : collapsedNonElite;
   const hasHiddenMessages = nonEliteSortedByTime.length > collapsedNonElite.length;
-  const collapsedDisplayCount = core ? 4 : 3;
 
   /** 贊同／斥責：僅 icon + (±X min)，靠右下；完整說明放 aria-label */
   const renderArenaMessageBlock = (m: ArenaMessage, variant: "core" | "elite" | "card") => {
@@ -626,12 +625,6 @@ export function ArenaSection({
         </>
       ) : (
         <>
-      <div className="mb-2 text-xs text-muted-foreground">
-        {getText("arena.visibleCount", "展示留言數：{{count}} 則").replace(
-          "{{count}}",
-          String(collapsedDisplayCount)
-        )}
-      </div>
       {core && (
         <div
           className={cn(
@@ -655,7 +648,7 @@ export function ArenaSection({
                 "p-4 rounded-lg border shadow-sm",
                 isRecycledView(m)
                   ? "border border-muted-foreground/40 bg-muted/60 text-foreground"
-                  : "border-slate-300/80 dark:border-slate-500/60 bg-gradient-to-br from-slate-100 via-zinc-100 to-slate-200 dark:from-slate-700/80 dark:via-zinc-700/70 dark:to-slate-800/70 text-foreground"
+                  : "border-slate-300/70 dark:border-slate-700 bg-gradient-to-br from-gray-100 to-transparent dark:from-gray-800/50 dark:to-transparent text-foreground"
               )}
             >
               {renderArenaMessageBlock(m, "elite")}

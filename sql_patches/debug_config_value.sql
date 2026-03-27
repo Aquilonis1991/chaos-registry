@@ -2,7 +2,7 @@
 -- Check what keys exist related to login reward
 SELECT key, value, jsonb_typeof(value) as type 
 FROM system_config 
-WHERE key LIKE '%daily_login%' OR key LIKE '%reward%';
+WHERE key LIKE '%mission_daily_login%' OR key IN ('mission_watch_ad_reward');
 
 -- Insert the correct config if it's missing (idempotent)
 INSERT INTO system_config (key, value, category, description)

@@ -33,6 +33,9 @@ interface LoginStreakInfo {
   streak_reward_available: boolean;
 }
 
+const getTaipeiToday = () =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
+
 const MissionPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -55,6 +58,8 @@ const MissionPage = () => {
 
   const userTokens = profile?.tokens || 0;
   const lastStableStreakRef = useRef(0);
+  const profileLastLoginDate = profile?.last_login_date ? String(profile.last_login_date).slice(0, 10) : null;
+  const profileClaimedToday = profileLastLoginDate === getTaipeiToday();
 
   // 提取配置值，避免在 useMemo 中調用函數導致無限循環
   const missionConfigs = useMemo(() => {
@@ -366,6 +371,14 @@ const MissionPage = () => {
       return;
     }
 
+    if (profileClaimedToday) {
+      console.log('[MissionPage] handleDailyLogin: Profile indicates already claimed today, ignoring');
+      toast.info(getText('mission.dailyLogin.alreadyClaimed', '今日已簽到'), {
+        description: getText('mission.dailyLogin.noMoreReward', '今日已簽到，不再發放失序值')
+      });
+      return;
+    }
+
     console.log('[MissionPage] handleDailyLogin: Starting daily login claim');
     setIsClaimingLogin(true);
 
@@ -393,13 +406,12 @@ const MissionPage = () => {
           // 移除樂觀更新，直接等待 refreshProfile 同步真實餘額
           // updateTokensOptimistically(loginInfo.rewardTokens || 3);
 
-          // 強制刷新 profile
-          setTimeout(async () => {
-            await refreshProfile();
-          }, 1000);
-
-          // 刷新任務狀態
-          void loadUserMissions();
+          await Promise.allSettled([
+            refreshProfile(),
+            loadUserMissions(),
+            loadLoginStreak({ showLoader: false }),
+            refreshStats(),
+          ]);
         }
       }
     } catch (error: any) {
@@ -549,7 +561,7 @@ const MissionPage = () => {
     ? missionConfigs.dailyLoginReward
     : Number(missionConfigs.dailyLoginReward) || 3;
   const dailyCheckInReward =
-    loginStreakInfo && loginStreakInfo.can_claim_today === false
+    profileClaimedToday || (loginStreakInfo && loginStreakInfo.can_claim_today === false)
       ? '+0'
       : `+${dailyLoginRewardAmount}`;
   const watchAdTitle = getText('mission.ad.title', '觀看廣告');
@@ -616,8 +628,11 @@ const MissionPage = () => {
                 <div className="text-white">
                   <h3 className="font-bold text-lg">{dailyCheckInTitle}</h3>
                   <p className="text-sm opacity-90">
-                    {loadingStreak ? '' :
-                      loginStreakInfo?.can_claim_today ? dailyCheckInPending : dailyCheckInCompleted}
+                    {loadingStreak
+                      ? ''
+                      : (profileClaimedToday || (loginStreakInfo && !loginStreakInfo.can_claim_today))
+                        ? dailyCheckInCompleted
+                        : dailyCheckInPending}
                   </p>
                 </div>
               </div>
@@ -634,14 +649,19 @@ const MissionPage = () => {
               size="lg"
               className="w-full"
               onClick={handleDailyLogin}
-              disabled={isClaimingLogin || (loginStreakInfo && !loginStreakInfo.can_claim_today)}
+              disabled={
+                isClaimingLogin ||
+                loadingStreak ||
+                profileClaimedToday ||
+                Boolean(loginStreakInfo && !loginStreakInfo.can_claim_today)
+              }
             >
               {isClaimingLogin ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                   {dailyCheckInButtonClaiming}
                 </>
-              ) : loginStreakInfo && !loginStreakInfo.can_claim_today ? (
+              ) : profileClaimedToday || (loginStreakInfo && !loginStreakInfo.can_claim_today) ? (
                 <>
                   <CheckCircle className="w-5 h-5 mr-2" />
                   {dailyCheckInButtonDone}

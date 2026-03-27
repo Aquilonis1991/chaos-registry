@@ -33,9 +33,6 @@ interface LoginStreakInfo {
   streak_reward_available: boolean;
 }
 
-const getTaipeiToday = () =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
-
 const MissionPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -58,8 +55,6 @@ const MissionPage = () => {
 
   const userTokens = profile?.tokens || 0;
   const lastStableStreakRef = useRef(0);
-  const profileLastLoginDate = profile?.last_login_date ? String(profile.last_login_date).slice(0, 10) : null;
-  const profileClaimedToday = profileLastLoginDate === getTaipeiToday();
 
   // 提取配置值，避免在 useMemo 中調用函數導致無限循環
   const missionConfigs = useMemo(() => {
@@ -371,8 +366,11 @@ const MissionPage = () => {
       return;
     }
 
-    if (profileClaimedToday) {
-      console.log('[MissionPage] handleDailyLogin: Profile indicates already claimed today, ignoring');
+    // 只用帳號（後端）狀態判斷，避免任何本地/裝置時間差
+    const latestInfo = await getLoginStreakInfo();
+    applyLoginStreakInfo(latestInfo);
+    if (latestInfo && !latestInfo.can_claim_today) {
+      console.log('[MissionPage] handleDailyLogin: Server says already claimed today, ignoring');
       toast.info(getText('mission.dailyLogin.alreadyClaimed', '今日已簽到'), {
         description: getText('mission.dailyLogin.noMoreReward', '今日已簽到，不再發放失序值')
       });
@@ -561,7 +559,7 @@ const MissionPage = () => {
     ? missionConfigs.dailyLoginReward
     : Number(missionConfigs.dailyLoginReward) || 3;
   const dailyCheckInReward =
-    profileClaimedToday || (loginStreakInfo && loginStreakInfo.can_claim_today === false)
+    (loginStreakInfo && loginStreakInfo.can_claim_today === false)
       ? '+0'
       : `+${dailyLoginRewardAmount}`;
   const watchAdTitle = getText('mission.ad.title', '觀看廣告');
@@ -630,7 +628,7 @@ const MissionPage = () => {
                   <p className="text-sm opacity-90">
                     {loadingStreak
                       ? ''
-                      : (profileClaimedToday || (loginStreakInfo && !loginStreakInfo.can_claim_today))
+                      : (loginStreakInfo && !loginStreakInfo.can_claim_today)
                         ? dailyCheckInCompleted
                         : dailyCheckInPending}
                   </p>
@@ -652,8 +650,8 @@ const MissionPage = () => {
               disabled={
                 isClaimingLogin ||
                 loadingStreak ||
-                profileClaimedToday ||
-                Boolean(loginStreakInfo && !loginStreakInfo.can_claim_today)
+                !loginStreakInfo ||
+                Boolean(!loginStreakInfo.can_claim_today)
               }
             >
               {isClaimingLogin ? (
@@ -661,7 +659,7 @@ const MissionPage = () => {
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                   {dailyCheckInButtonClaiming}
                 </>
-              ) : profileClaimedToday || (loginStreakInfo && !loginStreakInfo.can_claim_today) ? (
+              ) : (loginStreakInfo && !loginStreakInfo.can_claim_today) ? (
                 <>
                   <CheckCircle className="w-5 h-5 mr-2" />
                   {dailyCheckInButtonDone}

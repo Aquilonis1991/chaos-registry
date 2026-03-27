@@ -73,8 +73,8 @@ export function ArenaSection({
   const [showAllMessages, setShowAllMessages] = useState(false);
   /** 留言 user_id → profiles.nickname（暱稱，單次批次查詢） */
   const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
-  /** 回收留言 id → 最後按贊者暱稱 */
-  const [lastUpvoterNames, setLastUpvoterNames] = useState<Record<string, string>>({});
+  /** 回收留言 id → 最後按下斥責者暱稱 */
+  const [lastDownvoterNames, setLastDownvoterNames] = useState<Record<string, string>>({});
 
   const x = getConfig("arena_throne_min_threshold_x", 100) as number;
   const y = getConfig("arena_elite_min_threshold_y", 50) as number;
@@ -122,7 +122,7 @@ export function ArenaSection({
       setMessages(rows);
       if (rows.length === 0) {
         setAuthorNames({});
-        setLastUpvoterNames({});
+        setLastDownvoterNames({});
         return;
       }
       const uids = [...new Set(rows.map((r) => r.user_id))];
@@ -150,49 +150,49 @@ export function ArenaSection({
         .from("topic_arena_votes")
         .select("message_id, user_id, created_at")
         .in("message_id", messageIds)
-        .eq("vote_type", "upvote")
+        .eq("vote_type", "downvote")
         .order("created_at", { ascending: false });
       if (votesErr) {
-        console.warn("[arena] latest upvoters:", votesErr.message);
-        setLastUpvoterNames({});
+        console.warn("[arena] latest downvoters:", votesErr.message);
+        setLastDownvoterNames({});
         return;
       }
 
-      const latestUpvoterByMessage: Record<string, string> = {};
+      const latestDownvoterByMessage: Record<string, string> = {};
       for (const v of votes || []) {
         const messageId = String((v as { message_id: string }).message_id);
-        if (!latestUpvoterByMessage[messageId]) {
-          latestUpvoterByMessage[messageId] = String((v as { user_id: string }).user_id);
+        if (!latestDownvoterByMessage[messageId]) {
+          latestDownvoterByMessage[messageId] = String((v as { user_id: string }).user_id);
         }
       }
 
-      const upvoterIds = [...new Set(Object.values(latestUpvoterByMessage))];
-      if (upvoterIds.length === 0) {
-        setLastUpvoterNames({});
+      const downvoterIds = [...new Set(Object.values(latestDownvoterByMessage))];
+      if (downvoterIds.length === 0) {
+        setLastDownvoterNames({});
         return;
       }
 
-      const { data: upvoterProfiles, error: upvoterProfilesErr } = await supabase
+      const { data: downvoterProfiles, error: downvoterProfilesErr } = await supabase
         .from("profiles")
         .select("id, nickname")
-        .in("id", upvoterIds);
-      if (upvoterProfilesErr) {
-        console.warn("[arena] upvoter profiles:", upvoterProfilesErr.message);
-        setLastUpvoterNames({});
+        .in("id", downvoterIds);
+      if (downvoterProfilesErr) {
+        console.warn("[arena] downvoter profiles:", downvoterProfilesErr.message);
+        setLastDownvoterNames({});
         return;
       }
 
-      const upvoterNameById: Record<string, string> = {};
-      upvoterProfiles?.forEach((p) => {
+      const downvoterNameById: Record<string, string> = {};
+      downvoterProfiles?.forEach((p) => {
         const row = p as { id: string; nickname: string | null };
-        upvoterNameById[row.id] = (row.nickname && row.nickname.trim()) || fallback;
+        downvoterNameById[row.id] = (row.nickname && row.nickname.trim()) || fallback;
       });
 
       const lastByMessageName: Record<string, string> = {};
-      Object.entries(latestUpvoterByMessage).forEach(([messageId, upvoterId]) => {
-        lastByMessageName[messageId] = upvoterNameById[upvoterId] || fallback;
+      Object.entries(latestDownvoterByMessage).forEach(([messageId, downvoterId]) => {
+        lastByMessageName[messageId] = downvoterNameById[downvoterId] || fallback;
       });
-      setLastUpvoterNames(lastByMessageName);
+      setLastDownvoterNames(lastByMessageName);
 
       const snapshotTargetIds = rows
         .filter((m) => {
@@ -450,6 +450,15 @@ export function ArenaSection({
 
   /** 贊同／斥責：僅 icon + (±X min)，靠右下；完整說明放 aria-label */
   const renderArenaMessageBlock = (m: ArenaMessage, variant: "core" | "elite" | "card") => {
+    const formatTs = (iso?: string | null) => {
+      if (!iso) return "";
+      const dt = new Date(iso);
+      if (Number.isNaN(dt.getTime())) return "";
+      return dt.toLocaleString();
+    };
+    const createdAtText = formatTs(m.created_at);
+    const recycledAtText = formatTs(m.recycled_at ?? null);
+
     if (isRecycledView(m)) {
       const author = authorNames[m.user_id] ?? getText("arena.userFallback", "用戶");
       const variant = getStableRecycledVariant(String(m.id));
@@ -465,7 +474,7 @@ export function ArenaSection({
       const approverName = (
         m.recycled_approver_name_snapshot &&
         m.recycled_approver_name_snapshot.trim()
-      ) || lastUpvoterNames[String(m.id)] || getText("arena.finalApproverSystem", "系統自動回收");
+      ) || lastDownvoterNames[String(m.id)] || getText("arena.finalApproverSystem", "系統自動回收");
       const secondLine = getText("arena.finalApproverLabel", "最終核定員：{{name}}").replace("{{name}}", approverName);
       const stampApproved = getText("arena.signatureApproved", "已核定");
       const isOwner = userId === m.user_id;
@@ -490,6 +499,20 @@ export function ArenaSection({
                 <span className="mt-0.5 text-[10px] font-bold tracking-wider">{stampApproved}</span>
               </div>
             </div>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground/80">
+            {createdAtText && (
+              <span>
+                {getText("arena.createdAtLabel", "留言時間：")}
+                {createdAtText}
+              </span>
+            )}
+            {recycledAtText && (
+              <span>
+                {getText("arena.recycledAtLabel", "回收時間：")}
+                {recycledAtText}
+              </span>
+            )}
           </div>
         </div>
       );
@@ -593,6 +616,12 @@ export function ArenaSection({
           >
             {getText("arena.shieldLocked", "[🔒數據鎖定中]")}
             {` ${shieldRemainingText(m)}`}
+          </p>
+        )}
+        {createdAtText && (
+          <p className="mt-2 text-[11px] text-muted-foreground/80">
+            {getText("arena.createdAtLabel", "留言時間：")}
+            {createdAtText}
           </p>
         )}
         {footer}

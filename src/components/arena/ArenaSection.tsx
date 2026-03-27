@@ -40,6 +40,9 @@ export type ArenaMessage = {
   updated_at: string;
   /** 後端軟回收時間；僅作者可查詢該列（RLS） */
   recycled_at?: string | null;
+  recycled_body_snapshot?: string | null;
+  recycled_approver_name_snapshot?: string | null;
+  message_language?: string | null;
 };
 
 export function ArenaSection({
@@ -70,6 +73,8 @@ export function ArenaSection({
   const [showAllMessages, setShowAllMessages] = useState(false);
   /** 留言 user_id → profiles.nickname（暱稱，單次批次查詢） */
   const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
+  /** 回收留言 id → 最後按贊者暱稱 */
+  const [lastUpvoterNames, setLastUpvoterNames] = useState<Record<string, string>>({});
 
   const x = getConfig("arena_throne_min_threshold_x", 100) as number;
   const y = getConfig("arena_elite_min_threshold_y", 50) as number;
@@ -99,13 +104,13 @@ export function ArenaSection({
       if (!opts?.silent) setLoading(true);
       // 先同步後端衰減／軟回收，避免畫面已顯示 0 分鐘但列上 TTL 尚未寫回
       try {
-        await supabase.rpc("decay_arena_ttl", { p_minutes: opts?.silent ? 10 : 30 });
+        await (supabase as any).rpc("decay_arena_ttl", { p_minutes: opts?.silent ? 10 : 30 });
       } catch (e) {
         console.warn("[arena] decay_arena_ttl:", e);
       }
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("topic_arena_messages")
-        .select("id, topic_id, user_id, content, ttl_minutes, shield_until, upvote_count, downvote_count, is_legacy, created_at, updated_at, recycled_at")
+        .select("id, topic_id, user_id, content, ttl_minutes, shield_until, upvote_count, downvote_count, is_legacy, created_at, updated_at, recycled_at, recycled_body_snapshot, recycled_approver_name_snapshot, message_language")
         .eq("topic_id", topicId)
         .order("created_at", { ascending: true });
       if (!opts?.silent) setLoading(false);
@@ -117,6 +122,7 @@ export function ArenaSection({
       setMessages(rows);
       if (rows.length === 0) {
         setAuthorNames({});
+        setLastUpvoterNames({});
         return;
       }
       const uids = [...new Set(rows.map((r) => r.user_id))];
@@ -138,14 +144,121 @@ export function ArenaSection({
         if (!next[uid]) next[uid] = fallback;
       });
       setAuthorNames(next);
+
+      const messageIds = rows.map((r) => r.id);
+      const { data: votes, error: votesErr } = await (supabase as any)
+        .from("topic_arena_votes")
+        .select("message_id, user_id, created_at")
+        .in("message_id", messageIds)
+        .eq("vote_type", "upvote")
+        .order("created_at", { ascending: false });
+      if (votesErr) {
+        console.warn("[arena] latest upvoters:", votesErr.message);
+        setLastUpvoterNames({});
+        return;
+      }
+
+      const latestUpvoterByMessage: Record<string, string> = {};
+      for (const v of votes || []) {
+        const messageId = String((v as { message_id: string }).message_id);
+        if (!latestUpvoterByMessage[messageId]) {
+          latestUpvoterByMessage[messageId] = String((v as { user_id: string }).user_id);
+        }
+      }
+
+      const upvoterIds = [...new Set(Object.values(latestUpvoterByMessage))];
+      if (upvoterIds.length === 0) {
+        setLastUpvoterNames({});
+        return;
+      }
+
+      const { data: upvoterProfiles, error: upvoterProfilesErr } = await supabase
+        .from("profiles")
+        .select("id, nickname")
+        .in("id", upvoterIds);
+      if (upvoterProfilesErr) {
+        console.warn("[arena] upvoter profiles:", upvoterProfilesErr.message);
+        setLastUpvoterNames({});
+        return;
+      }
+
+      const upvoterNameById: Record<string, string> = {};
+      upvoterProfiles?.forEach((p) => {
+        const row = p as { id: string; nickname: string | null };
+        upvoterNameById[row.id] = (row.nickname && row.nickname.trim()) || fallback;
+      });
+
+      const lastByMessageName: Record<string, string> = {};
+      Object.entries(latestUpvoterByMessage).forEach(([messageId, upvoterId]) => {
+        lastByMessageName[messageId] = upvoterNameById[upvoterId] || fallback;
+      });
+      setLastUpvoterNames(lastByMessageName);
+
+      const snapshotTargetIds = rows
+        .filter((m) => {
+          const snapshotReady =
+            Boolean(m.recycled_body_snapshot && String(m.recycled_body_snapshot).trim()) &&
+            Boolean(m.recycled_approver_name_snapshot && String(m.recycled_approver_name_snapshot).trim());
+          if (snapshotReady) return false;
+          if (m.recycled_at) return true;
+          if (m.shield_until && new Date(m.shield_until) > new Date()) return false;
+          const base = Math.max(0, Number(m.ttl_minutes) || 0);
+          const anchor = m.updated_at || m.created_at;
+          const t0 = new Date(anchor).getTime();
+          if (Number.isNaN(t0)) return false;
+          const elapsedMin = (Date.now() - t0) / 60000;
+          const effective = Math.max(0, Math.floor(base - decayRate * elapsedMin));
+          return effective <= 0;
+        })
+        .map((m) => m.id);
+
+      if (snapshotTargetIds.length > 0) {
+        try {
+          await (supabase as any).rpc("finalize_arena_recycled_snapshots", {
+            p_message_ids: snapshotTargetIds,
+          });
+          const { data: refreshedRows } = await (supabase as any)
+            .from("topic_arena_messages")
+            .select("id, recycled_body_snapshot, recycled_approver_name_snapshot")
+            .in("id", snapshotTargetIds);
+
+          if (refreshedRows && Array.isArray(refreshedRows) && refreshedRows.length > 0) {
+            const refreshedMap = new Map<string, { body?: string | null; approver?: string | null }>();
+            refreshedRows.forEach((r) => {
+              const row = r as {
+                id: string;
+                recycled_body_snapshot?: string | null;
+                recycled_approver_name_snapshot?: string | null;
+              };
+              refreshedMap.set(String(row.id), {
+                body: row.recycled_body_snapshot ?? null,
+                approver: row.recycled_approver_name_snapshot ?? null,
+              });
+            });
+            setMessages((prev) =>
+              prev.map((m) => {
+                const snap = refreshedMap.get(String(m.id));
+                if (!snap) return m;
+                return {
+                  ...m,
+                  recycled_body_snapshot: snap.body ?? m.recycled_body_snapshot ?? null,
+                  recycled_approver_name_snapshot: snap.approver ?? m.recycled_approver_name_snapshot ?? null,
+                };
+              })
+            );
+          }
+        } catch (snapshotError) {
+          console.warn("[arena] finalize snapshot:", snapshotError);
+        }
+      }
     },
-    [topicId, getText]
+    [topicId, getText, decayRate]
   );
 
   const fetchMyVotes = useCallback(async () => {
     if (!userId || messages.length === 0) return;
     const ids = messages.map((m) => m.id);
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from("topic_arena_votes")
       .select("message_id")
       .eq("user_id", userId)
@@ -169,10 +282,11 @@ export function ArenaSection({
     if (!userId) return;
     setPosting(true);
     try {
-      const { error } = await supabase.rpc("post_arena_message", {
+      const { error } = await (supabase as any).rpc("post_arena_message", {
         p_topic_id: topicId,
         p_content: content,
         p_buy_shield: buyShield,
+        p_language: language,
       });
       if (error) throw error;
       setInputOpen(false);
@@ -245,7 +359,7 @@ export function ArenaSection({
     const mid = String(messageId);
     if (voteIds.has(mid)) return;
     try {
-      const { error } = await supabase.rpc("cast_arena_vote", {
+      const { error } = await (supabase as any).rpc("cast_arena_vote", {
         p_message_id: mid,
         p_vote_type: voteType,
       });
@@ -343,11 +457,15 @@ export function ArenaSection({
         "arena.recycledBody",
         "您的留言存在週期已歸零。系統執行回收。最終結果：👍贊同 {{up}} / 👎斥責 {{down}}，感謝您發表廢話。"
       );
-      const body = getText(`arena.recycledBody.${variant}`, baseTemplate)
+      const dynamicBody = getText(`arena.recycledBody.${variant}`, baseTemplate)
         .replace("{{up}}", String(m.upvote_count))
         .replace("{{down}}", String(m.downvote_count));
+      const body = (m.recycled_body_snapshot && m.recycled_body_snapshot.trim()) || dynamicBody;
       const firstLine = `${author}，${body}`;
-      const approverName = getText("arena.finalApproverSystem", "系統自動回收");
+      const approverName = (
+        m.recycled_approver_name_snapshot &&
+        m.recycled_approver_name_snapshot.trim()
+      ) || lastUpvoterNames[String(m.id)] || getText("arena.finalApproverSystem", "系統自動回收");
       const secondLine = getText("arena.finalApproverLabel", "最終核定員：{{name}}").replace("{{name}}", approverName);
       const stampApproved = getText("arena.signatureApproved", "已核定");
       const isOwner = userId === m.user_id;
@@ -637,12 +755,6 @@ export function ArenaSection({
         </>
       ) : (
         <>
-      <div className="mb-2 text-xs text-muted-foreground">
-        {getText("arena.visibleCount", "展示留言數：{{count}} 則").replace(
-          "{{count}}",
-          String(collapsedDisplayCount)
-        )}
-      </div>
       {core && (
         <div
           className={cn(

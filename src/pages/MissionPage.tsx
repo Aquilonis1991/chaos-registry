@@ -559,7 +559,7 @@ const MissionPage = () => {
     ? missionConfigs.dailyLoginReward
     : Number(missionConfigs.dailyLoginReward) || 3;
   const dailyCheckInReward =
-    (loginStreakInfo && loginStreakInfo.can_claim_today === false)
+    (loginStreakInfo?.can_claim_today === false)
       ? '+0'
       : `+${dailyLoginRewardAmount}`;
   const watchAdTitle = getText('mission.ad.title', '觀看廣告');
@@ -628,7 +628,7 @@ const MissionPage = () => {
                   <p className="text-sm opacity-90">
                     {loadingStreak
                       ? ''
-                      : (loginStreakInfo && !loginStreakInfo.can_claim_today)
+                      : (loginStreakInfo?.can_claim_today === false)
                         ? dailyCheckInCompleted
                         : dailyCheckInPending}
                   </p>
@@ -650,8 +650,7 @@ const MissionPage = () => {
               disabled={
                 isClaimingLogin ||
                 loadingStreak ||
-                !loginStreakInfo ||
-                Boolean(!loginStreakInfo.can_claim_today)
+                (loginStreakInfo?.can_claim_today === false)
               }
             >
               {isClaimingLogin ? (
@@ -659,7 +658,7 @@ const MissionPage = () => {
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                   {dailyCheckInButtonClaiming}
                 </>
-              ) : (loginStreakInfo && !loginStreakInfo.can_claim_today) ? (
+              ) : (loginStreakInfo?.can_claim_today === false) ? (
                 <>
                   <CheckCircle className="w-5 h-5 mr-2" />
                   {dailyCheckInButtonDone}

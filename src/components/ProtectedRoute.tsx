@@ -24,9 +24,11 @@ export const ProtectedRoute = ({ children, requireAuth = false }: ProtectedRoute
   const { user, isAnonymous, loading } = useAuth();
   const { isAdmin, isLoading: adminLoading } = useAdmin();
   const native = isNative();
+  const normalizedPath = normalizePathname(location.pathname);
+  const isAdminRoute = normalizedPath === "/admin" || normalizedPath.startsWith("/admin/");
   const shouldCheckAdmin = !native && !!user && !isAnonymous;
   const webAdminExempt =
-    WEB_NON_ADMIN_ALLOWED_PATHS.has(normalizePathname(location.pathname));
+    WEB_NON_ADMIN_ALLOWED_PATHS.has(normalizedPath);
 
   // 強制輸出日誌（即使被壓縮也會保留）
   if (typeof window !== 'undefined') {
@@ -50,6 +52,11 @@ export const ProtectedRoute = ({ children, requireAuth = false }: ProtectedRoute
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
+  }
+
+  // 後台僅允許網頁版存取：原生 App 一律阻擋。
+  if (native && isAdminRoute) {
+    return <WebAdminOnlyPage />;
   }
 
   // 網頁版管理員檢查 - 必須明確處理所有情況（部分路由豁免，例如個人頁）

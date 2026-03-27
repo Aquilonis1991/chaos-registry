@@ -324,15 +324,26 @@ export function ArenaSection({
   const displayedNonElite = showAllMessages ? nonEliteSortedByTime : collapsedNonElite;
   const hasHiddenMessages = nonEliteSortedByTime.length > collapsedNonElite.length;
   const collapsedDisplayCount = core ? 4 : 3;
+  const recycledVariantCount = 20;
+
+  const getStableRecycledVariant = useCallback((seed: string) => {
+    let hash = 0;
+    for (let i = 0; i < seed.length; i += 1) {
+      hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+    }
+    return (hash % recycledVariantCount) + 1;
+  }, []);
 
   /** 贊同／斥責：僅 icon + (±X min)，靠右下；完整說明放 aria-label */
   const renderArenaMessageBlock = (m: ArenaMessage, variant: "core" | "elite" | "card") => {
     if (isRecycledView(m)) {
       const author = authorNames[m.user_id] ?? getText("arena.userFallback", "用戶");
-      const body = getText(
-        "arena.recycledBodyAutoCleanup",
-        "數據完整度不足以維持在場，執行自動清理。最終：👍 {{up}} / 👎 {{down}}"
-      )
+      const variant = getStableRecycledVariant(String(m.id));
+      const baseTemplate = getText(
+        "arena.recycledBody",
+        "您的留言存在週期已歸零。系統執行回收。最終結果：👍贊同 {{up}} / 👎斥責 {{down}}，感謝您發表廢話。"
+      );
+      const body = getText(`arena.recycledBody.${variant}`, baseTemplate)
         .replace("{{up}}", String(m.upvote_count))
         .replace("{{down}}", String(m.downvote_count));
       const firstLine = `${author}，${body}`;

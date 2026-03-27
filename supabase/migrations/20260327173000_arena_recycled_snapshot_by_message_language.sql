@@ -208,7 +208,7 @@ DECLARE
   v_decay_rate INTEGER := 1;
   v_mid UUID;
   v_msg RECORD;
-  v_last_upvoter_name TEXT;
+  v_last_downvoter_name TEXT;
   v_approver_name TEXT;
   v_variant INTEGER;
   v_tpl TEXT;
@@ -271,15 +271,15 @@ BEGIN
     END IF;
 
     SELECT p.nickname
-    INTO v_last_upvoter_name
+    INTO v_last_downvoter_name
     FROM public.topic_arena_votes v
     JOIN public.profiles p ON p.id = v.user_id
     WHERE v.message_id = v_msg.id
-      AND v.vote_type = 'upvote'
+      AND v.vote_type = 'downvote'
     ORDER BY v.created_at DESC
     LIMIT 1;
 
-    v_approver_name := COALESCE(NULLIF(BTRIM(v_last_upvoter_name), ''), '系統自動回收');
+    v_approver_name := COALESCE(NULLIF(BTRIM(v_last_downvoter_name), ''), '系統自動回收');
 
     v_variant := (ABS((('x' || SUBSTRING(md5(v_msg.id::TEXT), 1, 8))::bit(32)::INT)) % 20) + 1;
     v_lang := LOWER(COALESCE(NULLIF(BTRIM(v_msg.message_language), ''), 'zh'));

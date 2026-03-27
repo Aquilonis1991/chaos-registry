@@ -648,7 +648,7 @@ export function ArenaSection({
                 "p-4 rounded-lg border shadow-sm",
                 isRecycledView(m)
                   ? "border border-muted-foreground/40 bg-muted/60 text-foreground"
-                  : "border-slate-300/70 dark:border-slate-700 bg-gradient-to-br from-gray-100 to-transparent dark:from-gray-800/50 dark:to-transparent text-foreground"
+                  : "border-slate-300/80 dark:border-slate-500/60 bg-gradient-to-br from-slate-100 via-zinc-100 to-slate-200 dark:from-slate-700/80 dark:via-zinc-700/70 dark:to-slate-800/70 text-foreground"
               )}
             >
               {renderArenaMessageBlock(m, "elite")}

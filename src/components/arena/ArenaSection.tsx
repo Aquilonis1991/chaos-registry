@@ -323,6 +323,7 @@ export function ArenaSection({
   const collapsedNonElite = nonEliteSortedByTime.slice(0, 3);
   const displayedNonElite = showAllMessages ? nonEliteSortedByTime : collapsedNonElite;
   const hasHiddenMessages = nonEliteSortedByTime.length > collapsedNonElite.length;
+  const collapsedDisplayCount = core ? 4 : 3;
 
   /** 贊同／斥責：僅 icon + (±X min)，靠右下；完整說明放 aria-label */
   const renderArenaMessageBlock = (m: ArenaMessage, variant: "core" | "elite" | "card") => {
@@ -625,6 +626,12 @@ export function ArenaSection({
         </>
       ) : (
         <>
+      <div className="mb-2 text-xs text-muted-foreground">
+        {getText("arena.visibleCount", "展示留言數：{{count}} 則").replace(
+          "{{count}}",
+          String(collapsedDisplayCount)
+        )}
+      </div>
       {core && (
         <div
           className={cn(

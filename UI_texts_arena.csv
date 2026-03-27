@@ -60,3 +60,5 @@ arena.finalApproverLabel,arena,最終核定員：{{name}},Final approver: {{name
 arena.finalApproverSystem,arena,系統自動回收,System auto recycle,システム自動回収,回收卡核定員名稱（系統）
 arena.expandMessages,arena,展開全部留言,Expand all messages,すべてのコメントを展開,留言區展開按鈕
 arena.collapseMessages,arena,收合留言,Collapse messages,コメントを折りたたむ,留言區收合按鈕
+arena.createdAtLabel,arena,留言時間：,Posted at:,投稿日：,留言時間戳記標籤
+arena.recycledAtLabel,arena,回收時間：,Recycled at:,回収日時：,回收時間戳記標籤

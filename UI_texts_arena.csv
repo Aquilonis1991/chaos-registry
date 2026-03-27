@@ -58,3 +58,5 @@ arena.signatureApproved,arena,已核定,Approved,承認済み,回收卡印章文
 arena.recycledBodyAutoCleanup,arena,數據完整度不足以維持在場，執行自動清理。最終：👍 {{up}} / 👎 {{down}},Data integrity is insufficient to remain active. Auto cleanup executed. Final: 👍 {{up}} / 👎 {{down}},データ完全性が不足しているため場に維持できず、自動クリーンアップを実行しました。最終：👍 {{up}} / 👎 {{down}},回收卡第一行固定文案
 arena.finalApproverLabel,arena,最終核定員：{{name}},Final approver: {{name}},最終承認者：{{name}},回收卡第二行核定員標籤
 arena.finalApproverSystem,arena,系統自動回收,System auto recycle,システム自動回収,回收卡核定員名稱（系統）
+arena.expandMessages,arena,展開全部留言,Expand all messages,すべてのコメントを展開,留言區展開按鈕
+arena.collapseMessages,arena,收合留言,Collapse messages,コメントを折りたたむ,留言區收合按鈕

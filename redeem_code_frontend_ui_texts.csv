@@ -1,0 +1,19 @@
+key,category,zh,en,ja,description
+profile.menu.redeemCode,profile,兌換碼,Redeem code,引き換えコード,個人頁選單：兌換碼入口
+redeemCode.dialog.title,redeem,兌換碼,Redeem code,引き換えコード,兌換彈窗標題
+redeemCode.dialog.description,redeem,輸入活動兌換碼以領取代幣。,Enter a code to claim tokens.,コードを入力してトークンを受け取ります。,兌換彈窗說明
+redeemCode.form.label,redeem,兌換碼,Code,コード,兌換彈窗輸入欄標籤
+redeemCode.form.placeholder,redeem,請輸入兌換碼,Enter code,コードを入力,兌換碼輸入框提示
+redeemCode.button.redeem,redeem,兌換,Redeem,引き換える,兌換按鈕
+redeemCode.success.toast,redeem,兌換成功,Redeemed successfully,引き換え成功,兌換成功主提示
+redeemCode.success.tokensAdded,redeem,已發放 {{amount}} 失序值,{{amount}} tokens added,{{amount}} トークンを付与しました,成功後副標（含佔位符）
+redeemCode.error.not_authenticated,redeem,請先登入,Please sign in,ログインしてください,錯誤：未登入
+redeemCode.error.invalid_input,redeem,請輸入有效兌換碼,Enter a valid code,有効なコードを入力してください,錯誤：輸入無效
+redeemCode.error.not_found,redeem,查無此兌換碼或已停用,Code not found or inactive,コードが見つからないか無効です,錯誤：無此碼或停用
+redeemCode.error.not_started,redeem,此兌換碼尚未開放,This code is not active yet,まだ利用開始していません,錯誤：尚未開放
+redeemCode.error.expired,redeem,此兌換碼已過期,This code has expired,有効期限切れです,錯誤：已過期
+redeemCode.error.exhausted,redeem,此兌換碼已達兌換上限,This code has reached its redemption limit,利用上限に達しました,錯誤：總次數用盡
+redeemCode.error.already_redeemed,redeem,您已兌換過此碼,You already redeemed this code,既に利用済みです,錯誤：已兌換過
+redeemCode.error.generic,redeem,兌換失敗，請稍後再試,Redeem failed try again later,引き換えに失敗しました,錯誤：通用
+tokenHistory.type.redeemCode,tokenHistory,兌換碼,Redeem code,引き換えコード,代幣紀錄類型標籤
+tokenHistory.description.redeemCode,tokenHistory,兌換碼：{{code}},Redeem code: {{code}},引き換え: {{code}},代幣紀錄描述（含代碼佔位符）

@@ -171,6 +171,7 @@ const AdminPage = () => {
           <TabsTrigger value="banned-words">{tabBannedWords}</TabsTrigger>
           <TabsTrigger value="legal">{tabLegal}</TabsTrigger>
           <TabsTrigger value="ai">{tabAi}</TabsTrigger>
+          <TabsTrigger value="redeem-codes">{tabRedeemCodes}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users">

@@ -1321,6 +1321,10 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                           typeIcon = '✅';
                           typeColor = 'text-teal-600';
                           typeLabel = '完成任務';
+                        } else if (tx.transaction_type === 'redeem_code') {
+                          typeIcon = '🎟️';
+                          typeColor = 'text-amber-600';
+                          typeLabel = '兌換碼';
                         }
 
                         return (

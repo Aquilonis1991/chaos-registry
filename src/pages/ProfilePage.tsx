@@ -52,6 +52,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { profileUpdateSchema } from "@/lib/validationSchemas";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
+import { RedeemCodeDialog } from "@/components/RedeemCodeDialog";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { ErrorFeedback } from "@/components/ErrorFeedback";
 import { validateNickname, getBannedWordErrorMessage } from "@/lib/bannedWords";
@@ -816,7 +817,9 @@ const ProfilePage = () => {
 
                 <Separator />
 
+                <RedeemCodeDialog />
 
+                <Separator />
 
                 <Link to="/terms">
                   <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">

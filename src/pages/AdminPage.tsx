@@ -21,6 +21,7 @@ import { useUIText } from "@/hooks/useUIText";
 import LegalContentManager from "@/components/admin/LegalContentManager";
 import { DataExportManager } from "@/components/admin/DataExportManager";
 import { AiPromptManager } from "@/components/admin/AiPromptManager";
+import RedeemCodeManager from "@/components/admin/RedeemCodeManager";
 
 const AdminPage = () => {
   const { isAdmin, isLoading, error: adminError } = useAdmin();
@@ -46,6 +47,7 @@ const AdminPage = () => {
   const tabLegal = getText('admin.tabs.legal', '條款管理');
   const tabExport = getText('admin.tabs.export', '數據匯出');
   const tabAi = getText('admin.tabs.ai', 'AI 管理');
+  const tabRedeemCodes = getText('admin.tabs.redeemCodes', '兌換碼');
 
   useEffect(() => {
     // 檢查管理員權限
@@ -169,6 +171,7 @@ const AdminPage = () => {
           <TabsTrigger value="banned-words">{tabBannedWords}</TabsTrigger>
           <TabsTrigger value="legal">{tabLegal}</TabsTrigger>
           <TabsTrigger value="ai">{tabAi}</TabsTrigger>
+          <TabsTrigger value="redeem-codes">{tabRedeemCodes}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users">
@@ -259,6 +262,12 @@ const AdminPage = () => {
 
         <TabsContent value="ai">
           <AiPromptManager />
+        </TabsContent>
+
+        <TabsContent value="redeem-codes">
+          <Card className="p-6">
+            <RedeemCodeManager />
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

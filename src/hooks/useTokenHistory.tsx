@@ -32,6 +32,7 @@ const transactionTypeIcons: Record<string, string> = {
   extend_topic_duration: '⏳',
   add_topic_option: '➕',
   arena_shield: '🔒',
+  redeem_code: '🎟️',
 };
 
 const normalizeTransactionType = (type: string): string => {
@@ -83,6 +84,7 @@ const getTransactionTypeLabel = (type: string, getText: (key: string, fallback: 
     extend_topic_duration: getText('tokenHistory.type.extendTopicDuration', '延長投票時間'),
     add_topic_option: getText('tokenHistory.type.addTopicOption', '新增投票選項'),
     arena_shield: getText('tokenHistory.type.arenaShield', '購買數據鎖定保險'),
+    redeem_code: getText('tokenHistory.type.redeemCode', '兌換碼'),
   };
   return labels[type] || getText('tokenHistory.type.unknown', type);
 };
@@ -184,6 +186,15 @@ const formatTransactionDescription = (
 
   if (transactionType === 'complete_mission') {
     return getText('tokenHistory.description.completeMission', '完成任務');
+  }
+
+  if (transactionType === 'redeem_code') {
+    const m = normalize.match(/^redeem_code:(.+)$/i);
+    const codePart = m ? m[1].trim() : '';
+    if (codePart) {
+      return getText('tokenHistory.description.redeemCode', '兌換碼：{{code}}').replace('{{code}}', codePart);
+    }
+    return getText('tokenHistory.type.redeemCode', '兌換碼');
   }
 
   // Handle ai_usage type with specific descriptions

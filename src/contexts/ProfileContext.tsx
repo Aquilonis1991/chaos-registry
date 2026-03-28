@@ -45,26 +45,37 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
                 setLoading(true);
             }
 
-            // Fetch full profile data for authenticated user.
-            // Backward compatibility: some deployed DBs may not have nickname_updated_at yet.
-            let { data, error } = await supabase
-                .from('profiles')
-                .select('id, nickname, avatar, tokens, ad_watch_count, last_login, notifications, created_at, updated_at, nickname_updated_at, is_deleted, deleted_reason')
-                .eq('id', user.id)
-                .single();
+            // Fetch profile; retry with fewer columns if DB is missing optional fields (42703).
+            const baseCols =
+                'id, nickname, avatar, tokens, ad_watch_count, last_login, notifications, created_at, updated_at';
+            const selectVariants = [
+                `${baseCols}, nickname_updated_at, is_deleted, deleted_reason`,
+                `${baseCols}, is_deleted, deleted_reason`,
+                baseCols,
+            ];
 
-            if (error?.code === '42703' && error?.message?.includes('nickname_updated_at')) {
-                console.warn('[ProfileContext] nickname_updated_at missing in DB, fallback select without this column.');
-                const fallback = await supabase
-                    .from('profiles')
-                    .select('id, nickname, avatar, tokens, ad_watch_count, last_login, notifications, created_at, updated_at, is_deleted, deleted_reason')
-                    .eq('id', user.id)
-                    .single();
-                data = fallback.data ? { ...fallback.data, nickname_updated_at: null } as Profile : null;
-                error = fallback.error;
+            let data: Profile | null = null;
+            let fetchError: { code?: string; message?: string } | null = null;
+
+            for (const sel of selectVariants) {
+                const res = await supabase.from('profiles').select(sel).eq('id', user.id).single();
+                if (!res.error && res.data) {
+                    const row = res.data as Record<string, unknown>;
+                    data = {
+                        ...(row as unknown as Profile),
+                        nickname_updated_at:
+                            (row.nickname_updated_at as string | null | undefined) ?? null,
+                        is_deleted: Boolean(row.is_deleted),
+                        deleted_reason: (row.deleted_reason as string | null | undefined) ?? null,
+                    };
+                    fetchError = null;
+                    break;
+                }
+                fetchError = res.error;
+                if (res.error?.code !== '42703') break;
             }
 
-            if (error) throw error;
+            if (fetchError) throw fetchError;
 
             if (data?.is_deleted) {
                 toast.error('帳號已被刪除，請重新註冊或聯繫客服');

@@ -131,6 +131,7 @@ export default function ArenaMessagesManager() {
       } catch (decayError) {
         console.warn("[admin][arena] decay_arena_ttl failed:", decayError);
       }
+
       const topicIdTrim = topicFilter.trim();
       const list = await fetchAllArenaRows(topicIdTrim);
       setRows(list);

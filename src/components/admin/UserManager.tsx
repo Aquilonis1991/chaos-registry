@@ -94,6 +94,19 @@ interface UserTopicDetail {
   last_vote_at?: string | null;
 }
 
+interface UserArenaMessageDetail {
+  id: string;
+  topic_id: string;
+  content: string;
+  ttl_minutes: number;
+  upvote_count: number;
+  downvote_count: number;
+  shield_until: string | null;
+  recycled_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 interface UserManagerProps {
   onSetRestriction?: (userId: string) => void;
 }
@@ -386,6 +399,27 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
 
       console.log('[UserManager] User topics fetched via RPC:', data?.length || 0, 'topics');
       return (data || []) as UserTopicDetail[];
+    },
+    enabled: !!detailUser,
+    retry: 1,
+    staleTime: 30000,
+  });
+
+  // 獲取用戶原始角鬥場留言與狀態
+  const { data: userArenaMessages, isLoading: arenaMessagesLoading, error: arenaMessagesError } = useQuery({
+    queryKey: ['admin-user-arena-messages', detailUser?.id],
+    queryFn: async () => {
+      if (!detailUser) return null;
+
+      const { data, error } = await supabase
+        .from('topic_arena_messages' as any)
+        .select('id, topic_id, content, ttl_minutes, upvote_count, downvote_count, shield_until, recycled_at, created_at, updated_at')
+        .eq('user_id', detailUser.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      return (data || []) as UserArenaMessageDetail[];
     },
     enabled: !!detailUser,
     retry: 1,
@@ -1086,6 +1120,12 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <div className="text-sm text-muted-foreground mb-1">
+                        UID
+                      </div>
+                      <div className="font-mono text-xs break-all">{detailUser.id}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground mb-1">
                         {getText('admin.userManager.detail.nickname', '暱稱')}
                       </div>
                       <div className="font-medium">{detailUser.nickname}</div>
@@ -1321,6 +1361,10 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                           typeIcon = '✅';
                           typeColor = 'text-teal-600';
                           typeLabel = '完成任務';
+                        } else if (tx.transaction_type === 'redeem_code') {
+                          typeIcon = '🎟️';
+                          typeColor = 'text-amber-600';
+                          typeLabel = '兌換碼';
                         }
 
                         return (
@@ -1419,6 +1463,74 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                     </h3>
                     <div className="text-center text-muted-foreground py-4">
                       {getText('admin.userManager.detail.noTopics', '該用戶尚未創建任何主題')}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* 原始留言及狀態 */}
+              {arenaMessagesLoading ? (
+                <div className="flex justify-center p-4">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="ml-2 text-sm text-muted-foreground">載入原始留言中...</span>
+                </div>
+              ) : arenaMessagesError ? (
+                <Card>
+                  <CardContent className="p-4">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Vote className="w-5 h-5" />
+                      原始留言及狀態
+                    </h3>
+                    <div className="text-center text-destructive py-4">
+                      載入原始留言失敗
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : userArenaMessages && userArenaMessages.length > 0 ? (
+                <Card>
+                  <CardContent className="p-4">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Vote className="w-5 h-5" />
+                      原始留言及狀態 ({userArenaMessages.length})
+                    </h3>
+                    <div className="space-y-2 max-h-72 overflow-y-auto">
+                      {userArenaMessages.map((msg) => {
+                        const statusLabel = msg.recycled_at
+                          ? '已回收'
+                          : (msg.shield_until && new Date(msg.shield_until) > new Date())
+                            ? '鎖定中'
+                            : '顯示中';
+                        const statusVariant = msg.recycled_at ? 'secondary' : 'outline';
+                        return (
+                          <div key={msg.id} className="p-3 border rounded-md">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-xs text-muted-foreground font-mono break-all">
+                                topic: {msg.topic_id}
+                              </div>
+                              <Badge variant={statusVariant as any}>{statusLabel}</Badge>
+                            </div>
+                            <div className="mt-2 text-sm whitespace-pre-wrap break-words">{msg.content}</div>
+                            <div className="mt-2 text-xs text-muted-foreground flex flex-wrap gap-3">
+                              <span>存在週期: {msg.ttl_minutes} 分</span>
+                              <span>👍 {msg.upvote_count}</span>
+                              <span>👎 {msg.downvote_count}</span>
+                              <span>建立: {format(new Date(msg.created_at), 'yyyy/MM/dd HH:mm:ss', { locale: zhTW })}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardContent className="p-4">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Vote className="w-5 h-5" />
+                      原始留言及狀態
+                    </h3>
+                    <div className="text-center text-muted-foreground py-4">
+                      該用戶尚無角鬥場留言
                     </div>
                   </CardContent>
                 </Card>

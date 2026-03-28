@@ -52,6 +52,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { profileUpdateSchema } from "@/lib/validationSchemas";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
+import { RedeemCodeDialog } from "@/components/RedeemCodeDialog";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { ErrorFeedback } from "@/components/ErrorFeedback";
 import { validateNickname, getBannedWordErrorMessage } from "@/lib/bannedWords";
@@ -816,7 +817,9 @@ const ProfilePage = () => {
 
                 <Separator />
 
+                <RedeemCodeDialog />
 
+                <Separator />
 
                 <Link to="/terms">
                   <button className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
@@ -894,7 +897,7 @@ const ProfilePage = () => {
 
           {/* Version：與 package.json 同步，封包時更新 package.json 即可 */}
           <div className="text-center text-sm text-muted-foreground py-4">
-            ChaosRegistry v{__APP_VERSION__}
+            ChaosRegistry v{__APP_VERSION__ || "1.0.92"}
           </div>
         </div>
       </div>

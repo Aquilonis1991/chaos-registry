@@ -17,3 +17,11 @@ redeemCode.error.already_redeemed,redeem,您已兌換過此碼,You already redee
 redeemCode.error.generic,redeem,兌換失敗，請稍後再試,Redeem failed try again later,引き換えに失敗しました,錯誤：通用
 tokenHistory.type.redeemCode,tokenHistory,兌換碼,Redeem code,引き換えコード,代幣紀錄類型標籤
 tokenHistory.description.redeemCode,tokenHistory,兌換碼：{{code}},Redeem code: {{code}},引き換え: {{code}},代幣紀錄描述（含代碼佔位符）
+admin.redeemCodes.col.actions,admin,操作,Actions,操作,後台兌換碼表格：操作欄標題
+admin.redeemCodes.stop,admin,停止,Stop,停止,後台兌換碼：停止（停用）按鈕
+admin.redeemCodes.delete,admin,刪除,Delete,削除,後台兌換碼：刪除按鈕
+admin.redeemCodes.toast.stopOk,admin,已停止此兌換碼,Redeem code stopped,コードを停止しました,停止成功提示
+admin.redeemCodes.toast.removeOk,admin,已刪除兌換碼,Redeem code removed,コードを削除しました,刪除成功提示
+admin.redeemCodes.confirmDeleteTitle,admin,確定刪除？,Delete this code?,削除しますか？,刪除確認標題
+admin.redeemCodes.confirmDeleteDesc,admin,將永久移除「{{code}}」與其兌換紀錄，無法復原。,This will permanently remove "{{code}}" and its redemption records.,「{{code}}」と引き換え履歴を完全に削除します。元に戻せません。,刪除確認說明（含 code 佔位符）
+admin.redeemCodes.confirmDeleteConfirm,admin,確定刪除,Delete,削除する,刪除確認按鈕

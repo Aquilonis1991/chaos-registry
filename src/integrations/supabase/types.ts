@@ -638,6 +638,10 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_deactivate_redeem_code: {
+        Args: { p_id: string }
+        Returns: Json
+      }
       admin_delete_redeem_code: {
         Args: { p_id: string }
         Returns: Json

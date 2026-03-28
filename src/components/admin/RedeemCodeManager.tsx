@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -58,6 +58,8 @@ const RedeemCodeManager = () => {
   const [formFrom, setFormFrom] = useState("");
   const [formUntil, setFormUntil] = useState("");
   const [formMax, setFormMax] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; code: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -133,19 +135,40 @@ const RedeemCodeManager = () => {
     }
   };
 
-  const handleDeactivate = async (id: string) => {
+  const handleStop = async (id: string) => {
     try {
-      const { data, error } = await supabase.rpc("admin_delete_redeem_code", { p_id: id });
+      const { data, error } = await supabase.rpc("admin_deactivate_redeem_code", { p_id: id });
       if (error) throw error;
       const res = data as { success?: boolean };
       if (!res?.success) {
         toast.error(getText("redeemCode.error.generic", "兌換失敗，請稍後再試"));
         return;
       }
-      toast.success(getText("admin.redeemCodes.toast.deleteOk", "已停用兌換碼"));
+      toast.success(getText("admin.redeemCodes.toast.stopOk", "已停止此兌換碼"));
       await load();
     } catch {
       toast.error(getText("redeemCode.error.generic", "兌換失敗，請稍後再試"));
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase.rpc("admin_delete_redeem_code", { p_id: deleteTarget.id });
+      if (error) throw error;
+      const res = data as { success?: boolean };
+      if (!res?.success) {
+        toast.error(getText("redeemCode.error.generic", "兌換失敗，請稍後再試"));
+        return;
+      }
+      toast.success(getText("admin.redeemCodes.toast.removeOk", "已刪除兌換碼"));
+      setDeleteTarget(null);
+      await load();
+    } catch {
+      toast.error(getText("redeemCode.error.generic", "兌換失敗，請稍後再試"));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -191,7 +214,7 @@ const RedeemCodeManager = () => {
                     <TableHead>{getText("admin.redeemCodes.col.maxRedemptions", "總上限")}</TableHead>
                     <TableHead>{getText("admin.redeemCodes.col.redeemed", "已兌換")}</TableHead>
                     <TableHead>{getText("admin.redeemCodes.col.status", "狀態")}</TableHead>
-                    <TableHead className="w-[100px]" />
+                    <TableHead className="min-w-[11rem] text-right">{getText("admin.redeemCodes.col.actions", "操作")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -226,17 +249,22 @@ const RedeemCodeManager = () => {
                               : getText("admin.redeemCodes.status.inactive", "已停用")}
                           </Badge>
                         </TableCell>
-                        <TableCell>
-                          {r.is_active && (
+                        <TableCell className="text-right">
+                          <div className="flex flex-wrap justify-end gap-1">
+                            {r.is_active && (
+                              <Button type="button" variant="outline" size="sm" onClick={() => handleStop(r.id)}>
+                                {getText("admin.redeemCodes.stop", "停止")}
+                              </Button>
+                            )}
                             <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeactivate(r.id)}
-                              aria-label={getText("admin.redeemCodes.delete", "停用")}
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setDeleteTarget({ id: r.id, code: r.code })}
                             >
-                              <Trash2 className="w-4 h-4 text-destructive" />
+                              {getText("admin.redeemCodes.delete", "刪除")}
                             </Button>
-                          )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -247,6 +275,40 @@ const RedeemCodeManager = () => {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{getText("admin.redeemCodes.confirmDeleteTitle", "確定刪除？")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget
+                ? getText(
+                    "admin.redeemCodes.confirmDeleteDesc",
+                    "將永久移除「{{code}}」與其兌換紀錄，無法復原。",
+                  ).replace(/\{\{code\}\}/g, deleteTarget.code)
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>{getText("admin.redeemCodes.cancel", "取消")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => {
+                e.preventDefault();
+                void handleConfirmDelete();
+              }}
+              disabled={deleting}
+            >
+              {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : getText("admin.redeemCodes.confirmDeleteConfirm", "確定刪除")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">

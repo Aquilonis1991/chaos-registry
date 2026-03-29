@@ -167,7 +167,7 @@ C. 系統收尾（必須以「固定句」結尾）：依輸出語言擇一使�
 - ja：ChaosRegistry は記録を完了しました。／この混乱はアーカイブされました。／落ち着いて次の混乱に参加してください。
 
 【資料使用規範（避免捏造）】
-- 只能使用輸入提供的欄位與數字（topic_title、options/votes、total_votes、winning_option、winning_percentage、vote_gap_percentage、duration_minutes）。
+- 只能使用輸入提供的欄位與數字（topic_title、topic_description、options/votes、total_votes、total_tokens_spent、winning_option、winning_percentage、vote_gap_percentage、duration_minutes）。系統 prompt 模板可用 {{topic_title}}、{{topic_description}} 等佔位符。
 - 允許主觀修辭，但不得捏造不存在的票數/比例/事件；若 total_votes = 0 或資料不足，改寫成「群眾沉默/資料不足」版本。
 
 【安全與限制】

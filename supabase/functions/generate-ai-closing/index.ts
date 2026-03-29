@@ -99,20 +99,23 @@ Deno.serve(async (req) => {
     }
 
     // 4. Compute statistics
-    // options 的 votes 欄位可能不存在（投票紀錄在 votes 表），因此以 votes 表聚合為主，並回填到 options 清單中。
+    // 付費／代幣投票在 votes 表；免費票（increment_free_vote 等）常只寫入 options[].votes，需兩邊加總。
     const options = (topicRow.options || []) as Array<string | { id?: string; text?: string; label?: string; votes?: number }>;
-    const optList = options
+    type OptAcc = { optionId: string; name: string; jsonVotes: number; votes: number };
+    const optList: OptAcc[] = options
       .map((o, idx) => {
         const name = typeof o === "string" ? o : (o?.text ?? o?.label ?? "");
-        // option id 可能缺失：沿用前端慣例 option-<index>
         const optionId = typeof o === "object" && o && typeof (o as any).id === "string" && (o as any).id.trim().length > 0
           ? String((o as any).id)
           : `option-${idx}`;
-        return { optionId, name, votes: 0 };
+        const jv =
+          typeof o === "object" && o != null && typeof (o as any).votes === "number" && Number.isFinite((o as any).votes)
+            ? Math.max(0, Math.floor(Number((o as any).votes)))
+            : 0;
+        return { optionId, name, jsonVotes: jv, votes: 0 };
       })
       .filter((o) => o.name.trim().length > 0);
 
-    // Aggregate votes from votes table (option 是 TEXT，通常存 optionId)
     const { data: voteAgg, error: voteAggErr } = await supabase
       .from("votes")
       .select("option, amount")
@@ -127,16 +130,19 @@ Deno.serve(async (req) => {
       voteMap.set(key, (voteMap.get(key) ?? 0) + (Number.isFinite(amt) ? amt : 0));
     }
 
-    // fill votes
-    for (const o of optList) o.votes = voteMap.get(o.optionId) ?? 0;
+    for (const o of optList) {
+      o.votes = (voteMap.get(o.optionId) ?? 0) + o.jsonVotes;
+    }
 
-    // fallback: 若 votes.option 存的是選項文字（舊資料），嘗試以 name 再加總一次
-    if (voteMap.size > 0 && optList.every((o) => o.votes === 0)) {
-      for (const o of optList) o.votes = voteMap.get(o.name) ?? 0;
+    const tableAllIdMiss = voteMap.size > 0 && optList.every((o) => (voteMap.get(o.optionId) ?? 0) === 0);
+    if (tableAllIdMiss) {
+      for (const o of optList) {
+        o.votes = (voteMap.get(o.name) ?? 0) + o.jsonVotes;
+      }
     }
 
     const totalVotes = optList.reduce((s, o) => s + (o.votes ?? 0), 0);
-    const winning = optList.length ? optList.reduce((a, b) => (a.votes >= b.votes ? a : b)) : { name: "", votes: 0 };
+    const winning = optList.length ? optList.reduce((a, b) => (a.votes >= b.votes ? a : b)) : { name: "", votes: 0, optionId: "", jsonVotes: 0 };
     const winningPct = totalVotes > 0 ? ((winning.votes / totalVotes) * 100).toFixed(1) : "0";
     const second = optList.length >= 2 ? optList.filter((o) => o !== winning).reduce((a, b) => (a.votes >= b.votes ? a : b)) : { votes: 0 };
     const voteGapPct = totalVotes > 0 ? (((winning.votes - second.votes) / totalVotes) * 100).toFixed(1) : "0";
@@ -217,6 +223,7 @@ Deno.serve(async (req) => {
     // 先把 system_config 的 {{var}} 模板替換成實際值，避免 AI 只看到佔位符
     const templateVars: Record<string, string> = {
       topic_title: String(aiInput.topic_title ?? ""),
+      topic_description: topicDescription,
       winning_option: String(aiInput.winning_option ?? ""),
       winning_percentage: String(aiInput.winning_percentage ?? "0"),
       vote_gap_percentage: String(aiInput.vote_gap_percentage ?? "0"),

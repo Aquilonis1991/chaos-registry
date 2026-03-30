@@ -145,17 +145,28 @@ const VoteDetailPage = () => {
   const confirmDialogCancelText = getText('vote.detail.confirm.cancel', '取消');
   const confirmDialogConfirmText = getText('vote.detail.confirm.confirm', '確認投入');
 
-  /** PostgREST / Postgres 錯誤常把原因放在 details，僅讀 message 會變成空白或泛用訊息 */
+  /** PostgREST：message 常為泛用句，實際錯在 details / code；偶有 error 字串欄位 */
   const normalizeRpcError = useCallback((e: unknown): string => {
     if (e == null) return "";
     if (typeof e === "string") return e.trim();
-    if (typeof e === "object") {
+    if (typeof e === "object" && e !== null) {
       const o = e as Record<string, unknown>;
+      const code = typeof o.code === "string" && o.code.trim() ? `[${o.code}]` : "";
       const msg = typeof o.message === "string" ? o.message : "";
       const det = typeof o.details === "string" ? o.details : "";
       const hint = typeof o.hint === "string" ? o.hint : "";
-      const combined = [msg, det, hint].filter((s) => s && String(s).trim()).join(" ");
-      if (combined.trim()) return combined.trim();
+      const err = typeof o.error === "string" ? o.error : "";
+      const combined = [code, msg, det, hint, err]
+        .filter((s) => s && String(s).trim())
+        .join(" ")
+        .trim();
+      if (combined) return combined;
+      try {
+        const j = JSON.stringify(o);
+        if (j && j !== "{}" && j.length < 1500) return j;
+      } catch {
+        /* ignore */
+      }
     }
     if (e instanceof Error) return e.message || "";
     return String(e);

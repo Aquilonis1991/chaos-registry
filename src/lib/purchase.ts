@@ -8,10 +8,10 @@ export const PRODUCT_ID_MAP: Record<number, {
   tokens: number;
   bonus: number;
 }> = {
-  1: { android: 'token_pack_small', ios: 'token_pack_small', tokens: 100, bonus: 0 },
-  2: { android: 'token_pack_medium', ios: 'token_pack_medium', tokens: 575, bonus: 0 },
-  3: { android: 'token_pack_large', ios: 'token_pack_large', tokens: 1150, bonus: 0 },
-  4: { android: 'token_pack_xlarge', ios: 'token_pack_xlarge', tokens: 3600, bonus: 0 },
+  1: { android: 'token_pack_small', ios: 'token_pack_30', tokens: 100, bonus: 0 },
+  2: { android: 'token_pack_medium', ios: 'token_pack_150', tokens: 600, bonus: 0 },
+  3: { android: 'token_pack_large', ios: 'token_pack_290', tokens: 1300, bonus: 0 },
+  4: { android: 'token_pack_xlarge', ios: 'token_pack_790', tokens: 4000, bonus: 0 },
 };
 
 // 購買服務單例
@@ -99,6 +99,41 @@ class PurchaseService {
       // 更新產品信息
       await this.store.update();
       console.log('[Purchase] Products updated');
+
+      // 處理 pending transactions（iOS：避免已購買的產品不會再彈出 Apple Pay）
+      if (platform === 'ios') {
+        try {
+          // 監聽所有 approved transactions（包括之前未完成的）
+          this.store.when().approved((transaction: any) => {
+            const txProductId = transaction.products?.[0]?.id;
+            console.log('[Purchase] Found pending approved transaction:', {
+              productId: txProductId,
+              transactionId: transaction.transactionId,
+            });
+            
+            // 對於 pending transactions，如果已經超過 5 分鐘，直接 finish（避免卡住）
+            // 注意：這裡不進行驗證，因為可能是舊的、已經驗證過的交易
+            // 真正的驗證應該在用戶主動購買時進行
+            const purchaseDate = transaction.purchaseDate ? new Date(transaction.purchaseDate) : null;
+            if (purchaseDate) {
+              const ageMinutes = (Date.now() - purchaseDate.getTime()) / (1000 * 60);
+              if (ageMinutes > 5) {
+                console.log('[Purchase] Finishing old pending transaction (older than 5 minutes):', txProductId);
+                transaction.finish().catch((e: any) => {
+                  console.warn('[Purchase] Failed to finish old transaction:', e);
+                });
+                return;
+              }
+            }
+            
+            // 對於較新的 pending transactions，記錄但不自動處理
+            // 讓用戶主動購買時再處理（會觸發新的 approved 事件）
+            console.log('[Purchase] Pending transaction found, will be handled on next purchase attempt');
+          });
+        } catch (e) {
+          console.warn('[Purchase] Failed to set up pending transaction handler:', e);
+        }
+      }
 
       // 設置全局錯誤處理
       this.store.error((error: any) => {

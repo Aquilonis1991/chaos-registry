@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>ChaosRegistry</string>
+	<string>ChaosRegistry</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -18,10 +18,36 @@
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>votechaos</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>votechaos</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>supabase.co</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -45,45 +71,5 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-
-	<!-- Deep Link：votechaos://auth/callback（第三方登入回調） -->
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLName</key>
-			<string>votechaos</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>votechaos</string>
-			</array>
-		</dict>
-	</array>
-	
-	<!-- AdMob App ID（測試用）-->
-	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-3940256099942544~1458002511</string>
-	
-	<!-- 追蹤權限（iOS 14.5+ 需要，用於 AdMob）-->
-	<key>NSUserTrackingUsageDescription</key>
-	<string>為了提供個性化廣告體驗，我們需要您的授權</string>
-	
-	<!-- 允許 Supabase HTTPS 連接 -->
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<false/>
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>supabase.co</key>
-			<dict>
-				<key>NSIncludesSubdomains</key>
-				<true/>
-			</dict>
-		</dict>
-	</dict>
-	
-	<!-- 生產環境請替換為您的實際 AdMob App ID -->
-	<!-- <key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-YOUR_ACTUAL_APP_ID~YOUR_ACTUAL_ID</string> -->
 </dict>
 </plist>

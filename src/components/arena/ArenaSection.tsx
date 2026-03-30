@@ -474,8 +474,8 @@ export function ArenaSection({
       const approverName = (
         m.recycled_approver_name_snapshot &&
         m.recycled_approver_name_snapshot.trim()
-      ) || lastDownvoterNames[String(m.id)] || getText("arena.finalApproverSystem", "系統自動回收");
-      const secondLine = getText("arena.finalApproverLabel", "最終核定員：{{name}}").replace("{{name}}", approverName);
+      ) || lastDownvoterNames[String(m.id)] || getText("arena.signature.approverNone", "系統自動回收");
+      const secondLine = getText("arena.signature.approver", "最終核定員：{{name}}").replace("{{name}}", approverName);
       const stampApproved = getText("arena.signatureApproved", "已核定");
       const isOwner = userId === m.user_id;
       return (

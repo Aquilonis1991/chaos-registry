@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { recoverAndroidPendingPurchasesOnLogin } from '@/lib/purchaseRecovery';
 
 interface AuthContextType {
   user: User | null;
@@ -43,6 +44,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // 使用 ref 來追蹤組件是否已卸載，避免在已卸載的組件上設置狀態
     let isMounted = true;
+    let recoveryAttemptSeq = 0;
+    const recoveryRetryTimers: ReturnType<typeof setTimeout>[] = [];
+
+    const clearRecoveryRetryTimers = () => {
+      while (recoveryRetryTimers.length > 0) {
+        const t = recoveryRetryTimers.pop();
+        if (t) clearTimeout(t);
+      }
+    };
+
+    const schedulePurchaseRecoveryRetries = () => {
+      recoveryAttemptSeq += 1;
+      const runId = recoveryAttemptSeq;
+      clearRecoveryRetryTimers();
+      const retryDelaysMs = [0, 5000, 20000];
+      retryDelaysMs.forEach((delay) => {
+        const timer = setTimeout(() => {
+          // 若有較新的登入事件，舊排程不再執行
+          if (runId !== recoveryAttemptSeq) return;
+          void recoverAndroidPendingPurchasesOnLogin();
+        }, delay);
+        recoveryRetryTimers.push(timer);
+      });
+    };
 
     // 安全超時機制（修復閉包問題：直接設置狀態，不檢查 loading）
     const timeoutTimer = setTimeout(() => {
@@ -95,7 +120,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
           // 注意：這裡不要在登入事件自動更新 profiles 欄位。
           // 每日簽到必須只由任務頁「立即簽到」按鈕觸發 record_daily_login。
+          if (event === 'SIGNED_IN') {
+            schedulePurchaseRecoveryRetries();
+          }
         } else {
+          clearRecoveryRetryTimers();
           // 登出時保持匿名狀態
           const anonId = getOrCreateAnonymousId();
           setAnonymousId(anonId);
@@ -109,6 +138,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     return () => {
       isMounted = false; // 標記組件已卸載
+      clearRecoveryRetryTimers();
       subscription.unsubscribe();
       clearTimeout(timeoutTimer);
     };

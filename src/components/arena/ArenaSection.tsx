@@ -76,8 +76,13 @@ export function ArenaSection({
   /** 回收留言 id → 最後按下斥責者暱稱 */
   const [lastDownvoterNames, setLastDownvoterNames] = useState<Record<string, string>>({});
 
-  const x = getConfig("arena_throne_min_threshold_x", 100) as number;
-  const y = getConfig("arena_elite_min_threshold_y", 50) as number;
+  /** DB value 若為 null / 非數字，不可直接當門檻：`0 >= null` 在 JS 會變成 0>=0 為 true，導致淨贊同 0 仍進「精英」樣式 */
+  const coerceArenaThreshold = (raw: unknown, fallback: number) => {
+    const n = Math.floor(Number(raw));
+    return Number.isFinite(n) && n >= 0 ? n : fallback;
+  };
+  const x = coerceArenaThreshold(getConfig("arena_throne_min_threshold_x", 100), 100);
+  const y = coerceArenaThreshold(getConfig("arena_elite_min_threshold_y", 50), 50);
   const maxLen = getConfig("arena_comment_max_length", 100) as number;
   const shieldPrice = getConfig("arena_shield_price", 100) as number;
   const shieldHours = Number(getConfig("arena_shield_duration_hours", 3)) || 3;
@@ -371,7 +376,8 @@ export function ArenaSection({
     }
   };
 
-  const net = (m: ArenaMessage) => m.upvote_count - m.downvote_count;
+  const net = (m: ArenaMessage) =>
+    (Number(m.upvote_count) || 0) - (Number(m.downvote_count) || 0);
   const isShielded = (m: ArenaMessage) => Boolean(m.shield_until && new Date(m.shield_until) > new Date());
   const shieldRemainingText = (m: ArenaMessage) => {
     if (!m.shield_until) return "";

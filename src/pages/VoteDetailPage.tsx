@@ -145,10 +145,36 @@ const VoteDetailPage = () => {
   const confirmDialogCancelText = getText('vote.detail.confirm.cancel', '取消');
   const confirmDialogConfirmText = getText('vote.detail.confirm.confirm', '確認投入');
 
+  /** PostgREST / Postgres 錯誤常把原因放在 details，僅讀 message 會變成空白或泛用訊息 */
+  const normalizeRpcError = useCallback((e: unknown): string => {
+    if (e == null) return "";
+    if (typeof e === "string") return e.trim();
+    if (typeof e === "object") {
+      const o = e as Record<string, unknown>;
+      const msg = typeof o.message === "string" ? o.message : "";
+      const det = typeof o.details === "string" ? o.details : "";
+      const hint = typeof o.hint === "string" ? o.hint : "";
+      const combined = [msg, det, hint].filter((s) => s && String(s).trim()).join(" ");
+      if (combined.trim()) return combined.trim();
+    }
+    if (e instanceof Error) return e.message || "";
+    return String(e);
+  }, []);
+
   const getInfluenceErrorText = useCallback((raw?: string) => {
     const fallback = getText("topic.influence.actionFailed", "操作失敗");
     const message = String(raw || "").trim();
     if (!message) return fallback;
+
+    if (/Rate limit exceeded|Try again later/i.test(message)) {
+      return getText("topic.influence.error.rateLimit", "請求過於頻繁，請稍後再試");
+    }
+    if (/violates check constraint|token_transactions_transaction_type_check/i.test(message)) {
+      return getText("topic.influence.error.dbConstraint", "資料庫交易類型設定不完整，請聯絡管理員或確認已套用最新遷移");
+    }
+    if (/does not exist|relation .* not found/i.test(message)) {
+      return getText("topic.influence.error.dbMissingRelation", "資料庫缺少必要資料表或函式，請確認已執行遷移");
+    }
 
     if (/Not authenticated/i.test(message)) {
       return getText("topic.influence.error.notAuthenticated", "請先登入");
@@ -205,7 +231,9 @@ const VoteDetailPage = () => {
       return getText("topic.influence.error.userOptionAddLimitReached", "你新增選項的次數已達上限");
     }
 
-    return fallback;
+    return message.length > 0 && message.length < 300
+      ? `${fallback}（${message}）`
+      : fallback;
   }, [getText]);
 
   // Check free vote availability when component mounts（僅依賴 user/id，避免 checkFreeVote 引用變動導致 effect 重複執行、一直顯示讀取中）
@@ -991,8 +1019,9 @@ const VoteDetailPage = () => {
                   await refreshProfile();
                   await refreshStats();
                   console.log("[Influence] extend_topic_duration result:", data);
-                } catch (e: any) {
-                  toast.error(getInfluenceErrorText(e?.message));
+                } catch (e: unknown) {
+                  console.error("[Influence] extend_topic_duration failed:", e);
+                  toast.error(getInfluenceErrorText(normalizeRpcError(e)));
                 } finally {
                   setInfluenceLoading(false);
                 }
@@ -1109,8 +1138,9 @@ const VoteDetailPage = () => {
                   await refreshProfile();
                   await refreshStats();
                   console.log("[Influence] add_topic_option result:", data);
-                } catch (e: any) {
-                  toast.error(getInfluenceErrorText(e?.message));
+                } catch (e: unknown) {
+                  console.error("[Influence] add_topic_option failed:", e);
+                  toast.error(getInfluenceErrorText(normalizeRpcError(e)));
                 } finally {
                   setInfluenceLoading(false);
                 }

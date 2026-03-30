@@ -620,32 +620,6 @@ export type Database = {
           priority: number | null
         }[]
       }
-      redeem_code: {
-        Args: { p_code: string }
-        Returns: Json
-      }
-      admin_list_redeem_codes: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
-      admin_create_redeem_code: {
-        Args: {
-          p_code: string
-          p_token_amount: number
-          p_valid_from: string
-          p_valid_until: string
-          p_max_redemptions?: number | null
-        }
-        Returns: Json
-      }
-      admin_deactivate_redeem_code: {
-        Args: { p_id: string }
-        Returns: Json
-      }
-      admin_delete_redeem_code: {
-        Args: { p_id: string }
-        Returns: Json
-      }
     }
     Enums: {
       [_ in never]: never

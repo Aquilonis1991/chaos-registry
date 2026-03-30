@@ -52,7 +52,6 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { profileUpdateSchema } from "@/lib/validationSchemas";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
-import { RedeemCodeDialog } from "@/components/RedeemCodeDialog";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { ErrorFeedback } from "@/components/ErrorFeedback";
 import { validateNickname, getBannedWordErrorMessage } from "@/lib/bannedWords";
@@ -814,10 +813,6 @@ const ProfilePage = () => {
                 <Separator />
 
                 <ChangePasswordDialog />
-
-                <Separator />
-
-                <RedeemCodeDialog />
 
                 <Separator />
 

@@ -225,37 +225,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 檢查是否已經處理過這個購買（防止重複發放）
-    // 使用 purchaseToken 作為唯一標識（更可靠）
-    // 方法 1: 檢查 purchaseToken 是否已使用
-    // 使用 JSONB 查詢來檢查 metadata 中的 purchaseToken
-    const { data: existingByToken, error: checkError } = await supabaseAdmin
-      .from('token_transactions')
-      .select('id, amount, created_at, metadata')
-      .eq('transaction_type', 'deposit')
-      .eq('metadata->>purchaseToken', purchaseToken)
-      .maybeSingle();
-
-    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
-      console.error('[Google Play] Error checking existing transaction:', checkError);
-    }
-
-    if (existingByToken) {
-      console.warn('[Google Play] Purchase already processed:', purchaseToken);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Purchase already processed',
-          message: '此購買已經處理過，代幣已發放',
-          existingTransaction: {
-            id: existingByToken.id,
-            amount: existingByToken.amount,
-            createdAt: existingByToken.created_at,
-          }
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     // 方法 2: 檢查同一用戶在短時間內是否有相同產品的購買（額外保護）
     // 注意：這只是警告，不阻止購買，因為用戶可能合法地購買多個相同產品
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
@@ -286,48 +255,76 @@ Deno.serve(async (req) => {
       totalTokens = Math.min(totalTokens, minAmount);
       console.log('[Google Play] Basic verification: capping grant to', totalTokens);
     }
-    const { error: tokenError } = await supabaseAdmin.rpc('add_tokens', {
-      user_id: user.id,
-      token_amount: totalTokens,
-    });
+    const { data: processRows, error: processError } = await supabaseAdmin.rpc(
+      'process_google_play_purchase_deposit',
+      {
+        p_user_id: user.id,
+        p_purchase_token: purchaseToken,
+        p_product_id: productId,
+        p_transaction_id: transactionId || null,
+        p_package_name: appPackageName,
+        p_verification_method: verificationMethod,
+        p_purchase_state: Number(purchaseData.purchaseState ?? 0),
+        p_consumption_state: Number(purchaseData.consumptionState ?? 0),
+        p_purchase_time_millis: String(purchaseData.purchaseTimeMillis || Date.now().toString()),
+        p_total_tokens: totalTokens,
+      }
+    );
 
-    if (tokenError) {
-      console.error('Error adding tokens:', tokenError);
+    if (processError) {
+      console.error('Error processing atomic deposit:', processError);
       return new Response(
-        JSON.stringify({ error: 'Failed to add tokens' }),
+        JSON.stringify({ error: 'Failed to process purchase deposit', details: processError.message }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // 記錄交易（包含完整的購買信息）
-    const { error: transactionError } = await supabaseAdmin
-      .from('token_transactions')
-      .insert({
-        user_id: user.id,
-        amount: totalTokens,
-        transaction_type: 'deposit',
-        description: `Google Play 購買 - ${productId}`,
-        metadata: {
-          purchaseToken: purchaseToken,
-          productId: productId,
-          transactionId: transactionId || null,
-          packageName: appPackageName,
-          verificationMethod: verificationMethod,
-          purchaseState: purchaseData.purchaseState,
-          consumptionState: purchaseData.consumptionState || 0,
-          purchaseTimeMillis: purchaseData.purchaseTimeMillis || Date.now().toString(),
-        },
-      });
+    const processRow = Array.isArray(processRows) ? processRows[0] : processRows;
+    const applied = Boolean(processRow?.applied);
+    const finalAmount = Number(processRow?.amount ?? totalTokens);
+    const finalTxId = processRow?.tx_id ?? null;
 
-    if (transactionError) {
-      console.error('Error recording transaction:', transactionError);
-      // 不返回錯誤，因為代幣已經發放
+    if (!applied) {
+      console.warn('[Google Play] Purchase already processed:', purchaseToken);
+      const receiptTitle = '[行政回執] 延遲入帳完成';
+      const receiptContent =
+        `[行政回執] 偵測到一筆未結案的資源撥付。${finalAmount.toLocaleString()} 代幣 已存入您的錢包。`;
+
+      try {
+        await supabaseAdmin.from('notifications').insert({
+          user_id: user.id,
+          type: 'system',
+          title: receiptTitle,
+          content: receiptContent,
+          created_by: null,
+        });
+      } catch (notifyErr) {
+        console.warn('[Google Play] Failed to write administrative receipt notification:', notifyErr);
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          alreadyProcessed: true,
+          tokens: finalAmount,
+          message: '此購買已經處理過，代幣已發放',
+          administrativeReceipt: {
+            title: receiptTitle,
+            content: receiptContent,
+          },
+          existingTransaction: {
+            id: finalTxId,
+            amount: finalAmount,
+          },
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        tokens: totalTokens,
+        tokens: finalAmount,
         message: 'Purchase verified and tokens added'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

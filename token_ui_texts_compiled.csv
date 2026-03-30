@@ -67,3 +67,6 @@ recharge.info.item1,recharge,• 失序值可用於投票、發起主題等功�
 recharge.info.item2,recharge,• 儲值金額越高，贈送失序值越多,,,(Code Default)
 recharge.info.item3,recharge,• 完成每日任務也可免費獲得失序值,,,(Code Default)
 recharge.info.item4,recharge,• 失序值永久有效，不會過期,,,(Code Default)
+recharge.toast.recoveringPending,recharge,偵測到未完成交易，正在補發代幣...,Detecting unfinished purchase, recovering tokens...,未完了の取引を検出しました。トークンを復旧中...,Android 補單流程提示
+recharge.toast.adminReceipt.title,recharge,[行政回執] 延遲入帳完成,[Administrative Receipt] Delayed settlement completed,[管理レシート] 遅延入帳が完了しました,延遲入帳提示標題
+recharge.toast.adminReceipt.descWithAmount,recharge,[行政回執] 偵測到一筆未結案的資源撥付。{{amount}} 代幣 已存入您的錢包。,[Administrative Receipt] An unsettled resource transfer was detected. {{amount}} tokens have been deposited to your wallet.,[管理レシート] 未処理の資源配布を検出しました。{{amount}} トークンがウォレットに入金されました。,延遲入帳提示內容（{{amount}}）

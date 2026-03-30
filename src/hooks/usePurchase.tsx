@@ -450,6 +450,175 @@ export const usePurchase = () => {
         throw new Error(`產品不存在: ${productId}。請確認產品已在 Google Play Console / App Store Connect 中創建。`);
       }
 
+      const extractReceiptString = (tx: any, osPlatform: string): string => {
+        const toStringSafe = (v: any): string => {
+          if (typeof v === 'string') return v;
+          if (!v) return '';
+          if (typeof v === 'object') {
+            const nested =
+              v.appStoreReceipt ??
+              v.receiptData ??
+              v.receipt ??
+              v.data ??
+              v.base64 ??
+              '';
+            if (typeof nested === 'string') return nested;
+          }
+          return '';
+        };
+
+        if (osPlatform === 'ios') {
+          return (
+            toStringSafe(tx.parentReceipt?.appStoreReceipt) ||
+            toStringSafe(tx.appStoreReceipt) ||
+            toStringSafe(tx.parentReceipt?.receiptData) ||
+            toStringSafe(tx.receiptData) ||
+            toStringSafe(tx.parentReceipt?.receipt) ||
+            toStringSafe(tx.receipt) ||
+            ''
+          );
+        }
+
+        return (
+          toStringSafe(tx.parentReceipt?.purchaseToken) ||
+          toStringSafe(tx.purchaseToken) ||
+          toStringSafe(tx.receipt) ||
+          ''
+        );
+      };
+
+      const verifyAndFinalizeTransaction = async (transaction: any) => {
+        let receiptOrToken = extractReceiptString(transaction, platform);
+
+        if (!receiptOrToken && platform === 'ios') {
+          const w = window as any;
+          const CdvPurchase = w?.CdvPurchase;
+          const storeInstance = CdvPurchase?.store ?? store;
+          const adapter = storeInstance?.adapter ?? storeInstance?._adapter;
+          const apple = CdvPurchase?.AppleAppStore ?? CdvPurchase?.AppleAppStoreAdapter ?? null;
+
+          const pick = (v: any): string => (typeof v === 'string' ? v : '');
+          receiptOrToken =
+            pick(storeInstance?.appStoreReceipt) ||
+            pick(storeInstance?.receipt) ||
+            pick(adapter?.appStoreReceipt) ||
+            pick(adapter?.receipt) ||
+            pick(apple?.appStoreReceipt) ||
+            pick(apple?.receipt) ||
+            '';
+        }
+
+        const transactionId =
+          transaction.transactionId ??
+          transaction.parentReceipt?.orderId ??
+          '';
+
+        if (!receiptOrToken) {
+          throw new Error('購買資料不完整，無法驗證');
+        }
+
+        const verifyFunction = platform === 'android'
+          ? 'verify-google-play-purchase'
+          : 'verify-app-store-purchase';
+        const { data, error } = await supabase.functions.invoke(verifyFunction, {
+          body: {
+            ...(platform === 'ios'
+              ? { receiptData: receiptOrToken }
+              : { purchaseToken: receiptOrToken }),
+            transactionId: transactionId || undefined,
+            productId,
+            packageName: 'com.votechaos.app',
+            platform,
+          },
+        });
+
+        if (error) throw error;
+        if (!data?.success) throw new Error(data?.error || '驗證失敗');
+
+        await transaction.finish();
+        if (data?.alreadyProcessed) {
+          const adminReceiptTitle = getText(
+            'recharge.toast.adminReceipt.title',
+            '[行政回執] 延遲入帳完成'
+          );
+          const amountText = Number(data?.tokens || 0).toLocaleString();
+          const adminReceiptDesc = getText(
+            'recharge.toast.adminReceipt.descWithAmount',
+            '[行政回執] 偵測到一筆未結案的資源撥付。{{amount}} 代幣 已存入您的錢包。'
+          ).replace('{{amount}}', amountText);
+          toast.info(
+            adminReceiptTitle,
+            {
+              description:
+                (typeof data?.administrativeReceipt?.content === 'string' &&
+                data.administrativeReceipt.content.trim()
+                  ? data.administrativeReceipt.content
+                  : adminReceiptDesc),
+            }
+          );
+        }
+        const totalTokens =
+          data?.tokens != null
+            ? Number(data.tokens).toLocaleString()
+            : (PRODUCT_ID_MAP[packageId].tokens + PRODUCT_ID_MAP[packageId].bonus).toLocaleString();
+
+        toast.success(
+          getText('recharge.toast.success.title', '購買成功！'),
+          {
+            description: getText('recharge.toast.success.desc', '已獲得 {{amount}} 失序值')
+              .replace('{{amount}}', totalTokens),
+          }
+        );
+
+        setIsRefreshingProfile(true);
+        try {
+          await refreshProfile();
+        } finally {
+          setIsRefreshingProfile(false);
+          setIsProcessing(false);
+        }
+      };
+
+      const recoverOwnedPurchaseIfAny = async () => {
+        if (platform !== 'android') return false;
+        return await new Promise<boolean>(async (resolve) => {
+          let settled = false;
+          const settle = (value: boolean) => {
+            if (settled) return;
+            settled = true;
+            resolve(value);
+          };
+          const timer = setTimeout(() => {
+            store.off(recoverApprovedCallback);
+            settle(false);
+          }, 5000);
+
+          const recoverApprovedCallback = async (transaction: any) => {
+            const txProductId = transaction.products?.[0]?.id;
+            if (txProductId !== productId) return;
+            clearTimeout(timer);
+            store.off(recoverApprovedCallback);
+            try {
+              await verifyAndFinalizeTransaction(transaction);
+              settle(true);
+            } catch (e) {
+              console.error('[Purchase] Recover owned purchase failed:', e);
+              settle(false);
+            }
+          };
+
+          store.when().approved(recoverApprovedCallback);
+          try {
+            await store.update();
+          } catch (e) {
+            console.error('[Purchase] store.update() failed during owned recovery:', e);
+            clearTimeout(timer);
+            store.off(recoverApprovedCallback);
+            settle(false);
+          }
+        });
+      };
+
       // 檢查產品是否可購買
       if (!product.canPurchase) {
         console.warn('[Purchase] Product cannot be purchased:', {
@@ -457,6 +626,12 @@ export const usePurchase = () => {
           state: product.state,
           valid: product.valid,
         });
+        if (platform === 'android' && (product.state === 'owned' || product.state === 'approved')) {
+          toast.info(getText('recharge.toast.recoveringPending', '偵測到未完成交易，正在補發代幣...'));
+          const recovered = await recoverOwnedPurchaseIfAny();
+          if (recovered) return;
+          throw new Error('偵測到既有交易，但補發失敗，請稍後再試');
+        }
         throw new Error('產品目前無法購買，請稍後再試');
       }
 
@@ -475,48 +650,6 @@ export const usePurchase = () => {
           } catch (e) {
             console.warn('[Purchase] store.update() before receipt extraction failed:', e);
           }
-
-          const extractReceiptString = (tx: any, osPlatform: string): string => {
-            const toStringSafe = (v: any): string => {
-              if (typeof v === 'string') return v;
-              if (!v) return '';
-              // 常見：receipt 可能是一個物件，真正的字串在子欄位
-              if (typeof v === 'object') {
-                // iOS 常見欄位猜測（不同版本/平台可能不同）
-                const nested =
-                  v.appStoreReceipt ??
-                  v.receiptData ??
-                  v.receipt ??
-                  v.data ??
-                  v.base64 ??
-                  '';
-                if (typeof nested === 'string') return nested;
-              }
-              return '';
-            };
-
-            if (osPlatform === 'ios') {
-              // iOS：優先嘗試 App Store receipt（base64）
-              return (
-                toStringSafe(tx.parentReceipt?.appStoreReceipt) ||
-                toStringSafe(tx.appStoreReceipt) ||
-                toStringSafe(tx.parentReceipt?.receiptData) ||
-                toStringSafe(tx.receiptData) ||
-                toStringSafe(tx.parentReceipt?.receipt) ||
-                toStringSafe(tx.receipt) ||
-                ''
-              );
-            }
-
-            // Android (v13)：purchaseToken 多半在 transaction.parentReceipt.purchaseToken
-            return (
-              toStringSafe(tx.parentReceipt?.purchaseToken) ||
-              toStringSafe(tx.purchaseToken) ||
-              toStringSafe(tx.receipt) ||
-              ''
-            );
-          };
-
           let receiptOrToken = extractReceiptString(transaction, platform);
 
           // iOS：若 transaction 上仍拿不到，嘗試從 store/adapter 取得全域 App Store receipt
@@ -563,67 +696,7 @@ export const usePurchase = () => {
             transactionId,
             receiptOrToken: receiptOrToken ? `${String(receiptOrToken).slice(0, 20)}...` : '(empty)',
           });
-
-          if (!receiptOrToken) {
-            console.error('[Purchase] No receipt/purchaseToken in transaction:', transaction);
-            throw new Error('購買資料不完整，無法驗證');
-          }
-
-          const verifyFunction = platform === 'android'
-            ? 'verify-google-play-purchase'
-            : 'verify-app-store-purchase';
-
-          console.log(`[Purchase] Verifying purchase on ${platform} via ${verifyFunction}...`);
-
-          const { data, error } = await supabase.functions.invoke(verifyFunction, {
-            body: {
-              // iOS：送 receiptData；Android：仍沿用 purchaseToken（後端兩者都支援，但這樣更明確）
-              ...(platform === 'ios'
-                ? { receiptData: receiptOrToken }
-                : { purchaseToken: receiptOrToken }),
-              transactionId: transactionId || undefined,
-              productId,
-              packageName: 'com.votechaos.app',
-              platform,
-            },
-          });
-
-          if (error) {
-            console.error('[Purchase] Verification error:', error);
-            throw error;
-          }
-
-          if (!data?.success) {
-            throw new Error(data?.error || '驗證失敗');
-          }
-
-          await transaction.finish();
-          console.log('[Purchase] Transaction finished');
-
-          // 顯示數量以後端回傳的 data.tokens 為準（與 recharge_amounts 一致）
-          const totalTokens =
-            data?.tokens != null
-              ? Number(data.tokens).toLocaleString()
-              : (PRODUCT_ID_MAP[packageId].tokens + PRODUCT_ID_MAP[packageId].bonus).toLocaleString();
-
-          toast.success(
-            getText('recharge.toast.success.title', '購買成功！'),
-            {
-              description: getText('recharge.toast.success.desc', '已獲得 {{amount}} 失序值')
-                .replace('{{amount}}', totalTokens),
-            }
-          );
-
-          // 在代幣刷新前顯示遮罩
-          // 確保 isProcessing 保持為 true，直到 refreshProfile 完成
-          setIsRefreshingProfile(true);
-          try {
-            await refreshProfile();
-          } finally {
-            setIsRefreshingProfile(false);
-            // 在 refreshProfile 完成後才設置 isProcessing = false
-            setIsProcessing(false);
-          }
+          await verifyAndFinalizeTransaction(transaction);
         } catch (err: any) {
           console.error('[Purchase] Verification failed:', err);
           toast.error(
@@ -668,6 +741,8 @@ export const usePurchase = () => {
         setIsProcessing(false);
         return;
       } else if (error.code === 'ITEM_ALREADY_OWNED' || error.message?.includes('already owned')) {
+        const recovered = await recoverOwnedPurchaseIfAny();
+        if (recovered) return;
         errorMessage = getText('recharge.toast.alreadyOwned', '您已經擁有此產品');
       } else if (error.code === 'ITEM_UNAVAILABLE' || error.message?.includes('unavailable')) {
         errorMessage = getText('recharge.toast.unavailable', '產品目前無法購買');

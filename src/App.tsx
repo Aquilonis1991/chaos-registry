@@ -40,6 +40,7 @@ import { ErrorLogger } from "@/lib/errorLogger";
 import { isNative } from "@/lib/capacitor";
 import { OAuthCallbackHandler } from "@/components/OAuthCallbackHandler";
 import { ForceUpdateGate } from "@/components/ForceUpdateGate";
+import { PurchaseRecoveryToastGate } from "@/components/PurchaseRecoveryToastGate";
 import { App as CapacitorApp } from '@capacitor/app';
 import { useEffect } from "react";
 
@@ -69,6 +70,7 @@ const App = () => (
             <TooltipProvider>
               <Toaster />
               <Sonner />
+              <PurchaseRecoveryToastGate />
               <ForceUpdateGate>
               <BrowserRouter>
                 <BackButtonHandler />

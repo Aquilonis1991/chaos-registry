@@ -30,6 +30,18 @@ class PurchaseService {
   }
 
   /**
+   * 等待插件注入（Capacitor + Cordova 環境下有時會晚於頁面初始化）
+   */
+  private async waitForCdvPurchase(maxAttempts = 20, delayMs = 250): Promise<any> {
+    for (let i = 0; i < maxAttempts; i++) {
+      const plugin = this.getCdvPurchase();
+      if (plugin?.store) return plugin;
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+    return this.getCdvPurchase();
+  }
+
+  /**
    * 初始化購買服務
    * 根本原因：cordova-plugin-purchase v13 暴露的是 CdvPurchase.store（單例實例），
    * 插件在 Cordova 下用 setTimeout(initCDVPurchase, 0) 建立該實例，故需使用 store 而非 Store 類別。
@@ -46,7 +58,7 @@ class PurchaseService {
     }
 
     try {
-      const CdvPurchase = this.getCdvPurchase();
+      const CdvPurchase = await this.waitForCdvPurchase();
       if (!CdvPurchase) {
         console.warn('[Purchase] cordova-plugin-purchase (CdvPurchase) not found');
         return false;
@@ -174,6 +186,59 @@ class PurchaseService {
       return null;
     }
     return this.store.get(productId);
+  }
+
+  /**
+   * 確保產品已註冊並盡力從商店載入（解決 Google Play 首次 query 延遲導致 store.get 為空）
+   */
+  async getProductAfterRefresh(productId: string): Promise<any | null> {
+    if (!this.store) {
+      return null;
+    }
+    const CdvPurchase = this.getCdvPurchase();
+    if (!CdvPurchase?.ProductType || !CdvPurchase?.Platform) {
+      return this.store.get(productId);
+    }
+    const platform = getPlatform();
+    const storePlatform =
+      platform === 'ios' ? CdvPurchase.Platform.APPLE_APPSTORE : CdvPurchase.Platform.GOOGLE_PLAY;
+
+    if (!this.store.get(productId)) {
+      this.store.register({
+        id: productId,
+        type: CdvPurchase.ProductType.CONSUMABLE,
+        platform: storePlatform,
+      });
+      console.log('[Purchase] Late-registered product:', productId);
+    }
+
+    const maxAttempts = platform === 'android' ? 25 : 15;
+    const delayMs = platform === 'android' ? 200 : 150;
+
+    for (let i = 0; i < maxAttempts; i++) {
+      try {
+        await this.store.update();
+      } catch (e) {
+        console.warn('[Purchase] store.update() attempt', i + 1, e);
+      }
+      const p = this.store.get(productId);
+      if (p) {
+        console.log('[Purchase] Product loaded:', productId, {
+          attempt: i + 1,
+          state: p.state,
+          valid: p.valid,
+          canPurchase: p.canPurchase,
+        });
+        return p;
+      }
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+
+    const last = this.store.get(productId);
+    if (!last) {
+      console.warn('[Purchase] Product still missing after refresh attempts:', productId);
+    }
+    return last ?? null;
   }
 
   /**

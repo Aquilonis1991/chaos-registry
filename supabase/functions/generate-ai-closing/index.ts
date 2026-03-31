@@ -145,6 +145,7 @@ Deno.serve(async (req) => {
     // 5. Build AI input（確保含 topic_title, options 含 votes, winning_percentage 等供 user prompt 使用）
     const aiInput = {
       topic_title: topicRow.title,
+      topic_description: topicRow.description ?? "",
       options: optList.map((o) => ({ id: o.optionId, name: o.name, votes: o.votes })),
       options_votes: optList.map((o) => ({ id: o.optionId, name: o.name, votes: o.votes })),
       total_votes: totalVotes,
@@ -217,6 +218,9 @@ Deno.serve(async (req) => {
     // 先把 system_config 的 {{var}} 模板替換成實際值，避免 AI 只看到佔位符
     const templateVars: Record<string, string> = {
       topic_title: String(aiInput.topic_title ?? ""),
+      // 相容舊版 prompt 變數命名（snake_case / camelCase）
+      topic_description: String(aiInput.topic_description ?? ""),
+      topicDescription: String(aiInput.topic_description ?? ""),
       winning_option: String(aiInput.winning_option ?? ""),
       winning_percentage: String(aiInput.winning_percentage ?? "0"),
       vote_gap_percentage: String(aiInput.vote_gap_percentage ?? "0"),

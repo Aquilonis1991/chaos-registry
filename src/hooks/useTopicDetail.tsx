@@ -95,7 +95,13 @@ export const useTopicDetail = (topicId: string | undefined) => {
       console.error('Error fetching topic detail:', err);
       setError(err.message || '獲取主題詳情失敗');
       toast.error('載入主題失敗');
+      if (fetchForTopicIdRef.current === thisFetchId) {
+        setSummaryClosingLoading(false);
+      }
     } finally {
+      if (fetchForTopicIdRef.current === thisFetchId) {
+        setSummaryClosingLoading(false);
+      }
       setLoading(false);
     }
   };

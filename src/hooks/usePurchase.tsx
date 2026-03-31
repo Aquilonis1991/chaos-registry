@@ -90,8 +90,8 @@ export const usePurchase = () => {
           throw new Error('購買服務未初始化');
         }
 
-        // 獲取產品
-        const product = store.get(productId);
+        // 獲取產品（含多次 store.update，避免商店尚未回傳 SKU）
+        const product = await purchaseService.getProductAfterRefresh(productId);
         if (!product) {
           throw new Error(`產品不存在: ${productId}。請確認產品已在 App Store Connect 中創建。`);
         }
@@ -443,10 +443,16 @@ export const usePurchase = () => {
         throw new Error('購買服務未初始化');
       }
 
-      // 獲取產品
-      const product = store.get(productId);
+      // 獲取產品（含多次 store.update；Android 首次查詢常需等待 Play 回傳）
+      const product = await purchaseService.getProductAfterRefresh(productId);
       if (!product) {
-        throw new Error(`產品不存在: ${productId}。請確認產品已在 Google Play Console / App Store Connect 中創建。`);
+        const hint =
+          platform === 'android'
+            ? ` 請在 Google Play Console 確認「應用程式內商品」SKU 為 ${productId}、狀態為啟用，且套件名稱與本 App 一致（含 debug 變體）；測試帳號需加入授權測試人員。`
+            : '';
+        throw new Error(
+          `產品不存在: ${productId}。請確認產品已在 Google Play Console / App Store Connect 中創建。${hint}`
+        );
       }
 
       const extractReceiptString = (tx: any, osPlatform: string): string => {

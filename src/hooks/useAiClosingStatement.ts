@@ -28,6 +28,26 @@ type RawRow = {
   created_at: string;
 };
 
+const parseInvokeErrorMessage = async (err: any): Promise<string> => {
+  if (!err) return "Unknown error";
+  const direct = err?.message || err?.error_description || err?.details;
+  if (typeof direct === "string" && direct.trim() && !/non-2xx/i.test(direct)) {
+    return direct;
+  }
+  try {
+    const context = err?.context;
+    if (context && typeof context.json === "function") {
+      const body = await context.json();
+      const fromBody = body?.error || body?.message || body?.details || body?.msg;
+      if (typeof fromBody === "string" && fromBody.trim()) return fromBody;
+    }
+  } catch {
+    // ignore parse errors
+  }
+  if (typeof direct === "string" && direct.trim()) return direct;
+  return "Edge function request failed";
+};
+
 /** 依 UI 語言選出要顯示的結語內文（三語欄位優先，無則 fallback content） */
 function resolveContentByLanguage(row: RawRow, lang: BaseLanguage): string {
   const r = row as Record<string, unknown>;
@@ -133,8 +153,9 @@ export const useAiClosingStatement = (
         method: "POST",
       });
       if (invokeErr) {
-        setError(invokeErr.message);
-        return { success: false, generated: false, error: invokeErr.message };
+        const msg = await parseInvokeErrorMessage(invokeErr);
+        setError(msg);
+        return { success: false, generated: false, error: msg };
       }
       if (data?.error) {
         setError(data.error);

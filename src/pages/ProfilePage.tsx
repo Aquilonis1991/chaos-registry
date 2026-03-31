@@ -114,38 +114,15 @@ const ProfilePage = () => {
   useEffect(() => {
     if (user?.id) {
       const fetchAssessment = async () => {
-        // Calculate Start of Current Week (Monday 00:00 Taiwan Time)
-        const now = new Date();
-        const taiwanOffset = 8 * 60; // UTC+8 in minutes
-        // Get current time in Taiwan
-        const taiwanTime = new Date(now.getTime() + (now.getTimezoneOffset() + taiwanOffset) * 60000);
+        const { data, error } = await supabase.rpc('get_weekly_assessment_status');
+        if (error) throw error;
 
-        const dayOfWeek = taiwanTime.getDay(); // 0 (Sun) - 6 (Sat)
-        // Calculate days to subtract to get to Monday (Monday=0 in our logic for calculation)
-        // If Sun(0), subtract 6 days. If Mon(1), subtract 0. If Tue(2), subtract 1...
-        const daysSinceMonday = (dayOfWeek + 6) % 7;
-
-        taiwanTime.setHours(0, 0, 0, 0);
-        const startOfWeekTaiwan = new Date(taiwanTime.getTime() - daysSinceMonday * 24 * 60 * 60 * 1000);
-
-        // Convert back to UTC to compare with DB created_at (which is UTC)
-        const startOfWeekUTC = new Date(startOfWeekTaiwan.getTime() - (taiwanOffset * 60000));
-
-        const { data, error } = await (supabase as any)
-          .from('user_assessments')
-          .select('title, description, created_at')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (data) {
-          setAssessmentResult({ title: data.title, description: data.description });
-          if (new Date(data.created_at) > startOfWeekUTC) {
-            setWeeklyAssessmentDone(true);
-          } else {
-            setWeeklyAssessmentDone(false);
-          }
+        const row = Array.isArray(data) ? data[0] : null;
+        if (row?.title && row?.description) {
+          setAssessmentResult({ title: row.title, description: row.description });
+          setWeeklyAssessmentDone(Boolean(row.done));
+        } else {
+          setWeeklyAssessmentDone(false);
         }
       };
       fetchAssessment();

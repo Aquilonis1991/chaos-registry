@@ -182,22 +182,14 @@ const NotificationsPage = () => {
 
   const markAsRead = async (notificationId: string) => {
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({
-          is_read: true,
-          read_at: new Date().toISOString(),
-        })
-        .eq('id', notificationId)
-        .eq('user_id', user?.id);
+      const { error } = await supabase.rpc('mark_notification_read', {
+        p_notification_id: notificationId,
+      });
 
       if (error) throw error;
 
-      setNotifications((prev) =>
-        prev.map((n) =>
-          n.id === notificationId ? { ...n, is_read: true, read_at: new Date().toISOString() } : n
-        )
-      );
+      // 重新讀取，確保 read_at 來自伺服器時間
+      await fetchNotifications();
     } catch (error: any) {
       console.error("Mark as read error:", error);
       toast.error(toastMarkError);
@@ -212,14 +204,8 @@ const NotificationsPage = () => {
 
       if (error) throw error;
 
-      // 只更新非客服回覆的通知（客服回覆有獨立的標籤頁）
-      setNotifications((prev) =>
-        prev.map((n) =>
-          n.type !== 'contact'
-            ? { ...n, is_read: true, read_at: new Date().toISOString() }
-            : n
-        )
-      );
+      // 重新讀取，確保 read_at 來自伺服器時間
+      await fetchNotifications();
       toast.success(toastMarkAllSuccess);
     } catch (error: any) {
       console.error("Mark all as read error:", error);

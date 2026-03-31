@@ -83,6 +83,8 @@ async function verifyTransactionWithServerAPI(transactionId: string, productId: 
   productId?: string;
   purchaseDate?: number;
   environment?: string;
+  transactionId?: string;
+  originalTransactionId?: string;
   error?: string;
 }> {
   try {
@@ -160,6 +162,8 @@ async function verifyTransactionWithServerAPI(transactionId: string, productId: 
         productId: payload?.productId,
         purchaseDate: payload?.purchaseDate,
         environment: payload?.environment || (host.includes('sandbox') ? 'Sandbox' : 'Production'),
+        transactionId: payload?.transactionId,
+        originalTransactionId: payload?.originalTransactionId,
       };
     }
 
@@ -392,58 +396,49 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 檢查是否已經處理過這個購買（防止重複發放）
-    const transactionIdentifier = transactionId || `product_${productId}_${Date.now()}`;
-    const { data: existingTransaction } = await supabaseAdmin
-      .from('token_transactions')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('transaction_type', 'deposit')
-      .eq('description', `App Store 購買 - ${productId}${transactionId ? ` (${transactionId})` : ''}`)
-      .single();
-
-    if (existingTransaction) {
+    // iOS 原子入帳（使用 transactionId 去重）
+    const effectiveTransactionId = transactionId || (verificationResult as any)?.transactionId;
+    const originalTransactionId = (verificationResult as any)?.originalTransactionId ?? null;
+    if (!effectiveTransactionId) {
       return new Response(
-        JSON.stringify({ error: 'Purchase already processed' }),
+        JSON.stringify({ error: 'Missing transactionId for atomic deposit' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // 發放代幣
     const totalTokens = productInfo.tokens + productInfo.bonus;
-    const { error: tokenError } = await supabaseAdmin.rpc('add_tokens', {
-      user_id: user.id,
-      token_amount: totalTokens,
+    const { data: depositResult, error: depositError } = await supabaseAdmin.rpc('process_app_store_purchase_deposit', {
+      p_user_id: user.id,
+      p_transaction_id: effectiveTransactionId,
+      p_product_id: productId,
+      p_amount: totalTokens,
+      p_original_transaction_id: originalTransactionId,
+      p_metadata: {
+        verificationMethod: transactionId ? 'App Store Server API' : 'Legacy VerifyReceipt API',
+      },
     });
 
-    if (tokenError) {
-      console.error('Error adding tokens:', tokenError);
+    if (depositError) {
+      console.error('[Verify] Atomic deposit failed:', depositError);
       return new Response(
-        JSON.stringify({ error: 'Failed to add tokens', details: tokenError, message: tokenError.message }),
+        JSON.stringify({ error: 'Failed to process atomic deposit', details: depositError, message: depositError.message }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // 記錄交易
-    const { error: transactionError } = await supabaseAdmin
-      .from('token_transactions')
-      .insert({
-        user_id: user.id,
-        amount: totalTokens,
-        transaction_type: 'deposit',
-        description: `App Store 購買 - ${productId}${transactionId ? ` (${transactionId})` : ''}`,
-      });
-
-    if (transactionError) {
-      console.error('Error recording transaction:', transactionError);
-      // 不返回錯誤，因為代幣已經發放
-    }
+    const applied = Array.isArray(depositResult) ? Boolean(depositResult[0]?.applied) : false;
+    const alreadyProcessed = Array.isArray(depositResult) ? Boolean(depositResult[0]?.already_processed) : false;
+    const txId = Array.isArray(depositResult) ? depositResult[0]?.tx_id ?? null : null;
 
     return new Response(
       JSON.stringify({
         success: true,
         tokens: totalTokens,
-        message: 'Purchase verified and tokens added',
+        applied,
+        alreadyProcessed,
+        txId,
+        transactionId: effectiveTransactionId,
+        message: applied ? 'Purchase verified and tokens added' : 'Purchase already processed',
         verificationMethod: transactionId ? 'App Store Server API' : 'Legacy VerifyReceipt API',
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

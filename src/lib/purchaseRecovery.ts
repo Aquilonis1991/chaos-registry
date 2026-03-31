@@ -1,6 +1,7 @@
 import { isNative, getPlatform } from "@/lib/capacitor";
 import { supabase } from "@/integrations/supabase/client";
 import { purchaseService, PRODUCT_ID_MAP } from "@/lib/purchase";
+export const RECOVERY_RECEIPT_STORAGE_KEY = "purchase_recovery_receipt";
 
 const ANDROID_PRODUCT_IDS = new Set(Object.values(PRODUCT_ID_MAP).map((p) => p.android));
 
@@ -96,7 +97,21 @@ export async function recoverAndroidPendingPurchasesOnLogin(): Promise<number> {
       recoveredTokens += Number(data?.tokens || 0);
     }
 
-    // 登入階段只做補單；提示文案由購買流程/通知頁處理，避免硬編碼 UI 文字。
+    // 登入補單成功時先寫入待顯示回執，交由 UI 就緒後統一彈窗（避免 Auth 初始化期看不到）。
+    if (recoveredCount > 0) {
+      try {
+        const payload = {
+          title: "[行政回執] 延遲入帳完成",
+          description: `[行政回執] 偵測到一筆未結案的資源撥付。${recoveredTokens.toLocaleString()} 代幣 已存入您的錢包。`,
+          ts: Date.now(),
+        };
+        localStorage.setItem(RECOVERY_RECEIPT_STORAGE_KEY, JSON.stringify(payload));
+        window.dispatchEvent(new CustomEvent("purchase-recovery-receipt-ready"));
+      } catch (e) {
+        console.warn("[PurchaseRecovery] failed to persist recovery receipt payload:", e);
+      }
+    }
+
     return recoveredCount;
   } catch (e) {
     console.warn("[PurchaseRecovery] login recovery failed:", e);

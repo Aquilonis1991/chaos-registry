@@ -156,6 +156,57 @@ const MissionPage = () => {
       : Number(missionConfigs.streak30RepeatReward) || 500;
 
     const templates = [
+      // === 每日任務 ===
+      {
+        id: "6",
+        name: "每日投票（1票）",
+        description: "今日累積投票 1 票",
+        condition: "今日投票 1 票",
+        reward: dailyVote1Reward,
+        target: 1,
+      },
+      {
+        id: "7",
+        name: "每日投票（5票）",
+        description: "今日累積投票 5 票",
+        condition: "今日投票 5 票",
+        reward: dailyVote5Reward,
+        target: 5,
+      },
+      {
+        id: "8",
+        name: "每日投票（10票）",
+        description: "今日累積投票 10 票",
+        condition: "今日投票 10 票",
+        reward: dailyVote10Reward,
+        target: 10,
+      },
+      // === 可重複完成簽到 ===
+      {
+        id: "9",
+        name: "連續簽到 7 天",
+        description: "當前連續簽到達 7 天（可重複）",
+        condition: "連續簽到 7 天",
+        reward: streak7RepeatReward,
+        target: 7,
+      },
+      {
+        id: "10",
+        name: "連續簽到 14 天",
+        description: "當前連續簽到達 14 天（可重複）",
+        condition: "連續簽到 14 天",
+        reward: streak14RepeatReward,
+        target: 14,
+      },
+      {
+        id: "11",
+        name: "連續簽到 30 天",
+        description: "當前連續簽到達 30 天（可重複）",
+        condition: "連續簽到 30 天",
+        reward: streak30RepeatReward,
+        target: 30,
+      },
+      // === 單次任務 ===
       {
         id: "1",
         name: "新手上路",
@@ -195,54 +246,6 @@ const MissionPage = () => {
         condition: "修改暱稱 1 次",
         reward: nicknameEditReward,
         target: 1,
-      },
-      {
-        id: "6",
-        name: "每日投票（1票）",
-        description: "今日累積投票 1 票",
-        condition: "今日投票 1 票",
-        reward: dailyVote1Reward,
-        target: 1,
-      },
-      {
-        id: "7",
-        name: "每日投票（5票）",
-        description: "今日累積投票 5 票",
-        condition: "今日投票 5 票",
-        reward: dailyVote5Reward,
-        target: 5,
-      },
-      {
-        id: "8",
-        name: "每日投票（10票）",
-        description: "今日累積投票 10 票",
-        condition: "今日投票 10 票",
-        reward: dailyVote10Reward,
-        target: 10,
-      },
-      {
-        id: "9",
-        name: "連續簽到 7 天",
-        description: "當前連續簽到達 7 天（可重複）",
-        condition: "連續簽到 7 天",
-        reward: streak7RepeatReward,
-        target: 7,
-      },
-      {
-        id: "10",
-        name: "連續簽到 14 天",
-        description: "當前連續簽到達 14 天（可重複）",
-        condition: "連續簽到 14 天",
-        reward: streak14RepeatReward,
-        target: 14,
-      },
-      {
-        id: "11",
-        name: "連續簽到 30 天",
-        description: "當前連續簽到達 30 天（可重複）",
-        condition: "連續簽到 30 天",
-        reward: streak30RepeatReward,
-        target: 30,
       },
     ];
 

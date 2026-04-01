@@ -41,6 +41,7 @@ import { isPromptConfigError, getPromptConfigKeyFromError } from "@/lib/promptCo
 import { PromptNotConfiguredDialog } from "@/components/PromptNotConfiguredDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { ArenaSection } from "@/components/arena/ArenaSection";
+import { useServerTime } from "@/contexts/ServerTimeContext";
 
 const VoteDetailPage = () => {
   const { id } = useParams();
@@ -48,6 +49,7 @@ const VoteDetailPage = () => {
   const { profile, loading: profileLoading, refreshProfile } = useProfile();
   const { user, isAnonymous } = useAuth();
   const { castVote, castFreeVote, checkFreeVoteAvailable } = useVoteOperations();
+  const { getNow, getNowMs } = useServerTime();
   const { topic, closingInitial, loading: topicLoading, summaryClosingLoading, refreshTopic } = useTopicDetail(id);
   const { refreshStats } = useUserStats(user?.id);
   const { language } = useLanguage();
@@ -59,7 +61,9 @@ const VoteDetailPage = () => {
   const { statement: aiClosing, isLoading: aiClosingLoading, isGenerating: aiClosingGenerating, hasFetched: aiClosingHasFetched, triggerGenerate: triggerAiClosing } = useAiClosingStatement(topic, closingDisplayLang, closingInitial, summaryClosingLoading);
   const [promptConfigDialogOpen, setPromptConfigDialogOpen] = useState(false);
   const [promptConfigKey, setPromptConfigKey] = useState<string | null>(null);
-  const isTopicEnded = topic ? (topic.status === 'ended' || new Date(topic.end_at || 0) <= new Date()) : false;
+  const isTopicEnded = topic
+    ? topic.status === "ended" || new Date(topic.end_at || 0) <= getNow()
+    : false;
   /** 已自動觸發過產生結語的 topic id 集合（避免重複呼叫） */
   const autoClosingTriggeredRef = useRef<Set<string>>(new Set());
 
@@ -461,8 +465,9 @@ const VoteDetailPage = () => {
   }
 
   const totalVotes = topic.total_votes || 0;
-  const createdAtLabel = formatRelativeTime(new Date(topic.created_at), getText);
-  const remainingTimeLabel = formatRemainingTime(new Date(topic.end_at), getText);
+  const nowMs = getNowMs();
+  const createdAtLabel = formatRelativeTime(new Date(topic.created_at), getText, nowMs);
+  const remainingTimeLabel = formatRemainingTime(new Date(topic.end_at), getText, nowMs);
   const isCreator = Boolean(user && topic.creator_id === user.id);
 
   return (

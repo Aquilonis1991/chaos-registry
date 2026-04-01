@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
+import { playTokenAmountHaptic } from "@/lib/tokenHaptics";
 
 // 任務映射：前端任務 ID -> 數據庫任務 ID
 const MISSION_ID_MAP: Record<string, string> = {
@@ -23,6 +24,12 @@ const MISSION_ID_MAP: Record<string, string> = {
   "3": "topic_creator",   // 話題創造者
   "4": "login_7days",     // 7天登入
   "5": "nickname_editor", // 修改暱稱
+  "6": "daily_vote_1",    // 每日投票 1 票
+  "7": "daily_vote_5",    // 每日投票 5 票
+  "8": "daily_vote_10",   // 每日投票 10 票
+  "9": "streak_7_repeat",   // 連續簽到 7 天（可重複）
+  "10": "streak_14_repeat", // 連續簽到 14 天（可重複）
+  "11": "streak_30_repeat", // 連續簽到 30 天（可重複）
 };
 
 interface LoginStreakInfo {
@@ -32,6 +39,18 @@ interface LoginStreakInfo {
   can_claim_today: boolean;
   streak_reward_available: boolean;
 }
+
+const getTaipeiDateKey = (date = new Date()): string => {
+  const shifted = new Date(date.getTime() + (8 * 60 + date.getTimezoneOffset()) * 60_000);
+  return shifted.toISOString().slice(0, 10);
+};
+
+const getStreakCycleStartDateKey = (streak: number): string => {
+  const safeStreak = Math.max(1, Math.floor(streak || 1));
+  const now = new Date();
+  const cycleStart = new Date(now.getTime() - (safeStreak - 1) * 24 * 60 * 60 * 1000);
+  return getTaipeiDateKey(cycleStart);
+};
 
 const MissionPage = () => {
   const navigate = useNavigate();
@@ -47,9 +66,10 @@ const MissionPage = () => {
   const [loginStreakInfo, setLoginStreakInfo] = useState<LoginStreakInfo | null>(null);
   const [displayedStreak, setDisplayedStreak] = useState(0);
   const [loadingStreak, setLoadingStreak] = useState(true);
-  const [userMissions, setUserMissions] = useState<Record<string, { completed: boolean; completed_at: string | null; progress?: number | null }>>({});
+  const [userMissions, setUserMissions] = useState<Record<string, { completed: boolean; completed_at: string | null; last_completed_date?: string | null; progress?: number | null }>>({});
   const [loadingMissions, setLoadingMissions] = useState(true);
   const [claimingMissionId, setClaimingMissionId] = useState<string | null>(null);
+  const [dailyVoteCount, setDailyVoteCount] = useState(0);
   // 追蹤最近一次顯示的 toast，避免重複顯示
   const lastToastRef = useRef<{ type: string; timestamp: number } | null>(null);
 
@@ -69,6 +89,12 @@ const MissionPage = () => {
       watchAdReward: configs['mission_watch_ad_reward'] ?? 5,
       watchAdLimit: configs['mission_watch_ad_limit'] ?? 10,
       dailyLoginReward: configs['mission_daily_login_reward'] ?? 3,
+      dailyVote1Reward: configs['mission_daily_vote_1_reward'] ?? 3,
+      dailyVote5Reward: configs['mission_daily_vote_5_reward'] ?? 5,
+      dailyVote10Reward: configs['mission_daily_vote_10_reward'] ?? 10,
+      streak7RepeatReward: configs['mission_streak_7_reward'] ?? 80,
+      streak14RepeatReward: configs['mission_streak_14_reward'] ?? 200,
+      streak30RepeatReward: configs['mission_streak_30_reward'] ?? 500,
     };
 
     // 調試日誌：檢查觀看廣告獎勵配置
@@ -110,6 +136,24 @@ const MissionPage = () => {
     const nicknameEditReward = typeof missionConfigs.nicknameEditReward === 'number'
       ? missionConfigs.nicknameEditReward
       : Number(missionConfigs.nicknameEditReward) || 20;
+    const dailyVote1Reward = typeof missionConfigs.dailyVote1Reward === 'number'
+      ? missionConfigs.dailyVote1Reward
+      : Number(missionConfigs.dailyVote1Reward) || 3;
+    const dailyVote5Reward = typeof missionConfigs.dailyVote5Reward === 'number'
+      ? missionConfigs.dailyVote5Reward
+      : Number(missionConfigs.dailyVote5Reward) || 5;
+    const dailyVote10Reward = typeof missionConfigs.dailyVote10Reward === 'number'
+      ? missionConfigs.dailyVote10Reward
+      : Number(missionConfigs.dailyVote10Reward) || 10;
+    const streak7RepeatReward = typeof missionConfigs.streak7RepeatReward === 'number'
+      ? missionConfigs.streak7RepeatReward
+      : Number(missionConfigs.streak7RepeatReward) || 80;
+    const streak14RepeatReward = typeof missionConfigs.streak14RepeatReward === 'number'
+      ? missionConfigs.streak14RepeatReward
+      : Number(missionConfigs.streak14RepeatReward) || 200;
+    const streak30RepeatReward = typeof missionConfigs.streak30RepeatReward === 'number'
+      ? missionConfigs.streak30RepeatReward
+      : Number(missionConfigs.streak30RepeatReward) || 500;
 
     const templates = [
       {
@@ -151,6 +195,54 @@ const MissionPage = () => {
         condition: "修改暱稱 1 次",
         reward: nicknameEditReward,
         target: 1,
+      },
+      {
+        id: "6",
+        name: "每日投票（1票）",
+        description: "今日累積投票 1 票",
+        condition: "今日投票 1 票",
+        reward: dailyVote1Reward,
+        target: 1,
+      },
+      {
+        id: "7",
+        name: "每日投票（5票）",
+        description: "今日累積投票 5 票",
+        condition: "今日投票 5 票",
+        reward: dailyVote5Reward,
+        target: 5,
+      },
+      {
+        id: "8",
+        name: "每日投票（10票）",
+        description: "今日累積投票 10 票",
+        condition: "今日投票 10 票",
+        reward: dailyVote10Reward,
+        target: 10,
+      },
+      {
+        id: "9",
+        name: "連續簽到 7 天",
+        description: "當前連續簽到達 7 天（可重複）",
+        condition: "連續簽到 7 天",
+        reward: streak7RepeatReward,
+        target: 7,
+      },
+      {
+        id: "10",
+        name: "連續簽到 14 天",
+        description: "當前連續簽到達 14 天（可重複）",
+        condition: "連續簽到 14 天",
+        reward: streak14RepeatReward,
+        target: 14,
+      },
+      {
+        id: "11",
+        name: "連續簽到 30 天",
+        description: "當前連續簽到達 30 天（可重複）",
+        condition: "連續簽到 30 天",
+        reward: streak30RepeatReward,
+        target: 30,
       },
     ];
 
@@ -216,10 +308,24 @@ const MissionPage = () => {
           progress: (profile?.nickname_updated_at || markedProgress >= 100) ? 100 : 0,
           completed: Boolean(profile?.nickname_updated_at) || markedProgress >= 100
         };
+      case "6":
+      case "7":
+      case "8":
+        return {
+          progress: Math.min((dailyVoteCount / target) * 100, 100),
+          completed: dailyVoteCount >= target
+        };
+      case "9":
+      case "10":
+      case "11":
+        return {
+          progress: Math.min((displayedStreak / target) * 100, 100),
+          completed: displayedStreak >= target
+        };
       default:
         return { progress: 0, completed: false };
     }
-  }, [statsLoading, stats, userMissions, localizedMissions, displayedStreak, profile?.nickname_updated_at]);
+  }, [statsLoading, stats, userMissions, localizedMissions, displayedStreak, profile?.nickname_updated_at, dailyVoteCount]);
 
   const applyLoginStreakInfo = useCallback((info: LoginStreakInfo | null) => {
     setLoginStreakInfo(info);
@@ -263,6 +369,42 @@ const MissionPage = () => {
     }
   }, [getLoginStreakInfo, applyLoginStreakInfo]);
 
+  const loadDailyVoteCount = useCallback(async () => {
+    if (!user?.id) {
+      setDailyVoteCount(0);
+      return;
+    }
+    try {
+      const now = new Date();
+      const taipeiNow = new Date(now.getTime() + (8 * 60 + now.getTimezoneOffset()) * 60_000);
+      const startTaipei = new Date(taipeiNow.getFullYear(), taipeiNow.getMonth(), taipeiNow.getDate(), 0, 0, 0, 0);
+      const endTaipei = new Date(taipeiNow.getFullYear(), taipeiNow.getMonth(), taipeiNow.getDate(), 23, 59, 59, 999);
+      const startUtcIso = new Date(startTaipei.getTime() - 8 * 60 * 60_000).toISOString();
+      const endUtcIso = new Date(endTaipei.getTime() - 8 * 60 * 60_000).toISOString();
+
+      const [votesRes, freeVotesRes] = await Promise.all([
+        supabase
+          .from('votes')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('created_at', startUtcIso)
+          .lte('created_at', endUtcIso),
+        supabase
+          .from('free_votes')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('used_at', startUtcIso)
+          .lte('used_at', endUtcIso),
+      ]);
+      if (votesRes.error) throw votesRes.error;
+      if (freeVotesRes.error) throw freeVotesRes.error;
+      setDailyVoteCount((votesRes.count ?? 0) + (freeVotesRes.count ?? 0));
+    } catch (e) {
+      console.error('Error loading daily vote count:', e);
+      setDailyVoteCount(0);
+    }
+  }, [user?.id]);
+
   // 載入登入連勝資訊
   useEffect(() => {
     loadLoginStreak();
@@ -278,16 +420,17 @@ const MissionPage = () => {
       setLoadingMissions(true);
       const { data, error } = await supabase
         .from('user_missions')
-        .select('mission_id, completed, completed_at, progress')
+        .select('mission_id, completed, completed_at, last_completed_date, progress')
         .eq('user_id', user.id);
 
       if (error) throw error;
 
-      const missionsMap: Record<string, { completed: boolean; completed_at: string | null; progress?: number | null }> = {};
+      const missionsMap: Record<string, { completed: boolean; completed_at: string | null; last_completed_date?: string | null; progress?: number | null }> = {};
       data?.forEach((mission) => {
         missionsMap[mission.mission_id] = {
           completed: mission.completed,
           completed_at: mission.completed_at,
+          last_completed_date: (mission as any).last_completed_date ?? null,
           progress: (mission as any).progress ?? null,
         };
       });
@@ -318,6 +461,7 @@ const MissionPage = () => {
       // 廣告觀看成功後，立即樂觀更新代幣數量
       // 這確保了只有在用戶真正完成廣告觀看後，UI 才會更新
       updateTokensOptimistically(AD_REWARD);
+      void playTokenAmountHaptic(AD_REWARD, 'gain');
       optimisticUpdateApplied = true;
 
       const adRewardAmount = (result.reward ?? 0).toLocaleString();
@@ -400,6 +544,7 @@ const MissionPage = () => {
         // 如果成功簽到 (新登入)，立即更新 UI 狀態
         if (loginInfo.isNewLogin) {
           console.log('[MissionPage] handleDailyLogin: New login successful, reward tokens:', loginInfo.rewardTokens);
+          void playTokenAmountHaptic(loginInfo.rewardTokens || 0, 'gain');
 
           // 移除樂觀更新，直接等待 refreshProfile 同步真實餘額
           // updateTokensOptimistically(loginInfo.rewardTokens || 3);
@@ -462,11 +607,13 @@ const MissionPage = () => {
         toast.success(claimSuccessTitle, {
           description: claimDesc
         });
+        void playTokenAmountHaptic(rewardAmount, 'gain');
 
         // 異步刷新失序值餘額和任務狀態（不阻塞 UI）
         Promise.allSettled([
           refreshProfile(),
           loadUserMissions(),
+          loadDailyVoteCount(),
           refreshStats()
         ]).catch(() => {
           // 靜默處理錯誤，不影響用戶體驗
@@ -503,25 +650,45 @@ const MissionPage = () => {
   const isRewardClaimed = (missionId: string): boolean => {
     const dbMissionId = MISSION_ID_MAP[missionId];
     if (!dbMissionId) return false;
-    return userMissions[dbMissionId]?.completed === true;
+    const record = userMissions[dbMissionId];
+    if (!record?.completed) return false;
+    const lastDone = record.last_completed_date || null;
+    if (!lastDone) return true;
+
+    // 每日投票任務：只判斷今天是否已領
+    if (dbMissionId === 'daily_vote_1' || dbMissionId === 'daily_vote_5' || dbMissionId === 'daily_vote_10') {
+      return lastDone === getTaipeiDateKey();
+    }
+
+    // 連續簽到可重複任務：同一輪連續簽到內僅可領一次
+    if (dbMissionId === 'streak_7_repeat' || dbMissionId === 'streak_14_repeat' || dbMissionId === 'streak_30_repeat') {
+      const streak = Math.max(0, displayedStreak || 0);
+      if (streak <= 0) return false;
+      const cycleStartStr = getStreakCycleStartDateKey(streak);
+      return lastDone >= cycleStartStr;
+    }
+
+    return true;
   };
 
   // 載入用戶任務完成狀態
   useEffect(() => {
     loadUserMissions();
-  }, [loadUserMissions]);
+    loadDailyVoteCount();
+  }, [loadUserMissions, loadDailyVoteCount]);
 
   // 當頁面聚焦時也刷新任務狀態
   useEffect(() => {
     const handleFocus = () => {
       if (user?.id) {
         loadUserMissions();
+        loadDailyVoteCount();
       }
     };
 
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [user?.id, loadUserMissions]);
+  }, [user?.id, loadUserMissions, loadDailyVoteCount]);
 
   // 當頁面聚焦時刷新統計和簽到狀態（確保數據是最新的）
   useEffect(() => {
@@ -529,12 +696,13 @@ const MissionPage = () => {
       if (user?.id) {
         refreshStats();
         loadLoginStreak({ showLoader: false });
+        loadDailyVoteCount();
       }
     };
 
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [user?.id, refreshStats, loadLoginStreak]);
+  }, [user?.id, refreshStats, loadLoginStreak, loadDailyVoteCount]);
 
   if (uiTextsLoading) {
     return (

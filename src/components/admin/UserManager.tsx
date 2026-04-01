@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useServerTime } from "@/contexts/ServerTimeContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -112,6 +113,7 @@ interface UserManagerProps {
 }
 
 export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
+  const { getNow } = useServerTime();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -1493,7 +1495,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                       {userArenaMessages.map((msg) => {
                         const statusLabel = msg.recycled_at
                           ? '已回收'
-                          : (msg.shield_until && new Date(msg.shield_until) > new Date())
+                          : (msg.shield_until && new Date(msg.shield_until) > getNow())
                             ? '鎖定中'
                             : '顯示中';
                         const statusVariant = msg.recycled_at ? 'secondary' : 'outline';

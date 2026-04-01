@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { zhTW } from "date-fns/locale";
+import { useServerTime } from "@/contexts/ServerTimeContext";
 
 interface Topic {
   id: string;
@@ -50,6 +51,7 @@ interface TopicManagerProps {
 }
 
 export const TopicManager = ({ focusTopicId, onFocusHandled = () => {} }: TopicManagerProps) => {
+  const { getNow } = useServerTime();
   const queryClient = useQueryClient();
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
   const [showHideDialog, setShowHideDialog] = useState(false);
@@ -315,7 +317,7 @@ export const TopicManager = ({ focusTopicId, onFocusHandled = () => {} }: TopicM
                     ) : (
                       <Badge variant="default">顯示中</Badge>
                     )}
-                    {topic.end_at && new Date(topic.end_at) < new Date() && (
+                    {topic.end_at && new Date(topic.end_at) < getNow() && (
                       <Badge variant="secondary">已過期</Badge>
                     )}
                     {topic.auto_hidden && (

@@ -8,16 +8,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { downloadCSV } from "@/utils/exportUtils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useServerTime } from "@/contexts/ServerTimeContext";
 
 export const DataExportManager = () => {
+    const { getNow } = useServerTime();
     const [loading, setLoading] = useState<string | null>(null);
     const [dateRange, setDateRange] = useState("30"); // days, 'all' for all time
 
     const calculateDateRange = () => {
         if (dateRange === "all") return { start: null, end: null };
-        const end = new Date();
-        const start = new Date();
-        start.setDate(start.getDate() - parseInt(dateRange));
+        const end = getNow();
+        const start = new Date(end);
+        start.setDate(start.getDate() - parseInt(dateRange, 10));
         return { start: start.toISOString(), end: end.toISOString() };
     };
 
@@ -201,8 +203,8 @@ export const DataExportManager = () => {
 
             const exportRows = rows.map((row) => {
                 const topic = topicMap[row.topic_id];
-                const topicEnded = !!topic && (topic.status === "ended" || (!!topic.end_at && new Date(topic.end_at) <= new Date()));
-                const locked = !!row.shield_until && new Date(row.shield_until) > new Date();
+                const topicEnded = !!topic && (topic.status === "ended" || (!!topic.end_at && new Date(topic.end_at) <= getNow()));
+                const locked = !!row.shield_until && new Date(row.shield_until) > getNow();
 
                 let messageStatus = "顯示中";
                 if (row.recycled_at) messageStatus = "已回收";

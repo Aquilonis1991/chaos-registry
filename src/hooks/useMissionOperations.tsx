@@ -5,6 +5,7 @@ import { AdMobService, watchRewardedAd } from "@/lib/admob";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
+import { useServerTime } from "@/contexts/ServerTimeContext";
 
 interface DailyLoginInfo {
   isNewLogin: boolean;
@@ -20,6 +21,7 @@ export const useMissionOperations = () => {
   const { getConfig } = useSystemConfigCache();
   const { language } = useLanguage();
   const { getText } = useUIText(language);
+  const { getNow, getNowMs } = useServerTime();
 
   const completeMission = async (missionId: string) => {
     // 直接使用 RPC（更快更可靠，避免 CORS 問題）
@@ -148,10 +150,11 @@ export const useMissionOperations = () => {
       const AD_REWARD = typeof adRewardRaw === 'number' ? adRewardRaw : Number(adRewardRaw) || 5;
 
       // 以「今日」watch_ad 交易筆數為準，避免 profile.ad_watch_count + last_login 被每日簽到等更新導致誤判已達上限
+      const now = getNow();
       const startOfTodayUTC = new Date(Date.UTC(
-        new Date().getUTCFullYear(),
-        new Date().getUTCMonth(),
-        new Date().getUTCDate()
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate()
       )).toISOString();
       const { count: todayWatchCount, error: countError } = await supabase
         .from('token_transactions')
@@ -199,7 +202,7 @@ export const useMissionOperations = () => {
 
       // 優先使用 Edge Function（它會處理所有邏輯：代幣、觀看次數、交易記錄）
       try {
-        const edgeStartTime = Date.now();
+        const edgeStartTime = getNowMs();
 
         // 為 Edge Function 調用添加超時（20秒），給足夠時間處理
         // 如果 Edge Function 太慢，會自動回退到 RPC
@@ -223,7 +226,7 @@ export const useMissionOperations = () => {
         }
 
         const { data: edgeData, error: edgeError } = edgeResult;
-        const edgeDuration = Date.now() - edgeStartTime;
+        const edgeDuration = getNowMs() - edgeStartTime;
 
         if (!edgeError && edgeData?.success) {
           tokenUpdateSuccess = true;
@@ -244,7 +247,7 @@ export const useMissionOperations = () => {
       } catch (edgeError: any) {
         // Edge Function 失敗，使用 RPC + 手動更新作為備選
         try {
-          const rpcStartTime = Date.now();
+          const rpcStartTime = getNowMs();
 
           // 調用 RPC（添加超時處理，15秒，給足夠時間處理）
           const rpcPromise = supabase.rpc('add_tokens', {
@@ -270,7 +273,7 @@ export const useMissionOperations = () => {
 
           const { data: rpcData, error: tokenError } = rpcResult;
 
-          const rpcDuration = Date.now() - rpcStartTime;
+          const rpcDuration = getNowMs() - rpcStartTime;
 
           if (tokenError) {
             console.error('[watchAd] ❌ Add tokens RPC error:', {
@@ -301,7 +304,7 @@ export const useMissionOperations = () => {
             supabase.from('profiles')
               .update({
                 ad_watch_count: adWatchCount + 1,
-                last_login: new Date().toISOString()
+                last_login: getNow().toISOString()
               })
               .eq('id', user.id),
             supabase.rpc('log_token_transaction', {
@@ -414,7 +417,7 @@ export const useMissionOperations = () => {
         total_days: loginResult.total_days,
         reward_tokens: loginResult.reward_tokens
       });
-      const today = new Date();
+      const today = getNow();
       const todayDate = today.toISOString().split('T')[0];
 
       // 從 get_login_streak_info 獲取最新的 can_claim_today 狀態

@@ -131,6 +131,7 @@ const SearchPage = () => {
                     creatorName={topic.creator_name || getText('common.anonymous', '匿名')}
                     isHot={topic.match_type === 'tag' ? false : topic.total_votes > 1000}
                     createdAt={formatCreatedAt(topic.created_at)}
+                    endAt={topic.end_at ?? undefined}
                     currentExposureLevel={topic.exposure_level || null}
                   />
                 ))}

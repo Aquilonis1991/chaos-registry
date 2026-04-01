@@ -1,5 +1,6 @@
 key,category,zh,en,ja,description
 home.topicCard.ended,home,已結束,Ended,終了,首頁主題卡片圖示 title/aria-label（已結束）
+home.topicCard.urgentTag,home,🔥 倒數中,🔥 Countdown,🔥 カウントダウン中,首頁主題卡片剩餘 1 小時內的標題標籤
 home.ad.native.placeholder,home,📱 AdMob 原生廣告,📱 AdMob Native Ad,📱 AdMob ネイティブ広告,原生廣告卡片佔位符文字
 home.ad.native.debugMode,home,除錯模式：廣告功能暫時停用,Debug Mode: Ad feature temporarily disabled,デバッグモード：広告機能は一時的に無効,除錯模式提示文字
 home.ad.native.testLabel,home,測試用廣告卡片,Test Ad Card,テスト広告カード,測試用廣告卡片標記

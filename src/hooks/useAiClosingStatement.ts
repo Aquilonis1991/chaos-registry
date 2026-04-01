@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerTime } from "@/contexts/ServerTimeContext";
 import type { BaseLanguage } from "@/contexts/LanguageContext";
 
 interface TopicData {
@@ -77,6 +78,7 @@ export const useAiClosingStatement = (
   initialClosingRaw?: RawRow | null,
   closingInitialPending?: boolean
 ) => {
+  const { getNow, offsetMs } = useServerTime();
   const [statementRaw, setStatementRaw] = useState<RawRow | null>(initialClosingRaw ?? null);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -99,15 +101,17 @@ export const useAiClosingStatement = (
 
   const refetch = useCallback(async () => {
     if (!topic?.id) return;
-    const isEnded = topic.status === "ended" || (topic.end_at && new Date(topic.end_at) <= new Date());
+    const now = getNow();
+    const isEnded = topic.status === "ended" || (topic.end_at && new Date(topic.end_at) <= now);
     if (!isEnded) return;
     const row = await fetchClosingRaw(topic.id);
     setStatementRaw(row);
-  }, [topic?.id, topic?.status, topic?.end_at]);
+  }, [topic?.id, topic?.status, topic?.end_at, getNow]);
 
   useEffect(() => {
     if (!topic) return;
-    const isEnded = topic.status === "ended" || (topic.end_at && new Date(topic.end_at) <= new Date());
+    const now = getNow();
+    const isEnded = topic.status === "ended" || (topic.end_at && new Date(topic.end_at) <= now);
     if (!isEnded) return;
     if (initialClosingRaw && String(initialClosingRaw.topic_id) === String(topic.id)) {
       setStatementRaw(initialClosingRaw);
@@ -137,12 +141,13 @@ export const useAiClosingStatement = (
 
     load();
     return () => { mounted = false; };
-  }, [topic?.id, topic?.status, initialClosingRaw?.topic_id, closingInitialPending]);
+  }, [topic?.id, topic?.status, topic?.end_at, initialClosingRaw?.topic_id, closingInitialPending, offsetMs, getNow]);
 
   /** 手動觸發產生混亂結語（已結束主題且尚無結語時可用，不需等排程）。已產生結語則不再呼叫 API。 */
   const triggerGenerate = useCallback(async (): Promise<{ success: boolean; generated?: boolean; error?: string }> => {
     if (!topic?.id) return { success: false, generated: false, error: "No topic" };
-    const isEnded = topic.status === "ended" || (topic.end_at && new Date(topic.end_at) <= new Date());
+    const now = getNow();
+    const isEnded = topic.status === "ended" || (topic.end_at && new Date(topic.end_at) <= now);
     if (!isEnded) return { success: false, generated: false, error: "Topic not ended" };
     if (statementRaw) return { success: true, generated: false };
     try {
@@ -176,7 +181,7 @@ export const useAiClosingStatement = (
     } finally {
       setIsGenerating(false);
     }
-  }, [topic?.id, topic?.status, topic?.end_at, statementRaw]);
+  }, [topic?.id, topic?.status, topic?.end_at, statementRaw, getNow]);
 
   return { statement, isLoading, isGenerating, hasFetched: hasFetchedDisplay, error, triggerGenerate, refetch };
 };

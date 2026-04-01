@@ -320,11 +320,14 @@ const MissionPage = () => {
         };
       case "9":
       case "10":
-      case "11":
+      case "11": {
+        const streakSafe = Math.max(0, displayedStreak || 0);
+        const cycleDay = streakSafe > 0 ? ((streakSafe - 1) % 30) + 1 : 0;
         return {
-          progress: Math.min((displayedStreak / target) * 100, 100),
-          completed: displayedStreak >= target
+          progress: Math.min((cycleDay / target) * 100, 100),
+          completed: cycleDay >= target
         };
+      }
       default:
         return { progress: 0, completed: false };
     }
@@ -663,12 +666,16 @@ const MissionPage = () => {
       return lastDone === getTaipeiDateKey();
     }
 
-    // 連續簽到可重複任務：同一輪連續簽到內僅可領一次
+    // 連續簽到可重複任務：同一輪 30 天循環內僅可領一次
     if (dbMissionId === 'streak_7_repeat' || dbMissionId === 'streak_14_repeat' || dbMissionId === 'streak_30_repeat') {
       const streak = Math.max(0, displayedStreak || 0);
       if (streak <= 0) return false;
-      const cycleStartStr = getStreakCycleStartDateKey(streak);
-      return lastDone >= cycleStartStr;
+      const cycleDay = ((streak - 1) % 30) + 1;
+      const now = new Date();
+      // currentCycleStart 為當前 30 天循環的第一天
+      const currentCycleStart = new Date(now.getTime() - (cycleDay - 1) * 24 * 60 * 60 * 1000);
+      const currentCycleStartStr = getTaipeiDateKey(currentCycleStart);
+      return lastDone >= currentCycleStartStr;
     }
 
     return true;
@@ -893,7 +900,23 @@ const MissionPage = () => {
             {missionsSectionTitle}
           </h2>
 
-          {localizedMissions.map((mission) => {
+          {localizedMissions.filter(mission => {
+            // 連續簽到任務：依序完成才顯示下一個
+            if (mission.id === "9" || mission.id === "10" || mission.id === "11") {
+              const isClaimed7 = isRewardClaimed("9");
+              const isClaimed14 = isRewardClaimed("10");
+
+              let activeStreakMissionId = "9"; // 預設顯示 7 天
+              if (isClaimed7 && !isClaimed14) {
+                activeStreakMissionId = "10";
+              } else if (isClaimed7 && isClaimed14) {
+                activeStreakMissionId = "11";
+              }
+
+              return mission.id === activeStreakMissionId;
+            }
+            return true;
+          }).map((mission) => {
             const missionProgress = getMissionProgress(mission.id);
             const progressPercentage = Math.round(missionProgress.progress);
             const isCompleted = missionProgress.completed;

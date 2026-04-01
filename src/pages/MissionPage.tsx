@@ -22,7 +22,6 @@ const MISSION_ID_MAP: Record<string, string> = {
   "1": "first_vote",      // 新手上路（需要創建）
   "2": "vote_lover",      // 投票愛好者
   "3": "topic_creator",   // 話題創造者
-  "4": "login_7days",     // 7天登入
   "5": "nickname_editor", // 修改暱稱
   "6": "daily_vote_1",    // 每日投票 1 票
   "7": "daily_vote_5",    // 每日投票 5 票
@@ -232,14 +231,6 @@ const MissionPage = () => {
         target: 1,
       },
       {
-        id: "4",
-        name: "7天登入",
-        description: `連續登入 ${login7DaysTarget} 天`,
-        condition: `連續登入 ${login7DaysTarget} 天`,
-        reward: login7DaysReward,
-        target: login7DaysTarget,
-      },
-      {
         id: "5",
         name: "形象更新",
         description: "成功修改一次暱稱",
@@ -299,12 +290,6 @@ const MissionPage = () => {
         return {
           progress: topicProgress,
           completed: stats.topicsCreated > 0
-        };
-      case "4": // 7天登入 (或其他天數)
-        const streakForDisplay = displayedStreak || 0;
-        return {
-          progress: Math.min((streakForDisplay / target) * 100, 100),
-          completed: streakForDisplay >= target
         };
       case "5": // 修改暱稱
         return {

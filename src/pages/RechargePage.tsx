@@ -12,6 +12,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { usePurchase } from "@/hooks/usePurchase";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
+import { playTokenAmountHaptic } from "@/lib/tokenHaptics";
 
 
 const RechargePage = () => {
@@ -87,6 +88,8 @@ const RechargePage = () => {
     setSelectedPackage(pkg.id);
     try {
       await purchaseTokenPack(pkg.id);
+      const amount = Number(pkg.tokens || 0) + Number(pkg.bonus || 0);
+      void playTokenAmountHaptic(amount, "gain");
       // refreshProfile() 已在 usePurchase 中處理，並會顯示遮罩直到刷新完成
     } catch (error) {
       // 錯誤已在 usePurchase 中處理

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { BottomNav } from "@/components/BottomNav";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { ServerTimeProvider } from "@/contexts/ServerTimeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -67,6 +68,7 @@ const App = () => (
       <AuthProvider>
         <ProfileProvider>
           <LanguageProvider>
+            <ServerTimeProvider>
             <TooltipProvider>
               <Toaster />
               <Sonner />
@@ -111,6 +113,7 @@ const App = () => (
               </BrowserRouter>
               </ForceUpdateGate>
             </TooltipProvider>
+            </ServerTimeProvider>
           </LanguageProvider>
         </ProfileProvider>
       </AuthProvider>

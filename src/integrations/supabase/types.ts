@@ -568,6 +568,10 @@ export type Database = {
         Args: { granting_admin_id: string; target_user_id: string }
         Returns: undefined
       }
+      get_server_time: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       is_admin: {
         Args: { check_user_id: string }
         Returns: boolean

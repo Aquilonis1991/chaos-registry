@@ -24,6 +24,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Coins, Crown, Info, Loader2, ThumbsDown, ThumbsUp } from "lucide-react";
+import { useServerTime } from "@/contexts/ServerTimeContext";
 
 export type ArenaMessage = {
   id: string;
@@ -86,6 +87,7 @@ export function ArenaSection({
   const downPenalty = getConfig("arena_downvote_time_penalty", 12) as number;
   /** 每分鐘自然消耗分鐘數（與 decay_arena_ttl 一致；畫面即時推算，不依賴僅 cron 寫回 DB） */
   const decayRate = Number(getConfig("arena_natural_decay_rate", 1)) || 1;
+  const { getNow, getNowMs, offsetMs } = useServerTime();
 
   /** 定時觸發重繪，使「存在週期剩餘」隨時間遞減 */
   const [ttlTick, setTtlTick] = useState(0);
@@ -201,12 +203,12 @@ export function ArenaSection({
             Boolean(m.recycled_approver_name_snapshot && String(m.recycled_approver_name_snapshot).trim());
           if (snapshotReady) return false;
           if (m.recycled_at) return true;
-          if (m.shield_until && new Date(m.shield_until) > new Date()) return false;
+          if (m.shield_until && new Date(m.shield_until) > getNow()) return false;
           const base = Math.max(0, Number(m.ttl_minutes) || 0);
           const anchor = m.updated_at || m.created_at;
           const t0 = new Date(anchor).getTime();
           if (Number.isNaN(t0)) return false;
-          const elapsedMin = (Date.now() - t0) / 60000;
+          const elapsedMin = (getNowMs() - t0) / 60000;
           const effective = Math.max(0, Math.floor(base - decayRate * elapsedMin));
           return effective <= 0;
         })
@@ -372,10 +374,10 @@ export function ArenaSection({
   };
 
   const net = (m: ArenaMessage) => m.upvote_count - m.downvote_count;
-  const isShielded = (m: ArenaMessage) => Boolean(m.shield_until && new Date(m.shield_until) > new Date());
+  const isShielded = (m: ArenaMessage) => Boolean(m.shield_until && new Date(m.shield_until) > getNow());
   const shieldRemainingText = (m: ArenaMessage) => {
     if (!m.shield_until) return "";
-    const diffMs = new Date(m.shield_until).getTime() - Date.now();
+    const diffMs = new Date(m.shield_until).getTime() - getNowMs();
     if (diffMs <= 0) return "";
     const totalMin = Math.max(1, Math.ceil(diffMs / 60000));
     const h = Math.floor(totalMin / 60);
@@ -396,7 +398,7 @@ export function ArenaSection({
     const anchor = m.updated_at || m.created_at;
     const t0 = new Date(anchor).getTime();
     if (Number.isNaN(t0)) return base;
-    const elapsedMin = (Date.now() - t0) / 60000;
+    const elapsedMin = (getNowMs() - t0) / 60000;
     return Math.max(0, Math.floor(base - decayRate * elapsedMin));
   };
 
@@ -411,7 +413,7 @@ export function ArenaSection({
 
   const activeMessages = useMemo(
     () => visibleMessages.filter((m) => !isRecycledView(m)),
-    [visibleMessages, ttlTick, decayRate, userId]
+    [visibleMessages, ttlTick, decayRate, userId, offsetMs]
   );
   const core = activeMessages.filter((m) => net(m) >= x).sort((a, b) => net(b) - net(a))[0];
   const elite = useMemo(() => {
@@ -433,7 +435,7 @@ export function ArenaSection({
         if (bTime !== aTime) return bTime - aTime;
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
-  }, [visibleMessages, core?.id, eliteIdSet, ttlTick, decayRate, userId]);
+  }, [visibleMessages, core?.id, eliteIdSet, ttlTick, decayRate, userId, offsetMs]);
   const collapsedNonElite = nonEliteSortedByTime.slice(0, 3);
   const displayedNonElite = showAllMessages ? nonEliteSortedByTime : collapsedNonElite;
   const hasHiddenMessages = nonEliteSortedByTime.length > collapsedNonElite.length;

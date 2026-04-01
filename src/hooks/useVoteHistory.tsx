@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { TimeFilterOption, getStartDateFromFilter } from "@/components/TimeFilter";
+import { useServerTime } from "@/contexts/ServerTimeContext";
 
 export interface VoteHistory {
   id: string;
@@ -21,10 +22,10 @@ interface UseVoteHistoryOptions {
   isAdmin?: boolean;
 }
 
-/** 依 status 或 end_at 判斷主題是否已結束（DB 的 status 可能尚未更新為 ended） */
-const resolveTopicStatus = (status: string | undefined, endAt: string | undefined): string => {
+/** 依 status 或 end_at 判斷主題是否已結束（DB 的 status 可能尚未更新為 ended）；now 應為伺服器對齊時間 */
+const resolveTopicStatus = (status: string | undefined, endAt: string | undefined, now: Date): string => {
   if (status === 'ended') return 'ended';
-  if (endAt && new Date(endAt) <= new Date()) return 'ended';
+  if (endAt && new Date(endAt) <= now) return 'ended';
   return status === 'active' ? 'active' : 'unknown';
 };
 
@@ -211,7 +212,7 @@ export const useVoteHistory = (userId: string | undefined, options?: { timeFilte
 
     fetchVoteHistory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, timeFilter, isAdmin]);
+  }, [userId, timeFilter, isAdmin, offsetMs]);
 
   const refreshHistory = () => {
     fetchVoteHistory();

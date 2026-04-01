@@ -17,6 +17,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 import { getAnnouncementStyleClass } from "@/lib/announcementStyles";
+import { useServerTime } from "@/contexts/ServerTimeContext";
 
 interface Announcement {
   id: string;
@@ -57,6 +58,7 @@ export const AnnouncementCarousel = ({
   const [dragDeltaX, setDragDeltaX] = useState(0);
   const [swipeFxOffset, setSwipeFxOffset] = useState(0);
 
+  const { getNow, offsetMs } = useServerTime();
   const { getConfig, loading: configLoading, configs } = useSystemConfigCache();
   const announcementMaxDisplay = useMemo(() => {
     const raw = getConfig<number>("announcement_max_display", 3);
@@ -84,7 +86,14 @@ export const AnnouncementCarousel = ({
   }, [configLoading, announcementMaxDisplay]);
 
   const DISMISS_STORAGE_KEY = "announcement_banner_dismissed";
-  const getTodayStr = () => new Date().toISOString().slice(0, 10);
+  /** 以伺服器對齊後的「本地日曆日」作為今日 key（與使用者時區一致） */
+  const getTodayStr = () => {
+    const d = getNow();
+    const y = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, "0");
+    const da = String(d.getDate()).padStart(2, "0");
+    return `${y}-${mo}-${da}`;
+  };
 
   useEffect(() => {
     try {
@@ -95,7 +104,7 @@ export const AnnouncementCarousel = ({
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [offsetMs, getNow]);
 
   const handleAnnouncementClick = async (announcement: Announcement) => {
     try {

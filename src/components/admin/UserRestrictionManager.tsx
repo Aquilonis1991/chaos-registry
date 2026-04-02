@@ -29,6 +29,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { format } from "date-fns";
 import { zhTW } from "date-fns/locale";
 import { Card, CardContent } from "@/components/ui/card";
+import { useServerTime } from "@/contexts/ServerTimeContext";
 
 interface UserRestriction {
   id: string;
@@ -67,6 +68,7 @@ interface UserRestrictionManagerProps {
 }
 
 export const UserRestrictionManager = ({ preselectedUserId, onUserSelected }: UserRestrictionManagerProps = {}) => {
+  const { getNow } = useServerTime();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -625,7 +627,7 @@ export const UserRestrictionManager = ({ preselectedUserId, onUserSelected }: Us
                     {(() => {
                       // 檢查限制是否已到期
                       const isExpired = restriction.expires_at 
-                        ? new Date(restriction.expires_at) < new Date()
+                        ? new Date(restriction.expires_at) < getNow()
                         : false;
                       
                       if (isExpired) {

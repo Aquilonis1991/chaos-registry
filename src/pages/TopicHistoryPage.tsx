@@ -16,10 +16,12 @@ import { useUIText } from "@/hooks/useUIText";
 import { formatRelativeTime, formatRemainingTime } from "@/lib/relativeTime";
 import { formatCompactNumber } from "@/lib/numberFormat";
 import { TimeFilter, TimeFilterOption } from "@/components/TimeFilter";
+import { useServerTime } from "@/contexts/ServerTimeContext";
 
 const TopicHistoryPage = () => {
   const { user } = useAuth();
   const { isAdmin } = useAdmin();
+  const { getNow, getNowMs } = useServerTime();
   const [timeFilter, setTimeFilter] = useState<TimeFilterOption | null>(null);
   const { topics, loading, refetch } = useTopicHistory(user?.id, { timeFilter, isAdmin: isAdmin || false });
   const { language } = useLanguage();
@@ -94,9 +96,9 @@ const TopicHistoryPage = () => {
         ) : (
           <div className="space-y-3">
             {topics.map((topic) => {
-              const isActive = topic.status === 'active' && new Date(topic.end_at) > new Date();
-              const timeRemaining = isActive 
-                ? formatRemainingTime(new Date(topic.end_at), getText)
+              const isActive = topic.status === 'active' && new Date(topic.end_at) > getNow();
+              const timeRemaining = isActive
+                ? formatRemainingTime(new Date(topic.end_at), getText, getNowMs())
                 : timeEnded;
               
               return (
@@ -173,11 +175,11 @@ const TopicHistoryPage = () => {
                       <div className="mt-3 pt-3 border-t space-y-2">
                         <div className="flex items-center text-xs text-muted-foreground">
                           <Calendar className="w-3 h-3" />
-                          <span>{formatRelativeTime(new Date(topic.created_at), getText)}</span>
+                          <span>{formatRelativeTime(new Date(topic.created_at), getText, getNowMs())}</span>
                         </div>
 
                         {/* 編輯/刪除按鈕 */}
-                        {differenceInHours(new Date(), new Date(topic.created_at)) < 1 && (
+                        {differenceInHours(getNow(), new Date(topic.created_at)) < 1 && (
                           <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                             <EditTopicDialog
                               topicId={topic.id}

@@ -1,10 +1,11 @@
 export const formatRelativeTime = (
   dateInput: Date | string | number,
-  getText: (key: string, fallback: string) => string
+  getText: (key: string, fallback: string) => string,
+  /** 對齊伺服器的「現在」毫秒時間戳；未傳則用本機時間 */
+  nowMs: number = Date.now()
 ): string => {
   const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
-  const now = Date.now();
-  const diffMs = now - date.getTime();
+  const diffMs = nowMs - date.getTime();
 
   // Handle future times by showing "just now"
   if (diffMs < 0) {
@@ -34,11 +35,12 @@ export const formatRelativeTime = (
 
 export const formatRemainingTime = (
   dateInput: Date | string | number,
-  getText: (key: string, fallback: string) => string
+  getText: (key: string, fallback: string) => string,
+  /** 對齊伺服器的「現在」毫秒時間戳；未傳則用本機時間 */
+  nowMs: number = Date.now()
 ): string => {
   const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
-  const now = Date.now();
-  const diffMs = date.getTime() - now;
+  const diffMs = date.getTime() - nowMs;
 
   if (diffMs <= 0) {
     return getText('common.time.expired', '已結束');

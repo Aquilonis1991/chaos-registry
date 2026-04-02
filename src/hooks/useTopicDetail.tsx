@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useServerTime } from "@/contexts/ServerTimeContext";
 
 export interface TopicDetail {
   id: string;
@@ -31,6 +32,7 @@ export interface TopicDetail {
 }
 
 export const useTopicDetail = (topicId: string | undefined) => {
+  const { getNow, offsetMs } = useServerTime();
   const [topic, setTopic] = useState<TopicDetail | null>(null);
   const [closingInitial, setClosingInitial] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -45,7 +47,8 @@ export const useTopicDetail = (topicId: string | undefined) => {
     }
 
     fetchTopicDetail();
-  }, [topicId]);
+    // offsetMs：伺服器時間校正後重算是否已結束、結語載入與剩餘時間
+  }, [topicId, offsetMs]);
 
   const fetchTopicDetail = async () => {
     if (!topicId) return;
@@ -70,7 +73,8 @@ export const useTopicDetail = (topicId: string | undefined) => {
       if (!data) throw new Error('主題不存在');
 
       const totalVotes = data.options?.reduce((sum: number, opt: any) => sum + (opt.votes || 0), 0) || 0;
-      const timeRemaining = getTimeRemaining(data.end_at);
+      const now = getNow();
+      const timeRemaining = getTimeRemaining(data.end_at, now);
       const processedTopic: TopicDetail = {
         ...data,
         creator_name: data.profiles?.nickname || '匿名用戶',
@@ -82,7 +86,7 @@ export const useTopicDetail = (topicId: string | undefined) => {
       setTopic(processedTopic);
       setLoading(false);
 
-      const isEnded = processedTopic.status === 'ended' || new Date(processedTopic.end_at || 0) <= new Date();
+      const isEnded = processedTopic.status === 'ended' || new Date(processedTopic.end_at || 0) <= getNow();
       if (!isEnded) return;
 
       setSummaryClosingLoading(true);
@@ -110,6 +114,20 @@ export const useTopicDetail = (topicId: string | undefined) => {
     fetchTopicDetail();
   };
 
+  // 每分鐘更新「剩餘時間」文案（與伺服器對齊的 now）
+  useEffect(() => {
+    if (!topic?.end_at) return;
+    const tick = () => {
+      setTopic((prev) => {
+        if (!prev?.end_at) return prev;
+        return { ...prev, time_remaining: getTimeRemaining(prev.end_at, getNow()) };
+      });
+    };
+    tick();
+    const id = window.setInterval(tick, 60_000);
+    return () => window.clearInterval(id);
+  }, [topic?.id, topic?.end_at, offsetMs, getNow]);
+
   // 設置即時更新（每5分鐘刷新一次）
   useEffect(() => {
     if (!topicId) return;
@@ -132,9 +150,8 @@ export const useTopicDetail = (topicId: string | undefined) => {
   };
 };
 
-// 輔助函數：計算剩餘時間
-function getTimeRemaining(endAt: string): string {
-  const now = new Date();
+// 輔助函數：計算剩餘時間（now 應與伺服器對齊）
+function getTimeRemaining(endAt: string, now: Date): string {
   const end = new Date(endAt);
   const diff = end.getTime() - now.getTime();
 

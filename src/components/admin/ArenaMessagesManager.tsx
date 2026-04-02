@@ -37,6 +37,7 @@ import {
   RefreshCw,
   Calendar,
 } from "lucide-react";
+import { useServerTime } from "@/contexts/ServerTimeContext";
 
 const CONTENT_MAX = 100;
 const DEFAULT_STEP = 1;
@@ -64,6 +65,7 @@ type ProfileMeta = { id: string; nickname: string | null };
 type TopicStateMeta = { title: string; status?: string | null; end_at?: string | null };
 
 export default function ArenaMessagesManager() {
+  const { getNow, getNowMs } = useServerTime();
   const [rows, setRows] = useState<ArenaRow[]>([]);
   const [topics, setTopics] = useState<Record<string, TopicStateMeta>>({});
   const [authors, setAuthors] = useState<Record<string, string>>({});
@@ -82,11 +84,11 @@ export default function ArenaMessagesManager() {
 
   const calculateDateRange = useCallback(() => {
     if (dateRange === "all") return { start: null, end: null };
-    const end = new Date();
-    const start = new Date();
+    const end = getNow();
+    const start = new Date(end);
     start.setDate(start.getDate() - parseInt(dateRange, 10));
     return { start: start.toISOString(), end: end.toISOString() };
-  }, [dateRange]);
+  }, [dateRange, getNow]);
 
   const fetchAllArenaRows = useCallback(async (topicId: string) => {
     const all: ArenaRow[] = [];
@@ -259,7 +261,7 @@ export default function ArenaMessagesManager() {
 
   const adjustShield = (row: ArenaRow, deltaMinutes: number) => {
     setBusy(row.id, async () => {
-      const now = new Date();
+      const now = getNow();
       const current = row.shield_until ? new Date(row.shield_until) : null;
 
       if (deltaMinutes < 0 && (!current || Number.isNaN(current.getTime()) || current <= now)) {
@@ -297,10 +299,10 @@ export default function ArenaMessagesManager() {
     if (!t) return false;
     if (t.status === "ended") return true;
     if (!t.end_at) return false;
-    return new Date(t.end_at) <= new Date();
+    return new Date(t.end_at) <= getNow();
   };
 
-  const isLocked = (row: ArenaRow) => Boolean(row.shield_until && new Date(row.shield_until) > new Date());
+  const isLocked = (row: ArenaRow) => Boolean(row.shield_until && new Date(row.shield_until) > getNow());
 
   const getMessageStatus = (row: ArenaRow) => {
     if (row.recycled_at) return { label: "已回收", variant: "secondary" as const };
@@ -313,8 +315,7 @@ export default function ArenaMessagesManager() {
     if (!row.shield_until) return "—";
     const end = new Date(row.shield_until);
     if (Number.isNaN(end.getTime())) return "—";
-    const now = Date.now();
-    const diffMs = end.getTime() - now;
+    const diffMs = end.getTime() - getNowMs();
     const endText = format(end, "MM/dd HH:mm", { locale: zhTW });
     if (diffMs <= 0) return `${endText}（已到期）`;
     const min = Math.max(1, Math.ceil(diffMs / 60000));

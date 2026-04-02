@@ -27,6 +27,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useTopicOperations } from "@/hooks/useTopicOperations";
 import { createTopicSchema } from "@/lib/validationSchemas";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
+import { playTokenAmountHaptic } from "@/lib/tokenHaptics";
 import { checkBannedWords, validateTopicContent, getBannedWordErrorMessage, maskMatchedKeyword } from "@/lib/bannedWords";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserStats } from "@/hooks/useUserStats";
@@ -288,6 +289,7 @@ const CreateTopicPage = () => {
     const rewriteCost = dailyRewriteCount > 0 ? 5 : 0;
     if (rewriteCost > 0) {
       updateTokensOptimistically(-rewriteCost);
+      void playTokenAmountHaptic(rewriteCost, 'spend');
     }
 
     try {

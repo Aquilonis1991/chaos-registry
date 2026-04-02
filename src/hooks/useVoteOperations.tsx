@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { useProfile } from "@/hooks/useProfile";
 import { useUIText } from "@/hooks/useUIText";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { playTokenAmountHaptic } from "@/lib/tokenHaptics";
 
 const stringifyError = (error: any) => {
   if (!error) return "undefined";
@@ -83,6 +84,8 @@ export const useVoteOperations = () => {
 
         // 後台刷新以確保數據一致性（實時訂閱也會自動更新）
         void refreshProfile();
+        // 扣代幣成功後提供觸覺反饋（不阻塞主流程）
+        void playTokenAmountHaptic(amount, "spend");
       } catch (error) {
         // 如果任何步驟失敗，確保回滾樂觀更新
         // 注意：如果已經在 catch 中回滾過，這裡不會重複回滾

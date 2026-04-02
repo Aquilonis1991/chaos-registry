@@ -16,6 +16,7 @@ import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 import { formatRelativeTime } from "@/lib/relativeTime";
 import { insertAdsIntoList } from "@/lib/adInsertion";
 import { getNativeAdUnitId } from "@/lib/admob";
+import { useServerTime } from "@/contexts/ServerTimeContext";
 
 /** 首頁各分頁一次下拉／初次載入時取得的卡片數量（熱門、最新、參與過皆為此數量） */
 const TOPICS_PAGE_SIZE = 20;
@@ -28,7 +29,11 @@ const HomePage = () => {
   const { language } = useLanguage();
   const { getText, isLoading: uiTextsLoading } = useUIText(language);
   const { getConfig } = useSystemConfigCache();
+  const { getNow } = useServerTime();
   const [currentTab, setCurrentTab] = useState<'hot' | 'latest' | 'joined'>('hot');
+
+  const topicCardEnded = (topic: { status?: string; end_at?: string | null }) =>
+    topic.status === "ended" || new Date(topic.end_at || 0) <= getNow();
   
   // 當從其他頁面回到首頁時，確保 Intersection Observer 重新設置
   useEffect(() => {
@@ -381,8 +386,9 @@ const HomePage = () => {
                             voteCount={topic.total_votes || 0}
                             creatorName={topic.creator_name || getText('common.anonymous', '匿名')}
                             isHot={topic.is_hot}
-                            isEnded={topic.status === 'ended' || new Date(topic.end_at || 0) <= new Date()}
+                            isEnded={topicCardEnded(topic)}
                             createdAt={formatCreatedAt(topic.created_at)}
+                            endAt={topic.end_at ?? undefined}
                             currentExposureLevel={topic.current_exposure_level ?? topic.exposure_level ?? null}
                           />
                         </div>
@@ -405,8 +411,9 @@ const HomePage = () => {
                             voteCount={topic.total_votes || 0}
                             creatorName={topic.creator_name || getText('common.anonymous', '匿名')}
                             isHot={topic.is_hot}
-                            isEnded={topic.status === 'ended' || new Date(topic.end_at || 0) <= new Date()}
+                            isEnded={topicCardEnded(topic)}
                             createdAt={formatCreatedAt(topic.created_at)}
+                            endAt={topic.end_at ?? undefined}
                             currentExposureLevel={topic.current_exposure_level ?? topic.exposure_level ?? null}
                           />
                         </div>
@@ -471,8 +478,9 @@ const HomePage = () => {
                         voteCount={topic.total_votes || 0}
                         creatorName={topic.creator_name || getText('common.anonymous', '匿名')}
                         isHot={topic.is_hot}
-                        isEnded={topic.status === 'ended' || new Date(topic.end_at || 0) <= new Date()}
+                        isEnded={topicCardEnded(topic)}
                         createdAt={formatCreatedAt(topic.created_at)}
+                        endAt={topic.end_at ?? undefined}
                         currentExposureLevel={topic.current_exposure_level ?? topic.exposure_level ?? null}
                       />
                     </div>
@@ -552,8 +560,9 @@ const HomePage = () => {
                         voteCount={topic.total_votes || 0}
                         creatorName={topic.creator_name || getText('common.anonymous', '匿名')}
                         isHot={topic.is_hot}
-                        isEnded={topic.status === 'ended' || new Date(topic.end_at || 0) <= new Date()}
+                        isEnded={topicCardEnded(topic)}
                         createdAt={formatCreatedAt(topic.created_at)}
+                        endAt={topic.end_at ?? undefined}
                         currentExposureLevel={topic.current_exposure_level ?? topic.exposure_level ?? null}
                       />
                     </div>

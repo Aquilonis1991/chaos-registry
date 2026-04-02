@@ -41,6 +41,7 @@ import { isPromptConfigError, getPromptConfigKeyFromError } from "@/lib/promptCo
 import { PromptNotConfiguredDialog } from "@/components/PromptNotConfiguredDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { ArenaSection } from "@/components/arena/ArenaSection";
+import { useServerTime } from "@/contexts/ServerTimeContext";
 
 const VoteDetailPage = () => {
   const { id } = useParams();
@@ -48,6 +49,7 @@ const VoteDetailPage = () => {
   const { profile, loading: profileLoading, refreshProfile } = useProfile();
   const { user, isAnonymous } = useAuth();
   const { castVote, castFreeVote, checkFreeVoteAvailable } = useVoteOperations();
+  const { getNow, getNowMs } = useServerTime();
   const { topic, closingInitial, loading: topicLoading, summaryClosingLoading, refreshTopic } = useTopicDetail(id);
   const { refreshStats } = useUserStats(user?.id);
   const { language } = useLanguage();
@@ -59,7 +61,9 @@ const VoteDetailPage = () => {
   const { statement: aiClosing, isLoading: aiClosingLoading, isGenerating: aiClosingGenerating, hasFetched: aiClosingHasFetched, triggerGenerate: triggerAiClosing } = useAiClosingStatement(topic, closingDisplayLang, closingInitial, summaryClosingLoading);
   const [promptConfigDialogOpen, setPromptConfigDialogOpen] = useState(false);
   const [promptConfigKey, setPromptConfigKey] = useState<string | null>(null);
-  const isTopicEnded = topic ? (topic.status === 'ended' || new Date(topic.end_at || 0) <= new Date()) : false;
+  const isTopicEnded = topic
+    ? topic.status === "ended" || new Date(topic.end_at || 0) <= getNow()
+    : false;
   /** 已自動觸發過產生結語的 topic id 集合（避免重複呼叫） */
   const autoClosingTriggeredRef = useRef<Set<string>>(new Set());
 
@@ -145,10 +149,47 @@ const VoteDetailPage = () => {
   const confirmDialogCancelText = getText('vote.detail.confirm.cancel', '取消');
   const confirmDialogConfirmText = getText('vote.detail.confirm.confirm', '確認投入');
 
+  /** PostgREST：message 常為泛用句，實際錯在 details / code；偶有 error 字串欄位 */
+  const normalizeRpcError = useCallback((e: unknown): string => {
+    if (e == null) return "";
+    if (typeof e === "string") return e.trim();
+    if (typeof e === "object" && e !== null) {
+      const o = e as Record<string, unknown>;
+      const code = typeof o.code === "string" && o.code.trim() ? `[${o.code}]` : "";
+      const msg = typeof o.message === "string" ? o.message : "";
+      const det = typeof o.details === "string" ? o.details : "";
+      const hint = typeof o.hint === "string" ? o.hint : "";
+      const err = typeof o.error === "string" ? o.error : "";
+      const combined = [code, msg, det, hint, err]
+        .filter((s) => s && String(s).trim())
+        .join(" ")
+        .trim();
+      if (combined) return combined;
+      try {
+        const j = JSON.stringify(o);
+        if (j && j !== "{}" && j.length < 1500) return j;
+      } catch {
+        /* ignore */
+      }
+    }
+    if (e instanceof Error) return e.message || "";
+    return String(e);
+  }, []);
+
   const getInfluenceErrorText = useCallback((raw?: string) => {
     const fallback = getText("topic.influence.actionFailed", "操作失敗");
     const message = String(raw || "").trim();
     if (!message) return fallback;
+
+    if (/Rate limit exceeded|Try again later/i.test(message)) {
+      return getText("topic.influence.error.rateLimit", "請求過於頻繁，請稍後再試");
+    }
+    if (/violates check constraint|token_transactions_transaction_type_check/i.test(message)) {
+      return getText("topic.influence.error.dbConstraint", "資料庫交易類型設定不完整，請聯絡管理員或確認已套用最新遷移");
+    }
+    if (/does not exist|relation .* not found/i.test(message)) {
+      return getText("topic.influence.error.dbMissingRelation", "資料庫缺少必要資料表或函式，請確認已執行遷移");
+    }
 
     if (/Not authenticated/i.test(message)) {
       return getText("topic.influence.error.notAuthenticated", "請先登入");
@@ -205,7 +246,9 @@ const VoteDetailPage = () => {
       return getText("topic.influence.error.userOptionAddLimitReached", "你新增選項的次數已達上限");
     }
 
-    return fallback;
+    return message.length > 0 && message.length < 300
+      ? `${fallback}（${message}）`
+      : fallback;
   }, [getText]);
 
   // Check free vote availability when component mounts（僅依賴 user/id，避免 checkFreeVote 引用變動導致 effect 重複執行、一直顯示讀取中）
@@ -422,8 +465,9 @@ const VoteDetailPage = () => {
   }
 
   const totalVotes = topic.total_votes || 0;
-  const createdAtLabel = formatRelativeTime(new Date(topic.created_at), getText);
-  const remainingTimeLabel = formatRemainingTime(new Date(topic.end_at), getText);
+  const nowMs = getNowMs();
+  const createdAtLabel = formatRelativeTime(new Date(topic.created_at), getText, nowMs);
+  const remainingTimeLabel = formatRemainingTime(new Date(topic.end_at), getText, nowMs);
   const isCreator = Boolean(user && topic.creator_id === user.id);
 
   return (
@@ -991,8 +1035,9 @@ const VoteDetailPage = () => {
                   await refreshProfile();
                   await refreshStats();
                   console.log("[Influence] extend_topic_duration result:", data);
-                } catch (e: any) {
-                  toast.error(getInfluenceErrorText(e?.message));
+                } catch (e: unknown) {
+                  console.error("[Influence] extend_topic_duration failed:", e);
+                  toast.error(getInfluenceErrorText(normalizeRpcError(e)));
                 } finally {
                   setInfluenceLoading(false);
                 }
@@ -1109,8 +1154,9 @@ const VoteDetailPage = () => {
                   await refreshProfile();
                   await refreshStats();
                   console.log("[Influence] add_topic_option result:", data);
-                } catch (e: any) {
-                  toast.error(getInfluenceErrorText(e?.message));
+                } catch (e: unknown) {
+                  console.error("[Influence] add_topic_option failed:", e);
+                  toast.error(getInfluenceErrorText(normalizeRpcError(e)));
                 } finally {
                   setInfluenceLoading(false);
                 }

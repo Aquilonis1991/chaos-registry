@@ -19,6 +19,7 @@ interface TopicCardProps {
   isHot?: boolean;
   isEnded?: boolean;
   createdAt?: string;
+  endAt?: string;
   currentExposureLevel?: 'normal' | 'medium' | 'high' | string | null;
 }
 
@@ -68,6 +69,10 @@ function TopicCardContent({
   endedLabel,
   endedSuffixLabel,
   createdAt,
+  isUrgentCountdown,
+  urgentMinutes,
+  urgentTagLabel,
+  urgentCountdownTemplate,
   getTagColor,
 }: {
   title: string;
@@ -79,6 +84,10 @@ function TopicCardContent({
   endedLabel?: string;
   endedSuffixLabel?: string;
   createdAt?: string;
+  isUrgentCountdown?: boolean;
+  urgentMinutes?: number | null;
+  urgentTagLabel: string;
+  urgentCountdownTemplate: string;
   getTagColor: (tag: string) => string;
 }) {
   const label = endedLabel ?? '已結束';
@@ -87,7 +96,14 @@ function TopicCardContent({
     <>
       <div className="p-5">
         <div className="flex items-start justify-between mb-3">
-          <h3 className="text-lg font-bold text-foreground flex-1 line-clamp-2">{title}</h3>
+          <div className="flex items-start gap-2 flex-1 min-w-0">
+            <h3 className="text-lg font-bold text-foreground flex-1 line-clamp-2">{title}</h3>
+            {isUrgentCountdown && (
+              <span className="inline-flex items-center rounded text-xs font-semibold px-2 py-0.5 bg-[#FF4D94] text-white whitespace-nowrap mt-0.5">
+                {urgentTagLabel}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
             {isEnded && (
               <CheckCircle2 className="w-5 h-5 text-muted-foreground" title={label} aria-label={label} />
@@ -115,9 +131,13 @@ function TopicCardContent({
           </div>
         </div>
         {createdAt && (
-          <div className="flex items-center gap-1 text-muted-foreground">
-            <Clock className="w-4 h-4" />
-            <span>{createdAt}</span>
+          <div className={cn("flex items-center gap-1", isUrgentCountdown ? "text-[#FF4D94] font-semibold" : "text-muted-foreground")}>
+            {!isUrgentCountdown && <Clock className="w-4 h-4" />}
+            <span>
+              {isUrgentCountdown
+                ? urgentCountdownTemplate.replace('{{count}}', Math.max(1, urgentMinutes ?? 1).toString())
+                : createdAt}
+            </span>
             {isEnded && <span>{endedSuffix}</span>}
           </div>
         )}
@@ -126,11 +146,13 @@ function TopicCardContent({
   );
 }
 
-export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, isEnded, createdAt, currentExposureLevel }: TopicCardProps) => {
+export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, isEnded, createdAt, endAt, currentExposureLevel }: TopicCardProps) => {
   const { language } = useLanguage();
   const { getText } = useUIText(language);
   const endedLabel = getText('home.topicCard.ended', '已結束');
   const endedSuffixLabel = getText('home.topicCard.endedSuffix', '（已結束）');
+  const urgentTagLabel = getText('home.topicCard.urgentTag', '🔥 倒數中');
+  const urgentCountdownTemplate = getText('common.time.urgentMinutes', '⌛ 剩餘 {{count}} 分鐘');
 
   const level = typeof currentExposureLevel === 'string' ? currentExposureLevel.trim().toLowerCase() : '';
   const normalizedLevel = level === 'low' ? 'normal' : level;
@@ -141,6 +163,11 @@ export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, isEn
 
   const exposureStyle = getExposureContainerStyle(effectiveLevel);
   const isExposureCard = effectiveLevel === 'high' || effectiveLevel === 'medium';
+  const endAtMs = endAt ? new Date(endAt).getTime() : Number.NaN;
+  const remainingMinutes =
+    !isEnded && Number.isFinite(endAtMs) ? Math.ceil((endAtMs - Date.now()) / 60000) : null;
+  const isUrgentCountdown =
+    remainingMinutes !== null && remainingMinutes > 0 && remainingMinutes <= 60;
 
   const content = (
     <TopicCardContent
@@ -153,6 +180,10 @@ export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, isEn
       endedLabel={endedLabel}
       endedSuffixLabel={endedSuffixLabel}
       createdAt={createdAt}
+      isUrgentCountdown={isUrgentCountdown}
+      urgentMinutes={remainingMinutes}
+      urgentTagLabel={urgentTagLabel}
+      urgentCountdownTemplate={urgentCountdownTemplate}
       getTagColor={getTagColor}
     />
   );
@@ -176,7 +207,14 @@ export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, isEn
         >
           <CardContent className="p-5">
             <div className="flex items-start justify-between mb-3">
-              <h3 className="text-lg font-bold text-foreground flex-1 line-clamp-2">{title}</h3>
+              <div className="flex items-start gap-2 flex-1 min-w-0">
+                <h3 className="text-lg font-bold text-foreground flex-1 line-clamp-2">{title}</h3>
+                {isUrgentCountdown && (
+                  <span className="inline-flex items-center rounded text-xs font-semibold px-2 py-0.5 bg-[#FF4D94] text-white whitespace-nowrap mt-0.5">
+                    {urgentTagLabel}
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
                 {isEnded && (
                   <CheckCircle2 className="w-5 h-5 text-muted-foreground" title={endedLabel} aria-label={endedLabel} />
@@ -204,9 +242,13 @@ export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, isEn
               </div>
             </div>
             {createdAt && (
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <Clock className="w-4 h-4" />
-                <span>{createdAt}</span>
+              <div className={cn("flex items-center gap-1", isUrgentCountdown ? "text-[#FF4D94] font-semibold" : "text-muted-foreground")}>
+                {!isUrgentCountdown && <Clock className="w-4 h-4" />}
+                <span>
+                  {isUrgentCountdown
+                    ? urgentCountdownTemplate.replace('{{count}}', Math.max(1, remainingMinutes ?? 1).toString())
+                    : createdAt}
+                </span>
                 {isEnded && <span>{endedSuffixLabel}</span>}
               </div>
             )}

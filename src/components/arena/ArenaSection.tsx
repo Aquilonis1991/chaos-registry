@@ -496,10 +496,8 @@ export function ArenaSection({
         >
           <div>{firstLine}</div>
           {isOwner && (
-            <div className="mt-2 mb-1 border-l-2 border-primary/40 pl-3 text-foreground/80 font-medium italic break-words whitespace-pre-wrap">
-              {getText("arena.recycled.originalContent", "您原本發表的內容：")}
-              <br />
-              「{m.content}」
+            <div className="mt-2 text-foreground/70 italic break-words whitespace-pre-wrap line-through" title={getText('arena.recycled.originalContent', '您原本發表的內容')}>
+              {m.content}
             </div>
           )}
           <div className="mt-1 flex items-center justify-between gap-3">

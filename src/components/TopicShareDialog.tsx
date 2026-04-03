@@ -8,16 +8,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
-import { useAuth } from "@/hooks/useAuth";
-import { useProfile } from "@/hooks/useProfile";
-import { useMissionOperations } from "@/hooks/useMissionOperations";
-import { playTokenAmountHaptic } from "@/lib/tokenHaptics";
-
-const DAILY_SHARE_MISSION_ID = "daily_share_1";
 
 type TemplateKey = "normal" | "help" | "challenge" | "chaos";
 
@@ -51,66 +45,48 @@ interface TopicShareDialogProps {
 export function TopicShareDialog({ open, onOpenChange, topicId, topicTitle }: TopicShareDialogProps) {
   const { language } = useLanguage();
   const { getText } = useUIText(language);
-  const { user } = useAuth();
-  const { refreshProfile } = useProfile();
-  const { completeMission } = useMissionOperations();
-  const [copied, setCopied] = useState(false);
-  const [completing, setCompleting] = useState(false);
+  const [draftText, setDraftText] = useState("");
 
   const shareUrl = useMemo(() => buildShareUrl(topicId), [topicId]);
 
   useEffect(() => {
-    if (!open) {
-      setCopied(false);
-      setCompleting(false);
-    }
-  }, [open]);
+    if (!open) return;
+    const key = TEMPLATE_KEYS[Math.floor(Math.random() * TEMPLATE_KEYS.length)]!;
+    const raw = getText(`topic.share.template.${key}`, FALLBACK_TEMPLATE[key]);
+    const text = applyTemplate(raw?.trim() ? raw : FALLBACK_TEMPLATE[key], topicTitle, shareUrl);
+    setDraftText(text);
+  }, [open, topicId, topicTitle, shareUrl, getText]);
 
-  const copyTemplate = useCallback(
-    async (key: TemplateKey) => {
-      const raw = getText(`topic.share.template.${key}`, FALLBACK_TEMPLATE[key]);
-      const text = applyTemplate(raw?.trim() ? raw : FALLBACK_TEMPLATE[key], topicTitle, shareUrl);
-      try {
-        await navigator.clipboard.writeText(text);
-        setCopied(true);
-        toast.success(getText("topic.share.toast.copiedTitle", "已複製"), {
-          description: getText("topic.share.toast.copiedDesc", "請貼到 LINE / Threads 分享"),
-        });
-      } catch {
-        toast.error(getText("topic.share.clipboardError", "無法複製到剪貼簿"));
-      }
-    },
-    [getText, shareUrl, topicTitle]
-  );
-
-  const handleComplete = useCallback(async () => {
-    if (!user?.id) {
-      toast.info(getText("topic.share.loginRequired", "請先登入以領取分享獎勵"));
+  const handleCopyAndShare = useCallback(async () => {
+    const text = draftText.trim();
+    if (!text) {
+      toast.info(getText("topic.share.emptyDraft", "請先輸入要分享的內容"));
       return;
     }
-    setCompleting(true);
     try {
-      const result = await completeMission(DAILY_SHARE_MISSION_ID);
-      if (result?.success) {
-        const reward = result.reward ?? 0;
-        void playTokenAmountHaptic(reward, "gain");
-        await refreshProfile();
-        toast.success(getText("topic.share.completeSuccess", "已領取今日分享獎勵"), {
-          description: `+${reward.toLocaleString()}`,
-        });
-        onOpenChange(false);
-      }
+      await navigator.clipboard.writeText(text);
+      toast.success(getText("topic.share.toast.copiedTitle", "已複製"), {
+        description: getText(
+          "topic.share.toast.afterCopyHint",
+          "請貼到 LINE / Threads 等；每日獎勵請至任務頁領取"
+        ),
+      });
+      onOpenChange(false);
     } catch {
-      // useMissionOperations 已 toast RPC 錯誤
-    } finally {
-      setCompleting(false);
+      toast.error(getText("topic.share.clipboardError", "無法複製到剪貼簿"));
     }
-  }, [completeMission, getText, onOpenChange, refreshProfile, user?.id]);
+  }, [draftText, getText, onOpenChange]);
 
   const title = getText("topic.share.title", "分享這個話題");
-  const subtitle = getText("topic.share.subtitle", "選一則文案複製，貼到 LINE / Threads 等");
-  const completeLabel = getText("topic.share.completeButton", "我已分享完成");
-  const claimingLabel = getText("mission.list.claiming", "領取中...");
+  const subtitle = getText(
+    "topic.share.subtitle",
+    "已隨機套用一種語氣，可自行修改後複製分享"
+  );
+  const missionHint = getText(
+    "topic.share.missionHint",
+    "代幣獎勵請至「任務」頁完成領取（每日一次）"
+  );
+  const copyShareLabel = getText("topic.share.copyAndShareButton", "複製並分享");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -120,39 +96,25 @@ export function TopicShareDialog({ open, onOpenChange, topicId, topicTitle }: To
           <DialogDescription className="text-left">{subtitle}</DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-2">
-          {TEMPLATE_KEYS.map((key) => (
-            <Button
-              key={key}
-              type="button"
-              variant="outline"
-              className="h-auto min-h-[3rem] whitespace-normal py-2 text-sm"
-              onClick={() => void copyTemplate(key)}
-            >
-              {getText(`topic.share.templateLabel.${key}`, key)}
-            </Button>
-          ))}
+        <div className="space-y-2">
+          <Textarea
+            value={draftText}
+            onChange={(e) => setDraftText(e.target.value)}
+            className="min-h-[9rem] resize-y text-sm leading-relaxed"
+            aria-label={getText("topic.share.draft.aria", "分享文案，可編輯")}
+          />
+          <p className="text-xs text-muted-foreground">{missionHint}</p>
         </div>
 
-        {copied && (
-          <DialogFooter className="flex-col gap-2 sm:flex-col">
-            <Button
-              type="button"
-              className="w-full bg-[#FF4D94] text-white hover:bg-[#FF4D94]/90"
-              disabled={completing}
-              onClick={() => void handleComplete()}
-            >
-              {completing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin shrink-0" aria-hidden />
-                  {claimingLabel}
-                </>
-              ) : (
-                completeLabel
-              )}
-            </Button>
-          </DialogFooter>
-        )}
+        <DialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
+          <Button
+            type="button"
+            className="w-full bg-[#FF4D94] text-white hover:bg-[#FF4D94]/90"
+            onClick={() => void handleCopyAndShare()}
+          >
+            {copyShareLabel}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

@@ -178,8 +178,8 @@ const MissionPage = () => {
       {
         id: "12",
         name: "每日口耳相傳",
-        description: "分享主題到社群並完成分享回報（每日一次）",
-        condition: "完成分享回報 1 次",
+        description: "使用分享功能複製文案後，前往任務頁領取每日獎勵（每日一次）",
+        condition: "於任務頁領取分享獎勵 1 次",
         reward: dailyShareReward,
         target: 1,
       },

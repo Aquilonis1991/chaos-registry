@@ -1,6 +1,11 @@
 key,category,zh,en,ja,description
 topic.share.title,topic,分享這個話題,Share this topic,このトピックをシェア,分享對話框標題
-topic.share.subtitle,topic,選一則文案複製，貼到 LINE / Threads 等,Pick a template copy and paste to LINE / Threads.,テンプレを選んでコピーしLINE/Threadsに貼り付け,分享對話框副標題
+topic.share.subtitle,topic,已隨機套用一種語氣，可自行修改後複製分享,A random tone is applied—edit freely then copy.,ランダムにトーンを適用しました。編集してからコピーしてシェアできます,分享對話框副標題（隨機一則可編輯）
+topic.share.copyAndShareButton,topic,複製並分享,Copy & share,コピーしてシェア,分享對話框主按鈕
+topic.share.toast.afterCopyHint,topic,請貼到 LINE / Threads 等；每日獎勵請至任務頁領取,Paste to LINE / Threads. Claim daily reward on Missions.,LINE/Threadsに貼付。デイリー報酬はミッションで受け取り,複製成功後說明
+topic.share.missionHint,topic,代幣獎勵請至「任務」頁完成領取（每日一次）,Claim token rewards on Missions (once per day).,トークン報酬はミッションで受け取り（1日1回）,文案下方提示
+topic.share.draft.aria,topic,分享文案可編輯,Share text editable,シェア文編集可,textarea aria
+topic.share.emptyDraft,topic,請先輸入要分享的內容,Enter text to share first.,共有する内容を入力,內容為空時提示
 "topic.share.template.normal",topic,"這題怎麼看？\n「{{title}}」\n\n{{url}}","What do you think?\n""{{title}}""\n\n{{url}}","どう思う？\n「{{title}}」\n\n{{url}}",分享文案正常版
 "topic.share.template.help",topic,"急！在線等！這題超難抉擇，大家會怎麼選？🤔\n「{{title}}」\n\n{{url}}","Help! Hard choice—what would you pick? 🤔\n""{{title}}""\n\n{{url}}","急募！超難問い、みんなどうする？🤔\n「{{title}}」\n\n{{url}}",分享文案求救版
 "topic.share.template.challenge",topic,"我覺得選這個穩贏，敢不敢來投票對決？😎\n「{{title}}」\n\n{{url}}","I know this side wins—dare to vote? 😎\n""{{title}}""\n\n{{url}}","こっちが勝ちだと思う。対決しよ？😎\n「{{title}}」\n\n{{url}}",分享文案挑戰版

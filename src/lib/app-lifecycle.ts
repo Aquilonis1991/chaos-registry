@@ -75,14 +75,12 @@ export const initializeAppLifecycle = () => {
         devLog('[app-lifecycle] Has refresh_token:', !!params.refresh_token);
 
         void (async () => {
-          // iOS：OAuth 在 SFSafariViewController（Browser.open）內完成，回調時關閉覆蓋層再處理 session
-          if (Capacitor.getPlatform() === 'ios') {
-            try {
-              const { Browser } = await import('@capacitor/browser');
-              await Browser.close();
-            } catch {
-              /* 未開啟 Browser 或已關閉 */
-            }
+          // OAuth 在 Browser.open（iOS SFSafariViewController / Android Custom Tabs）內完成，回調時關閉再處理 session
+          try {
+            const { Browser } = await import('@capacitor/browser');
+            await Browser.close();
+          } catch {
+            /* 未開啟 Browser 或已關閉 */
           }
           devLog('[app-lifecycle] Dispatching oauth-callback event...');
           window.dispatchEvent(new CustomEvent('oauth-callback', { detail: { url: data.url, params } }));

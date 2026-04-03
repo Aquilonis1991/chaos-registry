@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, User, Clock, Coins, Loader2, Gift, Flag, Sparkles } from "lucide-react";
+import { ArrowLeft, User, Clock, Coins, Loader2, Gift, Flag, Sparkles, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { useProfile } from "@/hooks/useProfile";
 import { useVoteOperations } from "@/hooks/useVoteOperations";
@@ -42,6 +42,7 @@ import { PromptNotConfiguredDialog } from "@/components/PromptNotConfiguredDialo
 import { supabase } from "@/integrations/supabase/client";
 import { ArenaSection } from "@/components/arena/ArenaSection";
 import { useServerTime } from "@/contexts/ServerTimeContext";
+import { TopicShareDialog } from "@/components/TopicShareDialog";
 
 const VoteDetailPage = () => {
   const { id } = useParams();
@@ -74,6 +75,7 @@ const VoteDetailPage = () => {
   const [customAmount, setCustomAmount] = useState<string>("");
   const [exposureDialogOpen, setExposureDialogOpen] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
 
   // 參與者付費影響主題（延長時間 / 新增選項）
   const [extendDialogOpen, setExtendDialogOpen] = useState(false);
@@ -508,23 +510,43 @@ const VoteDetailPage = () => {
               <h2 className="text-2xl font-bold text-foreground flex-1 min-w-0 pr-2">
                 {topic.title}
               </h2>
-              <ReportDialog
-                targetType="topic"
-                targetId={id || ""}
-                targetTitle={topic.title}
-                trigger={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0 h-10 w-10 text-destructive hover:text-destructive hover:bg-destructive/15"
-                    aria-label={reportButtonText}
-                  >
-                    <Flag className="h-5 w-5" strokeWidth={2.25} aria-hidden />
-                  </Button>
-                }
-              />
+              <div className="flex shrink-0 gap-1.5 md:gap-2 items-center">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 h-10 w-10 text-[#FF4D94] hover:text-[#FF4D94] hover:bg-[#FF4D94]/15"
+                  aria-label={getText("topic.share.button.aria", "分享主題")}
+                  onClick={() => setShareDialogOpen(true)}
+                >
+                  <Share2 className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+                </Button>
+                <ReportDialog
+                  targetType="topic"
+                  targetId={id || ""}
+                  targetTitle={topic.title}
+                  trigger={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0 h-10 w-10 text-destructive/70 hover:text-destructive hover:bg-destructive/15"
+                      aria-label={reportButtonText}
+                    >
+                      <Flag className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+                    </Button>
+                  }
+                />
+              </div>
             </div>
+            {topic && (
+              <TopicShareDialog
+                open={shareDialogOpen}
+                onOpenChange={setShareDialogOpen}
+                topicId={topic.id}
+                topicTitle={topic.title}
+              />
+            )}
 
             <div className="flex flex-wrap gap-2 mb-4">
               {topic.tags.map((tag) => (

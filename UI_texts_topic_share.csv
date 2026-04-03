@@ -1,0 +1,18 @@
+key,category,zh,en,ja,description
+topic.share.title,topic,分享這個話題,Share this topic,このトピックをシェア,分享對話框標題
+topic.share.subtitle,topic,選一則文案複製，貼到 LINE / Threads 等,Pick a template copy and paste to LINE / Threads.,テンプレを選んでコピーしLINE/Threadsに貼り付け,分享對話框副標題
+"topic.share.template.normal",topic,"這題怎麼看？\n「{{title}}」\n\n{{url}}","What do you think?\n""{{title}}""\n\n{{url}}","どう思う？\n「{{title}}」\n\n{{url}}",分享文案正常版
+"topic.share.template.help",topic,"急！在線等！這題超難抉擇，大家會怎麼選？🤔\n「{{title}}」\n\n{{url}}","Help! Hard choice—what would you pick? 🤔\n""{{title}}""\n\n{{url}}","急募！超難問い、みんなどうする？🤔\n「{{title}}」\n\n{{url}}",分享文案求救版
+"topic.share.template.challenge",topic,"我覺得選這個穩贏，敢不敢來投票對決？😎\n「{{title}}」\n\n{{url}}","I know this side wins—dare to vote? 😎\n""{{title}}""\n\n{{url}}","こっちが勝ちだと思う。対決しよ？😎\n「{{title}}」\n\n{{url}}",分享文案挑戰版
+"topic.share.template.chaos",topic,"世界越快，心則慢... 拜託告訴我這題的正確答案是什麼🤯\n「{{title}}」\n\n{{url}}","Chaos everywhere—what's the right answer? 🤯\n""{{title}}""\n\n{{url}}","世は速いのに心は遅い…正解は？🤯\n「{{title}}」\n\n{{url}}",分享文案混沌版
+topic.share.templateLabel.normal,topic,正常,Neutral,普通,分享模板按鈕正常
+topic.share.templateLabel.help,topic,求救,Help,助けて,分享模板按鈕求救
+topic.share.templateLabel.challenge,topic,挑戰,Challenge,挑戦,分享模板按鈕挑戰
+topic.share.templateLabel.chaos,topic,混沌,Chaos,混沌,分享模板按鈕混沌
+topic.share.toast.copiedTitle,topic,已複製,Copied,コピーしました,複製成功 toast 標題
+topic.share.toast.copiedDesc,topic,請貼到 LINE / Threads 分享,Paste to LINE / Threads to share.,LINE/Threadsなどに貼り付けてください,複製成功 toast 說明
+topic.share.completeButton,topic,我已分享完成,I've shared,シェア完了,分享對話框完成按鈕
+topic.share.completeSuccess,topic,已領取今日分享獎勵,Daily share reward claimed,本日のシェア報酬を受け取りました,完成分享後成功 toast
+topic.share.loginRequired,topic,請先登入以領取分享獎勵,Log in to claim the share reward.,報酬を受け取るにはログインしてください,未登入完成分享
+topic.share.clipboardError,topic,無法複製到剪貼簿,Could not copy to clipboard,クリップボードにコピーできませんでした,剪貼簿失敗
+topic.share.button.aria,topic,分享主題,Share topic,トピックをシェア,主題卡片分享按鈕 aria-label

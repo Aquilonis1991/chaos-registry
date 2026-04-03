@@ -17,6 +17,9 @@ mission.dailyLogin.notLoggedIn,mission,請先登入,Please log in first,まず�
 mission.list.5.name,mission,形象更新,Identity Refresh,プロフィール更新,任務列表：修改暱稱任務名稱
 mission.list.5.description,mission,成功修改一次暱稱,Change your nickname once,ニックネームを1回変更する,任務列表：修改暱稱任務說明
 mission.list.5.condition,mission,修改暱稱 1 次,Change nickname 1 time,ニックネームを1回変更する,任務列表：修改暱稱任務條件
+mission.list.12.name,mission,每日口耳相傳,Daily Word of Mouth,デイリー口コミ,任務列表：每日分享任務名稱
+mission.list.12.description,mission,分享主題到社群並完成分享回報（每日一次）,Share a topic and tap complete once per day.,トピックをSNSでシェアし、完了を1日1回タップする,任務列表：每日分享任務說明
+mission.list.12.condition,mission,完成分享回報 1 次,Complete share confirmation once,シェア完了を1回報告する,任務列表：每日分享任務條件
 profile.nickname.editHint,profile,點擊暱稱即可編輯，輸入新名稱後按右側勾勾儲存。,Tap your nickname to edit it, then press the check icon to save.,ニックネームをタップして編集し、新しい名前を入力してチェックアイコンで保存します。,個人頁：暱稱修改方式說明
 
 mission.watchAd.failedDescDefault,mission,請稍後再試或聯繫客服,Please try again later or contact support,しばらくしてから再試行するか、サポートにお問い合わせください,觀看廣告失敗：預設說明（無詳細錯誤時）

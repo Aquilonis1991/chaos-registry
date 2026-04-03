@@ -521,22 +521,6 @@ const VoteDetailPage = () => {
                 >
                   <Share2 className="h-5 w-5" strokeWidth={2.25} aria-hidden />
                 </Button>
-                <ReportDialog
-                  targetType="topic"
-                  targetId={id || ""}
-                  targetTitle={topic.title}
-                  trigger={
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="shrink-0 h-10 w-10 text-destructive/70 hover:text-destructive hover:bg-destructive/15"
-                      aria-label={reportButtonText}
-                    >
-                      <Flag className="h-5 w-5" strokeWidth={2.25} aria-hidden />
-                    </Button>
-                  }
-                />
               </div>
             </div>
             {topic && (
@@ -564,7 +548,7 @@ const VoteDetailPage = () => {
 
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div
-                className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground/65"
+                className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground/65"
                 aria-label={getText("vote.detail.meta.ariaLabel", "主題發起與時間資訊")}
               >
                 <div className="flex items-center gap-1.5 min-w-0">
@@ -579,6 +563,22 @@ const VoteDetailPage = () => {
                   <Clock className="w-3.5 h-3.5 shrink-0 opacity-60" aria-hidden />
                   <span>{remainingTimeLabel}</span>
                 </div>
+                <ReportDialog
+                  targetType="topic"
+                  targetId={id || ""}
+                  targetTitle={topic.title}
+                  trigger={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 text-destructive/70 hover:text-destructive hover:bg-destructive/15"
+                      aria-label={reportButtonText}
+                    >
+                      <Flag className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+                    </Button>
+                  }
+                />
               </div>
 
               {/* 編輯／刪除／曝光（僅創建者） */}

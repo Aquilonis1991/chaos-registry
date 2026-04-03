@@ -1,15 +1,14 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import type { CSSProperties } from "react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Flame, Clock, User, CheckCircle2, Share2 } from "lucide-react";
+import { Flame, Clock, User, CheckCircle2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getTagColor } from "@/lib/tagColors";
 import { cn } from "@/lib/utils";
 import { formatCompactNumber } from "@/lib/numberFormat";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
-import { TopicShareDialog } from "@/components/TopicShareDialog";
 
 interface TopicCardProps {
   id: string;
@@ -154,8 +153,6 @@ export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, isEn
   const endedSuffixLabel = getText('home.topicCard.endedSuffix', '（已結束）');
   const urgentTagLabel = getText('home.topicCard.urgentTag', '🔥 倒數中');
   const urgentCountdownTemplate = getText('common.time.urgentMinutes', '⌛ 剩餘 {{count}} 分鐘');
-  const shareAriaLabel = getText('topic.share.button.aria', '分享主題');
-  const [shareOpen, setShareOpen] = useState(false);
 
   const level = typeof currentExposureLevel === 'string' ? currentExposureLevel.trim().toLowerCase() : '';
   const normalizedLevel = level === 'low' ? 'normal' : level;
@@ -192,26 +189,7 @@ export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, isEn
   );
 
   return (
-    <div className="relative">
-      <TopicShareDialog
-        open={shareOpen}
-        onOpenChange={setShareOpen}
-        topicId={id}
-        topicTitle={title}
-      />
-      <button
-        type="button"
-        className="absolute top-2 right-2 z-20 flex h-6 w-6 items-center justify-center rounded-md bg-[#FF4D94]/15 text-[#FF4D94] hover:bg-[#FF4D94]/25 active:scale-95"
-        aria-label={shareAriaLabel}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setShareOpen(true);
-        }}
-      >
-        <Share2 className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-      </button>
-      <Link to={`/vote/${id}`} className="block">
+    <Link to={`/vote/${id}`} className="block">
       {/* 高級/中等曝光卡：僅用 div + inline style，絕不使用 Card，避免 bg-card 蓋掉漸層（下次 AAB 請保持此分支無 Card） */}
       {isExposureCard && exposureStyle ? (
         <div
@@ -277,7 +255,6 @@ export const TopicCard = ({ id, title, tags, voteCount, creatorName, isHot, isEn
           </CardFooter>
         </Card>
       )}
-      </Link>
-    </div>
+    </Link>
   );
 };

@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Browser } from "@capacitor/browser";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Eye, User } from "lucide-react";
@@ -22,7 +23,7 @@ import { useUIText } from "@/hooks/useUIText";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
-import { isNative } from "@/lib/capacitor";
+import { getPlatform, isNative } from "@/lib/capacitor";
 import { devLog } from "@/lib/devLog";
 import { signupSchema, loginSchema } from "@/lib/validationSchemas";
 import { Logo } from "@/components/Logo";
@@ -283,6 +284,7 @@ const AuthPage = () => {
       const oauthOptions: {
         redirectTo: string;
         scopes?: string;
+        skipBrowserRedirect?: boolean;
       } = {
         // 回歸原本設計：
         // - App：使用 Deep Link 回調（由 OAuthCallbackHandler 解析 token 並 setSession）
@@ -296,7 +298,13 @@ const AuthPage = () => {
         oauthOptions.scopes = 'users.read users.email offline.access';
       }
 
-      const { error } = await supabase.auth.signInWithOAuth({
+      // iOS：使用 @capacitor/browser（SFSafariViewController），符合 Apple 對 OAuth 的建議，而非主 WebView / 外部 Safari
+      const useCapacitorBrowserOAuth = isNative() && getPlatform() === 'ios';
+      if (useCapacitorBrowserOAuth) {
+        oauthOptions.skipBrowserRedirect = true;
+      }
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: oauthOptions,
       });
@@ -311,6 +319,16 @@ const AuthPage = () => {
         const providerName = providerNames[provider] || provider;
         const socialLoginErrorTemplate = getText('auth_social_login_error', '{{provider}}登入失敗');
         toast.error(socialLoginErrorTemplate.replace('{{provider}}', providerName));
+        return;
+      }
+
+      if (useCapacitorBrowserOAuth) {
+        if (!data?.url) {
+          toast.error(getText('auth_login_error', '登入失敗，請稍後再試'));
+          return;
+        }
+        devLog('[AuthPage] iOS OAuth: Browser.open (in-app browser)');
+        await Browser.open({ url: data.url });
       }
     } catch (error) {
       toast.error(getText('auth_login_error', '登入失敗，請稍後再試'));
@@ -386,16 +404,10 @@ const AuthPage = () => {
       }
 
       devLog(`[AuthPage] Redirecting to OAuth page: ${authUrl}`);
-      
-      // 在 App 環境中，直接使用 window.location.href 在當前 WebView 中打開
-      // WebView 配置已經設置了 setSupportMultipleWindows(false) 和 WebChromeClient
-      // 這樣可以防止打開新分頁，並且可以正確處理回調
-      if (isNative()) {
-        console.log('[AuthPage] Opening OAuth page in current WebView (window.location.href)');
-        // 直接使用 window.location.href，WebView 配置會防止打開新分頁
-        window.location.href = authUrl;
+
+      if (isNative() && getPlatform() === 'ios') {
+        await Browser.open({ url: authUrl });
       } else {
-        // Web 環境，直接使用 window.location.href
         window.location.href = authUrl;
       }
     } catch (err: any) {

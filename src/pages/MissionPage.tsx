@@ -29,6 +29,7 @@ const MISSION_ID_MAP: Record<string, string> = {
   "9": "streak_7_repeat",   // 連續簽到 7 天（可重複）
   "10": "streak_14_repeat", // 連續簽到 14 天（可重複）
   "11": "streak_30_repeat", // 連續簽到 30 天（可重複）
+  "12": "daily_share_1", // 每日口耳相傳（分享）
 };
 
 interface LoginStreakInfo {
@@ -94,17 +95,8 @@ const MissionPage = () => {
       streak7RepeatReward: configs['mission_streak_7_reward'] ?? 80,
       streak14RepeatReward: configs['mission_streak_14_reward'] ?? 200,
       streak30RepeatReward: configs['mission_streak_30_reward'] ?? 500,
+      dailyShareReward: configs['mission_daily_share_reward'] ?? 10,
     };
-
-    // 調試日誌：檢查觀看廣告獎勵配置
-    if (configs['mission_watch_ad_reward'] !== undefined) {
-      console.log('[MissionPage] 觀看廣告獎勵配置:', {
-        rawValue: configs['mission_watch_ad_reward'],
-        type: typeof configs['mission_watch_ad_reward'],
-        parsedValue: result.watchAdReward,
-        allConfigs: configs
-      });
-    }
 
     return result;
   }, [configs]);
@@ -153,6 +145,9 @@ const MissionPage = () => {
     const streak30RepeatReward = typeof missionConfigs.streak30RepeatReward === 'number'
       ? missionConfigs.streak30RepeatReward
       : Number(missionConfigs.streak30RepeatReward) || 500;
+    const dailyShareReward = typeof missionConfigs.dailyShareReward === 'number'
+      ? missionConfigs.dailyShareReward
+      : Number(missionConfigs.dailyShareReward) || 10;
 
     const templates = [
       // === 每日任務 ===
@@ -179,6 +174,14 @@ const MissionPage = () => {
         condition: "今日投票 10 票",
         reward: dailyVote10Reward,
         target: 10,
+      },
+      {
+        id: "12",
+        name: "每日口耳相傳",
+        description: "使用分享功能複製文案後，前往任務頁領取每日獎勵（每日一次）",
+        condition: "於任務頁領取分享獎勵 1 次",
+        reward: dailyShareReward,
+        target: 1,
       },
       // === 可重複完成簽到 ===
       {
@@ -303,6 +306,8 @@ const MissionPage = () => {
           progress: Math.min((dailyVoteCount / target) * 100, 100),
           completed: dailyVoteCount >= target
         };
+      case "12":
+        return { progress: 100, completed: true };
       case "9":
       case "10":
       case "11": {
@@ -648,6 +653,10 @@ const MissionPage = () => {
 
     // 每日投票任務：只判斷今天是否已領
     if (dbMissionId === 'daily_vote_1' || dbMissionId === 'daily_vote_5' || dbMissionId === 'daily_vote_10') {
+      return lastDone === getTaipeiDateKey();
+    }
+
+    if (dbMissionId === 'daily_share_1') {
       return lastDone === getTaipeiDateKey();
     }
 

@@ -16,6 +16,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 import { playTokenAmountHaptic } from "@/lib/tokenHaptics";
+import { DAILY_SHARE_COPIED_EVENT, hasDailyShareCopiedToday } from "@/lib/dailyShareCopyGate";
 
 // 任務映射：前端任務 ID -> 數據庫任務 ID
 const MISSION_ID_MAP: Record<string, string> = {
@@ -70,6 +71,8 @@ const MissionPage = () => {
   const [loadingMissions, setLoadingMissions] = useState(true);
   const [claimingMissionId, setClaimingMissionId] = useState<string | null>(null);
   const [dailyVoteCount, setDailyVoteCount] = useState(0);
+  /** 口耳相傳：使用者按過「複製並分享」後刷新進度（localStorage 無法觸發重繪） */
+  const [shareCopyNonce, setShareCopyNonce] = useState(0);
   // 追蹤最近一次顯示的 toast，避免重複顯示
   const lastToastRef = useRef<{ type: string; timestamp: number } | null>(null);
 
@@ -306,8 +309,6 @@ const MissionPage = () => {
           progress: Math.min((dailyVoteCount / target) * 100, 100),
           completed: dailyVoteCount >= target
         };
-      case "12":
-        return { progress: 100, completed: true };
       case "9":
       case "10":
       case "11": {
@@ -579,6 +580,22 @@ const MissionPage = () => {
     if (isRewardClaimed(missionId)) {
       toast.info(missionAlreadyClaimedInfo);
       return;
+    }
+
+    if (missionId === "12") {
+      if (!user?.id) {
+        toast.error(getText("mission.dailyShare.needLogin", "請先登入"));
+        return;
+      }
+      if (!hasDailyShareCopiedToday(user.id)) {
+        toast.info(
+          getText(
+            "mission.dailyShare.needCopyFirst",
+            "請先到話題頁開啟分享，並按「複製並分享」後再回到此頁領取"
+          )
+        );
+        return;
+      }
     }
 
     setClaimingMissionId(missionId);

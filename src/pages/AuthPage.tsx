@@ -23,7 +23,7 @@ import { useUIText } from "@/hooks/useUIText";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
-import { getPlatform, isNative } from "@/lib/capacitor";
+import { isNative } from "@/lib/capacitor";
 import { devLog } from "@/lib/devLog";
 import { signupSchema, loginSchema } from "@/lib/validationSchemas";
 import { Logo } from "@/components/Logo";
@@ -298,8 +298,8 @@ const AuthPage = () => {
         oauthOptions.scopes = 'users.read users.email offline.access';
       }
 
-      // iOS：使用 @capacitor/browser（SFSafariViewController），符合 Apple 對 OAuth 的建議，而非主 WebView / 外部 Safari
-      const useCapacitorBrowserOAuth = isNative() && getPlatform() === 'ios';
+      // 原生 App：@capacitor/browser（iOS = SFSafariViewController，Android = Chrome Custom Tabs），與在主 WebView 內做 OAuth 分開
+      const useCapacitorBrowserOAuth = isNative();
       if (useCapacitorBrowserOAuth) {
         oauthOptions.skipBrowserRedirect = true;
       }
@@ -405,7 +405,7 @@ const AuthPage = () => {
 
       devLog(`[AuthPage] Redirecting to OAuth page: ${authUrl}`);
 
-      if (isNative() && getPlatform() === 'ios') {
+      if (isNative()) {
         await Browser.open({ url: authUrl });
       } else {
         window.location.href = authUrl;

@@ -12,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
+import { useAuth } from "@/hooks/useAuth";
+import { DAILY_SHARE_COPIED_EVENT, markDailyShareCopied } from "@/lib/dailyShareCopyGate";
 
 type TemplateKey = "normal" | "help" | "challenge" | "chaos";
 
@@ -45,6 +47,7 @@ interface TopicShareDialogProps {
 export function TopicShareDialog({ open, onOpenChange, topicId, topicTitle }: TopicShareDialogProps) {
   const { language } = useLanguage();
   const { getText } = useUIText(language);
+  const { user } = useAuth();
   const [draftText, setDraftText] = useState("");
 
   const shareUrl = useMemo(() => buildShareUrl(topicId), [topicId]);
@@ -75,7 +78,7 @@ export function TopicShareDialog({ open, onOpenChange, topicId, topicTitle }: To
     } catch {
       toast.error(getText("topic.share.clipboardError", "無法複製到剪貼簿"));
     }
-  }, [draftText, getText, onOpenChange]);
+  }, [draftText, getText, onOpenChange, user?.id]);
 
   const title = getText("topic.share.title", "分享這個話題");
   const subtitle = getText(

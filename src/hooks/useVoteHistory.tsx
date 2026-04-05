@@ -61,12 +61,15 @@ const resolveOptionText = (topicOptions: any[] | undefined, selectedOption: stri
 
 export const useVoteHistory = (userId: string | undefined, options?: { timeFilter?: TimeFilterOption | null; isAdmin?: boolean }) => {
   const { timeFilter = null, isAdmin = false } = options || {};
+  const { offsetMs, getNow } = useServerTime();
   const [history, setHistory] = useState<VoteHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchVoteHistory = async () => {
     if (!userId) return;
+
+    const now = getNow();
 
     try {
       setLoading(true);
@@ -166,7 +169,7 @@ export const useVoteHistory = (userId: string | undefined, options?: { timeFilte
             tokens_used: vote.amount || 0,
             is_free_vote: false,
             voted_at: vote.created_at,
-            topic_status: resolveTopicStatus(t?.status, t?.end_at),
+            topic_status: resolveTopicStatus(t?.status, t?.end_at, now),
             topic_tags: t?.tags || [],
           };
         });
@@ -184,7 +187,7 @@ export const useVoteHistory = (userId: string | undefined, options?: { timeFilte
             tokens_used: 0,
             is_free_vote: true,
             voted_at: vote.used_at,
-            topic_status: resolveTopicStatus(t?.status, t?.end_at),
+            topic_status: resolveTopicStatus(t?.status, t?.end_at, now),
             topic_tags: t?.tags || [],
           };
         });

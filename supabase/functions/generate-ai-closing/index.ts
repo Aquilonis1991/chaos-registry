@@ -126,10 +126,11 @@ Deno.serve(async (req) => {
       .eq("topic_id", topic_id);
     if (freeVoteErr) console.warn("[generate-ai-closing] free_votes aggregate error:", freeVoteErr);
 
+    const normalizeVoteKey = (value: unknown) => String(value ?? "").trim();
     const voteMap = new Map<string, number>(); // 每個選項的最終票數（付費 amount + 免費票次數）
     let totalTokensSpent = 0;
     for (const r of (voteAgg || []) as Array<{ option: string; amount: number }>) {
-      const key = String(r.option ?? "");
+      const key = normalizeVoteKey(r.option);
       const amt = Number(r.amount ?? 0);
       if (!key) continue;
       const paid = Number.isFinite(amt) ? amt : 0;
@@ -137,17 +138,19 @@ Deno.serve(async (req) => {
       totalTokensSpent += paid;
     }
     for (const r of (freeVoteAgg || []) as Array<{ option: string }>) {
-      const key = String(r.option ?? "");
+      const key = normalizeVoteKey(r.option);
       if (!key) continue;
       voteMap.set(key, (voteMap.get(key) ?? 0) + 1);
     }
 
-    // fill votes
-    for (const o of optList) o.votes = voteMap.get(o.optionId) ?? 0;
-
-    // fallback: 若 votes.option 存的是選項文字（舊資料），嘗試以 name 再加總一次
-    if (voteMap.size > 0 && optList.every((o) => o.votes === 0)) {
-      for (const o of optList) o.votes = voteMap.get(o.name) ?? 0;
+    // fill votes：同時嘗試 optionId 與選項文字，避免部分命中時漏算代幣票
+    for (const o of optList) {
+      const idKey = normalizeVoteKey(o.optionId);
+      const nameKey = normalizeVoteKey(o.name);
+      const keySet = new Set<string>([idKey, nameKey].filter(Boolean));
+      let mergedVotes = 0;
+      for (const k of keySet) mergedVotes += voteMap.get(k) ?? 0;
+      o.votes = mergedVotes;
     }
 
     const totalVotes = optList.reduce((s, o) => s + (o.votes ?? 0), 0);

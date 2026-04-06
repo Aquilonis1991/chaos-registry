@@ -86,6 +86,7 @@ export function insertAdsIntoList<T>(
           <NativeAdCard
             key={`ad-${adCounter}`}
             adUnitId={adUnitId}
+            enableMock={false}
             className="mt-4"
             onAdLoaded={() => {
               console.log(`[insertAdsIntoList] 廣告已載入: ad-${adCounter}`);

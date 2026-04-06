@@ -66,12 +66,13 @@ export function TopicShareDialog({ open, onOpenChange, topicId, topicTitle }: To
       toast.info(getText("topic.share.emptyDraft", "請先輸入要分享的內容"));
       return;
     }
+    // 任務條件是「有點擊複製按鈕」，不依賴原生環境 clipboard API 是否可用
+    if (user?.id) {
+      markDailyShareCopied(user.id);
+      window.dispatchEvent(new Event(DAILY_SHARE_COPIED_EVENT));
+    }
     try {
       await navigator.clipboard.writeText(text);
-      if (user?.id) {
-        markDailyShareCopied(user.id);
-        window.dispatchEvent(new Event(DAILY_SHARE_COPIED_EVENT));
-      }
       toast.success(getText("topic.share.toast.copiedTitle", "已複製"), {
         description: getText(
           "topic.share.toast.afterCopyHint",
@@ -80,7 +81,13 @@ export function TopicShareDialog({ open, onOpenChange, topicId, topicTitle }: To
       });
       onOpenChange(false);
     } catch {
-      toast.error(getText("topic.share.clipboardError", "無法複製到剪貼簿"));
+      toast.success(getText("topic.share.toast.copiedTitle", "已登記"), {
+        description: getText(
+          "topic.share.clipboardError",
+          "此裝置無法直接複製到剪貼簿，但已記錄口耳相傳任務，可回任務頁領取"
+        ),
+      });
+      onOpenChange(false);
     }
   }, [draftText, getText, onOpenChange, user?.id]);
 

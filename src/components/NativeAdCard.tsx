@@ -13,8 +13,8 @@ interface NativeAdCardProps {
   className?: string;
   onAdLoaded?: (ad?: NativeAdData) => void;
   /**
-   * 在尚未串接原生插件前，是否允許使用 mock 資料。
-   * 預設 true，等 Native Ad Plugin 完成後可以關閉。
+   * 是否允許使用 mock 資料。
+   * 預設 false，避免原生環境誤顯示 Demo 廣告。
    */
   enableMock?: boolean;
 }
@@ -29,7 +29,7 @@ export const NativeAdCard = ({
   adUnitId,
   className = "",
   onAdLoaded,
-  enableMock = true,
+  enableMock = false,
 }: NativeAdCardProps) => {
   // 網頁版直接返回 null，不渲染任何內容
   if (!isNative()) {

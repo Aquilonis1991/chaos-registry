@@ -112,19 +112,34 @@ Deno.serve(async (req) => {
       })
       .filter((o) => o.name.trim().length > 0);
 
-    // Aggregate votes from votes table (option 是 TEXT，通常存 optionId)
+    // Aggregate paid votes from votes table (option 是 TEXT，通常存 optionId；amount 為該選項代幣票數)
     const { data: voteAgg, error: voteAggErr } = await supabase
       .from("votes")
       .select("option, amount")
       .eq("topic_id", topic_id);
     if (voteAggErr) console.warn("[generate-ai-closing] votes aggregate error:", voteAggErr);
 
-    const voteMap = new Map<string, number>();
+    // Aggregate free votes (每筆算 1 票)
+    const { data: freeVoteAgg, error: freeVoteErr } = await supabase
+      .from("free_votes")
+      .select("option")
+      .eq("topic_id", topic_id);
+    if (freeVoteErr) console.warn("[generate-ai-closing] free_votes aggregate error:", freeVoteErr);
+
+    const voteMap = new Map<string, number>(); // 每個選項的最終票數（付費 amount + 免費票次數）
+    let totalTokensSpent = 0;
     for (const r of (voteAgg || []) as Array<{ option: string; amount: number }>) {
       const key = String(r.option ?? "");
       const amt = Number(r.amount ?? 0);
       if (!key) continue;
-      voteMap.set(key, (voteMap.get(key) ?? 0) + (Number.isFinite(amt) ? amt : 0));
+      const paid = Number.isFinite(amt) ? amt : 0;
+      voteMap.set(key, (voteMap.get(key) ?? 0) + paid);
+      totalTokensSpent += paid;
+    }
+    for (const r of (freeVoteAgg || []) as Array<{ option: string }>) {
+      const key = String(r.option ?? "");
+      if (!key) continue;
+      voteMap.set(key, (voteMap.get(key) ?? 0) + 1);
     }
 
     // fill votes
@@ -149,7 +164,7 @@ Deno.serve(async (req) => {
       options: optList.map((o) => ({ id: o.optionId, name: o.name, votes: o.votes })),
       options_votes: optList.map((o) => ({ id: o.optionId, name: o.name, votes: o.votes })),
       total_votes: totalVotes,
-      total_tokens_spent: 0,
+      total_tokens_spent: totalTokensSpent,
       duration_minutes: durationMinutes,
       winning_option: winning.name,
       winning_percentage: winningPct,

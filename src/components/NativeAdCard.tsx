@@ -21,6 +21,10 @@ interface NativeAdCardProps {
 
 type AdStatus = "idle" | "loading" | "ready" | "error";
 
+// 以 adUnitId 為維度做去重與退避，避免同時多次請求觸發 LOAD_IN_PROGRESS / too many failed requests。
+const nativeAdInFlightByUnit = new Map<string, Promise<NativeAdData>>();
+const nativeAdCooldownUntilByUnit = new Map<string, number>();
+
 /**
  * 原生廣告卡片組件（會根據 AdMob Native Ad 資料渲染）
  * 注意：網頁版會自動失效，不顯示任何內容
@@ -76,6 +80,13 @@ export const NativeAdCard = ({
       return;
     }
 
+    const cooldownUntil = nativeAdCooldownUntilByUnit.get(adUnitId) ?? 0;
+    if (Date.now() < cooldownUntil) {
+      setStatus("error");
+      setErrorMessage("目前暫無可投放廣告，請稍後再試");
+      return;
+    }
+
     setStatus("loading");
     setErrorMessage(null);
 
@@ -84,25 +95,67 @@ export const NativeAdCard = ({
 
       // 只在原生平台動態載入 NativeAd
       if (isNative()) {
+        let plugin: any;
         try {
-          const plugin = await import("@votechaos/native-ad-plugin");
-          const NativeAd = plugin.NativeAd;
-          
-          if (NativeAd && typeof NativeAd.loadNativeAd === "function") {
-            const result = await NativeAd.loadNativeAd({ adUnitId });
-            if (result?.data) {
-              data = result.data;
-            } else if (result?.error) {
-              throw new Error(result.error);
-            }
-          }
+          plugin = await import("@votechaos/native-ad-plugin");
         } catch (importError) {
           console.warn('[NativeAdCard] Failed to import native-ad-plugin:', importError);
-          // 如果載入失敗，回退到 mock 資料
           if (enableMock) {
             data = await loadMockNativeAd(mockData);
           } else {
             throw new Error("NativeAdPlugin 載入失敗");
+          }
+        }
+
+        if (!data) {
+          const NativeAd = plugin?.NativeAd;
+          if (!NativeAd || typeof NativeAd.loadNativeAd !== "function") {
+            throw new Error("NativeAdPlugin 尚未整合");
+          }
+
+          const existingInFlight = nativeAdInFlightByUnit.get(adUnitId);
+          if (existingInFlight) {
+            data = await existingInFlight;
+          } else {
+            const loadPromise = (async (): Promise<NativeAdData> => {
+              let result = await NativeAd.loadNativeAd({ adUnitId });
+
+              // 多張廣告卡同時請求時，插件會回 LOAD_IN_PROGRESS；延遲一次重試即可。
+              if (result?.error && String(result.error).toLowerCase().includes("load_in_progress")) {
+                await new Promise((resolve) => setTimeout(resolve, 900));
+                result = await NativeAd.loadNativeAd({ adUnitId });
+              }
+
+              if (result?.data) {
+                return result.data as NativeAdData;
+              }
+
+              const rawError = String(result?.error || "UNKNOWN_ERROR");
+              const lower = rawError.toLowerCase();
+              if (
+                lower.includes("code=1") ||
+                lower.includes("nofill") ||
+                lower.includes("no fill") ||
+                lower.includes("too many recently failed requests")
+              ) {
+                nativeAdCooldownUntilByUnit.set(adUnitId, Date.now() + 30_000);
+                throw new Error("目前暫無可投放廣告（No Fill），請稍後再試");
+              }
+              if (lower.includes("missing_ad_unit_id")) {
+                throw new Error("廣告單元 ID 缺失，請檢查後台設定");
+              }
+              if (lower.includes("load_in_progress")) {
+                throw new Error("廣告載入中，請稍後再試");
+              }
+              throw new Error(`原生廣告載入失敗：${rawError}`);
+            })();
+
+            nativeAdInFlightByUnit.set(adUnitId, loadPromise);
+            try {
+              data = await loadPromise;
+            } finally {
+              nativeAdInFlightByUnit.delete(adUnitId);
+            }
           }
         }
       } else if (enableMock) {
@@ -120,7 +173,7 @@ export const NativeAdCard = ({
       setStatus("ready");
       onAdLoaded?.(data);
     } catch (error: any) {
-      console.error("[NativeAdCard] 載入原生廣告失敗", error);
+      console.error("[NativeAdCard] 載入原生廣告失敗:", error?.message || String(error));
       setStatus("error");
       setErrorMessage(error?.message || "載入原生廣告失敗");
       setAdData(null);

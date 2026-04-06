@@ -1,104 +1,108 @@
 import Foundation
 import Capacitor
 import GoogleMobileAds
+import UIKit
 
 @objc(NativeAdPlugin)
-public class NativeAdPlugin: CAPPlugin, GADNativeAdLoaderDelegate {
+public class NativeAdPlugin: CAPPlugin, GADNativeAdLoaderDelegate, GADNativeAdDelegate {
     private var adLoader: GADAdLoader?
-    private var currentAd: GADNativeAd?
-    private var lastAdUnitId: String?
+    private var loadingCall: CAPPluginCall?
+    private var lastAdData: [String: Any]?
 
     @objc func loadNativeAd(_ call: CAPPluginCall) {
-        guard let adUnitId = call.getString("adUnitId"), !adUnitId.isEmpty else {
-            call.reject("adUnitId is required")
+        let adUnitId = (call.getString("adUnitId") ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !adUnitId.isEmpty else {
+            call.resolve(["error": "MISSING_AD_UNIT_ID"])
             return
         }
 
-        DispatchQueue.main.async {
-            if self.adLoader == nil {
-                GADMobileAds.sharedInstance().start(completionHandler: nil)
-            }
+        if loadingCall != nil {
+            call.resolve(["error": "LOAD_IN_PROGRESS"])
+            return
+        }
 
-            self.adLoader = GADAdLoader(adUnitID: adUnitId,
-                                        rootViewController: self.bridge?.viewController,
-                                        adTypes: [.native],
-                                        options: [GADNativeAdImageAdLoaderOptions()])
-            self.adLoader?.delegate = self
+        loadingCall = call
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            let rootVC = self.bridge?.viewController
+            let loader = GADAdLoader(
+                adUnitID: adUnitId,
+                rootViewController: rootVC,
+                adTypes: [.native],
+                options: nil
+            )
+            loader.delegate = self
+            self.adLoader = loader
+
+            // 隱私防護：固定使用非個人化廣告請求，避免觸發追蹤用途。
             let request = GADRequest()
-            self.adLoader?.load(request)
-
-            self.currentCall = call
-            self.lastAdUnitId = adUnitId
+            let extras = GADExtras()
+            extras.additionalParameters = ["npa": "1"]
+            request.register(extras)
+            loader.load(request)
         }
     }
 
-    private var currentCall: CAPPluginCall?
-
-    public func adLoader(_ adLoader: GADAdLoader, didFailToReceiveAdWithError error: Error) {
-        CAPLog.print("[NativeAdPlugin] Failed to load native ad: \(error.localizedDescription)")
-        currentCall?.reject(error.localizedDescription)
-        currentCall = nil
-    }
-
+    // MARK: - GADNativeAdLoaderDelegate
     public func adLoader(_ adLoader: GADAdLoader, didReceive nativeAd: GADNativeAd) {
-        currentAd?.delegate = nil
-        currentAd = nativeAd
         nativeAd.delegate = self
 
-        guard let call = currentCall else { return }
-        let data = nativeAdToDict(nativeAd: nativeAd, adUnitId: adLoader.adUnitID)
-        call.resolve(["data": data])
-        currentCall = nil
-    }
+        var payload: [String: Any] = ["headline": nativeAd.headline]
 
-    private func nativeAdToDict(nativeAd: GADNativeAd, adUnitId: String) -> [String: Any] {
-        var dict: [String: Any] = [
-            "adUnitId": adUnitId,
-            "headline": nativeAd.headline ?? "",
-            "body": nativeAd.body ?? "",
-            "callToAction": nativeAd.callToAction ?? "",
-            "advertiser": nativeAd.advertiser ?? "",
-            "store": nativeAd.store ?? "",
-            "price": nativeAd.price ?? "",
-            "starRating": nativeAd.starRating ?? 0
+        if let value = nativeAd.body { payload["body"] = value }
+        if let value = nativeAd.callToAction { payload["callToAction"] = value }
+        if let value = nativeAd.advertiser { payload["advertiser"] = value }
+        if let value = nativeAd.store { payload["store"] = value }
+        if let value = nativeAd.price { payload["price"] = value }
+        if let value = nativeAd.starRating?.doubleValue { payload["starRating"] = value }
+        if let value = nativeAd.responseInfo.loadedAdNetworkResponseInfo?.adNetworkClassName {
+            payload["adNetworkName"] = value
+        }
+
+        if let icon = nativeAd.icon?.image, let base64 = encodeImage(icon) {
+            payload["iconBase64"] = base64
+        }
+
+        if let firstImage = nativeAd.images?.first?.image, let base64 = encodeImage(firstImage) {
+            payload["imageBase64"] = base64
+        }
+
+        let mediaContent = nativeAd.mediaContent
+        payload["mediaContent"] = [
+            "type": mediaContent.hasVideoContent ? "video" : "image",
+            "aspectRatio": Double(mediaContent.aspectRatio)
         ]
 
-        if let iconUrl = nativeAd.icon?.imageURL?.absoluteString {
-            dict["iconUrl"] = iconUrl
-        }
-        if let firstImage = nativeAd.images?.first as? GADNativeAdImage,
-           let imageUrl = firstImage.imageURL?.absoluteString {
-            dict["imageUrl"] = imageUrl
-        }
-
-        if let mediaContent = nativeAd.mediaContent {
-            dict["mediaContent"] = [
-                "hasVideoContent": mediaContent.hasVideoContent,
-                "durationSeconds": mediaContent.duration,
-                "aspectRatio": mediaContent.aspectRatio,
-                "type": mediaContent.hasVideoContent ? "video" : "image"
-            ]
-        }
-
-        return dict
+        lastAdData = payload
+        loadingCall?.resolve(["data": payload])
+        loadingCall = nil
     }
 
-    public override func handleAppInvalidate() {
-        super.handleAppInvalidate()
-        currentAd?.delegate = nil
-        currentAd = nil
-        adLoader = nil
-        currentCall = nil
+    public func adLoader(_ adLoader: GADAdLoader, didFailToReceiveAdWithError error: Error) {
+        let nsError = error as NSError
+        // 常見：GADErrorDomain code=1 (noFill)
+        let detail = "NATIVE_AD_LOAD_FAILED domain=\(nsError.domain) code=\(nsError.code) msg=\(nsError.localizedDescription)"
+        loadingCall?.resolve(["error": detail])
+        loadingCall = nil
     }
-}
 
-extension NativeAdPlugin: GADNativeAdDelegate {
+    // MARK: - GADNativeAdDelegate
     public func nativeAdDidRecordClick(_ nativeAd: GADNativeAd) {
-        notifyListeners("onNativeAdClicked", data: ["adUnitId": lastAdUnitId ?? ""])
+        guard let data = lastAdData else { return }
+        notifyListeners("onNativeAdClicked", data: data)
     }
 
     public func nativeAdDidRecordImpression(_ nativeAd: GADNativeAd) {
-        notifyListeners("onNativeAdImpression", data: ["adUnitId": lastAdUnitId ?? ""])
+        guard let data = lastAdData else { return }
+        notifyListeners("onNativeAdImpression", data: data)
+    }
+
+    // MARK: - Helpers
+    private func encodeImage(_ image: UIImage) -> String? {
+        guard let jpegData = image.jpegData(compressionQuality: 0.9) else {
+            return nil
+        }
+        return "data:image/jpeg;base64,\(jpegData.base64EncodedString())"
     }
 }
-

@@ -28,6 +28,9 @@ PODS:
   - Google-Mobile-Ads-SDK (11.3.0):
     - GoogleUserMessagingPlatform (>= 1.1)
   - GoogleUserMessagingPlatform (3.1.0)
+  - VotechaosNativeAdPlugin (0.1.0):
+    - Capacitor
+    - Google-Mobile-Ads-SDK
 
 DEPENDENCIES:
   - "Capacitor (from `../../node_modules/@capacitor/ios`)"
@@ -43,6 +46,7 @@ DEPENDENCIES:
   - "CapacitorStatusBar (from `../../node_modules/@capacitor/status-bar`)"
   - "CapacitorToast (from `../../node_modules/@capacitor/toast`)"
   - CordovaPlugins (from `../capacitor-cordova-ios-plugins`)
+  - VotechaosNativeAdPlugin (from `../../native-ad-plugin`)
 
 SPEC REPOS:
   trunk:
@@ -76,6 +80,8 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/@capacitor/toast"
   CordovaPlugins:
     :path: "../capacitor-cordova-ios-plugins"
+  VotechaosNativeAdPlugin:
+    :path: "../../native-ad-plugin"
 
 SPEC CHECKSUMS:
   Capacitor: c95400d761e376be9da6be5a05f226c0e865cebf
@@ -93,7 +99,8 @@ SPEC CHECKSUMS:
   CordovaPlugins: 1d6968748cbc887909ab0ba41e3e7ca82c51cb86
   Google-Mobile-Ads-SDK: 301a16c461c331ba34ff4dab40a22ab7c147af61
   GoogleUserMessagingPlatform: befe603da6501006420c206222acd449bba45a9c
+  VotechaosNativeAdPlugin: 2434573ed0ed868edc6e6699e863415b8c7c1c07
 
-PODFILE CHECKSUM: 3b988bc546efe77c96df93dd68cc197aea30973d
+PODFILE CHECKSUM: 7e9b1c1b3c68078d4b1a4afab60a18161ad1f396
 
 COCOAPODS: 1.16.2

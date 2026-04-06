@@ -88,8 +88,12 @@ export function insertAdsIntoList<T>(
             adUnitId={adUnitId}
             enableMock={false}
             className="mt-4"
-            onAdLoaded={() => {
-              console.log(`[insertAdsIntoList] 廣告已載入: ad-${adCounter}`);
+            onAdLoaded={(ad) => {
+              if (ad) {
+                console.log(`[insertAdsIntoList] 廣告已載入: ad-${adCounter}`);
+              } else {
+                console.warn(`[insertAdsIntoList] 廣告載入失敗: ad-${adCounter}`);
+              }
             }}
           />
         </div>

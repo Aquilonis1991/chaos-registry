@@ -19,6 +19,11 @@
     "NativeAdPlugin.podspec",
     "README.md"
   ],
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    }
+  },
   "scripts": {
     "build": "npm run clean && tsc -p tsconfig.json && rollup -c rollup.config.js",
     "clean": "rimraf dist",

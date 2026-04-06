@@ -31,6 +31,15 @@
 <key>GADApplicationIdentifier</key>
 <string>ca-app-pub-9731699243657023~6272597284</string>
 
+<!-- SKAdNetwork（AdMob 無追蹤歸因；不會觸發 ATT） -->
+<key>SKAdNetworkItems</key>
+<array>
+    <dict>
+        <key>SKAdNetworkIdentifier</key>
+        <string>cstr6suwn9.skadnetwork</string>
+    </dict>
+</array>
+
 <!-- 允許 HTTPS 連接 -->
 <key>NSAppTransportSecurity</key>
 <dict>

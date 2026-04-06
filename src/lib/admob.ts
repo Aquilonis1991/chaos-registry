@@ -2,6 +2,7 @@ import { AdMob, BannerAdOptions, BannerAdSize, BannerAdPosition, AdMobRewardItem
 import { Capacitor } from '@capacitor/core';
 
 const NPA_REQUEST_OPTIONS = { npa: true as const };
+let lastRewardPrepareErrorMessage = '';
 
 /**
  * AdMob 測試廣告 ID
@@ -235,6 +236,7 @@ export const prepareRewardAd = async (adUnitId?: string | any): Promise<boolean>
   }
 
   try {
+    lastRewardPrepareErrorMessage = '';
     const options: RewardAdOptions = {
       adId: getAdId('rewarded', adUnitId),
       ...NPA_REQUEST_OPTIONS,
@@ -244,7 +246,9 @@ export const prepareRewardAd = async (adUnitId?: string | any): Promise<boolean>
     console.log('Reward ad prepared with adUnitId:', options.adId);
     return true;
   } catch (error) {
-    console.error('Error preparing reward ad:', error);
+    const raw = (error as any)?.errorMessage || (error as any)?.message || String(error);
+    lastRewardPrepareErrorMessage = String(raw);
+    console.error('Error preparing reward ad:', raw);
     return false;
   }
 };
@@ -256,7 +260,9 @@ export const prepareRewardAd = async (adUnitId?: string | any): Promise<boolean>
  */
 export const showRewardAd = async (
   onReward?: (reward: AdMobRewardItem) => void,
-  onDismiss?: () => void
+  onDismiss?: () => void,
+  onOpened?: () => void,
+  onShowFailed?: (errorMessage?: string) => void
 ): Promise<boolean> => {
   if (!isNativePlatform()) {
     console.log('AdMob: Cannot show reward ad on web platform');
@@ -271,32 +277,65 @@ export const showRewardAd = async (
 
   try {
     console.log('[showRewardAd] 設置事件監聽器...');
-    
-    // 監聽獎勵事件（注意：事件名稱是 onRewardedVideoAdReward，不是 onRewardedVideoAdRewarded）
-    const rewardEventName = 'onRewardedVideoAdReward';
-    console.log(`[showRewardAd] 準備監聽事件: ${rewardEventName}`);
-    const rewardListener = await AdMob.addListener(rewardEventName, (reward: AdMobRewardItem) => {
-      console.log('[showRewardAd] ✅ 用戶獲得獎勵:', reward);
-      if (onReward) {
-        onReward(reward);
-      }
-    });
-    console.log(`[showRewardAd] ✅ 獎勵事件監聽器已設置: ${rewardEventName}`);
 
-    // 監聽關閉事件（注意：事件名稱是 onRewardedVideoAdDismissed，不是 onRewardedVideoAdClosed）
-    const dismissEventName = 'onRewardedVideoAdDismissed';
-    console.log(`[showRewardAd] 準備監聽事件: ${dismissEventName}`);
-    const dismissListener = await AdMob.addListener(dismissEventName, () => {
-      console.log('[showRewardAd] 廣告已關閉');
-      if (onDismiss) {
-        onDismiss();
-      }
-      // 移除監聽器
-      rewardListener.remove();
-      dismissListener.remove();
+    const listeners: Array<{ remove: () => void }> = [];
+    const cleanup = () => {
+      listeners.forEach((l) => l.remove());
+      listeners.length = 0;
       console.log('[showRewardAd] 事件監聽器已移除');
-    });
-    console.log(`[showRewardAd] ✅ 關閉事件監聽器已設置: ${dismissEventName}`);
+    };
+
+    // 不同插件版本可能使用不同事件名，這裡同時監聽以避免「已看完但判定未完成」。
+    const rewardEventNames = ['onRewardedVideoAdReward', 'onRewardedVideoAdRewarded'];
+    for (const rewardEventName of rewardEventNames) {
+      console.log(`[showRewardAd] 準備監聽獎勵事件: ${rewardEventName}`);
+      const rewardListener = await AdMob.addListener(rewardEventName as any, (reward: AdMobRewardItem) => {
+        console.log('[showRewardAd] ✅ 用戶獲得獎勵:', reward, 'event=', rewardEventName);
+        if (onReward) {
+          onReward(reward);
+        }
+      });
+      listeners.push(rewardListener);
+    }
+
+    const openedEventNames = ['onRewardedVideoAdShowed', 'onRewardedVideoAdOpened'];
+    for (const openedEventName of openedEventNames) {
+      console.log(`[showRewardAd] 準備監聽開啟事件: ${openedEventName}`);
+      const openedListener = await AdMob.addListener(openedEventName as any, () => {
+        console.log('[showRewardAd] 廣告已開啟 event=', openedEventName);
+        if (onOpened) {
+          onOpened();
+        }
+      });
+      listeners.push(openedListener);
+    }
+
+    const dismissEventNames = ['onRewardedVideoAdDismissed', 'onRewardedVideoAdClosed'];
+    for (const dismissEventName of dismissEventNames) {
+      console.log(`[showRewardAd] 準備監聽關閉事件: ${dismissEventName}`);
+      const dismissListener = await AdMob.addListener(dismissEventName as any, () => {
+        console.log('[showRewardAd] 廣告已關閉 event=', dismissEventName);
+        if (onDismiss) {
+          onDismiss();
+        }
+        cleanup();
+      });
+      listeners.push(dismissListener);
+    }
+
+    const failedEventNames = ['onRewardedVideoAdFailedToShow', 'onRewardedVideoAdFailedToLoad'];
+    for (const failedEventName of failedEventNames) {
+      console.log(`[showRewardAd] 準備監聽失敗事件: ${failedEventName}`);
+      const failedListener = await AdMob.addListener(failedEventName as any, (payload: any) => {
+        const errorMessage = payload?.errorMessage || payload?.message || '廣告暫時無法顯示';
+        console.warn('[showRewardAd] 廣告顯示失敗 event=', failedEventName, 'message=', errorMessage);
+        if (onShowFailed) {
+          onShowFailed(errorMessage);
+        }
+        cleanup();
+      });
+      listeners.push(failedListener);
+    }
 
     // 顯示廣告
     console.log('[showRewardAd] 顯示獎勵廣告...');
@@ -568,7 +607,11 @@ export const watchRewardedAd = async (
     // 1. 準備廣告（使用提供的 adUnitId 或默認測試 ID）
     const prepared = await prepareRewardAd(adUnitId);
     if (!prepared) {
-      throw new Error('Failed to prepare reward ad');
+      const msg = lastRewardPrepareErrorMessage.toLowerCase();
+      if (msg.includes('no ad to show') || msg.includes('loading failed')) {
+        throw new Error('目前暫無可投放獎勵廣告（No Fill），請稍後再試');
+      }
+      throw new Error(lastRewardPrepareErrorMessage || '獎勵廣告載入失敗');
     }
 
     // 2. 等待廣告準備好（可選，根據需要調整）
@@ -576,6 +619,8 @@ export const watchRewardedAd = async (
 
     // 3. 顯示廣告並處理獎勵
     let rewardEarned = false;
+    let adOpened = false;
+    let settled = false;
 
     await showRewardAd(
       (reward) => {
@@ -585,12 +630,28 @@ export const watchRewardedAd = async (
       },
       () => {
         // 廣告關閉
+        if (settled) return;
+        settled = true;
         if (rewardEarned) {
           onSuccess();
+        } else if (!adOpened) {
+          if (onError) {
+            onError('廣告暫時無法顯示，請稍後再試');
+          }
         } else {
           if (onError) {
             onError('廣告未完整觀看');
           }
+        }
+      },
+      () => {
+        adOpened = true;
+      },
+      (errorMessage) => {
+        if (settled) return;
+        settled = true;
+        if (onError) {
+          onError(errorMessage || '廣告暫時無法顯示，請稍後再試');
         }
       }
     );

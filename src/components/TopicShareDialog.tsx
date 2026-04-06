@@ -68,6 +68,10 @@ export function TopicShareDialog({ open, onOpenChange, topicId, topicTitle }: To
     }
     try {
       await navigator.clipboard.writeText(text);
+      if (user?.id) {
+        markDailyShareCopied(user.id);
+        window.dispatchEvent(new Event(DAILY_SHARE_COPIED_EVENT));
+      }
       toast.success(getText("topic.share.toast.copiedTitle", "已複製"), {
         description: getText(
           "topic.share.toast.afterCopyHint",

@@ -123,7 +123,7 @@ export function TopicShareDialog({ open, onOpenChange, topicId, topicTitle }: To
         <DialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
           <Button
             type="button"
-            className="w-full bg-[#FF4D94] text-white hover:bg-[#FF4D94]/90"
+            className="w-full"
             onClick={() => void handleCopyAndShare()}
           >
             {copyShareLabel}

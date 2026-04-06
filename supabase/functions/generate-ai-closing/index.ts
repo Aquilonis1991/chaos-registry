@@ -99,7 +99,8 @@ Deno.serve(async (req) => {
     }
 
     // 4. Compute statistics
-    // options 的 votes 欄位可能不存在（投票紀錄在 votes 表），因此以 votes 表聚合為主，並回填到 options 清單中。
+    // 以 topics.options[].votes 作為「各選項最終票數」唯一來源。
+    // 根因：votes 表是同(user,topic) upsert，會覆蓋 option，無法可靠還原「各選項分布」。
     const options = (topicRow.options || []) as Array<string | { id?: string; text?: string; label?: string; votes?: number }>;
     const optList = options
       .map((o, idx) => {
@@ -108,63 +109,37 @@ Deno.serve(async (req) => {
         const optionId = typeof o === "object" && o && typeof (o as any).id === "string" && (o as any).id.trim().length > 0
           ? String((o as any).id)
           : `option-${idx}`;
-        return { optionId, name, votes: 0 };
+        const votes = typeof o === "object" && o ? Number((o as any).votes ?? 0) : 0;
+        return { optionId, name, votes: Number.isFinite(votes) && votes >= 0 ? votes : 0 };
       })
       .filter((o) => o.name.trim().length > 0);
 
-    // Aggregate paid votes from votes table (option 是 TEXT，通常存 optionId；amount 為該選項代幣票數)
-    const { data: voteAgg, error: voteAggErr } = await supabase
-      .from("votes")
-      .select("option, amount")
-      .eq("topic_id", topic_id);
-    if (voteAggErr) console.warn("[generate-ai-closing] votes aggregate error:", voteAggErr);
-
-    // Aggregate free votes (每筆算 1 票)
-    const { data: freeVoteAgg, error: freeVoteErr } = await supabase
-      .from("free_votes")
-      .select("option")
-      .eq("topic_id", topic_id);
-    if (freeVoteErr) console.warn("[generate-ai-closing] free_votes aggregate error:", freeVoteErr);
-
-    const normalizeVoteKey = (value: unknown) => String(value ?? "").trim();
-    const voteMap = new Map<string, number>(); // 每個選項的最終票數（付費 amount + 免費票次數）
-    let totalTokensSpent = 0;
-    for (const r of (voteAgg || []) as Array<{ option: string; amount: number }>) {
-      const key = normalizeVoteKey(r.option);
-      const amt = Number(r.amount ?? 0);
-      if (!key) continue;
-      const paid = Number.isFinite(amt) ? amt : 0;
-      voteMap.set(key, (voteMap.get(key) ?? 0) + paid);
-      totalTokensSpent += paid;
-    }
-    for (const r of (freeVoteAgg || []) as Array<{ option: string }>) {
-      const key = normalizeVoteKey(r.option);
-      if (!key) continue;
-      voteMap.set(key, (voteMap.get(key) ?? 0) + 1);
-    }
-
-    // fill votes：同時嘗試 optionId 與選項文字，避免部分命中時漏算代幣票
-    for (const o of optList) {
-      const idKey = normalizeVoteKey(o.optionId);
-      const nameKey = normalizeVoteKey(o.name);
-      const keySet = new Set<string>([idKey, nameKey].filter(Boolean));
-      let mergedVotes = 0;
-      for (const k of keySet) mergedVotes += voteMap.get(k) ?? 0;
-      o.votes = mergedVotes;
-    }
-
     const totalVotes = optList.reduce((s, o) => s + (o.votes ?? 0), 0);
+    // 代幣投票量以交易表為準（每次付費投票都記錄 cast_vote，amount 為負值）
+    let totalTokensSpent = 0;
+    const { data: txAgg, error: txAggErr } = await supabase
+      .from("token_transactions")
+      .select("amount")
+      .eq("reference_id", topic_id)
+      .eq("transaction_type", "cast_vote");
+    if (txAggErr) {
+      console.warn("[generate-ai-closing] token_transactions aggregate error:", txAggErr);
+    } else {
+      totalTokensSpent = (txAgg || []).reduce((sum: number, r: any) => {
+        const v = Number(r?.amount ?? 0);
+        return sum + Math.abs(Number.isFinite(v) ? v : 0);
+      }, 0);
+    }
     const winning = optList.length ? optList.reduce((a, b) => (a.votes >= b.votes ? a : b)) : { name: "", votes: 0 };
     const winningPct = totalVotes > 0 ? ((winning.votes / totalVotes) * 100).toFixed(1) : "0";
     const second = optList.length >= 2 ? optList.filter((o) => o !== winning).reduce((a, b) => (a.votes >= b.votes ? a : b)) : { votes: 0 };
     const voteGapPct = totalVotes > 0 ? (((winning.votes - second.votes) / totalVotes) * 100).toFixed(1) : "0";
     const durationMinutes = (topicRow.duration_days || 7) * 24 * 60;
 
-    // 5. Build AI input（確保含 topic_title, options 含 votes, winning_percentage 等供 user prompt 使用）
+    // 5. Build AI input（精簡 payload：保留 options_votes 與關鍵統計，避免重複傳遞）
     const aiInput = {
       topic_title: topicRow.title,
       topic_description: topicRow.description ?? "",
-      options: optList.map((o) => ({ id: o.optionId, name: o.name, votes: o.votes })),
       options_votes: optList.map((o) => ({ id: o.optionId, name: o.name, votes: o.votes })),
       total_votes: totalVotes,
       total_tokens_spent: totalTokensSpent,

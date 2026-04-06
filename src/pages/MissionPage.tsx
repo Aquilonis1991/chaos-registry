@@ -46,6 +46,13 @@ const getTaipeiDateKey = (date = new Date()): string => {
   return shifted.toISOString().slice(0, 10);
 };
 
+const getTaipeiDateKeyFromIso = (iso?: string | null): string | null => {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return getTaipeiDateKey(date);
+};
+
 const getStreakCycleStartDateKey = (streak: number): string => {
   const safeStreak = Math.max(1, Math.floor(streak || 1));
   const now = new Date();
@@ -672,16 +679,17 @@ const MissionPage = () => {
     if (!dbMissionId) return false;
     const record = userMissions[dbMissionId];
     if (!record?.completed) return false;
+    const todayKey = getTaipeiDateKey();
     const lastDone = record.last_completed_date || null;
-    if (!lastDone) return true;
+    const completedAtKey = getTaipeiDateKeyFromIso(record.completed_at);
 
     // 每日投票任務：只判斷今天是否已領
     if (dbMissionId === 'daily_vote_1' || dbMissionId === 'daily_vote_5' || dbMissionId === 'daily_vote_10') {
-      return lastDone === getTaipeiDateKey();
+      return (lastDone ?? completedAtKey) === todayKey;
     }
 
     if (dbMissionId === 'daily_share_1') {
-      return lastDone === getTaipeiDateKey();
+      return (lastDone ?? completedAtKey) === todayKey;
     }
 
     // 連續簽到可重複任務：同一輪 30 天循環內僅可領一次
@@ -693,9 +701,11 @@ const MissionPage = () => {
       // currentCycleStart 為當前 30 天循環的第一天
       const currentCycleStart = new Date(now.getTime() - (cycleDay - 1) * 24 * 60 * 60 * 1000);
       const currentCycleStartStr = getTaipeiDateKey(currentCycleStart);
-      return lastDone >= currentCycleStartStr;
+      const streakDoneDate = lastDone ?? completedAtKey;
+      return Boolean(streakDoneDate && streakDoneDate >= currentCycleStartStr);
     }
 
+    if (!lastDone && !completedAtKey) return false;
     return true;
   };
 

@@ -29,7 +29,7 @@
 
 <!-- AdMob App ID -->
 <key>GADApplicationIdentifier</key>
-<string>ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY</string>
+<string>ca-app-pub-9731699243657023~6272597284</string>
 
 <!-- 允許 HTTPS 連接 -->
 <key>NSAppTransportSecurity</key>

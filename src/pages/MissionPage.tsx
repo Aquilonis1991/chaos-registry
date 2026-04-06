@@ -319,10 +319,17 @@ const MissionPage = () => {
           completed: cycleDay >= target
         };
       }
+      case "12": {
+        const copiedToday = Boolean(user?.id) && hasDailyShareCopiedToday(user.id);
+        return {
+          progress: copiedToday ? 100 : 0,
+          completed: copiedToday
+        };
+      }
       default:
         return { progress: 0, completed: false };
     }
-  }, [statsLoading, stats, userMissions, localizedMissions, displayedStreak, profile?.nickname_updated_at, dailyVoteCount]);
+  }, [statsLoading, stats, userMissions, localizedMissions, displayedStreak, profile?.nickname_updated_at, dailyVoteCount, user?.id, shareCopyNonce]);
 
   const applyLoginStreakInfo = useCallback((info: LoginStreakInfo | null) => {
     setLoginStreakInfo(info);
@@ -710,6 +717,13 @@ const MissionPage = () => {
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, [user?.id, loadUserMissions, loadDailyVoteCount]);
+
+  // 口耳相傳：複製分享成功後，立即刷新此頁顯示狀態
+  useEffect(() => {
+    const onCopied = () => setShareCopyNonce((n) => n + 1);
+    window.addEventListener(DAILY_SHARE_COPIED_EVENT, onCopied);
+    return () => window.removeEventListener(DAILY_SHARE_COPIED_EVENT, onCopied);
+  }, []);
 
   // 當頁面聚焦時刷新統計和簽到狀態（確保數據是最新的）
   useEffect(() => {

@@ -1,11 +1,24 @@
 {
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!app-ads\\.txt|robots\\.txt|favicon\\.ico|assets/).*)",
       "destination": "/index.html"
     }
   ],
   "headers": [
+    {
+      "source": "/app-ads.txt",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        }
+      ]
+    },
     {
       "source": "/assets/(.*)",
       "headers": [

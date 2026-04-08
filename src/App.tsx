@@ -42,6 +42,7 @@ import { isNative } from "@/lib/capacitor";
 import { OAuthCallbackHandler } from "@/components/OAuthCallbackHandler";
 import { ForceUpdateGate } from "@/components/ForceUpdateGate";
 import { PurchaseRecoveryToastGate } from "@/components/PurchaseRecoveryToastGate";
+import { MustChangeNicknameGate } from "@/components/MustChangeNicknameGate";
 import { App as CapacitorApp } from '@capacitor/app';
 import { useEffect } from "react";
 
@@ -75,6 +76,7 @@ const App = () => (
               <PurchaseRecoveryToastGate />
               <ForceUpdateGate>
               <BrowserRouter>
+                <MustChangeNicknameGate>
                 <BackButtonHandler />
                 {/* App 版第三方登入 Deep Link 回調處理（votechaos://auth/callback） */}
                 <OAuthCallbackHandler />
@@ -110,6 +112,7 @@ const App = () => (
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
+                </MustChangeNicknameGate>
               </BrowserRouter>
               </ForceUpdateGate>
             </TooltipProvider>

@@ -22,7 +22,8 @@ import {
   Clock,
   FileText,
   Vote,
-  RotateCcw
+  RotateCcw,
+  PenLine
 } from "lucide-react";
 import {
   Table,
@@ -70,6 +71,7 @@ interface UserProfile {
   deleted_reason?: string | null;
   email?: string;
   provider?: string;
+  must_change_nickname?: boolean;
 }
 
 interface UserStats {
@@ -226,6 +228,9 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   const restoreDialogDescription = "確定要還原此用戶嗎？這將會嘗試恢復其原始 Email。如果 Email 已被佔用，還原將會失敗。";
   const restoreSuccessText = "用戶已成功還原";
   const restoreErrorPrefix = "還原失敗：";
+  const dropdownRequireNicknameText = getText('admin.userManager.dropdown.requireNickname', '要求修改暱稱');
+  const requireNicknameOkText = getText('admin.userManager.toast.requireNicknameOk', '已要求該用戶修改暱稱');
+  const requireNicknameFailPrefix = getText('admin.userManager.toast.requireNicknameFailPrefix', '設定失敗：');
 
   const { data: usersData, isLoading } = useQuery({
     queryKey: ['admin-users', searchQuery, page],
@@ -660,6 +665,28 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
     setShowRestoreDialog(true);
   };
 
+  const requireNicknameMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await (supabase as any).rpc('admin_require_nickname_change', {
+        p_user_id: userId,
+      });
+      if (error) throw error;
+      const row = data as { success?: boolean; message?: string } | null;
+      if (row && row.success === false) {
+        throw new Error(row.message || 'failed');
+      }
+      return row;
+    },
+    onSuccess: () => {
+      toast.success(requireNicknameOkText);
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(requireNicknameFailPrefix + msg);
+    },
+  });
+
   const totalPages = Math.ceil((usersData?.total || 0) / pageSize);
   const paginationSummary = paginationTemplate
     .replace('{{total}}', (usersData?.total || 0).toLocaleString())
@@ -763,6 +790,11 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                                       return <Badge variant="outline" className="text-xs">管理員</Badge>;
                                     }
                                   })()}
+                                  {user.must_change_nickname && (
+                                    <Badge variant="secondary" className="text-xs border-amber-500/50 text-amber-800 dark:text-amber-200">
+                                      {getText('admin.userManager.badge.mustChangeNickname', '待改名')}
+                                    </Badge>
+                                  )}
                                 </div>
                                 <div className="text-xs text-muted-foreground flex items-center gap-1">
                                   {user.provider === 'google' && <span title="Google">🇬</span>}
@@ -825,6 +857,19 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                                 <DropdownMenuItem onClick={() => handleOpenDetailDialog(user)}>
                                   <Eye className="w-4 h-4 mr-2" />
                                   {dropdownViewDetailText}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  disabled={user.is_deleted || requireNicknameMutation.isPending}
+                                  onClick={() => {
+                                    if (user.is_deleted) {
+                                      toast.error(deletedUserActionError);
+                                      return;
+                                    }
+                                    requireNicknameMutation.mutate(user.id);
+                                  }}
+                                >
+                                  <PenLine className="w-4 h-4 mr-2" />
+                                  {dropdownRequireNicknameText}
                                 </DropdownMenuItem>
                                 {/* 管理員管理功能（只有最高管理者可以看到） */}
                                 {isSuperAdmin && (() => {

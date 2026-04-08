@@ -71,7 +71,6 @@ interface UserProfile {
   deleted_reason?: string | null;
   email?: string;
   provider?: string;
-  must_change_nickname?: boolean;
 }
 
 interface UserStats {
@@ -132,6 +131,9 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   const [detailUser, setDetailUser] = useState<UserProfile | null>(null);
   const [showRestoreDialog, setShowRestoreDialog] = useState(false);
   const [restoreTarget, setRestoreTarget] = useState<UserProfile | null>(null);
+  const [showForceNicknameDialog, setShowForceNicknameDialog] = useState(false);
+  const [forceNicknameTarget, setForceNicknameTarget] = useState<UserProfile | null>(null);
+  const [forceNicknameValue, setForceNicknameValue] = useState("");
 
   // 獲取用戶列表
   const { language } = useLanguage();
@@ -228,9 +230,15 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   const restoreDialogDescription = "確定要還原此用戶嗎？這將會嘗試恢復其原始 Email。如果 Email 已被佔用，還原將會失敗。";
   const restoreSuccessText = "用戶已成功還原";
   const restoreErrorPrefix = "還原失敗：";
-  const dropdownRequireNicknameText = getText('admin.userManager.dropdown.requireNickname', '要求修改暱稱');
-  const requireNicknameOkText = getText('admin.userManager.toast.requireNicknameOk', '已要求該用戶修改暱稱');
-  const requireNicknameFailPrefix = getText('admin.userManager.toast.requireNicknameFailPrefix', '設定失敗：');
+  const dropdownForceRenameNicknameText = getText('admin.userManager.dropdown.forceRenameNickname', '強制改名');
+  const forceRenameDialogTitle = getText('admin.userManager.dialog.forceRenameTitle', '強制修改暱稱');
+  const forceRenameDialogDesc = getText(
+    'admin.userManager.dialog.forceRenameDesc',
+    '將直接覆寫該用戶的顯示名稱（1～50 字元），無需對方操作。'
+  );
+  const forceRenameLabel = getText('admin.userManager.dialog.forceRenameLabel', '新暱稱');
+  const forceRenameOkText = getText('admin.userManager.toast.forceRenameOk', '已更新暱稱');
+  const forceRenameFailPrefix = getText('admin.userManager.toast.forceRenameFailPrefix', '改名失敗：');
 
   const { data: usersData, isLoading } = useQuery({
     queryKey: ['admin-users', searchQuery, page],
@@ -665,10 +673,11 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
     setShowRestoreDialog(true);
   };
 
-  const requireNicknameMutation = useMutation({
-    mutationFn: async (userId: string) => {
-      const { data, error } = await (supabase as any).rpc('admin_require_nickname_change', {
+  const setUserNicknameMutation = useMutation({
+    mutationFn: async ({ userId, nickname }: { userId: string; nickname: string }) => {
+      const { data, error } = await (supabase as any).rpc('admin_set_user_nickname', {
         p_user_id: userId,
+        p_new_nickname: nickname,
       });
       if (error) throw error;
       const row = data as { success?: boolean; message?: string } | null;
@@ -678,14 +687,37 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
       return row;
     },
     onSuccess: () => {
-      toast.success(requireNicknameOkText);
+      toast.success(forceRenameOkText);
+      setShowForceNicknameDialog(false);
+      setForceNicknameTarget(null);
+      setForceNicknameValue("");
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
     },
     onError: (e: unknown) => {
       const msg = e instanceof Error ? e.message : String(e);
-      toast.error(requireNicknameFailPrefix + msg);
+      toast.error(forceRenameFailPrefix + msg);
     },
   });
+
+  const handleOpenForceNicknameDialog = (user: UserProfile) => {
+    if (user.is_deleted) {
+      toast.error(deletedUserActionError);
+      return;
+    }
+    setForceNicknameTarget(user);
+    setForceNicknameValue(user.nickname);
+    setShowForceNicknameDialog(true);
+  };
+
+  const handleSubmitForceNickname = () => {
+    if (!forceNicknameTarget) return;
+    const trimmed = forceNicknameValue.trim();
+    if (!trimmed) {
+      toast.error(getText('admin.userManager.error.forceRenameEmpty', '請輸入新暱稱'));
+      return;
+    }
+    setUserNicknameMutation.mutate({ userId: forceNicknameTarget.id, nickname: trimmed });
+  };
 
   const totalPages = Math.ceil((usersData?.total || 0) / pageSize);
   const paginationSummary = paginationTemplate
@@ -790,11 +822,6 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                                       return <Badge variant="outline" className="text-xs">管理員</Badge>;
                                     }
                                   })()}
-                                  {user.must_change_nickname && (
-                                    <Badge variant="secondary" className="text-xs border-amber-500/50 text-amber-800 dark:text-amber-200">
-                                      {getText('admin.userManager.badge.mustChangeNickname', '待改名')}
-                                    </Badge>
-                                  )}
                                 </div>
                                 <div className="text-xs text-muted-foreground flex items-center gap-1">
                                   {user.provider === 'google' && <span title="Google">🇬</span>}
@@ -859,17 +886,11 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                                   {dropdownViewDetailText}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
-                                  disabled={user.is_deleted || requireNicknameMutation.isPending}
-                                  onClick={() => {
-                                    if (user.is_deleted) {
-                                      toast.error(deletedUserActionError);
-                                      return;
-                                    }
-                                    requireNicknameMutation.mutate(user.id);
-                                  }}
+                                  disabled={user.is_deleted || setUserNicknameMutation.isPending}
+                                  onClick={() => handleOpenForceNicknameDialog(user)}
                                 >
                                   <PenLine className="w-4 h-4 mr-2" />
-                                  {dropdownRequireNicknameText}
+                                  {dropdownForceRenameNicknameText}
                                 </DropdownMenuItem>
                                 {/* 管理員管理功能（只有最高管理者可以看到） */}
                                 {isSuperAdmin && (() => {
@@ -1030,6 +1051,62 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
               ) : (
                 <>
                   <Gift className="w-4 h-4 mr-2" />
+                  {dialogConfirmText}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 後台強制修改暱稱 */}
+      <Dialog
+        open={showForceNicknameDialog}
+        onOpenChange={(open) => {
+          setShowForceNicknameDialog(open);
+          if (!open) {
+            setForceNicknameTarget(null);
+            setForceNicknameValue("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{forceRenameDialogTitle}</DialogTitle>
+            <DialogDescription>{forceRenameDialogDesc}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {forceNicknameTarget && (
+              <div className="p-3 bg-muted rounded text-sm">
+                <div className="font-semibold">{forceNicknameTarget.nickname}</div>
+                <div className="text-muted-foreground text-xs truncate">{forceNicknameTarget.email}</div>
+              </div>
+            )}
+            <div>
+              <Label htmlFor="force-nickname-input">{forceRenameLabel}</Label>
+              <Input
+                id="force-nickname-input"
+                className="mt-2"
+                maxLength={50}
+                value={forceNicknameValue}
+                onChange={(e) => setForceNicknameValue(e.target.value)}
+                placeholder="1～50 字元"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowForceNicknameDialog(false)}>
+              {dialogCancelText}
+            </Button>
+            <Button onClick={handleSubmitForceNickname} disabled={setUserNicknameMutation.isPending}>
+              {setUserNicknameMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {dialogProcessingText}
+                </>
+              ) : (
+                <>
+                  <PenLine className="w-4 h-4 mr-2" />
                   {dialogConfirmText}
                 </>
               )}

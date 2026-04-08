@@ -15,7 +15,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   User,
   Coins,
@@ -31,8 +30,7 @@ import {
   Check,
   Loader2,
   LogOut,
-  Brain,
-  AlertCircle
+  Brain
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -153,13 +151,6 @@ const ProfilePage = () => {
       fetchAssessment();
     }
   }, [user?.id]);
-
-  // 後台標記「須強制改名」：進入編輯暱稱狀態
-  useEffect(() => {
-    if (!profile?.must_change_nickname) return;
-    setIsEditingName(true);
-    setTempNickname(profile.nickname);
-  }, [profile?.must_change_nickname, profile?.id, profile?.nickname]);
 
   const handleLogout = async () => {
     await signOut();
@@ -309,16 +300,10 @@ const ProfilePage = () => {
       return;
     }
 
-    // 若暱稱未變更：一般情況結束編輯；強制改名時須改成不同暱稱
+    // 如果暱稱沒有改變，直接返回
     if (trimmedNickname === profile.nickname) {
-      if (profile.must_change_nickname) {
-        toast.error(
-          getText('profile.error.mustChangeNicknameDifferent', '請將暱稱修改為與目前不同的名稱')
-        );
-      } else {
-        console.log('[ProfilePage] handleSaveName: Nickname unchanged, canceling edit');
-        setIsEditingName(false);
-      }
+      console.log('[ProfilePage] handleSaveName: Nickname unchanged, canceling edit');
+      setIsEditingName(false);
       return;
     }
 
@@ -463,12 +448,6 @@ const ProfilePage = () => {
   };
 
   const handleCancelEdit = () => {
-    if (profile?.must_change_nickname) {
-      toast.error(
-        getText('profile.error.mustChangeNicknameFirst', '請先完成暱稱修改')
-      );
-      return;
-    }
     if (profile) {
       setTempNickname(profile.nickname);
     }
@@ -582,20 +561,6 @@ const ProfilePage = () => {
           textKey="profile.assessment.loading"
           defaultText="正在分析您的行為模式..."
         />
-        {profile.must_change_nickname && (
-          <Alert className="rounded-none border-x-0 border-t-0 border-amber-500/50 bg-amber-500/10">
-            <AlertCircle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-            <AlertTitle className="text-amber-900 dark:text-amber-100">
-              {getText('profile.mustChangeNickname.title', '請修改暱稱')}
-            </AlertTitle>
-            <AlertDescription className="text-amber-900/90 dark:text-amber-100/90">
-              {getText(
-                'profile.mustChangeNickname.desc',
-                '管理員已要求您更新顯示名稱。請修改為新暱稱後再使用其他功能。'
-              )}
-            </AlertDescription>
-          </Alert>
-        )}
         {/* Header */}
         <header className="bg-gradient-primary shadow-lg pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
           <div className="max-w-screen-xl mx-auto px-4 py-8">
@@ -631,25 +596,20 @@ const ProfilePage = () => {
                           >
                             <Check className="w-5 h-5" />
                           </Button>
-                          {!profile.must_change_nickname && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-10 w-10 text-primary-foreground hover:bg-primary-foreground/20"
-                              onClick={handleCancelEdit}
-                            >
-                              <span className="text-lg">✕</span>
-                            </Button>
-                          )}
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-10 w-10 text-primary-foreground hover:bg-primary-foreground/20"
+                            onClick={handleCancelEdit}
+                          >
+                            <span className="text-lg">✕</span>
+                          </Button>
                         </div>
                       </div>
                     ) : (
                       <div
                         className="flex items-center justify-center gap-2 group cursor-pointer"
-                        onClick={() => {
-                          if (profile.must_change_nickname) return;
-                          setIsEditingName(true);
-                        }}
+                        onClick={() => setIsEditingName(true)}
                       >
                         <h1 className="text-3xl font-bold text-primary-foreground drop-shadow-md text-center">
                           {profile.nickname}

@@ -16,8 +16,6 @@ export interface Profile {
     nickname_updated_at?: string | null;
     is_deleted?: boolean;
     deleted_reason?: string | null;
-    /** 後台要求使用者須先修改暱稱 */
-    must_change_nickname?: boolean;
 }
 
 interface ProfileContextType {
@@ -51,7 +49,6 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
             const baseCols =
                 'id, nickname, avatar, tokens, ad_watch_count, last_login, notifications, created_at, updated_at';
             const selectVariants = [
-                `${baseCols}, nickname_updated_at, is_deleted, deleted_reason, must_change_nickname`,
                 `${baseCols}, nickname_updated_at, is_deleted, deleted_reason`,
                 `${baseCols}, is_deleted, deleted_reason`,
                 baseCols,
@@ -70,7 +67,6 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
                             (row.nickname_updated_at as string | null | undefined) ?? null,
                         is_deleted: Boolean(row.is_deleted),
                         deleted_reason: (row.deleted_reason as string | null | undefined) ?? null,
-                        must_change_nickname: Boolean(row.must_change_nickname),
                     };
                     fetchError = null;
                     break;
@@ -129,10 +125,6 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
                         return {
                             ...prev,
                             ...row,
-                            must_change_nickname:
-                                row.must_change_nickname !== undefined
-                                    ? Boolean(row.must_change_nickname)
-                                    : prev.must_change_nickname,
                         } as Profile;
                     });
                 }

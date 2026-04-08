@@ -775,12 +775,19 @@ const AuthPage = () => {
             <p className="text-xs sm:text-sm text-muted-foreground text-center mt-2 sm:mt-3">
               {getText('auth_anonymous_note', '僅可瀏覽內容，需要註冊才能投票')}
             </p>
-            <div className="text-center mt-3">
+            <div className="text-center mt-3 flex items-center justify-center gap-3 text-xs sm:text-sm">
               <Link
                 to="/privacy"
-                className="text-xs sm:text-sm text-muted-foreground underline-offset-4 hover:underline"
+                className="text-muted-foreground underline-offset-4 hover:underline"
               >
                 {getText('profile.menu.privacy', '隱私權政策')}
+              </Link>
+              <span className="text-muted-foreground/60">|</span>
+              <Link
+                to="/terms"
+                className="text-muted-foreground underline-offset-4 hover:underline"
+              >
+                {getText('profile.menu.terms', '使用者條款')}
               </Link>
             </div>
           </div>

@@ -41,6 +41,26 @@ export const tagColorMap: Record<string, string> = {
   "default": "bg-[hsl(var(--tag-blue))] text-white",
 };
 
+const fallbackPalette = Array.from(
+  new Set(Object.entries(tagColorMap)
+    .filter(([key]) => key !== "default")
+    .map(([, cls]) => cls))
+);
+
+const hashTag = (tag: string): number => {
+  // FNV-1a (32-bit): fast and stable across sessions.
+  let hash = 2166136261;
+  for (let i = 0; i < tag.length; i += 1) {
+    hash ^= tag.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+};
+
 export const getTagColor = (tag: string): string => {
-  return tagColorMap[tag] || tagColorMap["default"];
+  const mapped = tagColorMap[tag];
+  if (mapped) return mapped;
+  if (fallbackPalette.length === 0) return tagColorMap["default"];
+  const idx = hashTag(tag) % fallbackPalette.length;
+  return fallbackPalette[idx];
 };

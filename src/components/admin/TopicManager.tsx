@@ -65,7 +65,8 @@ export const TopicManager = ({ focusTopicId, onFocusHandled = () => {} }: TopicM
     description: "",
     exposure_level: "",
     duration_days: 0,
-    tags: ""
+    tags: "",
+    status: "active"
   });
   const [isEditing, setIsEditing] = useState(false);
 
@@ -207,7 +208,8 @@ export const TopicManager = ({ focusTopicId, onFocusHandled = () => {} }: TopicM
       description: topic.description ?? "",
       exposure_level: topic.exposure_level ?? "",
       duration_days: topic.duration_days ?? 0,
-      tags: topic.tags?.join(", ") ?? ""
+      tags: topic.tags?.join(", ") ?? "",
+      status: topic.status ?? "active"
     });
     setShowEditDialog(true);
   };
@@ -249,7 +251,8 @@ export const TopicManager = ({ focusTopicId, onFocusHandled = () => {} }: TopicM
         p_description: editForm.description,
         p_exposure_level: editForm.exposure_level,
         p_duration_days: editForm.duration_days,
-        p_tags: tagsArray
+        p_tags: tagsArray,
+        p_status: editForm.status
       });
 
       if (error) {
@@ -539,6 +542,27 @@ export const TopicManager = ({ focusTopicId, onFocusHandled = () => {} }: TopicM
                   }
                   className="w-full border rounded-md px-3 py-2"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-status">主題狀態</Label>
+                <Select
+                  value={editForm.status || 'active'}
+                  onValueChange={(value) =>
+                    setEditForm((prev) => ({
+                      ...prev,
+                      status: value,
+                    }))
+                  }
+                >
+                  <SelectTrigger id="edit-status" className="w-full">
+                    <SelectValue placeholder="選擇主題狀態" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">active</SelectItem>
+                    <SelectItem value="ended">ended</SelectItem>
+                    <SelectItem value="reported">reported</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

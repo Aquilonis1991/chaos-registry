@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { LoadingBubble } from "@/components/ui/LoadingBubble";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -775,6 +775,14 @@ const AuthPage = () => {
             <p className="text-xs sm:text-sm text-muted-foreground text-center mt-2 sm:mt-3">
               {getText('auth_anonymous_note', '僅可瀏覽內容，需要註冊才能投票')}
             </p>
+            <div className="text-center mt-3">
+              <Link
+                to="/privacy"
+                className="text-xs sm:text-sm text-muted-foreground underline-offset-4 hover:underline"
+              >
+                {getText('profile.menu.privacy', '隱私權政策')}
+              </Link>
+            </div>
           </div>
         </CardContent>
       </Card>

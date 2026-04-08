@@ -119,8 +119,14 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
                 (payload) => {
                     // 實時訂閱自動更新 profile，包括代幣數量
                     console.log('[ProfileContext] Realtime update received:', payload.new);
-                    const newProfile = payload.new as Profile;
-                    setProfile(newProfile);
+                    setProfile((prev) => {
+                        const row = payload.new as Record<string, unknown>;
+                        if (!prev) return row as unknown as Profile;
+                        return {
+                            ...prev,
+                            ...row,
+                        } as Profile;
+                    });
                 }
             )
             .subscribe();

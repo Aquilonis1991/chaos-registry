@@ -584,7 +584,10 @@ const ProfilePage = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-center gap-2 group cursor-pointer" onClick={() => setIsEditingName(true)}>
+                      <div
+                        className="flex items-center justify-center gap-2 group cursor-pointer"
+                        onClick={() => setIsEditingName(true)}
+                      >
                         <h1 className="text-3xl font-bold text-primary-foreground drop-shadow-md text-center">
                           {profile.nickname}
                         </h1>

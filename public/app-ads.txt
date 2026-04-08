@@ -1,4 +1,1 @@
-# app-ads.txt for ChaosRegistry
-# version: 2026-04-06
-# IAB Tech Lab specification: https://iabtechlab.com/ads-txt/
 google.com, pub-9731699243657023, DIRECT, f08c47fec0942fa0

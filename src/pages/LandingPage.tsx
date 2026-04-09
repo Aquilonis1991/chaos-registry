@@ -14,7 +14,7 @@ const LandingPage = () => {
             <Logo className="mx-auto" />
           </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-4">
-            不理性登記處
+            ChaosRegistry - 不理性登記處
           </h1>
           <p className="text-xl md:text-2xl mb-2 opacity-90">
             以虛構、趣味話題為核心的娛樂性投票平台
@@ -25,7 +25,7 @@ const LandingPage = () => {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/auth">
               <Button size="lg" variant="secondary" className="w-full sm:w-auto">
-                立即開始
+                立即登入 / 開始使用
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>

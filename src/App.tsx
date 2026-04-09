@@ -29,6 +29,7 @@ import PrivacyPage from "./pages/PrivacyPage";
 import LegalPage from "./pages/LegalPage";
 import MarketingPage from "./pages/MarketingPage";
 import AboutPage from "./pages/AboutPage";
+import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import VerifyRedirectPage from "./pages/VerifyRedirectPage";
@@ -79,7 +80,7 @@ const App = () => (
                 {/* App 版第三方登入 Deep Link 回調處理（votechaos://auth/callback） */}
                 <OAuthCallbackHandler />
                 <Routes>
-                  <Route path="/" element={<Index />} />
+                  <Route path="/" element={isNative() ? <Index /> : <LandingPage />} />
                   <Route path="/auth" element={<AuthPage />} />
                   <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
                   <Route path="/auth/callback" element={<OAuthCallbackPage />} />

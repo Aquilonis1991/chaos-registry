@@ -30,9 +30,18 @@ const LandingPage = () => {
               </Button>
             </Link>
             <Link to="/about">
-              <Button size="lg" variant="outline" className="w-full sm:w-auto border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10">
+              <Button size="lg" variant="secondary" className="w-full sm:w-auto">
                 了解更多
               </Button>
+            </Link>
+          </div>
+          <div className="mt-5 flex items-center justify-center gap-3 text-sm">
+            <Link to="/privacy" className="font-medium underline underline-offset-4 hover:opacity-90">
+              隱私權政策
+            </Link>
+            <span className="opacity-70">|</span>
+            <Link to="/terms" className="font-medium underline underline-offset-4 hover:opacity-90">
+              使用者條款
             </Link>
           </div>
         </div>
@@ -66,9 +75,9 @@ const LandingPage = () => {
             <Card>
               <CardContent className="p-6 text-center">
                 <Coins className="w-12 h-12 text-primary mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">失序值系統</h3>
+                <h3 className="text-xl font-semibold mb-2">代幣系統</h3>
                 <p className="text-muted-foreground">
-                  使用失序值參與投票或提高主題曝光度
+                  使用代幣參與投票或提高主題曝光度
                 </p>
               </CardContent>
             </Card>
@@ -130,7 +139,7 @@ const LandingPage = () => {
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-                  <span>失序值系統：用戶可以使用失序值參與投票或提高主題曝光度</span>
+                  <span>代幣系統：用戶可以使用代幣參與投票或提高主題曝光度</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />

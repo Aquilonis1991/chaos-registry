@@ -136,18 +136,17 @@ const ReportManager = ({ onJumpToTopic = noop }: ReportManagerProps) => {
       setLoading(true);
 
       const statusFilter = currentTab === 'all' ? null : currentTab;
+      const rpcArgs = statusFilter
+        ? { p_status: statusFilter, p_limit: 100, p_offset: 0 }
+        : { p_limit: 100, p_offset: 0 };
 
-      const { data, error } = await supabase.rpc('get_reports_with_details', {
-        p_status: statusFilter,
-        p_limit: 100,
-        p_offset: 0
-      });
+      const { data, error } = await supabase.rpc('get_reports_with_details', rpcArgs);
 
       if (error) throw error;
       setReports(data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching reports:', error);
-      toast.error('獲取檢舉列表失敗');
+      toast.error(`獲取檢舉列表失敗：${error?.message || '未知錯誤'}`);
     } finally {
       setLoading(false);
     }
@@ -161,8 +160,9 @@ const ReportManager = ({ onJumpToTopic = noop }: ReportManagerProps) => {
       if (data && data.length > 0) {
         setStats(data[0]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching stats:', error);
+      toast.error(`獲取檢舉統計失敗：${error?.message || '未知錯誤'}`);
     }
   };
 

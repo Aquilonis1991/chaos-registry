@@ -165,7 +165,24 @@ Deno.serve(async (req) => {
       AD_REWARD
     });
 
-    // Use atomic operation to add tokens
+    // Step 1: Update ad watch count / last_login first.
+    const { error: updateError } = await supabaseClient
+      .from('profiles')
+      .update({
+        ad_watch_count: adWatchCount + 1,
+        last_login: new Date().toISOString()
+      })
+      .eq('id', user.id);
+
+    if (updateError) {
+      console.error('[watch-ad] profile update error', { requestId, updateError });
+      return new Response(
+        JSON.stringify({ error: 'Failed to update profile' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Step 2: Add tokens (balance update).
     const { error: tokenError } = await supabaseClient.rpc('add_tokens', {
       user_id: user.id,
       token_amount: AD_REWARD
@@ -179,52 +196,47 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 並行執行非依賴操作以提高性能
-    const [updateResult, transactionResult, auditResult] = await Promise.allSettled([
-      // Update ad watch count and last login
-      supabaseClient
-        .from('profiles')
-        .update({
-          ad_watch_count: adWatchCount + 1,
-          last_login: new Date().toISOString()
-        })
-        .eq('id', user.id),
-      // Log transaction
-      supabaseClient
-        .from('token_transactions')
-        .insert({
-          user_id: user.id,
-          amount: AD_REWARD,
-          transaction_type: 'watch_ad',
-          description: 'Watched advertisement'
-        }),
-      // Log audit (可選，失敗不影響主流程)
-      supabaseClient
-        .from('audit_logs')
-        .insert({
-          user_id: user.id,
-          action: 'watch_ad',
-          resource_type: 'ad',
-          metadata: { reward: AD_REWARD, daily_count: adWatchCount + 1 }
-        })
-    ]);
+    // Step 3: Write transaction record (must succeed).
+    const { error: txError } = await supabaseClient
+      .from('token_transactions')
+      .insert({
+        user_id: user.id,
+        amount: AD_REWARD,
+        transaction_type: 'watch_ad',
+        description: 'Watched advertisement'
+      });
 
-    // 檢查關鍵操作（profile 更新）是否成功
-    if (updateResult.status === 'rejected' || (updateResult.status === 'fulfilled' && updateResult.value.error)) {
-      const updateError = updateResult.status === 'rejected' ? updateResult.reason : updateResult.value.error;
-      console.error('[watch-ad] profile update error', { requestId, updateError });
+    if (txError) {
+      console.error('[watch-ad] transaction log error, start compensation', { requestId, txError });
+
+      // Compensation: rollback token balance so we never end in "balance changed but no transaction log".
+      const { error: rollbackError } = await supabaseClient.rpc('add_tokens', {
+        user_id: user.id,
+        token_amount: -AD_REWARD
+      });
+
+      if (rollbackError) {
+        console.error('[watch-ad] compensation failed', { requestId, rollbackError });
+      }
+
       return new Response(
-        JSON.stringify({ error: 'Failed to update profile' }),
+        JSON.stringify({ error: 'Failed to write transaction log, token award rolled back' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // 記錄其他操作的錯誤（但不影響主流程）
-    if (transactionResult.status === 'rejected') {
-      console.warn('[watch-ad] transaction log error', { requestId, reason: transactionResult.reason });
-    }
-    if (auditResult.status === 'rejected') {
-      console.warn('[watch-ad] audit log error', { requestId, reason: auditResult.reason });
+    // Step 4: Audit log is optional and should not break reward flow.
+    const { error: auditError } = await supabaseClient
+      .from('audit_logs')
+      .insert({
+        user_id: user.id,
+        action: 'watch_ad',
+        resource_type: 'ad',
+        metadata: { reward: AD_REWARD, daily_count: adWatchCount + 1 }
+      });
+
+    if (auditError) {
+      console.warn('[watch-ad] audit log error', { requestId, auditError });
     }
 
     console.log('[watch-ad] success', {

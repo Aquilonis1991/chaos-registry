@@ -1,13 +1,11 @@
-import { useEffect } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
-import { Smartphone, ExternalLink, Loader2 } from "lucide-react";
+import { Smartphone } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 
 const DEFAULT_DEEP_LINK = (import.meta.env.VITE_APP_DEEP_LINK as string | undefined)?.trim() || "votechaos://auth/verify";
-const DEFAULT_FALLBACK_URL = (import.meta.env.VITE_APP_DOWNLOAD_URL as string | undefined)?.trim() || "https://chaos-registry.vercel.app/download";
 
 const buildDeepLink = (base: string, token: string, type: string) => {
   const separator = base.includes("?") ? "&" : "?";
@@ -29,27 +27,6 @@ const VerifyRedirectPage = () => {
     deepLink = buildDeepLink(DEFAULT_DEEP_LINK, token, type);
   }
 
-  useEffect(() => {
-    if (!deepLink) return; // oauth 模式下 deepLink 總是存在，如果不存則不需要等待 token
-
-    const openTimer = setTimeout(() => {
-      if (typeof window !== "undefined") {
-        window.location.href = deepLink!;
-      }
-    }, 200);
-
-    const fallbackTimer = setTimeout(() => {
-      if (typeof window !== "undefined") {
-        window.location.href = DEFAULT_FALLBACK_URL;
-      }
-    }, 4000);
-
-    return () => {
-      clearTimeout(openTimer);
-      clearTimeout(fallbackTimer);
-    };
-  }, [deepLink]);
-
   // 如果不是 oauth 且沒有 token，轉導回首頁
   if (type !== 'oauth' && !token) {
     return <Navigate to="/auth" replace />;
@@ -61,10 +38,6 @@ const VerifyRedirectPage = () => {
     }
   };
 
-  const handleDownload = () => {
-    window.location.href = DEFAULT_FALLBACK_URL;
-  };
-
   return (
     <div className="min-h-screen bg-gradient-primary flex items-center justify-center p-6 pt-[calc(1rem+env(safe-area-inset-top,0px))]">
       <div className="w-full max-w-md bg-card shadow-glow rounded-3xl p-8 text-center">
@@ -72,26 +45,22 @@ const VerifyRedirectPage = () => {
           <Logo size="lg" />
         </div>
         <h1 className="text-2xl font-semibold mb-3 text-foreground">
-          {getText("auth_verifyRedirect_title", "請回到 App 完成登入")}
+          {getText("auth_verifyRedirect_title", "註冊成功")}
         </h1>
         <p className="text-muted-foreground mb-6">
-          {getText("auth_verifyRedirect_description", "我們正在為您打開 ChaosRegistry App，若沒有自動跳轉，請點選下方按鈕。")}
+          {getText("auth_verifyRedirect_description", "您的信箱驗證已完成，請點選下方按鈕回到 App 繼續使用。")}
         </p>
 
         <div className="flex flex-col gap-3">
-          <Button className="w-full h-14 text-lg font-bold animate-pulse shadow-lg bg-primary hover:bg-primary/90" onClick={handleOpenApp}>
+          <Button className="w-full h-14 text-lg font-bold shadow-lg bg-primary hover:bg-primary/90" onClick={handleOpenApp}>
             <Smartphone className="w-6 h-6 mr-2" />
-            {getText("auth_verifyRedirect_openApp", "點擊此處開啟 App")}
-          </Button>
-          <Button variant="outline" className="w-full h-12 text-base" onClick={handleDownload}>
-            <ExternalLink className="w-4 h-4 mr-2" />
-            {getText("auth_verifyRedirect_download", "下載或更新 App")}
+            {getText("auth_verifyRedirect_openApp", "回到 App")}
           </Button>
         </div>
 
         <div className="mt-6">
           <p className="text-xs text-muted-foreground mb-3">
-            {getText("auth_verifyRedirect_footer", "若沒有自動跳轉，請點擊上方按鈕。")}
+            {getText("auth_verifyRedirect_footer", "若未自動開啟，請再點一次按鈕。")}
           </p>
 
 

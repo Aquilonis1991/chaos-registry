@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
+import type { Session } from "@supabase/supabase-js";
 import { Smartphone, Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
@@ -7,11 +8,20 @@ import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
+/** 與 AuthPage / OAuthCallbackPage 一致，供原生 App 用 hash 還原 session */
+const APP_AUTH_CALLBACK_DEEP_LINK =
+  (import.meta.env.VITE_APP_OAUTH_CALLBACK_DEEP_LINK as string | undefined)?.trim() || "votechaos://auth/callback";
+
 const DEFAULT_DEEP_LINK = (import.meta.env.VITE_APP_DEEP_LINK as string | undefined)?.trim() || "votechaos://auth/verify";
 
 const buildDeepLink = (base: string, token: string, type: string) => {
   const separator = base.includes("?") ? "&" : "?";
   return `${base}${separator}token=${encodeURIComponent(token)}&type=${encodeURIComponent(type)}`;
+};
+
+const buildAppSessionDeepLink = (session: Session) => {
+  const rt = session.refresh_token ?? "";
+  return `${APP_AUTH_CALLBACK_DEEP_LINK}#access_token=${encodeURIComponent(session.access_token)}&refresh_token=${encodeURIComponent(rt)}&type=signup`;
 };
 
 /** Supabase 驗證信可能把參數放在 query、hash，或兩者皆有（與 OAuthCallbackPage 一致）。 */
@@ -27,7 +37,7 @@ function mergeSearchAndHashParams(): URLSearchParams {
 
 type ResolveState =
   | { status: "loading" }
-  | { status: "success" }
+  | { status: "success"; session: Session | null }
   | { status: "legacy_app"; token: string; type: string }
   | { status: "error"; message: string }
   | { status: "redirect_auth" };
@@ -52,8 +62,9 @@ const VerifyRedirectPage = () => {
       if (!cancelled) setState({ status: "error", message });
     };
 
-    const ok = () => {
-      if (!cancelled) setState({ status: "success" });
+    const finishSuccess = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!cancelled) setState({ status: "success", session: data.session ?? null });
     };
 
     const stripAuthFromUrl = () => {
@@ -93,7 +104,7 @@ const VerifyRedirectPage = () => {
           return;
         }
         stripAuthFromUrl();
-        ok();
+        await finishSuccess();
         return;
       }
 
@@ -119,7 +130,7 @@ const VerifyRedirectPage = () => {
           return;
         }
         stripAuthFromUrl();
-        ok();
+        await finishSuccess();
         return;
       }
 
@@ -130,7 +141,7 @@ const VerifyRedirectPage = () => {
           if (cancelled) return;
           if (data.session) {
             stripAuthFromUrl();
-            ok();
+            await finishSuccess();
             return;
           }
           await new Promise((r) => setTimeout(r, 120));
@@ -148,9 +159,15 @@ const VerifyRedirectPage = () => {
   }, [queryType, searchParams]);
 
   const handleOpenApp = () => {
-    if (deepLink) {
+    if (state.status === "legacy_app" && deepLink) {
       window.location.href = deepLink;
+      return;
     }
+    if (state.status === "success" && state.session) {
+      window.location.href = buildAppSessionDeepLink(state.session);
+      return;
+    }
+    window.location.href = APP_AUTH_CALLBACK_DEEP_LINK;
   };
 
   if (state.status === "loading" || isLoading) {
@@ -196,16 +213,17 @@ const VerifyRedirectPage = () => {
         </p>
 
         <div className="flex flex-col gap-3">
-          {state.status === "legacy_app" && deepLink ? (
-            <Button className="w-full h-14 text-lg font-bold shadow-lg bg-primary hover:bg-primary/90" onClick={handleOpenApp}>
-              <Smartphone className="w-6 h-6 mr-2" />
-              {getText("auth_verifyRedirect_openApp", "回到 App")}
-            </Button>
-          ) : (
-            <Button asChild className="w-full h-14 text-lg font-bold shadow-lg bg-primary hover:bg-primary/90">
-              <Link to="/home">{getText("auth_verifyRedirect_continueWeb", "進入首頁")}</Link>
-            </Button>
-          )}
+          <Button
+            type="button"
+            className="w-full h-14 text-lg font-bold shadow-lg bg-primary hover:bg-primary/90"
+            onClick={handleOpenApp}
+          >
+            <Smartphone className="w-6 h-6 mr-2" />
+            {getText("auth_verifyRedirect_openApp", "回到 App")}
+          </Button>
+          <Button asChild variant="outline" className="w-full h-12">
+            <Link to="/home">{getText("auth_verifyRedirect_continueWeb", "在瀏覽器繼續（進入首頁）")}</Link>
+          </Button>
         </div>
 
         <div className="mt-6">

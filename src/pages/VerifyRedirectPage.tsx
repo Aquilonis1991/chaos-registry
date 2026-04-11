@@ -8,11 +8,22 @@ import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
-/** 與 AuthPage / OAuthCallbackPage 一致，供原生 App 用 hash 還原 session */
-const APP_AUTH_CALLBACK_DEEP_LINK =
-  (import.meta.env.VITE_APP_OAUTH_CALLBACK_DEEP_LINK as string | undefined)?.trim() || "votechaos://auth/callback";
+/** 僅接受自訂 scheme（votechaos://…），避免誤設成 https 時「回到 App」變成開網頁 /home */
+function safeCustomSchemeUrl(raw: string | undefined, fallback: string): string {
+  const t = raw?.trim();
+  if (t && /^[a-z][a-z0-9+.-]*:\/\//i.test(t) && !/^https?:/i.test(t)) {
+    return t.replace(/[#?].*$/, "");
+  }
+  return fallback;
+}
 
-const DEFAULT_DEEP_LINK = (import.meta.env.VITE_APP_DEEP_LINK as string | undefined)?.trim() || "votechaos://auth/verify";
+/** 與 AuthPage / OAuthCallbackPage 一致，供原生 App 用 hash 還原 session */
+const APP_AUTH_CALLBACK_DEEP_LINK = safeCustomSchemeUrl(
+  import.meta.env.VITE_APP_OAUTH_CALLBACK_DEEP_LINK as string | undefined,
+  "votechaos://auth/callback"
+);
+
+const DEFAULT_DEEP_LINK = safeCustomSchemeUrl(import.meta.env.VITE_APP_DEEP_LINK as string | undefined, "votechaos://auth/verify");
 
 const buildDeepLink = (base: string, token: string, type: string) => {
   const separator = base.includes("?") ? "&" : "?";

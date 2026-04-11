@@ -1,23 +1,10 @@
-import { useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Vote, Users, Coins, Shield, ArrowRight, Check } from "lucide-react";
 import { Logo } from "@/components/Logo";
-import { useAuth } from "@/hooks/useAuth";
 
 const LandingPage = () => {
-  const navigate = useNavigate();
-  const { user, loading, isAnonymous } = useAuth();
-
-  // 驗證信若導回 / 且 Supabase 已還原 session（網址可能只剩 #），已登入則進入應用首頁
-  useEffect(() => {
-    if (loading) return;
-    if (user && !isAnonymous) {
-      navigate("/home", { replace: true });
-    }
-  }, [user, loading, isAnonymous, navigate]);
-
   return (
     <div className="min-h-screen bg-background pt-[env(safe-area-inset-top,0px)]">
       {/* Hero Section */}

@@ -555,7 +555,11 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
         p_reason: deleteReason.trim() || null
       });
 
-      if (error) throw error;
+      if (error) {
+        const e = error as { message?: string; details?: string; hint?: string };
+        const detail = [e.details, e.hint].filter(Boolean).join(' ');
+        throw new Error(detail ? `${e.message ?? ''} (${detail})`.trim() : (e.message || unknownErrorText));
+      }
       if (!data || !data.success) {
         throw new Error(data?.message || data?.error || unknownErrorText);
       }

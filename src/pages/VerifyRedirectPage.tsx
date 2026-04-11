@@ -232,9 +232,6 @@ const VerifyRedirectPage = () => {
             <Smartphone className="w-6 h-6 mr-2" />
             {getText("auth_verifyRedirect_openApp", "回到 App")}
           </Button>
-          <Button asChild variant="outline" className="w-full h-12">
-            <Link to="/home">{getText("auth_verifyRedirect_continueWeb", "在瀏覽器繼續（進入首頁）")}</Link>
-          </Button>
         </div>
 
         <div className="mt-6">

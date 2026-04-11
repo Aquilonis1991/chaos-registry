@@ -518,6 +518,13 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   };
 
   const handleOpenDeleteDialog = (user: UserProfile) => {
+    const adminInfo = adminMap.get(user.id);
+    if (adminInfo?.isSuperAdmin) {
+      toast.error(
+        getText('admin.userManager.delete.superAdminProtected', '無法刪除超級管理員帳號')
+      );
+      return;
+    }
     // [MODIFIED] Allow opening dialog even if is_deleted is true (for hard delete)
     setDeleteTarget(user);
     setDeleteReason("");
@@ -929,6 +936,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
+                                  disabled={Boolean(adminMap.get(user.id)?.isSuperAdmin)}
                                   onClick={() => handleOpenDeleteDialog(user)}
                                   className="text-destructive focus:text-destructive"
                                 >

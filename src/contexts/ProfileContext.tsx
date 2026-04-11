@@ -72,7 +72,14 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
                     break;
                 }
                 fetchError = res.error;
-                if (res.error?.code !== '42703') break;
+                // Postgres undefined_column=42703; PostgREST unknown column in select=PGRST204
+                const retryableSchema =
+                    res.error?.code === '42703' ||
+                    res.error?.code === 'PGRST204' ||
+                    /column.*does not exist|Could not find the .* column/i.test(
+                        String(res.error?.message ?? '')
+                    );
+                if (!retryableSchema) break;
             }
 
             if (fetchError) throw fetchError;

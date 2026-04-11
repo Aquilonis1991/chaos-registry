@@ -44,7 +44,8 @@ export const DeleteAccountDialog = () => {
 
             // 檢查回傳結果
             if (data && (data as any).success === false) {
-                throw new Error((data as any).error || 'Unknown error');
+                const d = data as { message?: string; error?: string };
+                throw new Error(d.message || d.error || 'Unknown error');
             }
 
             toast.success(getText('deleteAccount.success', '帳號已成功刪除'));

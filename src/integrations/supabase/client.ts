@@ -39,5 +39,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
+    // 信箱驗證連結常帶 #access_token=… 或 ?code=…，需從 URL 還原 session（VerifyRedirectPage 亦會主動處理）
+    detectSessionInUrl: true,
   }
 });

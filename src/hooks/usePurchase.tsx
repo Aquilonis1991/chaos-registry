@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useProfile } from './useProfile';
@@ -15,7 +15,6 @@ export const usePurchase = () => {
   const { getText } = useUIText(language);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRefreshingProfile, setIsRefreshingProfile] = useState(false);
-  const iosRecoveryStartedRef = useRef(false);
 
   const purchaseTokenPack = async (packageId: number) => {
     if (!user) {
@@ -811,83 +810,6 @@ export const usePurchase = () => {
       setIsProcessing(false);
     }
   };
-
-  // iOS 登入後補單（0s/5s/20s）
-  useEffect(() => {
-    if (!user?.id) return;
-    if (!isNative() || getPlatform() !== 'ios') return;
-    if (iosRecoveryStartedRef.current) return;
-    iosRecoveryStartedRef.current = true;
-
-    const runRecovery = async (delayMs: number) => {
-      await new Promise((r) => setTimeout(r, delayMs));
-      try {
-        if (!purchaseService.isInitialized()) {
-          await purchaseService.initialize();
-        }
-        const store = purchaseService.getStore();
-        if (!store) return;
-
-        try {
-          await store.update();
-        } catch {
-          // ignore
-        }
-
-        // 盡量兼容不同插件版本可取得 pending approved transactions 的位置
-        const receipts = Array.isArray(store.localReceipts) ? store.localReceipts : [];
-        const candidates: any[] = [];
-        for (const r of receipts) {
-          const txs = Array.isArray(r?.transactions) ? r.transactions : [];
-          for (const tx of txs) candidates.push(tx);
-        }
-
-        for (const tx of candidates) {
-          const state = String(tx?.state ?? '').toLowerCase();
-          const isApproved = state.includes('approved');
-          const transactionId = tx?.transactionId ?? tx?.id ?? '';
-          const productId = tx?.products?.[0]?.id ?? tx?.productId ?? '';
-          if (!isApproved || !transactionId || !productId) continue;
-
-          const { data, error } = await supabase.functions.invoke('verify-app-store-purchase', {
-            body: {
-              transactionId,
-              productId,
-              packageName: 'com.votechaos.app',
-              platform: 'ios',
-            },
-          });
-          if (error) continue;
-
-          if (data?.success && (data?.applied || data?.alreadyProcessed)) {
-            try {
-              if (typeof tx.finish === 'function') {
-                await tx.finish();
-              }
-            } catch {
-              // ignore
-            }
-
-            if (data?.applied) {
-              toast.success(
-                getText('recharge.toast.adminReceipt.title', '系統已補發儲值'),
-                {
-                  description: getText('recharge.toast.adminReceipt.desc', '延遲入帳已完成，請查收失序值'),
-                }
-              );
-              await refreshProfile();
-            }
-          }
-        }
-      } catch (e) {
-        console.warn('[PurchaseRecovery] iOS recovery failed:', e);
-      }
-    };
-
-    runRecovery(0);
-    runRecovery(5000);
-    runRecovery(20000);
-  }, [user?.id, getText, refreshProfile]);
 
   return {
     purchaseTokenPack,

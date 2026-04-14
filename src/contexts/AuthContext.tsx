@@ -1,7 +1,10 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { recoverAndroidPendingPurchasesOnLogin } from '@/lib/purchaseRecovery';
+import {
+  recoverAndroidPendingPurchasesOnLogin,
+  recoverIosPendingPurchasesOnLogin,
+} from '@/lib/purchaseRecovery';
 
 interface AuthContextType {
   user: User | null;
@@ -63,7 +66,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const timer = setTimeout(() => {
           // 若有較新的登入事件，舊排程不再執行
           if (runId !== recoveryAttemptSeq) return;
-          void recoverAndroidPendingPurchasesOnLogin();
+          void (async () => {
+            await recoverAndroidPendingPurchasesOnLogin();
+            await recoverIosPendingPurchasesOnLogin();
+          })();
         }, delay);
         recoveryRetryTimers.push(timer);
       });

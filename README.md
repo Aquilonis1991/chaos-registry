@@ -4,6 +4,12 @@
 
 **URL**: https://lovable.dev/projects/d6b3c73d-0881-424a-9269-f57a0ec67d77
 
+## Repository Boundaries
+
+- `bots/chaos-agent-core` is an isolated bot system and **not part of the main app runtime**.
+- Main runtime/deploy paths remain under the existing app folders (`src`, `supabase`, native apps).
+- Bot secrets must stay inside the bot project env files only; do not reuse main deployment secrets.
+
 ## How can I edit this code?
 
 There are several ways of editing your application.

@@ -1,0 +1,30 @@
+{
+  "name": "chaos-agent-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Isolated bot system that interacts with ChaosRegistry only via public APIs.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/index.ts",
+    "agent:plan": "tsx src/commands/runPlan.ts",
+    "agent:audit": "tsx src/commands/runAudit.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.103.0",
+    "chromadb": "^3.4.3",
+    "dotenv": "^16.4.5",
+    "openai": "^6.34.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}

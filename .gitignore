@@ -45,3 +45,12 @@ supabase/.temp/
 
 # Eclipse / ADT 本機設定（IDE 自動產生）
 native-ad-plugin/android/.settings/
+
+# Isolated bot system (non-main runtime) build artifacts
+bots/chaos-agent-core/node_modules/
+bots/chaos-agent-core/dist/
+bots/chaos-agent-core/data/
+bots/chaos-agent-core/.env
+bots/chaos-agent-core/admin/node_modules/
+bots/chaos-agent-core/admin/.next/
+bots/chaos-agent-core/admin/.env.local

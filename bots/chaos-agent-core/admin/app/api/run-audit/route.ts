@@ -23,6 +23,28 @@ export async function POST(req: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  let agentId = "agent-01";
+  let email: string | undefined;
+  let password: string | undefined;
+  try {
+    const payload = (await req.json()) as {
+      agentId?: unknown;
+      email?: unknown;
+      password?: unknown;
+    };
+    if (typeof payload.agentId === "string" && payload.agentId.trim()) {
+      agentId = payload.agentId.trim();
+    }
+    if (typeof payload.email === "string" && payload.email.trim()) {
+      email = payload.email.trim();
+    }
+    if (typeof payload.password === "string" && payload.password.trim()) {
+      password = payload.password;
+    }
+  } catch {
+    // no body is acceptable; fallback to default agent id
+  }
+
   const root = join(process.cwd(), "..");
   const dataRoot = process.env.AGENT_DATA_DIR || join(root, "data");
   const runEnabledFlag = join(dataRoot, "RUN_ENABLED");
@@ -43,7 +65,10 @@ export async function POST(req: Request) {
 
   const env = {
     ...process.env,
-    AGENT_TRIGGER_SOURCE: "admin-api"
+    AGENT_TRIGGER_SOURCE: "admin-api",
+    AGENT_ID: agentId,
+    ...(email ? { CHAOS_API_EMAIL: email } : {}),
+    ...(password ? { CHAOS_API_PASSWORD: password } : {})
   };
 
   const result = await runCommand("npm run agent:audit", root, env);

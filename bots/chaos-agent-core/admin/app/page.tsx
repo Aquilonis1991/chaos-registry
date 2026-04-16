@@ -100,6 +100,11 @@ export default function AdminPage() {
       </p>
 
       <section style={{ marginBottom: "1.25rem" }}>
+        <p style={{ marginTop: 0 }}>
+          <a href="/agents-control" style={{ color: "#93c5fd" }}>
+            前往「20 位 AI 機器人控制頁」
+          </a>
+        </p>
         <label>
           ADMIN_SECRET（若後端有設定）：{" "}
           <input

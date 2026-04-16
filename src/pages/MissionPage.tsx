@@ -82,6 +82,8 @@ const MissionPage = () => {
   const [shareCopyNonce, setShareCopyNonce] = useState(0);
   // 追蹤最近一次顯示的 toast，避免重複顯示
   const lastToastRef = useRef<{ type: string; timestamp: number } | null>(null);
+  // 使用者手動中斷「觀看廣告」前端流程（不影響原生廣告 SDK 內部狀態）
+  const adWatchInterruptedRef = useRef(false);
 
   const userTokens = profile?.tokens || 0;
   const lastStableStreakRef = useRef(0);
@@ -457,6 +459,7 @@ const MissionPage = () => {
   const handleWatchAd = async () => {
     if (isWatchingAd) return;
 
+    adWatchInterruptedRef.current = false;
     setIsWatchingAd(true);
     let optimisticUpdateApplied = false;
     try {
@@ -468,6 +471,10 @@ const MissionPage = () => {
       // 先觀看廣告，只有在廣告觀看成功後才進行樂觀更新
       // 這樣可以避免：如果用戶關閉廣告，代幣不會錯誤增加
       const result = await watchAd();
+      if (adWatchInterruptedRef.current) {
+        // 已由使用者手動放棄：忽略後續成功流程與 toast
+        return;
+      }
 
       // 廣告觀看成功後，立即樂觀更新代幣數量
       // 這確保了只有在用戶真正完成廣告觀看後，UI 才會更新
@@ -491,6 +498,9 @@ const MissionPage = () => {
       // 這是正常的，因為實時訂閱的數據是權威來源
       // 如果實時訂閱沒有及時觸發（網絡延遲），樂觀更新會提供即時反饋
     } catch (error) {
+      if (adWatchInterruptedRef.current) {
+        return;
+      }
       // 如果出錯且已經進行了樂觀更新，需要回滾
       if (optimisticUpdateApplied) {
         const AD_REWARD = typeof missionConfigs.watchAdReward === 'number'
@@ -502,7 +512,15 @@ const MissionPage = () => {
     } finally {
       // 確保按鈕狀態被重置
       setIsWatchingAd(false);
+      adWatchInterruptedRef.current = false;
     }
+  };
+
+  const handleAbortWatchAd = () => {
+    if (!isWatchingAd) return;
+    adWatchInterruptedRef.current = true;
+    setIsWatchingAd(false);
+    toast.info(getText('mission.ad.abort', '已放棄觀看'));
   };
 
   const handleDailyLogin = async () => {
@@ -925,6 +943,16 @@ const MissionPage = () => {
                 </>
               )}
             </Button>
+            {isWatchingAd && (
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full mt-3"
+                onClick={handleAbortWatchAd}
+              >
+                {getText('mission.ad.abortButton', '放棄觀看')}
+              </Button>
+            )}
           </CardContent>
         </Card>
 

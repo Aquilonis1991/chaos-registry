@@ -790,6 +790,14 @@ const VoteDetailPage = () => {
             </Card>
           ) : (
             <>
+              {!selectedOption ? (
+                <Card className="bg-muted/40 border-dashed border-muted">
+                  <CardContent className="p-4 text-center text-sm text-muted-foreground">
+                    {getText('vote.detail.hint.selectFirst', '請先選擇上方其中一個選項，才會顯示投票按鈕')}
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
               {/* Free Vote Button — 規格：accent；當日額度用畢改灰階（inline style 避免被 disabled 樣式覆蓋） */}
               <div className="mb-4 relative z-10">
                 <Button
@@ -885,6 +893,8 @@ const VoteDetailPage = () => {
                   {balanceTemplate.replace('{{amount}}', userTokens.toLocaleString())}
                 </p>
               </div>
+                </>
+              )}
             </>
           )}
         </div>

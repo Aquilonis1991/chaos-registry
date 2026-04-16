@@ -12,7 +12,11 @@ const Toaster = ({ ...props }: ToasterProps) => {
       className="toaster group"
       position="bottom-center"
       offset="88px"
+      pauseWhenPageIsHidden={false}
+      // 強制固定倒數：滑鼠懸停不暫停
+      pauseOnHover={false}
       toastOptions={{
+        duration: 2200,
         classNames: {
           toast:
             "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",

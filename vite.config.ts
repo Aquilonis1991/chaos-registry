@@ -23,6 +23,14 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    // 讓後台「AI 機器人控制」iframe 走同源 /agent-admin/*，避免 HTTPS 頁面嵌入 http://localhost 被瀏覽器擋下（混合內容）
+    proxy: {
+      "/agent-admin": {
+        target: "http://127.0.0.1:3001",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/agent-admin/, "") || "/",
+      },
+    },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {

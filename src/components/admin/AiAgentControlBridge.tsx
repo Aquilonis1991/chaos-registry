@@ -29,6 +29,17 @@ function emptyConfig(agentId: string): AgentConfig {
   return { agentId, email: "", password: "", behaviorPrompt: "" };
 }
 
+async function parseJsonSafe<T>(res: Response, fallbackError: string): Promise<T> {
+  const raw = await res.text();
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    // Some proxies return HTML/plain text on error; surface body to help debugging.
+    const sample = raw.slice(0, 300);
+    throw new Error(`${fallbackError}（非 JSON 回應）: ${sample || "<empty>"}`);
+  }
+}
+
 export function AiAgentControlBridge() {
   const [apiBaseInput, setApiBaseInput] = useState(() => {
     if (typeof window === "undefined") return resolveDefaultApiBase();
@@ -76,13 +87,19 @@ export function AiAgentControlBridge() {
       ]);
 
       if (!cfgRes.ok) throw new Error(await cfgRes.text());
-      const cfgBody = (await cfgRes.json()) as { configs?: Record<string, AgentConfig> };
+      const cfgBody = await parseJsonSafe<{ configs?: Record<string, AgentConfig> }>(
+        cfgRes,
+        "讀取 agent-configs 失敗"
+      );
       const merged: Record<string, AgentConfig> = {};
       for (const id of AGENT_IDS) merged[id] = cfgBody.configs?.[id] ?? emptyConfig(id);
       setConfigs(merged);
 
       if (agentsRes.ok) {
-        const agentBody = (await agentsRes.json()) as { control?: ControlState };
+        const agentBody = await parseJsonSafe<{ control?: ControlState }>(
+          agentsRes,
+          "讀取 agents 失敗"
+        );
         setControl(agentBody.control ?? null);
       }
     } catch (e) {
@@ -127,7 +144,10 @@ export function AiAgentControlBridge() {
         headers: jsonHeaders,
         body: JSON.stringify({ agentId }),
       });
-      const body = (await res.json()) as { plan?: string; error?: string };
+      const body = await parseJsonSafe<{ plan?: string; error?: string }>(
+        res,
+        "生產計畫失敗"
+      );
       if (!res.ok) throw new Error(body.error || "生產計畫失敗");
       setPlans((prev) => ({ ...prev, [agentId]: body.plan || "" }));
     } catch (e) {

@@ -2,75 +2,178 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
-/** 獨立啟動 chaos-agent-core/admin 時常見埠（僅作說明／手動填寫用） */
-const STANDALONE_EXAMPLE = "http://127.0.0.1:3001/agents-control";
+const AGENT_IDS = Array.from({ length: 20 }, (_, idx) => `agent-${String(idx + 1).padStart(2, "0")}`);
 
-function resolveDefaultAgentAdminUrl(): string {
+type AgentConfig = {
+  agentId: string;
+  email: string;
+  password: string;
+  behaviorPrompt: string;
+};
+
+type ControlState = {
+  enabled: boolean;
+  emergency: boolean;
+  effectiveStopped: boolean;
+};
+
+function resolveDefaultApiBase(): string {
   const envBase = import.meta.env.VITE_AGENT_ADMIN_BASE as string | undefined;
-  if (envBase && envBase.trim().length > 0) {
-    return `${envBase.replace(/\/$/, "")}/agents-control`;
-  }
-  if (typeof window !== "undefined") {
-    // 與 vite proxy `/agent-admin` 同源，避免 HTTPS 主站嵌入 http 被擋（混合內容）
-    return `${window.location.origin}/agent-admin/agents-control`;
-  }
-  return STANDALONE_EXAMPLE;
+  if (envBase && envBase.trim().length > 0) return `${envBase.replace(/\/$/, "")}/api`;
+  return "/agent-admin/api";
 }
 
-function isLikelyMixedContentBlocked(pageHttps: boolean, iframeSrc: string): boolean {
-  if (!pageHttps) return false;
-  try {
-    const u = new URL(iframeSrc, typeof window !== "undefined" ? window.location.href : "https://example.com");
-    return u.protocol === "http:";
-  } catch {
-    return false;
-  }
+function emptyConfig(agentId: string): AgentConfig {
+  return { agentId, email: "", password: "", behaviorPrompt: "" };
 }
 
 export function AiAgentControlBridge() {
-  const [url, setUrl] = useState(() => {
-    if (typeof window === "undefined") return resolveDefaultAgentAdminUrl();
-    const stored = window.localStorage.getItem("agent_admin_url");
-    if (stored && stored.trim()) return stored.trim();
-    return resolveDefaultAgentAdminUrl();
+  const [apiBaseInput, setApiBaseInput] = useState(() => {
+    if (typeof window === "undefined") return resolveDefaultApiBase();
+    return window.localStorage.getItem("agent_admin_api_base") || resolveDefaultApiBase();
   });
-  const [appliedUrl, setAppliedUrl] = useState(() => {
-    if (typeof window === "undefined") return resolveDefaultAgentAdminUrl();
-    const stored = window.localStorage.getItem("agent_admin_url");
-    if (stored && stored.trim()) return stored.trim();
-    return resolveDefaultAgentAdminUrl();
+  const [apiBase, setApiBase] = useState(() => {
+    if (typeof window === "undefined") return resolveDefaultApiBase();
+    return window.localStorage.getItem("agent_admin_api_base") || resolveDefaultApiBase();
   });
 
-  /** 若曾存過 http://localhost，在 HTTPS 站會無法顯示，自動改為同源 proxy 或環境變數網址 */
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const https = window.location.protocol === "https:";
-    const stored = window.localStorage.getItem("agent_admin_url");
-    if (!stored || !stored.trim()) return;
-    if (isLikelyMixedContentBlocked(https, stored)) {
-      const next = resolveDefaultAgentAdminUrl();
-      setUrl(next);
-      setAppliedUrl(next);
-      window.localStorage.setItem("agent_admin_url", next);
+  const [secret, setSecret] = useState("");
+  const [control, setControl] = useState<ControlState | null>(null);
+  const [configs, setConfigs] = useState<Record<string, AgentConfig>>({});
+  const [plans, setPlans] = useState<Record<string, string>>({});
+  const [outputs, setOutputs] = useState<Record<string, string>>({});
+  const [running, setRunning] = useState<Record<string, { plan: boolean; audit: boolean }>>({});
+  const [err, setErr] = useState<string | null>(null);
+
+  const jsonHeaders = useMemo(() => {
+    const h: Record<string, string> = { "Content-Type": "application/json" };
+    if (secret.trim()) h["x-admin-secret"] = secret.trim();
+    return h;
+  }, [secret]);
+
+  const authHeaders = useMemo(() => {
+    const h: Record<string, string> = {};
+    if (secret.trim()) h["x-admin-secret"] = secret.trim();
+    return h;
+  }, [secret]);
+
+  const withBase = (path: string) => `${apiBase.trim().replace(/\/$/, "")}${path}`;
+
+  const applyApiBase = () => {
+    const next = apiBaseInput.trim() || resolveDefaultApiBase();
+    setApiBase(next);
+    if (typeof window !== "undefined") window.localStorage.setItem("agent_admin_api_base", next);
+  };
+
+  const load = async () => {
+    setErr(null);
+    try {
+      const [cfgRes, agentsRes] = await Promise.all([
+        fetch(withBase("/agent-configs"), { headers: authHeaders }),
+        fetch(withBase("/agents"), { headers: authHeaders }),
+      ]);
+
+      if (!cfgRes.ok) throw new Error(await cfgRes.text());
+      const cfgBody = (await cfgRes.json()) as { configs?: Record<string, AgentConfig> };
+      const merged: Record<string, AgentConfig> = {};
+      for (const id of AGENT_IDS) merged[id] = cfgBody.configs?.[id] ?? emptyConfig(id);
+      setConfigs(merged);
+
+      if (agentsRes.ok) {
+        const agentBody = (await agentsRes.json()) as { control?: ControlState };
+        setControl(agentBody.control ?? null);
+      }
+    } catch (e) {
+      setErr(String(e));
     }
-  }, []);
+  };
 
-  const iframeUrl = useMemo(() => {
-    const trimmed = appliedUrl.trim();
-    return trimmed || resolveDefaultAgentAdminUrl();
-  }, [appliedUrl]);
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiBase, secret]);
 
-  const mixedBlocked = useMemo(() => {
-    if (typeof window === "undefined") return false;
-    return isLikelyMixedContentBlocked(window.location.protocol === "https:", iframeUrl);
-  }, [iframeUrl]);
+  const updateConfig = (agentId: string, patch: Partial<AgentConfig>) => {
+    setConfigs((prev) => ({
+      ...prev,
+      [agentId]: { ...(prev[agentId] ?? emptyConfig(agentId)), ...patch, agentId },
+    }));
+  };
 
-  const applyUrl = () => {
-    const next = url.trim() || resolveDefaultAgentAdminUrl();
-    setAppliedUrl(next);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("agent_admin_url", next);
+  const saveConfig = async (agentId: string) => {
+    setErr(null);
+    try {
+      const payload = configs[agentId] ?? emptyConfig(agentId);
+      const res = await fetch(withBase("/agent-configs"), {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      if (!res.ok) throw new Error(text);
+      setOutputs((prev) => ({ ...prev, [agentId]: `設定儲存成功\n${text}` }));
+    } catch (e) {
+      setErr(String(e));
+    }
+  };
+
+  const generatePlan = async (agentId: string) => {
+    setErr(null);
+    try {
+      const res = await fetch(withBase("/generate-plan"), {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify({ agentId }),
+      });
+      const body = (await res.json()) as { plan?: string; error?: string };
+      if (!res.ok) throw new Error(body.error || "生產計畫失敗");
+      setPlans((prev) => ({ ...prev, [agentId]: body.plan || "" }));
+    } catch (e) {
+      setErr(String(e));
+    }
+  };
+
+  const trigger = async (agentId: string, kind: "plan" | "audit") => {
+    setErr(null);
+    setRunning((prev) => ({ ...prev, [agentId]: { plan: kind === "plan", audit: kind === "audit" } }));
+    try {
+      const cfg = configs[agentId] ?? emptyConfig(agentId);
+      const res = await fetch(withBase(kind === "plan" ? "/run-plan" : "/run-audit"), {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify({
+          agentId,
+          email: cfg.email,
+          password: cfg.password,
+          behaviorPrompt: cfg.behaviorPrompt,
+        }),
+      });
+      const text = await res.text();
+      setOutputs((prev) => ({ ...prev, [agentId]: text }));
+      if (!res.ok) throw new Error(text);
+      await load();
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setRunning((prev) => ({ ...prev, [agentId]: { plan: false, audit: false } }));
+    }
+  };
+
+  const setGlobalControl = async (payload: { enabled?: boolean; emergency?: boolean }) => {
+    setErr(null);
+    try {
+      const res = await fetch(withBase("/emergency"), {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      if (!res.ok) throw new Error(text);
+      await load();
+    } catch (e) {
+      setErr(String(e));
     }
   };
 
@@ -79,52 +182,82 @@ export function AiAgentControlBridge() {
       <Card>
         <CardHeader>
           <CardTitle>AI 機器人控制（20 位）</CardTitle>
-          <CardDescription>
-            與「用戶管理 / 主題管理」同層級入口。開發時請先在本機啟動{" "}
-            <code className="text-xs bg-muted px-1 rounded">bots/chaos-agent-core/admin</code>（預設埠 3001），主站
-            dev 會透過 Vite 將 <code className="text-xs bg-muted px-1 rounded">/agent-admin</code> 轉發過去，iframe
-            才能同源顯示。
-          </CardDescription>
+          <CardDescription>主站後台直接控制，不再依賴 iframe。可直接設定帳密、Prompt、計畫與稽核。</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {mixedBlocked && (
-            <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              目前為 HTTPS 頁面，但嵌入網址為 HTTP，瀏覽器會阻擋顯示（混合內容）。請改為同源路徑（例如預設的{" "}
-              <code className="text-xs">/agent-admin/agents-control</code>）或設定{" "}
-              <code className="text-xs">VITE_AGENT_ADMIN_BASE</code> 指向 HTTPS 的獨立後台，再按「載入控制頁」。
-            </div>
-          )}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <CardContent className="space-y-4">
+          <div className="grid gap-2 lg:grid-cols-[1fr_240px_140px]">
             <Input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder={resolveDefaultAgentAdminUrl()}
+              value={apiBaseInput}
+              onChange={(e) => setApiBaseInput(e.target.value)}
+              placeholder={resolveDefaultApiBase()}
               className="font-mono text-sm"
             />
-            <div className="flex shrink-0 gap-2">
-              <Button type="button" onClick={applyUrl}>
-                載入控制頁
-              </Button>
-              <Button type="button" variant="outline" onClick={() => window.open(iframeUrl, "_blank")}>
-                新分頁開啟
-              </Button>
-            </div>
+            <Input
+              type="password"
+              value={secret}
+              onChange={(e) => setSecret(e.target.value)}
+              placeholder="ADMIN_SECRET（可選）"
+            />
+            <Button type="button" onClick={applyApiBase}>套用 API</Button>
           </div>
-          <p className="text-xs text-muted-foreground">
-            預設使用同源 <code className="text-xs">/agent-admin/agents-control</code>（需 dev 代理或正式環境反向代理）。獨立網址範例：{" "}
-            {STANDALONE_EXAMPLE}。正式站建置可設定環境變數{" "}
-            <code className="text-xs">VITE_AGENT_ADMIN_BASE=https://你的-agent-後台網域</code>。
-          </p>
+
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={() => void load()}>重新載入</Button>
+            <Button type="button" onClick={() => void setGlobalControl({ enabled: true })}>啟用執行</Button>
+            <Button type="button" variant="outline" onClick={() => void setGlobalControl({ enabled: false })}>停用執行</Button>
+            <Button type="button" onClick={() => void setGlobalControl({ emergency: true })}>緊急剎車</Button>
+            <Button type="button" variant="outline" onClick={() => void setGlobalControl({ emergency: false })}>解除剎車</Button>
+          </div>
+
+          {control && (
+            <p className="text-sm text-muted-foreground">
+              執行狀態：{control.effectiveStopped ? "停止中" : "可執行"}（enabled={String(control.enabled)} / emergency={String(control.emergency)}）
+            </p>
+          )}
+          {err && <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</div>}
         </CardContent>
       </Card>
 
-      <div className="rounded-md border bg-background overflow-hidden">
-        <iframe
-          title="AI Agent Control"
-          src={iframeUrl}
-          className="w-full"
-          style={{ minHeight: "75vh", border: "0" }}
-        />
+      <div className="grid gap-3 lg:grid-cols-2">
+        {AGENT_IDS.map((id) => {
+          const cfg = configs[id] ?? emptyConfig(id);
+          const state = running[id] ?? { plan: false, audit: false };
+          return (
+            <Card key={id}>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">{id}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Input value={cfg.email} onChange={(e) => updateConfig(id, { email: e.target.value })} placeholder="Email" />
+                <Input type="password" value={cfg.password} onChange={(e) => updateConfig(id, { password: e.target.value })} placeholder="Password" />
+                <Textarea
+                  value={cfg.behaviorPrompt}
+                  onChange={(e) => updateConfig(id, { behaviorPrompt: e.target.value })}
+                  placeholder="行為 Prompt"
+                  rows={3}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" onClick={() => void saveConfig(id)}>儲存設定</Button>
+                  <Button type="button" variant="outline" onClick={() => void generatePlan(id)}>生產計畫</Button>
+                  <Button type="button" disabled={state.plan || state.audit} onClick={() => void trigger(id, "plan")}>
+                    {state.plan ? "執行中..." : "執行主計畫"}
+                  </Button>
+                  <Button type="button" variant="outline" disabled={state.plan || state.audit} onClick={() => void trigger(id, "audit")}>
+                    {state.audit ? "執行中..." : "執行稽核"}
+                  </Button>
+                </div>
+                <div className="rounded border p-2 text-xs whitespace-pre-wrap">
+                  <div className="font-semibold mb-1">預計執行計畫</div>
+                  {plans[id] || "尚未生產計畫"}
+                </div>
+                <div className="rounded border p-2 text-xs whitespace-pre-wrap">
+                  <div className="font-semibold mb-1">執行輸出</div>
+                  {outputs[id] || "尚未執行"}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

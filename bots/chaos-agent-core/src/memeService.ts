@@ -2,7 +2,8 @@ import OpenAI from "openai";
 import { config } from "./config.js";
 
 /**
- * 使用 DALL·E 3 產生梗圖（僅在本系統內產生位元組）。
+ * 梗圖功能維持 OpenAI（DALL·E 3）。
+ * 即使 AI_PROVIDER=google，也不影響此功能，以符合「僅機器人控制流程改用 Google」需求。
  * 發布時必須經由 ChaosApiClient 的圖片上傳 API，不得繞過。
  */
 export class MemeService {

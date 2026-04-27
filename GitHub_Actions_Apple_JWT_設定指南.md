@@ -277,7 +277,7 @@
    - 確認格式正確
 
 3. **測試腳本**
-   - 在本地執行 `node scripts/update-apple-jwt.js`
+   - 在本地執行 `node scripts/update-apple-jwt.cjs`
    - 確認腳本可以正常執行
 
 ---

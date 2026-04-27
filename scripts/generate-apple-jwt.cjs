@@ -4,7 +4,7 @@
  * 使用方法：
  * 1. 將 .p8 檔案放在 secrets/ 資料夾中
  * 2. 修改下面的配置資訊
- * 3. 執行：node scripts/generate-apple-jwt.js
+ * 3. 執行：node scripts/generate-apple-jwt.cjs
  */
 
 const fs = require('fs');

@@ -31,6 +31,7 @@ const HomePage = () => {
   const { getConfig } = useSystemConfigCache();
   const { getNow } = useServerTime();
   const [currentTab, setCurrentTab] = useState<'hot' | 'latest' | 'joined'>('hot');
+  const topicsTabsRef = useRef<HTMLDivElement | null>(null);
 
   const topicCardEnded = (topic: { status?: string; end_at?: string | null }) =>
     topic.status === "ended" || new Date(topic.end_at || 0) <= getNow();
@@ -40,6 +41,26 @@ const HomePage = () => {
     // 當 location.pathname 變為 /home 時，表示回到了首頁
     // 這會觸發 Intersection Observer 的重新設置
   }, [location.pathname]);
+
+  // 支援以連結指定首頁分頁與主題列定位（例如 /home?tab=hot#topics）
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get("tab");
+    if (tab === "hot" || tab === "latest" || tab === "joined") {
+      // 訪客沒有 user.id 時，「參與過」沒有內容，改落在熱門避免空頁體驗
+      if (tab === "joined" && !user?.id) {
+        setCurrentTab("hot");
+      } else {
+        setCurrentTab(tab);
+      }
+    }
+
+    if (params.get("section") === "topics" || location.hash === "#topics") {
+      requestAnimationFrame(() => {
+        topicsTabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+  }, [location.search, location.hash, user?.id]);
   
   // 注意：配置緩存會在首次加載時自動獲取，不需要每次掛載都刷新
   // 如果需要強制刷新配置，可以在特定場景下手動調用 refreshConfigs()
@@ -324,7 +345,7 @@ const HomePage = () => {
           <SearchBar onSubmit={handleSearchSubmit} showHistory={true} />
         </div>
 
-        <div className="relative min-h-[12rem]">
+        <div ref={topicsTabsRef} id="topics" className="relative min-h-[12rem]">
           <Tabs value={currentTab} onValueChange={(v) => setCurrentTab(v as any)} className="w-full">
             <TabsList className="w-full grid grid-cols-3 mb-6 bg-muted h-12">
               <TabsTrigger value="hot" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">

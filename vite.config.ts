@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
@@ -16,7 +16,12 @@ function getAppVersion(): string {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  /** 本機 chaos-agent-core/admin（next dev）預設埠見 bots/chaos-agent-core/admin/package.json */
+  const agentAdminProxyTarget = env.VITE_AGENT_ADMIN_PROXY_TARGET || "http://127.0.0.1:3100";
+
+  return {
   define: {
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version || getAppVersion()),
   },
@@ -26,7 +31,7 @@ export default defineConfig(({ mode }) => ({
     // 讓後台「AI 機器人控制」iframe 走同源 /agent-admin/*，避免 HTTPS 頁面嵌入 http://localhost 被瀏覽器擋下（混合內容）
     proxy: {
       "/agent-admin": {
-        target: "http://127.0.0.1:3001",
+        target: agentAdminProxyTarget,
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/agent-admin/, "") || "/",
       },
@@ -64,4 +69,5 @@ export default defineConfig(({ mode }) => ({
     // 排除 native-ad-plugin 的預先優化（因為它是本地套件）
     exclude: ['@votechaos/native-ad-plugin']
   },
-}));
+};
+});

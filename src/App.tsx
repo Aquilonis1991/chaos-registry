@@ -37,6 +37,7 @@ import { OAuthCallbackPage } from "./pages/OAuthCallbackPage";
 import { DeepLinkRedirectPage } from "./pages/DeepLinkRedirectPage";
 import AdminPage from "./pages/AdminPage";
 import SearchPage from "./pages/SearchPage";
+import GuestEntryPage from "./pages/GuestEntryPage";
 import NotFound from "./pages/NotFound";
 import { ErrorLogger } from "@/lib/errorLogger";
 import { isNative } from "@/lib/capacitor";
@@ -86,6 +87,7 @@ const App = () => (
                   <Route path="/auth/callback" element={<OAuthCallbackPage />} />
                   <Route path="/auth/deep-link-redirect" element={<DeepLinkRedirectPage />} />
                   <Route path="/auth/verify-redirect" element={<VerifyRedirectPage />} />
+                  <Route path="/guest" element={<GuestEntryPage />} />
                   <Route path="/error" element={<ErrorPage />} />
                   <Route path="/network-error" element={<NetworkErrorPage />} />
                   <Route path="/home" element={<ProtectedRoute><HomePage /><BottomNav /></ProtectedRoute>} />

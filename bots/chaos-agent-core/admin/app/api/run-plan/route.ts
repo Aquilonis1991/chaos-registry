@@ -71,6 +71,7 @@ export async function POST(req: Request) {
   const env = {
     ...process.env,
     AGENT_TRIGGER_SOURCE: "admin-api",
+    AI_PROVIDER: "google",
     AGENT_ID: agentId,
     ...(email ? { CHAOS_API_EMAIL: email } : {}),
     ...(password ? { CHAOS_API_PASSWORD: password } : {}),

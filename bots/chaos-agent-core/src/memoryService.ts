@@ -24,11 +24,39 @@ export class MemoryService {
   private readonly openai = new OpenAI({ apiKey: config.OPENAI_API_KEY });
 
   private async embed(input: string): Promise<number[]> {
-    const embedding = await this.openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input
+    if (config.AI_PROVIDER !== "google") {
+      const embedding = await this.openai.embeddings.create({
+        model: "text-embedding-3-small",
+        input
+      });
+      return embedding.data[0]?.embedding ?? [];
+    }
+
+    if (!config.GOOGLE_API_KEY) {
+      throw new Error("AI_PROVIDER=google 需要設定 GOOGLE_API_KEY");
+    }
+    const model = encodeURIComponent(config.GEMINI_EMBED_MODEL);
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${encodeURIComponent(
+      config.GOOGLE_API_KEY
+    )}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: {
+          parts: [{ text: input }]
+        },
+        taskType: "RETRIEVAL_DOCUMENT"
+      })
     });
-    return embedding.data[0]?.embedding ?? [];
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Gemini embedContent failed: ${res.status} ${text}`);
+    }
+    const data = (await res.json()) as {
+      embedding?: { values?: number[] };
+    };
+    return data.embedding?.values ?? [];
   }
 
   private async getCollection() {

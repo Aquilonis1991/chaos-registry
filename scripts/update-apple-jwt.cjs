@@ -3,7 +3,7 @@
  * 
  * 使用方法：
  * 1. 設定環境變數或修改配置
- * 2. 執行：node scripts/update-apple-jwt.js
+ * 2. 執行：node scripts/update-apple-jwt.cjs
  * 3. 可以設定為定期執行（Windows Task Scheduler 或 Cron）
  */
 

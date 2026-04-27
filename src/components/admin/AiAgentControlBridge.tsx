@@ -29,14 +29,30 @@ function emptyConfig(agentId: string): AgentConfig {
   return { agentId, email: "", password: "", behaviorPrompt: "" };
 }
 
+function looksLikeHtmlDocument(body: string): boolean {
+  const s = body.trimStart().toLowerCase();
+  return s.startsWith("<!doctype") || s.startsWith("<html") || s.includes("<head");
+}
+
+function nonJsonHint(fallbackError: string, raw: string): string {
+  if (looksLikeHtmlDocument(raw)) {
+    return (
+      `${fallbackError}：收到主站網頁（HTML）而非 API JSON。` +
+      `本機請確認已在 bots/chaos-agent-core/admin 執行 next dev（預設埠 3100），` +
+      `且 votechaos-main 的 Vite 代理 /agent-admin 指向該埠（見 vite.config.ts，可用 .env 的 VITE_AGENT_ADMIN_PROXY_TARGET 覆寫）。` +
+      `正式環境請在反向代理將 /agent-admin 轉發到 agent-admin 服務，或在建置時設定 VITE_AGENT_ADMIN_BASE 為該服務根網址（不含尾隨 /api）。`
+    );
+  }
+  const sample = raw.slice(0, 300);
+  return `${fallbackError}（非 JSON 回應）: ${sample || "<empty>"}`;
+}
+
 async function parseJsonSafe<T>(res: Response, fallbackError: string): Promise<T> {
   const raw = await res.text();
   try {
     return JSON.parse(raw) as T;
   } catch {
-    // Some proxies return HTML/plain text on error; surface body to help debugging.
-    const sample = raw.slice(0, 300);
-    throw new Error(`${fallbackError}（非 JSON 回應）: ${sample || "<empty>"}`);
+    throw new Error(nonJsonHint(fallbackError, raw));
   }
 }
 

@@ -20,7 +20,7 @@ npm install jsonwebtoken
 
 #### 步驟 2：配置腳本
 
-1. 打開 `scripts/generate-apple-jwt.js`
+1. 打開 `scripts/generate-apple-jwt.cjs`
 2. 修改以下配置：
 
 ```javascript
@@ -33,7 +33,7 @@ const KEY_FILE_PATH = path.join(__dirname, '../secrets/apple-sign-in-key.p8');
 #### 步驟 3：執行腳本
 
 ```bash
-node scripts/generate-apple-jwt.js
+node scripts/generate-apple-jwt.cjs
 ```
 
 #### 步驟 4：複製 JWT Token

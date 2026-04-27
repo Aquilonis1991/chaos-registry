@@ -14,7 +14,7 @@ REM 切換到專案根目錄
 cd /d "%~dp0\.."
 
 REM 執行更新腳本
-node scripts/update-apple-jwt.js
+node scripts/update-apple-jwt.cjs
 
 REM 如果執行失敗，暫停以查看錯誤訊息
 if errorlevel 1 (

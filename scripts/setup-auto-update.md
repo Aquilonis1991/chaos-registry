@@ -56,7 +56,7 @@ Apple Sign In 的 JWT Token 有效期為 180 天，需要定期更新。本指�
 ```batch
 @echo off
 cd /d "%~dp0\.."
-node scripts/update-apple-jwt.js
+node scripts/update-apple-jwt.cjs
 pause
 ```
 
@@ -69,7 +69,7 @@ pause
 set APPLE_TEAM_ID=YOUR_TEAM_ID
 set APPLE_KEY_ID=YOUR_KEY_ID
 cd /d "%~dp0\.."
-node scripts/update-apple-jwt.js
+node scripts/update-apple-jwt.cjs
 pause
 ```
 
@@ -131,7 +131,7 @@ jobs:
         run: |
           # 將 .p8 檔案內容寫入臨時檔案
           echo "$APPLE_KEY_FILE" > secrets/apple-sign-in-key.p8
-          node scripts/update-apple-jwt.js
+          node scripts/update-apple-jwt.cjs
       
       - name: Create Issue with New Token
         uses: actions/github-script@v6

@@ -24,10 +24,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Link href="/" style={{ color: "#93c5fd", textDecoration: "none" }}>
             總覽後台
           </Link>
-          <span style={{ opacity: 0.5 }}>|</span>
-          <Link href="/agents-control" style={{ color: "#93c5fd", textDecoration: "none" }}>
-            20 位 AI 機器人控制頁
-          </Link>
         </header>
         {children}
       </body>

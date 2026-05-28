@@ -1,6 +1,6 @@
-import OpenAI from "openai";
 import { config } from "./config.js";
 import { MemoryService } from "./memoryService.js";
+import { createXaiClient } from "./xaiClient.js";
 
 export type GenerateCommentInput = {
   agentId: string;
@@ -13,7 +13,7 @@ export type GenerateCommentInput = {
 };
 
 export class AiService {
-  private readonly openai = new OpenAI({ apiKey: config.OPENAI_API_KEY });
+  private readonly xai = createXaiClient();
 
   constructor(private readonly memoryService: MemoryService) {}
 
@@ -52,15 +52,15 @@ export class AiService {
     const raw =
       config.AI_PROVIDER === "google"
         ? await this.generateWithGemini(prompt)
-        : await this.generateWithOpenAI(prompt);
+        : await this.generateWithGrok(prompt);
     return this.enforceOutputLimit(raw);
   }
 
-  private async generateWithOpenAI(prompt: string): Promise<string> {
-    const completion = await this.openai.chat.completions.create({
-      model: "gpt-4o",
+  private async generateWithGrok(prompt: string): Promise<string> {
+    const completion = await this.xai.chat.completions.create({
+      model: config.XAI_CHAT_MODEL,
       temperature: 0.7,
-      messages: [{ role: "user", content: prompt }]
+      messages: [{ role: "user", content: prompt }],
     });
     return completion.choices[0]?.message?.content ?? "";
   }

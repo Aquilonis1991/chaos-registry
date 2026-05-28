@@ -8,6 +8,7 @@ export interface Profile {
     nickname: string;
     avatar: string;
     tokens: number;
+    created_topics?: string[] | null;
     ad_watch_count: number;
     last_login?: string | null;
     notifications: boolean;
@@ -49,8 +50,8 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
             const baseCols =
                 'id, nickname, avatar, tokens, ad_watch_count, last_login, notifications, created_at, updated_at';
             const selectVariants = [
-                `${baseCols}, nickname_updated_at, is_deleted, deleted_reason`,
-                `${baseCols}, is_deleted, deleted_reason`,
+                `${baseCols}, created_topics, nickname_updated_at, is_deleted, deleted_reason`,
+                `${baseCols}, created_topics, is_deleted, deleted_reason`,
                 baseCols,
             ];
 
@@ -63,6 +64,9 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
                     const row = res.data as Record<string, unknown>;
                     data = {
                         ...(row as unknown as Profile),
+                        created_topics: Array.isArray(row.created_topics)
+                            ? (row.created_topics as string[])
+                            : null,
                         nickname_updated_at:
                             (row.nickname_updated_at as string | null | undefined) ?? null,
                         is_deleted: Boolean(row.is_deleted),

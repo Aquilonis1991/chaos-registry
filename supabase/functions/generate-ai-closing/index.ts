@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { xaiChatCompletion } from "../_shared/xai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -149,8 +150,7 @@ Deno.serve(async (req) => {
       vote_gap_percentage: voteGapPct,
     };
 
-    const openAiKey = Deno.env.get("OPENAI_API_KEY");
-    if (!openAiKey) throw new Error("OpenAI API Key not configured");
+    // Grok（xAI）— 相容 OpenAI Chat Completions
 
     // 性格隨機化：四種人格，本次生成三語共用同一種
     const characterProfiles = ["Elitist", "ConspiracyTheorist", "ChaosCatalyst", "Existentialist"] as const;
@@ -238,22 +238,13 @@ Deno.serve(async (req) => {
     const generateOne = async (instruction: string, fallback: string, systemPrompt: string): Promise<string> => {
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          const res = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${openAiKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "gpt-4o-mini",
-              messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: `${userPromptBase}\n\n${instruction}` },
-              ],
-              temperature: 0.7,
-            }),
+          const data = await xaiChatCompletion({
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: `${userPromptBase}\n\n${instruction}` },
+            ],
+            temperature: 0.7,
           });
-          const data = await res.json();
           if (data.error) throw new Error(data.error.message);
           const text = data.choices?.[0]?.message?.content?.trim();
           if (!text) throw new Error("Empty AI response");

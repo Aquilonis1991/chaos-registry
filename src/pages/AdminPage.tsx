@@ -21,7 +21,6 @@ import { useUIText } from "@/hooks/useUIText";
 import LegalContentManager from "@/components/admin/LegalContentManager";
 import { DataExportManager } from "@/components/admin/DataExportManager";
 import { AiPromptManager } from "@/components/admin/AiPromptManager";
-import { AiAgentControlBridge } from "@/components/admin/AiAgentControlBridge";
 
 const AdminPage = () => {
   const { isAdmin, isLoading, error: adminError } = useAdmin();
@@ -47,7 +46,6 @@ const AdminPage = () => {
   const tabLegal = getText('admin.tabs.legal', '條款管理');
   const tabExport = getText('admin.tabs.export', '數據匯出');
   const tabAi = getText('admin.tabs.ai', 'AI 管理');
-  const tabAiAgents = getText('admin.tabs.aiAgents', 'AI 機器人控制');
 
   useEffect(() => {
     // 檢查管理員權限
@@ -171,7 +169,6 @@ const AdminPage = () => {
           <TabsTrigger value="banned-words">{tabBannedWords}</TabsTrigger>
           <TabsTrigger value="legal">{tabLegal}</TabsTrigger>
           <TabsTrigger value="ai">{tabAi}</TabsTrigger>
-          <TabsTrigger value="ai-agents">{tabAiAgents}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users">
@@ -264,9 +261,6 @@ const AdminPage = () => {
           <AiPromptManager />
         </TabsContent>
 
-        <TabsContent value="ai-agents">
-          <AiAgentControlBridge />
-        </TabsContent>
       </Tabs>
     </div>
   );

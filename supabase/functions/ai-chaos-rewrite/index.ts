@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { xaiChatCompletion } from "../_shared/xai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -164,9 +165,7 @@ Deno.serve(async (req) => {
       // Log transaction is handled inside deduct_user_tokens, no need to duplicate insert
     }
 
-    // 4. Call OpenAI (Stable v1/chat/completions)
-    const openAiKey = Deno.env.get("OPENAI_API_KEY");
-    if (!openAiKey) throw new Error("OpenAI API Key not configured");
+    // 4. Call Grok（xAI Chat Completions）
 
     // 先偵測輸入語言，再依語言選用對應的 prompt（支援後台 中/英/日 三欄位）
     const combinedInput = [
@@ -256,27 +255,38 @@ Deno.serve(async (req) => {
         : detected === "ja"
           ? "[Output language: 日本語のみ。]\n"
           : "[Output language: 繁體中文]\n";
+
+    // 主題詳述長度控制：目標為原文約 1.5~2 倍，並受系統上限保護（避免 create-topic 驗證失敗）
+    const rawDescription = String(description ?? "").trim();
+    const inputDescLen = rawDescription.length;
+    const { data: descMaxConfig } = await supabase
+      .from("system_config")
+      .select("value")
+      .eq("key", "description_max_length")
+      .single();
+    const descMaxLength = descMaxConfig?.value ? Number(descMaxConfig.value) : 500;
+    const safeDescMaxLength = Number.isFinite(descMaxLength) && descMaxLength > 0 ? descMaxLength : 500;
+
+    const minTarget = inputDescLen > 0 ? Math.min(Math.ceil(inputDescLen * 1.5), safeDescMaxLength) : Math.min(120, safeDescMaxLength);
+    const maxTarget = inputDescLen > 0 ? Math.min(Math.ceil(inputDescLen * 2.0), safeDescMaxLength) : Math.min(220, safeDescMaxLength);
+    const normalizedMinTarget = Math.max(20, Math.min(minTarget, maxTarget));
+    const normalizedMaxTarget = Math.max(normalizedMinTarget, maxTarget);
+
+    const descriptionLengthHint = `
+[Description length rule]
+- rewritten_description target length: ${normalizedMinTarget}-${normalizedMaxTarget} characters.
+- This range is mandatory unless the source content is too short to support it.
+- Never exceed ${safeDescMaxLength} characters.`;
     const userContent = JSON.stringify({ title, description, options });
 
-    // Call OpenAI
-    const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${openAiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `${outputLanguageHint}Task Input:\nRewrite to Chaos JSON: ${userContent}` }
-        ],
-        temperature: 1.0,
-        response_format: { type: "json_object" }
-      }),
+    const aiData = await xaiChatCompletion({
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `${outputLanguageHint}${descriptionLengthHint}\n\nTask Input:\nRewrite to Chaos JSON: ${userContent}` },
+      ],
+      temperature: 1.0,
+      response_format: { type: "json_object" },
     });
-
-    const aiData = await openAiResponse.json();
     if (aiData.error) throw new Error(aiData.error.message);
 
     // Parse standard response

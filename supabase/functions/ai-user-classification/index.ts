@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { xaiChatCompletion } from "../_shared/xai.ts";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -113,8 +114,7 @@ Deno.serve(async (req) => {
         });
 
         // 5. Build Prompt
-        const openAiKey = Deno.env.get("OPENAI_API_KEY");
-        if (!openAiKey) throw new Error("OpenAI API Key not configured");
+        // Grok（xAI）
 
         // Extract language from request or default to 'zh'
         const { language = 'zh' } = await req.json().catch(() => ({}));
@@ -161,7 +161,7 @@ Deno.serve(async (req) => {
             );
         }
 
-        // 6. Call OpenAI：user 內容明確標示「以下為該使用者實際資料」，促使模型依 recent_created_topics / recent_votes 生成
+        // 6. Call Grok：user 內容明確標示「以下為該使用者實際資料」，促使模型依 recent_created_topics / recent_votes 生成
         const userPayload = {
             language: language,
             instruction: "以下為該使用者的實際行為資料，請務必根據「最近建立的主題名稱」與「最近投票（主題＋選項）」內容生成稱號與側寫，不要忽略這些具體內容。",
@@ -175,24 +175,14 @@ Deno.serve(async (req) => {
         };
         const userContentStr = JSON.stringify(userPayload);
 
-        const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${openAiKey}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                model: "gpt-4o-mini",
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: userContentStr }
-                ],
-                temperature: 0.9,
-                response_format: { type: "json_object" }
-            }),
+        const aiData = await xaiChatCompletion({
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userContentStr },
+            ],
+            temperature: 0.9,
+            response_format: { type: "json_object" },
         });
-
-        const aiData = await openAiResponse.json();
         if (aiData.error) throw new Error(aiData.error.message);
 
         // Parse Standard Response

@@ -170,6 +170,15 @@ const HomePage = () => {
   }, [adInsertionEnabled, adInsertionInterval, adInsertionSkipFirst, adUnitId]);
 
   const userTokens = profile?.tokens || 0;
+  const createdTopicsCount = Array.isArray(profile?.created_topics) ? profile.created_topics.length : -1;
+  const isNewUserNoTopic = Boolean(user?.id) && createdTopicsCount === 0;
+  const languageBase = language.split("-")[0];
+  const newbieCreateCtaText =
+    languageBase === "en"
+      ? "Create a topic in 30 seconds, Try now!"
+      : languageBase === "ja"
+        ? "30秒で話題作成 今すぐ試してみよう！"
+        : "30 秒發起話題 馬上來試試！";
 
   // 無限滾動：Intersection Observer refs
   const hotLoadMoreRef = useRef<HTMLDivElement>(null);
@@ -619,18 +628,56 @@ const HomePage = () => {
         </div>
       </div>
 
-      {/* 發起主題浮動按鈕：z-[100] 確保不被主題卡、導覽列或其它內容遮擋 */}
-      <Button
-        variant="accent"
-        size="lg"
-        className="fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] z-[100] rounded-full shadow-glow h-14 px-6 gap-2"
-        asChild
-      >
-        <Link to="/create" aria-label={getText('home.fab.create', '發起主題')}>
-          <PlusCircle className="w-6 h-6" />
-          <span className="font-medium">{getText('home.fab.create', '發起主題')}</span>
-        </Link>
-      </Button>
+      {/* 新手首發強引導：僅限已登入且尚未發過主題的帳號 */}
+      {isNewUserNoTopic ? (
+        <>
+          <style>
+            {`
+              @keyframes newbie-cta-rise {
+                0% { transform: translateY(120%); opacity: 0; }
+                100% { transform: translateY(0); opacity: 1; }
+              }
+              @keyframes newbie-cta-breathe {
+                0%, 100% { transform: scale(1); }
+                50% { transform: scale(1.015); }
+              }
+              @keyframes newbie-cta-glow {
+                0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.25), 0 12px 34px rgba(124,58,237,0.35); }
+                50% { box-shadow: 0 0 0 14px rgba(59,130,246,0), 0 18px 48px rgba(99,102,241,0.5); }
+              }
+            `}
+          </style>
+          <div className="fixed inset-x-3 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] z-[110]">
+            <Link
+              to="/create"
+              aria-label={newbieCreateCtaText}
+              className="block rounded-[2rem] h-[33vh] min-h-[190px] max-h-[340px] border border-white/30 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 text-white p-5"
+              style={{
+                animation:
+                  "newbie-cta-rise 0.45s ease-out, newbie-cta-breathe 2.1s ease-in-out 0.45s infinite, newbie-cta-glow 1.9s ease-in-out 0.45s infinite",
+              }}
+            >
+              <div className="h-full w-full rounded-[1.5rem] bg-white/10 backdrop-blur-[1px] flex items-center justify-center">
+                <div className="max-w-[92%] rounded-2xl bg-black/25 px-5 py-4 text-center text-[clamp(1.25rem,4.8vw,2rem)] font-bold leading-tight">
+                  {newbieCreateCtaText}
+                </div>
+              </div>
+            </Link>
+          </div>
+        </>
+      ) : (
+        <Button
+          variant="accent"
+          size="lg"
+          className="fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] z-[100] rounded-full shadow-glow h-14 px-6 gap-2"
+          asChild
+        >
+          <Link to="/create" aria-label={getText('home.fab.create', '發起主題')}>
+            <PlusCircle className="w-6 h-6" />
+            <span className="font-medium">{getText('home.fab.create', '發起主題')}</span>
+          </Link>
+        </Button>
+      )}
     </div>
   );
 };

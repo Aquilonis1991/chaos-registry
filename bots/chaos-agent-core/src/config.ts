@@ -5,9 +5,13 @@ const envSchema = z
   .object({
     CHAOS_API_EMAIL: z.string().email(),
     CHAOS_API_PASSWORD: z.string().min(1),
-    OPENAI_API_KEY: z.string().min(1),
+    /** xAI Grok API Key（https://console.x.ai） */
+    XAI_API_KEY: z.string().min(1),
     GOOGLE_API_KEY: z.string().optional(),
-    AI_PROVIDER: z.enum(["openai", "google"]).default("openai"),
+    /** grok = 文字/梗圖走 xAI；google = 文字/向量走 Gemini */
+    AI_PROVIDER: z.enum(["grok", "google"]).default("grok"),
+    XAI_CHAT_MODEL: z.string().min(1).default("grok-4.3"),
+    XAI_IMAGE_MODEL: z.string().min(1).default("grok-imagine-image-quality"),
     GEMINI_TEXT_MODEL: z.string().min(1).default("gemini-1.5-flash"),
     GEMINI_EMBED_MODEL: z.string().min(1).default("text-embedding-004"),
     CHROMA_URL: z.string().url().default("http://localhost:8000"),
@@ -36,6 +40,13 @@ const envSchema = z
         code: z.ZodIssueCode.custom,
         message:
           "請設定 SUPABASE_URL + SUPABASE_ANON_KEY（對接真實 ChaosRegistry），或改設 CHAOS_API_BASE_URL（舊假 REST 模式）"
+      });
+    }
+    if (data.AI_PROVIDER === "grok" && !data.GOOGLE_API_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "AI_PROVIDER=grok 時請設定 GOOGLE_API_KEY（xAI 無 embeddings API，私有記憶向量仍用 Gemini embed）"
       });
     }
   });

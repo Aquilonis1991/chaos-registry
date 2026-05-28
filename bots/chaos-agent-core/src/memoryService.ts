@@ -1,5 +1,4 @@
 import { ChromaClient } from "chromadb";
-import OpenAI from "openai";
 import { config } from "./config.js";
 
 export type MemoryRecord = {
@@ -21,19 +20,11 @@ type SearchMemory = {
 
 export class MemoryService {
   private readonly chroma = new ChromaClient({ path: config.CHROMA_URL });
-  private readonly openai = new OpenAI({ apiKey: config.OPENAI_API_KEY });
 
   private async embed(input: string): Promise<number[]> {
-    if (config.AI_PROVIDER !== "google") {
-      const embedding = await this.openai.embeddings.create({
-        model: "text-embedding-3-small",
-        input
-      });
-      return embedding.data[0]?.embedding ?? [];
-    }
-
+    // xAI 目前無 embeddings API；grok / google 皆用 Gemini 向量
     if (!config.GOOGLE_API_KEY) {
-      throw new Error("AI_PROVIDER=google 需要設定 GOOGLE_API_KEY");
+      throw new Error("私有記憶向量需要 GOOGLE_API_KEY（Gemini embed）");
     }
     const model = encodeURIComponent(config.GEMINI_EMBED_MODEL);
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${encodeURIComponent(

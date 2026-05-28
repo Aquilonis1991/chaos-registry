@@ -647,20 +647,18 @@ const HomePage = () => {
               }
             `}
           </style>
-          <div className="fixed inset-x-3 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] z-[110]">
+          <div className="fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] z-[110]">
             <Link
               to="/create"
               aria-label={newbieCreateCtaText}
-              className="block rounded-[2rem] h-[33vh] min-h-[190px] max-h-[340px] border border-white/30 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 text-white p-5"
+              className="inline-flex items-center justify-center rounded-full h-[4.2rem] px-7 border border-white/30 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 text-white shadow-glow"
               style={{
                 animation:
                   "newbie-cta-rise 0.45s ease-out, newbie-cta-breathe 2.1s ease-in-out 0.45s infinite, newbie-cta-glow 1.9s ease-in-out 0.45s infinite",
               }}
             >
-              <div className="h-full w-full rounded-[1.5rem] bg-white/10 backdrop-blur-[1px] flex items-center justify-center">
-                <div className="max-w-[92%] rounded-2xl bg-black/25 px-5 py-4 text-center text-[clamp(1.25rem,4.8vw,2rem)] font-bold leading-tight">
-                  {newbieCreateCtaText}
-                </div>
+              <div className="rounded-full bg-black/20 px-3 py-1 text-center text-base font-semibold leading-tight">
+                {newbieCreateCtaText}
               </div>
             </Link>
           </div>

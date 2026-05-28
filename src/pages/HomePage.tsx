@@ -17,6 +17,7 @@ import { formatRelativeTime } from "@/lib/relativeTime";
 import { insertAdsIntoList } from "@/lib/adInsertion";
 import { getNativeAdUnitId } from "@/lib/admob";
 import { useServerTime } from "@/contexts/ServerTimeContext";
+import { supabase } from "@/integrations/supabase/client";
 
 /** 首頁各分頁一次下拉／初次載入時取得的卡片數量（熱門、最新、參與過皆為此數量） */
 const TOPICS_PAGE_SIZE = 20;
@@ -31,6 +32,7 @@ const HomePage = () => {
   const { getConfig } = useSystemConfigCache();
   const { getNow } = useServerTime();
   const [currentTab, setCurrentTab] = useState<'hot' | 'latest' | 'joined'>('hot');
+  const [hasCreatedTopicRecord, setHasCreatedTopicRecord] = useState<boolean | null>(null);
   const topicsTabsRef = useRef<HTMLDivElement | null>(null);
 
   const topicCardEnded = (topic: { status?: string; end_at?: string | null }) =>
@@ -171,7 +173,48 @@ const HomePage = () => {
 
   const userTokens = profile?.tokens || 0;
   const createdTopicsCount = Array.isArray(profile?.created_topics) ? profile.created_topics.length : -1;
-  const isNewUserNoTopic = Boolean(user?.id) && createdTopicsCount === 0;
+  useEffect(() => {
+    let cancelled = false;
+
+    const verifyCreatedTopicRecord = async () => {
+      if (!user?.id) {
+        setHasCreatedTopicRecord(null);
+        return;
+      }
+
+      if (createdTopicsCount > 0) {
+        setHasCreatedTopicRecord(true);
+        return;
+      }
+
+      if (createdTopicsCount !== 0) {
+        setHasCreatedTopicRecord(null);
+        return;
+      }
+
+      try {
+        const { count, error } = await supabase
+          .from("topics")
+          .select("id", { head: true, count: "exact" })
+          .eq("creator_id", user.id)
+          .limit(1);
+
+        if (error) throw error;
+        if (!cancelled) setHasCreatedTopicRecord((count ?? 0) > 0);
+      } catch (e) {
+        console.warn("[HomePage] Failed to verify created topic record:", e);
+        if (!cancelled) setHasCreatedTopicRecord(null);
+      }
+    };
+
+    void verifyCreatedTopicRecord();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, createdTopicsCount]);
+
+  const isNewUserNoTopic =
+    Boolean(user?.id) && createdTopicsCount === 0 && hasCreatedTopicRecord === false;
   const languageBase = language.split("-")[0];
   const newbieCreateCtaText =
     languageBase === "en"

@@ -11,6 +11,8 @@ import { postToX } from "../_shared/twitterPost.ts";
 import { postToThreads } from "../_shared/threadsPost.ts";
 import { postToFacebook } from "../_shared/facebookPost.ts";
 
+const SITE_BASE_URL = "https://chaosregistry.com";
+
 type Platform = "x" | "threads" | "facebook";
 const ALL_PLATFORMS: Platform[] = ["x", "threads", "facebook"];
 const PLATFORM_LENGTH_HINT: Record<Platform, string> = {
@@ -104,12 +106,29 @@ Deno.serve(async (req) => {
       .join("\n");
     const outputSchema = targetPlatforms.map((p) => `"${p}": "string"`).join(", ");
 
+    // 搭上潮流：從目前 App 內討論度最高的話題取幾則，讓 AI 從中挑一個自然帶入文案，
+    // 而不是單純寫空泛的品牌推廣文。沿用首頁「熱門」分頁同一套排序（get_hot_topics_with_exposure），
+    // 該 RPC 不依賴 auth.uid()，service role 可直接呼叫。
+    const { data: hotTopics, error: hotTopicsError } = await supabaseAdmin.rpc(
+      "get_hot_topics_with_exposure",
+      { p_limit: 3, p_offset: 0, p_grace_days: null }
+    );
+    if (hotTopicsError) {
+      console.error("[social-post-bot] get_hot_topics_with_exposure error:", hotTopicsError);
+    }
+    const trendingTopics = (hotTopics || []).filter((t: any) => t?.id && t?.title);
+    const trendHint = trendingTopics.length > 0
+      ? `\n\n[搭上潮流]目前 App 內討論度最高的話題如下，請從中挑一個最適合、最有梗的話題自然帶入文案（提到話題重點並附上對應連結，連結直接照抄，不要竄改）：\n${trendingTopics
+          .map((t: any) => `- 「${t.title}」（目前 ${t.total_votes ?? 0} 票）：${SITE_BASE_URL}/vote/${t.id}`)
+          .join("\n")}`
+      : "";
+
     const aiData = await xaiChatCompletion({
       messages: [
         { role: "system", content: systemPrompt },
         {
           role: "user",
-          content: `請針對以下平台各寫一篇推廣貼文，長度限制：\n${lengthRules}\n\n只輸出 JSON，格式為 {${outputSchema}}，不要有其他說明文字或 markdown 標記。`,
+          content: `請針對以下平台各寫一篇推廣貼文，長度限制：\n${lengthRules}${trendHint}\n\n只輸出 JSON，格式為 {${outputSchema}}，不要有其他說明文字或 markdown 標記。`,
         },
       ],
       temperature: 0.9,

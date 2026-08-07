@@ -12,6 +12,8 @@ export const ALLOWED_ORIGINS = [
   'http://localhost:3000', // 備用開發端口
   // 生產環境域名（上線後添加）
   'https://chaos-registry.vercel.app',
+  'https://chaosregistry.com', // 正式自訂網域
+  'https://www.chaosregistry.com', // 正式自訂網域（www）
 ];
 
 /**

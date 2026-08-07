@@ -68,6 +68,14 @@ Deno.serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
+    // 安全修正：deduct_user_tokens 已收回 authenticated 執行權限（該函式先前對任何已登入
+    // 用戶開放、且完全沒有身份檢查，代表任何人可以指定任意 user_id 把對方代幣扣到歸零）。
+    // 改用 service role 呼叫，使用者身份仍由上面的 supabase.auth.getUser() 驗證過。
+    const supabaseAdmin = createClient(
+      supabaseUrl,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY") ?? ""
+    );
+
     // 3. Initialize Admin Client for Privileged Operations (if needed)
     // We need Service Role for system_config access if RLS blocks it, 
     // or for deduct_tokens if it requires elevated privileges.
@@ -147,7 +155,7 @@ Deno.serve(async (req) => {
 
       // Deduct tokens using the correct RPC (deduct_user_tokens)
       // Signature: p_user_id UUID, p_amount INT, p_reason TEXT
-      const { data: deductResult, error: deductError } = await supabase.rpc("deduct_user_tokens", {
+      const { data: deductResult, error: deductError } = await supabaseAdmin.rpc("deduct_user_tokens", {
         p_user_id: user.id,
         p_amount: cost,
         p_reason: `不穩定改寫`

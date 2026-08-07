@@ -28,6 +28,7 @@ import { devLog } from "@/lib/devLog";
 import { signupSchema, loginSchema } from "@/lib/validationSchemas";
 import { Logo } from "@/components/Logo";
 import WebAdminOnlyPage from "./WebAdminOnlyPage";
+import { computeAdminGateState } from "@/lib/auth/adminGateState";
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -81,29 +82,22 @@ const AuthPage = () => {
     if (!isNative()) {
       console.log('[AuthPage] Web version, checking admin status:', { isAdmin, adminLoading });
 
-      // 如果管理員狀態還在載入中（undefined），繼續等待
-      if (isAdmin === undefined && adminLoading) {
-        console.log('[AuthPage] Admin status still loading, waiting...');
+      const gateState = computeAdminGateState({ isAdmin, adminLoading });
+
+      if (gateState === "pending") {
+        console.log('[AuthPage] Admin status pending, waiting...');
         return;
       }
 
-      // 重要：如果查詢完成但結果是 undefined，或者明確是 false，都視為非管理員
-      // 這確保了即使查詢失敗，也會阻止非管理員訪問
-      if (isAdmin === false || (isAdmin === undefined && !adminLoading)) {
+      if (gateState === "denied") {
         console.log('[AuthPage] Non-admin user on web, should show restriction page');
         // 不導向，直接顯示限制頁面（由組件返回）
         return;
       }
 
-      // 只有明確是 true 時才允許導向
-      if (isAdmin === true) {
-        console.log('[AuthPage] Admin user on web, navigating to home');
-        navigate("/home", { replace: true });
-        return;
-      }
-
-      // 如果還不確定，繼續等待
-      console.log('[AuthPage] Admin status uncertain, waiting...');
+      // gateState === "admin"
+      console.log('[AuthPage] Admin user on web, navigating to home');
+      navigate("/home", { replace: true });
       return;
     }
 
@@ -125,9 +119,10 @@ const AuthPage = () => {
   if (!isNative() && user && !isAnonymous) {
     console.log('[AuthPage] Web version, user logged in, checking admin status:', { isAdmin, adminLoading });
 
-    // 如果管理員狀態還在載入中（undefined），繼續等待
-    if (isAdmin === undefined && adminLoading) {
-      console.log('[AuthPage] Admin status still loading, showing loading screen');
+    const gateState = computeAdminGateState({ isAdmin, adminLoading });
+
+    if (gateState === "pending") {
+      console.log('[AuthPage] Admin status pending, showing loading screen');
       return (
         <div className="min-h-screen flex items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin" />
@@ -135,25 +130,12 @@ const AuthPage = () => {
       );
     }
 
-    // 重要：如果查詢完成但結果是 undefined，或者明確是 false，都視為非管理員
-    // 這確保了即使查詢失敗，也會阻止非管理員訪問
-    if (isAdmin === false || (isAdmin === undefined && !adminLoading)) {
+    if (gateState === "denied") {
       console.log('[AuthPage] Non-admin user on web, showing restriction page');
       return <WebAdminOnlyPage />;
     }
 
-    // 只有明確是 true 時才允許訪問（但應該已經導向首頁了）
-    if (isAdmin !== true) {
-      // 如果還不確定，繼續等待
-      console.log('[AuthPage] Admin status uncertain, waiting...');
-      return (
-        <div className="min-h-screen flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin" />
-        </div>
-      );
-    }
-
-    // 是管理員，應該已經導向首頁了，這裡不返回任何內容
+    // gateState === "admin"，應該已經導向首頁了，這裡不返回任何內容
     console.log('[AuthPage] Admin user on web, should already be redirected');
     return null;
   }

@@ -54,13 +54,21 @@ Deno.serve(async (req) => {
     );
 
     const { data: { user } } = await supabaseClient.auth.getUser();
-    
+
     if (!user) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // add_tokens/deduct_tokens 已收回 authenticated 執行權限（安全修正：這兩個函式先前對任何
+    // 已登入用戶開放，可直接被 client 呼叫竄改任意數量代幣）。改用 service role 呼叫，
+    // 使用者身份仍由上面的 supabaseClient.auth.getUser() 驗證過，只是代幣異動改走特權連線。
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
+    );
 
     const { mission_id } = await req.json();
 
@@ -140,7 +148,7 @@ Deno.serve(async (req) => {
     }
 
     // Use atomic operation to add tokens
-    const { error: tokenError } = await supabaseClient.rpc('add_tokens', {
+    const { error: tokenError } = await supabaseAdmin.rpc('add_tokens', {
       user_id: user.id,
       token_amount: mission.reward
     });

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { recoverAndroidPendingPurchasesOnLogin } from '@/lib/purchaseRecovery';
+import { AUTH_SIGNED_IN_EVENT, AUTH_SIGNED_OUT_EVENT } from '@/lib/auth/authEvents';
 
 interface AuthContextType {
   user: User | null;
@@ -44,30 +44,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // 使用 ref 來追蹤組件是否已卸載，避免在已卸載的組件上設置狀態
     let isMounted = true;
-    let recoveryAttemptSeq = 0;
-    const recoveryRetryTimers: ReturnType<typeof setTimeout>[] = [];
-
-    const clearRecoveryRetryTimers = () => {
-      while (recoveryRetryTimers.length > 0) {
-        const t = recoveryRetryTimers.pop();
-        if (t) clearTimeout(t);
-      }
-    };
-
-    const schedulePurchaseRecoveryRetries = () => {
-      recoveryAttemptSeq += 1;
-      const runId = recoveryAttemptSeq;
-      clearRecoveryRetryTimers();
-      const retryDelaysMs = [0, 5000, 20000];
-      retryDelaysMs.forEach((delay) => {
-        const timer = setTimeout(() => {
-          // 若有較新的登入事件，舊排程不再執行
-          if (runId !== recoveryAttemptSeq) return;
-          void recoverAndroidPendingPurchasesOnLogin();
-        }, delay);
-        recoveryRetryTimers.push(timer);
-      });
-    };
 
     // 安全超時機制（修復閉包問題：直接設置狀態，不檢查 loading）
     const timeoutTimer = setTimeout(() => {
@@ -118,13 +94,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           // 清除匿名ID
           localStorage.removeItem('anonymous_id');
 
-          // 注意：這裡不要在登入事件自動更新 profiles 欄位。
+          // 注意：這裡不要動任務相關欄位（last_login/login_streak 等）。
           // 每日簽到必須只由任務頁「立即簽到」按鈕觸發 record_daily_login。
+          // touch_last_signed_in 只寫 last_signed_in_at，跟任務系統完全無關，
+          // 是後台「最後登入時間」真正的資料來源。
           if (event === 'SIGNED_IN') {
-            schedulePurchaseRecoveryRetries();
+            window.dispatchEvent(new CustomEvent(AUTH_SIGNED_IN_EVENT));
+            void supabase.rpc('touch_last_signed_in' as any).then(({ error }) => {
+              if (error) console.warn('[AuthProvider] touch_last_signed_in failed:', error.message);
+            });
           }
         } else {
-          clearRecoveryRetryTimers();
+          window.dispatchEvent(new CustomEvent(AUTH_SIGNED_OUT_EVENT));
           // 登出時保持匿名狀態
           const anonId = getOrCreateAnonymousId();
           setAnonymousId(anonId);
@@ -138,7 +119,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     return () => {
       isMounted = false; // 標記組件已卸載
-      clearRecoveryRetryTimers();
       subscription.unsubscribe();
       clearTimeout(timeoutTimer);
     };

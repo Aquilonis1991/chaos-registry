@@ -1,7 +1,8 @@
-/** 與 MissionPage getTaipeiDateKey 一致，供「口耳相傳」每日複製門檻使用 */
+import { getTaipeiDateKey } from "@/lib/taipeiCalendar";
+
+/** 供「口耳相傳」每日複製門檻使用 */
 export function getTaipeiDateKeyForShare(date = new Date()): string {
-  const shifted = new Date(date.getTime() + (8 * 60 + date.getTimezoneOffset()) * 60_000);
-  return shifted.toISOString().slice(0, 10);
+  return getTaipeiDateKey(date);
 }
 
 const storageKey = (userId: string) =>

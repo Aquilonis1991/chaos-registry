@@ -245,85 +245,15 @@ export const useMissionOperations = () => {
           throw new Error('Edge Function failed');
         }
       } catch (edgeError: any) {
-        // Edge Function 失敗，使用 RPC + 手動更新作為備選
-        try {
-          const rpcStartTime = getNowMs();
-
-          // 調用 RPC（添加超時處理，15秒，給足夠時間處理）
-          const rpcPromise = supabase.rpc('add_tokens', {
-            user_id: user.id,
-            token_amount: AD_REWARD
-          });
-
-          const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) =>
-            setTimeout(() => reject(new Error('RPC 調用超時（15秒）')), 15000)
-          );
-
-          let rpcResult: { data: any; error: any };
-          try {
-            rpcResult = await Promise.race([
-              rpcPromise,
-              timeoutPromise
-            ]) as { data: any; error: any };
-          } catch (timeoutError: any) {
-            console.error('[watchAd] ❌ RPC 調用超時:', timeoutError);
-            // RPC 超時，直接拋出錯誤（不嘗試備選方案，因為 add_tokens_from_ad_watch 可能不存在或參數不匹配）
-            throw new Error(getText('mission.watchAd.rpcTimeout', 'RPC 呼叫超時，請檢查網路連線或稍後再試'));
-          }
-
-          const { data: rpcData, error: tokenError } = rpcResult;
-
-          const rpcDuration = getNowMs() - rpcStartTime;
-
-          if (tokenError) {
-            console.error('[watchAd] ❌ Add tokens RPC error:', {
-              error: tokenError,
-              code: tokenError.code,
-              message: tokenError.message,
-              details: tokenError.details,
-              hint: tokenError.hint
-            });
-            const tokenIncreaseFailedTemplate = getText(
-              'mission.watchAd.tokenIncreaseFailedTemplate',
-              '增加代幣失敗：{{reason}}'
-            );
-            throw new Error(
-              tokenIncreaseFailedTemplate.replace(
-                '{{reason}}',
-                tokenError.message || getText('mission.watchAd.unknownError', '未知錯誤')
-              )
-            );
-          }
-
-
-          // RPC 調用成功後，立即標記為成功（不等待後續操作）
-          tokenUpdateSuccess = true;
-
-          // 後續操作：更新 profile、寫入 token_transactions（watch_ad），確保代幣紀錄正確
-          Promise.allSettled([
-            supabase.from('profiles')
-              .update({
-                ad_watch_count: adWatchCount + 1,
-                last_login: getNow().toISOString()
-              })
-              .eq('id', user.id),
-            supabase.rpc('log_token_transaction', {
-              p_user_id: user.id,
-              p_amount: AD_REWARD,
-              p_transaction_type: 'watch_ad',
-              p_description: getText('mission.tokenTx.watchAd', '觀看廣告')
-            })
-          ]).catch(() => {
-            // 靜默處理錯誤，不影響主流程
-          });
-        } catch (rpcError: any) {
-          console.error('[watchAd] ❌ RPC 備選方案失敗:', {
-            error: rpcError,
-            message: rpcError?.message,
-            stack: rpcError?.stack
-          });
-          throw rpcError;
-        }
+        // 安全修正：這裡原本會在 Edge Function 失敗時，直接呼叫 add_tokens RPC 當備選方案。
+        // add_tokens 已收回 authenticated 執行權限（該函式先前對任何已登入用戶開放，等同
+        // 任何人都能直接呼叫幫自己灌任意數量代幣），watch-ad Edge Function 內部已改用
+        // service role 呼叫 add_tokens，故這裡不再繞過 Edge Function 直接發代幣，
+        // 失敗時單純把錯誤往外拋，讓使用者知道要重試。
+        console.error('[watchAd] ❌ Edge Function 失敗，且已移除不安全的 RPC 備選方案:', edgeError);
+        throw new Error(
+          getText('mission.watchAd.edgeFunctionFailed', '發放獎勵失敗，請檢查網路連線後再試一次')
+        );
       }
 
       if (!tokenUpdateSuccess) {

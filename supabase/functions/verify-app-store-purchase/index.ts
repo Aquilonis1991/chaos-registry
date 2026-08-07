@@ -39,25 +39,26 @@ async function generateAppStoreJWT(): Promise<string> {
   };
 
   try {
-    // Edge Functions 的 secret 常會把換行轉成 \n，這裡做一次還原
-    const pem = APP_STORE_PRIVATE_KEY.includes('\\n')
-      ? APP_STORE_PRIVATE_KEY.replace(/\\n/g, '\n')
-      : APP_STORE_PRIVATE_KEY;
+    // 安全加固（比照 verify-google-play-purchase 踩過的坑）：Secret 貼上時常見兩種問題——
+    // (1) 換行被存成字面上的 "\" + "n" 兩個字元而非真正換行；(2) 夾帶貼上時多出的雜訊字元
+    // （例如連同 JSON 欄位值兩端的雙引號）。必須先做 (1) 的轉換，再對剩餘內容做 base64
+    // 字元白名單過濾（而不是只濾空白），才能同時防住這兩種情況，不管貼上時格式多亂都能解析。
+    const pem = APP_STORE_PRIVATE_KEY.replace(/\\n/g, '\n').replace(/\\r/g, '');
 
     if (!pem.includes('BEGIN') || !pem.includes('END')) {
       throw new Error('APP_STORE_PRIVATE_KEY must be a PEM (p8) private key');
     }
 
+    const b64 = pem
+      .replace(/-----BEGIN PRIVATE KEY-----/g, '')
+      .replace(/-----END PRIVATE KEY-----/g, '')
+      .replace(/[^A-Za-z0-9+/=]/g, '');
+
     const key = await crypto.subtle.importKey(
       'pkcs8',
       // Deno 的 importKey 需要 ArrayBuffer
       new Uint8Array(
-        Array.from(atob(pem
-          .replace(/-----BEGIN PRIVATE KEY-----/g, '')
-          .replace(/-----END PRIVATE KEY-----/g, '')
-          .replace(/\s/g, '')),
-          (c) => c.charCodeAt(0)
-        )
+        Array.from(atob(b64), (c) => c.charCodeAt(0))
       ).buffer,
       { name: 'ECDSA', namedCurve: 'P-256' },
       false,

@@ -44,6 +44,7 @@ import { isNative } from "@/lib/capacitor";
 import { OAuthCallbackHandler } from "@/components/OAuthCallbackHandler";
 import { ForceUpdateGate } from "@/components/ForceUpdateGate";
 import { PurchaseRecoveryToastGate } from "@/components/PurchaseRecoveryToastGate";
+import { PurchaseRecoveryScheduler } from "@/components/PurchaseRecoveryScheduler";
 import { App as CapacitorApp } from '@capacitor/app';
 import { useEffect } from "react";
 
@@ -75,6 +76,7 @@ const App = () => (
               <Toaster />
               <Sonner />
               <PurchaseRecoveryToastGate />
+              <PurchaseRecoveryScheduler />
               <ForceUpdateGate>
               <BrowserRouter>
                 <BackButtonHandler />

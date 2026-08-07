@@ -11,40 +11,116 @@ const GOOGLE_PLAY_PACKAGE_NAME = 'com.votechaos.app';
 const GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL = Deno.env.get('GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL');
 const GOOGLE_PLAY_PRIVATE_KEY = Deno.env.get('GOOGLE_PLAY_PRIVATE_KEY');
 
-// 生成 Google JWT token 用於 API 認證
-async function generateGoogleJWT(): Promise<string> {
-  if (!GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL || !GOOGLE_PLAY_PRIVATE_KEY) {
-    throw new Error('Google Play Service Account credentials not configured');
-  }
+// ---------------------------------------------------------------------------
+// Google Service Account JWT 簽名 + OAuth2 access token 交換
+// （原本這裡只是回傳字串 'mock_jwt_token'，導致下面呼叫 Android Publisher API
+// 一定 401，永遠 fallback 到「purchaseToken 長度 > 10 就算過」的假驗證。
+// 改成真的用 Web Crypto API 做 RS256 簽名，並依 Google 的 JWT Bearer flow
+// 拿真正的 access token，而不是直接把 JWT assertion 當 access token 用
+// ——這兩者是不同東西，就算簽名本身是對的，前面的寫法也一定會被 Google 拒絕。）
+// ---------------------------------------------------------------------------
 
-  // JWT header
-  const header = {
-    alg: 'RS256',
-    typ: 'JWT',
-  };
+function base64UrlEncode(bytes: Uint8Array): string {
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
 
-  // JWT payload
+function base64UrlEncodeString(str: string): string {
+  return base64UrlEncode(new TextEncoder().encode(str));
+}
+
+// PEM（-----BEGIN PRIVATE KEY-----...）轉成 crypto.subtle 可吃的 PKCS8 DER bytes。
+// 根本原因（已用診斷 log 查證確認）：Secret 裡存的私鑰，換行是字面上的兩個字元
+// "\" + "n"，不是真正的換行字元。如果不先把它轉成真正換行就直接濾掉非法字元，
+// 反斜線會被濾掉、但字母 n 本身是合法的 base64 字元會被誤留下來，導致金鑰全文每一個
+// 換行處都混進一個雜訊字元（27 行左右的金鑰就會摻進 27 個雜訊 n），內容整個解不開。
+// 必須先做這個轉換，再套用「只保留合法 base64 字元」這層過濾（防禦貼上時可能夾帶的
+// 雙引號、多餘空白等其他雜訊）。
+function pemToPkcs8(pem: string): ArrayBuffer {
+  const normalized = pem.replace(/\\n/g, '\n').replace(/\\r/g, '');
+  const withoutMarkers = normalized
+    .replace(/-----BEGIN PRIVATE KEY-----/g, '')
+    .replace(/-----END PRIVATE KEY-----/g, '');
+  const b64 = withoutMarkers.replace(/[^A-Za-z0-9+/=]/g, '');
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
+async function signGoogleServiceAccountJwt(): Promise<string> {
+  const header = { alg: 'RS256', typ: 'JWT' };
   const now = Math.floor(Date.now() / 1000);
   const payload = {
     iss: GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL,
     scope: 'https://www.googleapis.com/auth/androidpublisher',
     aud: 'https://oauth2.googleapis.com/token',
-    exp: now + 3600, // 1 hour
+    exp: now + 3600,
     iat: now,
   };
 
-  // 使用 Web Crypto API 簽名 JWT
-  // 注意：這需要正確格式的私鑰（PEM 格式）
-  const encoder = new TextEncoder();
-  const headerB64 = btoa(JSON.stringify(header)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-  const payloadB64 = btoa(JSON.stringify(payload)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-  const message = `${headerB64}.${payloadB64}`;
+  const headerB64 = base64UrlEncodeString(JSON.stringify(header));
+  const payloadB64 = base64UrlEncodeString(JSON.stringify(payload));
+  const signingInput = `${headerB64}.${payloadB64}`;
 
-  // 這裡需要實作 RSA 簽名
-  // 由於 Deno 環境限制，暫時返回模擬 token
-  // 生產環境需要使用正確的 JWT 庫或實作 RSA 簽名
-  console.warn('[Google Play] JWT generation not fully implemented, using mock token');
-  return 'mock_jwt_token';
+  const keyData = pemToPkcs8(GOOGLE_PLAY_PRIVATE_KEY!);
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8',
+    keyData,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5',
+    cryptoKey,
+    new TextEncoder().encode(signingInput)
+  );
+
+  const signatureB64 = base64UrlEncode(new Uint8Array(signature));
+  return `${signingInput}.${signatureB64}`;
+}
+
+// access token 在同一個函式實例存活期間快取，避免每次請求都重新簽名+換 token
+let cachedAccessToken: { token: string; expiresAt: number } | null = null;
+
+async function getGoogleAccessToken(): Promise<string> {
+  if (!GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL || !GOOGLE_PLAY_PRIVATE_KEY) {
+    throw new Error('Google Play Service Account credentials not configured');
+  }
+
+  if (cachedAccessToken && cachedAccessToken.expiresAt > Date.now() + 60_000) {
+    return cachedAccessToken.token;
+  }
+
+  const assertion = await signGoogleServiceAccountJwt();
+
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`Google OAuth2 token exchange failed (status ${res.status}): ${errText.slice(0, 300)}`);
+  }
+
+  const data = await res.json();
+  if (!data.access_token) {
+    throw new Error('Google OAuth2 token exchange returned no access_token');
+  }
+
+  cachedAccessToken = {
+    token: data.access_token,
+    expiresAt: Date.now() + (Number(data.expires_in) || 3600) * 1000,
+  };
+  return cachedAccessToken.token;
 }
 
 Deno.serve(async (req) => {
@@ -166,16 +242,16 @@ Deno.serve(async (req) => {
     if (GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL && GOOGLE_PLAY_PRIVATE_KEY) {
       // 方法 1: 使用 Google Play Developer API v3
       try {
-        // 生成 JWT token 用於 Google API 認證
-        const jwt = await generateGoogleJWT();
-        
+        // 換取真正的 OAuth2 access token（不是簽好的 JWT assertion本身）
+        const accessToken = await getGoogleAccessToken();
+
         // 調用 Google Play Developer API
         const apiUrl = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${appPackageName}/purchases/products/${productId}/tokens/${purchaseToken}`;
-        
+
         const response = await fetch(apiUrl, {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${jwt}`,
+            'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
           },
         });

@@ -11,54 +11,21 @@ import { useUserStats } from "@/hooks/useUserStats";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 import { playTokenAmountHaptic } from "@/lib/tokenHaptics";
 import { DAILY_SHARE_COPIED_EVENT, hasDailyShareCopiedToday } from "@/lib/dailyShareCopyGate";
-
-// 任務映射：前端任務 ID -> 數據庫任務 ID
-const MISSION_ID_MAP: Record<string, string> = {
-  "1": "first_vote",      // 新手上路（需要創建）
-  "2": "vote_lover",      // 投票愛好者
-  "3": "topic_creator",   // 話題創造者
-  "5": "nickname_editor", // 修改暱稱
-  "6": "daily_vote_1",    // 每日投票 1 票
-  "7": "daily_vote_5",    // 每日投票 5 票
-  "8": "daily_vote_10",   // 每日投票 10 票
-  "9": "streak_7_repeat",   // 連續簽到 7 天（可重複）
-  "10": "streak_14_repeat", // 連續簽到 14 天（可重複）
-  "11": "streak_30_repeat", // 連續簽到 30 天（可重複）
-  "12": "daily_share_1", // 每日口耳相傳（分享）
-};
-
-interface LoginStreakInfo {
-  current_streak: number;
-  total_login_days: number;
-  last_login_date: string | null;
-  can_claim_today: boolean;
-  streak_reward_available: boolean;
-}
-
-const getTaipeiDateKey = (date = new Date()): string => {
-  const shifted = new Date(date.getTime() + (8 * 60 + date.getTimezoneOffset()) * 60_000);
-  return shifted.toISOString().slice(0, 10);
-};
-
-const getTaipeiDateKeyFromIso = (iso?: string | null): string | null => {
-  if (!iso) return null;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  return getTaipeiDateKey(date);
-};
-
-const getStreakCycleStartDateKey = (streak: number): string => {
-  const safeStreak = Math.max(1, Math.floor(streak || 1));
-  const now = new Date();
-  const cycleStart = new Date(now.getTime() - (safeStreak - 1) * 24 * 60 * 60 * 1000);
-  return getTaipeiDateKey(cycleStart);
-};
+import { getTaipeiDayWindowUtc } from "@/lib/taipeiCalendar";
+import { optimisticMutate } from "@/lib/optimisticMutate";
+import type { LoginStreakInfo, MissionRecord } from "@/lib/mission/types";
+import {
+  computeMissionProgress,
+  getActiveStreakMissionId,
+  isRewardClaimed as computeIsRewardClaimed,
+  toDbMissionId,
+} from "@/lib/mission/missionRules";
+import { fetchDailyVoteCount, fetchUserMissions } from "@/lib/mission/missionApi";
 
 const MissionPage = () => {
   const navigate = useNavigate();
@@ -74,7 +41,7 @@ const MissionPage = () => {
   const [loginStreakInfo, setLoginStreakInfo] = useState<LoginStreakInfo | null>(null);
   const [displayedStreak, setDisplayedStreak] = useState(0);
   const [loadingStreak, setLoadingStreak] = useState(true);
-  const [userMissions, setUserMissions] = useState<Record<string, { completed: boolean; completed_at: string | null; last_completed_date?: string | null; progress?: number | null }>>({});
+  const [userMissions, setUserMissions] = useState<Record<string, MissionRecord>>({});
   const [loadingMissions, setLoadingMissions] = useState(true);
   const [claimingMissionId, setClaimingMissionId] = useState<string | null>(null);
   const [dailyVoteCount, setDailyVoteCount] = useState(0);
@@ -269,75 +236,27 @@ const MissionPage = () => {
 
   // 修改：getMissionProgress 需要依賴 localizedMissions 裡面的 target
   const getMissionProgress = useCallback((missionId: string): { progress: number; completed: boolean } => {
-    if (statsLoading) {
-      return { progress: 0, completed: false };
-    }
-
-    const dbMissionId = MISSION_ID_MAP[missionId];
-    const isClaimed = dbMissionId ? userMissions[dbMissionId]?.completed === true : false;
-    const markedProgress = dbMissionId ? (userMissions[dbMissionId]?.progress ?? 0) : 0;
+    const dbMissionId = toDbMissionId(missionId);
+    const missionRecord = dbMissionId ? userMissions[dbMissionId] : undefined;
+    const isClaimed = missionRecord?.completed === true;
+    const markedProgress = missionRecord?.progress ?? 0;
 
     // 獲取該任務的目標值 (從 localizedMissions 查找)
     const missionTemplate = localizedMissions.find(m => m.id === missionId);
     const target = missionTemplate?.target || 1; // 默認為 1 防呆
 
-    // 如果已領取，任務視為已完成（即使統計數據為 0）
-    if (isClaimed) {
-      return { progress: 100, completed: true };
-    }
-
-    switch (missionId) {
-      case "1": // 新手上路
-        const voteProgress = stats.totalVotes > 0 ? 100 : 0;
-        return {
-          progress: voteProgress,
-          completed: stats.totalVotes > 0
-        };
-      case "2": // 投票愛好者
-        const uniqueTopics = stats.uniqueTopicVotes || 0;
-        const uniqueProgress = Math.min((uniqueTopics / target) * 100, 100);
-        return {
-          progress: uniqueProgress,
-          completed: uniqueTopics >= target
-        };
-      case "3": // 話題創造者
-        const topicProgress = stats.topicsCreated > 0 ? 100 : 0;
-        return {
-          progress: topicProgress,
-          completed: stats.topicsCreated > 0
-        };
-      case "5": // 修改暱稱
-        return {
-          progress: (profile?.nickname_updated_at || markedProgress >= 100) ? 100 : 0,
-          completed: Boolean(profile?.nickname_updated_at) || markedProgress >= 100
-        };
-      case "6":
-      case "7":
-      case "8":
-        return {
-          progress: Math.min((dailyVoteCount / target) * 100, 100),
-          completed: dailyVoteCount >= target
-        };
-      case "9":
-      case "10":
-      case "11": {
-        const streakSafe = Math.max(0, displayedStreak || 0);
-        const cycleDay = streakSafe > 0 ? ((streakSafe - 1) % 30) + 1 : 0;
-        return {
-          progress: Math.min((cycleDay / target) * 100, 100),
-          completed: cycleDay >= target
-        };
-      }
-      case "12": {
-        const copiedToday = Boolean(user?.id) && hasDailyShareCopiedToday(user.id);
-        return {
-          progress: copiedToday ? 100 : 0,
-          completed: copiedToday
-        };
-      }
-      default:
-        return { progress: 0, completed: false };
-    }
+    return computeMissionProgress(missionId, target, {
+      statsLoading,
+      isClaimed,
+      markedProgress,
+      totalVotes: stats.totalVotes,
+      uniqueTopicVotes: stats.uniqueTopicVotes,
+      topicsCreated: stats.topicsCreated,
+      nicknameUpdatedAt: profile?.nickname_updated_at,
+      dailyVoteCount,
+      displayedStreak,
+      dailyShareCopiedToday: Boolean(user?.id) && hasDailyShareCopiedToday(user.id),
+    });
   }, [statsLoading, stats, userMissions, localizedMissions, displayedStreak, profile?.nickname_updated_at, dailyVoteCount, user?.id, shareCopyNonce]);
 
   const applyLoginStreakInfo = useCallback((info: LoginStreakInfo | null) => {
@@ -388,30 +307,9 @@ const MissionPage = () => {
       return;
     }
     try {
-      const now = new Date();
-      const taipeiNow = new Date(now.getTime() + (8 * 60 + now.getTimezoneOffset()) * 60_000);
-      const startTaipei = new Date(taipeiNow.getFullYear(), taipeiNow.getMonth(), taipeiNow.getDate(), 0, 0, 0, 0);
-      const endTaipei = new Date(taipeiNow.getFullYear(), taipeiNow.getMonth(), taipeiNow.getDate(), 23, 59, 59, 999);
-      const startUtcIso = new Date(startTaipei.getTime() - 8 * 60 * 60_000).toISOString();
-      const endUtcIso = new Date(endTaipei.getTime() - 8 * 60 * 60_000).toISOString();
-
-      const [votesRes, freeVotesRes] = await Promise.all([
-        supabase
-          .from('votes')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .gte('created_at', startUtcIso)
-          .lte('created_at', endUtcIso),
-        supabase
-          .from('free_votes')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .gte('used_at', startUtcIso)
-          .lte('used_at', endUtcIso),
-      ]);
-      if (votesRes.error) throw votesRes.error;
-      if (freeVotesRes.error) throw freeVotesRes.error;
-      setDailyVoteCount((votesRes.count ?? 0) + (freeVotesRes.count ?? 0));
+      const dayWindow = getTaipeiDayWindowUtc();
+      const count = await fetchDailyVoteCount(user.id, dayWindow);
+      setDailyVoteCount(count);
     } catch (e) {
       console.error('Error loading daily vote count:', e);
       setDailyVoteCount(0);
@@ -431,23 +329,7 @@ const MissionPage = () => {
 
     try {
       setLoadingMissions(true);
-      const { data, error } = await supabase
-        .from('user_missions')
-        .select('mission_id, completed, completed_at, last_completed_date, progress')
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      const missionsMap: Record<string, { completed: boolean; completed_at: string | null; last_completed_date?: string | null; progress?: number | null }> = {};
-      data?.forEach((mission) => {
-        missionsMap[mission.mission_id] = {
-          completed: mission.completed,
-          completed_at: mission.completed_at,
-          last_completed_date: (mission as any).last_completed_date ?? null,
-          progress: (mission as any).progress ?? null,
-        };
-      });
-
+      const missionsMap = await fetchUserMissions(user.id);
       setUserMissions(missionsMap);
     } catch (error) {
       console.error('Error loading user missions:', error);
@@ -461,7 +343,6 @@ const MissionPage = () => {
 
     adWatchInterruptedRef.current = false;
     setIsWatchingAd(true);
-    let optimisticUpdateApplied = false;
     try {
       // 使用 missionConfigs 中的配置值，確保與顯示的獎勵一致
       const AD_REWARD = typeof missionConfigs.watchAdReward === 'number'
@@ -476,38 +357,37 @@ const MissionPage = () => {
         return;
       }
 
-      // 廣告觀看成功後，立即樂觀更新代幣數量
-      // 這確保了只有在用戶真正完成廣告觀看後，UI 才會更新
-      updateTokensOptimistically(AD_REWARD);
-      void playTokenAmountHaptic(AD_REWARD, 'gain');
-      optimisticUpdateApplied = true;
-
-      const adRewardAmount = (result.reward ?? 0).toLocaleString();
-
-      // 防止重複顯示 toast（3秒內不重複顯示相同類型的 toast）
-      const now = Date.now();
-      const lastToast = lastToastRef.current;
-      if (!lastToast || lastToast.type !== 'watchAd' || (now - lastToast.timestamp) > 3000) {
-        toast.success(watchAdSuccessTitle, {
-          description: watchAdSuccessDescTemplate.replace('{{amount}}', adRewardAmount)
-        });
-        lastToastRef.current = { type: 'watchAd', timestamp: now };
-      }
-
+      // 廣告觀看成功後，立即樂觀更新代幣數量；rollback 只在 run() 拋錯時觸發一次
       // 注意：實時訂閱會在數據庫更新時自動同步，可能會覆蓋樂觀更新
       // 這是正常的，因為實時訂閱的數據是權威來源
       // 如果實時訂閱沒有及時觸發（網絡延遲），樂觀更新會提供即時反饋
+      await optimisticMutate({
+        apply: () => {
+          updateTokensOptimistically(AD_REWARD);
+          void playTokenAmountHaptic(AD_REWARD, 'gain');
+        },
+        rollback: () => {
+          updateTokensOptimistically(-AD_REWARD);
+        },
+        run: async () => {
+          const adRewardAmount = (result.reward ?? 0).toLocaleString();
+
+          // 防止重複顯示 toast（3秒內不重複顯示相同類型的 toast）
+          const now = Date.now();
+          const lastToast = lastToastRef.current;
+          if (!lastToast || lastToast.type !== 'watchAd' || (now - lastToast.timestamp) > 3000) {
+            toast.success(watchAdSuccessTitle, {
+              description: watchAdSuccessDescTemplate.replace('{{amount}}', adRewardAmount)
+            });
+            lastToastRef.current = { type: 'watchAd', timestamp: now };
+          }
+        },
+      });
     } catch (error) {
       if (adWatchInterruptedRef.current) {
         return;
       }
-      // 如果出錯且已經進行了樂觀更新，需要回滾
-      if (optimisticUpdateApplied) {
-        const AD_REWARD = typeof missionConfigs.watchAdReward === 'number'
-          ? missionConfigs.watchAdReward
-          : Number(missionConfigs.watchAdReward) || 5;
-        updateTokensOptimistically(-AD_REWARD);
-      }
+      // watchAd() 本身失敗：尚未進行任何樂觀更新，無需回滾
       // Error handled in useMissionOperations
     } finally {
       // 確保按鈕狀態被重置
@@ -597,7 +477,7 @@ const MissionPage = () => {
   };
 
   const handleClaimReward = async (missionId: string) => {
-    const dbMissionId = MISSION_ID_MAP[missionId];
+    const dbMissionId = toDbMissionId(missionId);
     if (!dbMissionId) {
       toast.error(missionIdMissingError);
       return;
@@ -631,61 +511,60 @@ const MissionPage = () => {
     }
 
     setClaimingMissionId(missionId);
-    let optimisticUpdateApplied = false;
+    const expectedReward = localizedMissions.find(m => m.id === missionId)?.reward || 0;
     try {
-      const expectedReward = localizedMissions.find(m => m.id === missionId)?.reward || 0;
+      const mutateResult = await optimisticMutate({
+        // 先進行樂觀更新，立即更新 UI
+        apply: () => updateTokensOptimistically(expectedReward),
+        rollback: () => updateTokensOptimistically(-expectedReward),
+        run: async () => {
+          const result = await completeMission(dbMissionId);
+          if (!result?.success) {
+            // completeMission 失敗時一律拋錯（從未實際回傳 success:false），
+            // 統一走 rollback，不再單獨維護一條理論上到不了的分支
+            throw new Error('Mission claim did not succeed');
+          }
+          return result;
+        },
+        reconcile: (result) => {
+          const rewardAmount = result.reward || expectedReward;
 
-      // 先進行樂觀更新，立即更新 UI
-      updateTokensOptimistically(expectedReward);
-      optimisticUpdateApplied = true;
+          // 如果實際獎勵與預期不同，調整樂觀更新
+          if (rewardAmount !== expectedReward) {
+            updateTokensOptimistically(-expectedReward + rewardAmount);
+          }
 
-      const result = await completeMission(dbMissionId);
-      if (result?.success) {
-        const rewardAmount = result.reward || expectedReward;
+          const claimDesc = claimSuccessDescTemplate.replace('{{amount}}', rewardAmount.toLocaleString());
+          toast.success(claimSuccessTitle, {
+            description: claimDesc
+          });
+          void playTokenAmountHaptic(rewardAmount, 'gain');
 
-        // 如果實際獎勵與預期不同，調整樂觀更新
-        if (rewardAmount !== expectedReward) {
-          updateTokensOptimistically(-expectedReward + rewardAmount);
+          // 異步刷新失序值餘額和任務狀態（不阻塞 UI）
+          Promise.allSettled([
+            refreshProfile(),
+            loadUserMissions(),
+            loadDailyVoteCount(),
+            refreshStats()
+          ]).catch(() => {
+            // 靜默處理錯誤，不影響用戶體驗
+          });
+        },
+      });
+
+      if (!mutateResult.ok) {
+        const error: any = mutateResult.error;
+        console.error('Claim reward error:', error);
+
+        // 如果錯誤信息中沒有包含特定的錯誤提示，顯示通用錯誤
+        if (!error?.message?.includes('已完成') && !error?.message?.includes('已達上限')) {
+          toast.error(claimErrorTitle, {
+            description: error?.message || genericTryAgain
+          });
         }
-
-        const claimDesc = claimSuccessDescTemplate.replace('{{amount}}', rewardAmount.toLocaleString());
-        toast.success(claimSuccessTitle, {
-          description: claimDesc
-        });
-        void playTokenAmountHaptic(rewardAmount, 'gain');
-
-        // 異步刷新失序值餘額和任務狀態（不阻塞 UI）
-        Promise.allSettled([
-          refreshProfile(),
-          loadUserMissions(),
-          loadDailyVoteCount(),
-          refreshStats()
-        ]).catch(() => {
-          // 靜默處理錯誤，不影響用戶體驗
-        });
-      } else {
-        // 如果失敗，回滾樂觀更新
-        if (optimisticUpdateApplied) {
-          updateTokensOptimistically(-expectedReward);
-        }
+        // 即使出錯也重新載入任務狀態，因為可能已經部分完成
+        await loadUserMissions();
       }
-    } catch (error: any) {
-      console.error('Claim reward error:', error);
-
-      // 如果出錯且已進行樂觀更新，需要回滾
-      if (optimisticUpdateApplied) {
-        const expectedReward = localizedMissions.find(m => m.id === missionId)?.reward || 0;
-        updateTokensOptimistically(-expectedReward);
-      }
-
-      // 如果錯誤信息中沒有包含特定的錯誤提示，顯示通用錯誤
-      if (!error.message?.includes('已完成') && !error.message?.includes('已達上限')) {
-        toast.error(claimErrorTitle, {
-          description: error.message || genericTryAgain
-        });
-      }
-      // 即使出錯也重新載入任務狀態，因為可能已經部分完成
-      await loadUserMissions();
     } finally {
       setClaimingMissionId(null);
     }
@@ -693,38 +572,10 @@ const MissionPage = () => {
 
   // 檢查任務是否已領取獎勵
   const isRewardClaimed = (missionId: string): boolean => {
-    const dbMissionId = MISSION_ID_MAP[missionId];
-    if (!dbMissionId) return false;
-    const record = userMissions[dbMissionId];
-    if (!record?.completed) return false;
-    const todayKey = getTaipeiDateKey();
-    const lastDone = record.last_completed_date || null;
-    const completedAtKey = getTaipeiDateKeyFromIso(record.completed_at);
-
-    // 每日投票任務：只判斷今天是否已領
-    if (dbMissionId === 'daily_vote_1' || dbMissionId === 'daily_vote_5' || dbMissionId === 'daily_vote_10') {
-      return (lastDone ?? completedAtKey) === todayKey;
-    }
-
-    if (dbMissionId === 'daily_share_1') {
-      return (lastDone ?? completedAtKey) === todayKey;
-    }
-
-    // 連續簽到可重複任務：同一輪 30 天循環內僅可領一次
-    if (dbMissionId === 'streak_7_repeat' || dbMissionId === 'streak_14_repeat' || dbMissionId === 'streak_30_repeat') {
-      const streak = Math.max(0, displayedStreak || 0);
-      if (streak <= 0) return false;
-      const cycleDay = ((streak - 1) % 30) + 1;
-      const now = new Date();
-      // currentCycleStart 為當前 30 天循環的第一天
-      const currentCycleStart = new Date(now.getTime() - (cycleDay - 1) * 24 * 60 * 60 * 1000);
-      const currentCycleStartStr = getTaipeiDateKey(currentCycleStart);
-      const streakDoneDate = lastDone ?? completedAtKey;
-      return Boolean(streakDoneDate && streakDoneDate >= currentCycleStartStr);
-    }
-
-    if (!lastDone && !completedAtKey) return false;
-    return true;
+    const dbMissionId = toDbMissionId(missionId);
+    return computeIsRewardClaimed(dbMissionId, dbMissionId ? userMissions[dbMissionId] : undefined, {
+      displayedStreak,
+    });
   };
 
   // 載入用戶任務完成狀態
@@ -968,14 +819,7 @@ const MissionPage = () => {
             if (mission.id === "9" || mission.id === "10" || mission.id === "11") {
               const isClaimed7 = isRewardClaimed("9");
               const isClaimed14 = isRewardClaimed("10");
-
-              let activeStreakMissionId = "9"; // 預設顯示 7 天
-              if (isClaimed7 && !isClaimed14) {
-                activeStreakMissionId = "10";
-              } else if (isClaimed7 && isClaimed14) {
-                activeStreakMissionId = "11";
-              }
-
+              const activeStreakMissionId = getActiveStreakMissionId(isClaimed7, isClaimed14);
               return mission.id === activeStreakMissionId;
             }
             return true;

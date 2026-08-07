@@ -28,7 +28,9 @@ import { useTopicOperations } from "@/hooks/useTopicOperations";
 import { createTopicSchema } from "@/lib/validationSchemas";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 import { playTokenAmountHaptic } from "@/lib/tokenHaptics";
-import { checkBannedWords, validateTopicContent, getBannedWordErrorMessage, maskMatchedKeyword } from "@/lib/bannedWords";
+import { optimisticMutate } from "@/lib/optimisticMutate";
+import { checkBannedWords, validateTopicContent, getBannedWordErrorMessage } from "@/lib/bannedWords";
+import { useModerationGate } from "@/hooks/useModerationGate";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -47,6 +49,10 @@ const CreateTopicPage = () => {
   const { refreshStats } = useUserStats(user?.id);
   const { language } = useLanguage();
   const { getText } = useUIText(language);
+  /** 標題／選項／標籤／分類 的違禁字判斷（block/mask/review）共用閘門 */
+  const mainContentModeration = useModerationGate();
+  /** 詳述欄位的違禁字判斷共用閘門，獨立於上面那個，因為兩者各自檢查不同欄位 */
+  const descriptionModeration = useModerationGate();
   const topicBannedLevels = getConfig('topic_banned_check_levels', ['A', 'B', 'C', 'D', 'E']);
   const topicDescriptionBannedLevels = getConfig('topic_description_banned_levels', ['A', 'B', 'C', 'D', 'E']);
   /* Config Limits */
@@ -90,20 +96,14 @@ const CreateTopicPage = () => {
   const reviewDialogCancelText = getText('common.button.cancel', '取消');
 
   const handleMaskConfirm = () => {
-    if (!maskDialogInfo) {
-      setMaskDialogOpen(false);
-      return;
-    }
-
-    setDescription(maskDialogInfo.maskedDescription);
-    setMaskDialogOpen(false);
-    setMaskDialogInfo(null);
+    const masked = descriptionModeration.applyMask(description);
+    setDescription(masked);
+    descriptionModeration.closeMask();
     toast.info(getText('topic.description.maskApplied', '敏感字已替換為星號，請確認後重新送出'));
   };
 
   const handleMaskCancel = () => {
-    setMaskDialogOpen(false);
-    setMaskDialogInfo(null);
+    descriptionModeration.closeMask();
   };
 
   const submitTopic = async (optionsForSubmit: string[], tagsForSubmit: string[]) => {
@@ -157,27 +157,26 @@ const CreateTopicPage = () => {
 
   const handleReviewConfirm = async () => {
     const submission = pendingSubmission;
-    setReviewDialogOpen(false);
-    setReviewDialogInfo(null);
+    descriptionModeration.closeReview();
+    setPendingSubmission(null);
 
     if (!submission) return;
 
     await submitTopic(submission.options, submission.tags);
-    setPendingSubmission(null);
   };
 
   const handleReviewCancel = () => {
-    setReviewDialogOpen(false);
-    setReviewDialogInfo(null);
+    descriptionModeration.closeReview();
     setPendingSubmission(null);
   };
 
   const handleMainContentMaskConfirm = () => {
-    if (!mainContentMaskInfo) {
-      setMainContentMaskOpen(false);
+    if (!pendingMainContentMaskTarget) {
+      mainContentModeration.closeMask();
       return;
     }
-    const { maskedValue, blockType, optionIndex, tagIndex } = mainContentMaskInfo;
+    const maskedValue = mainContentModeration.applyMask(pendingMainContentMaskTarget.value);
+    const { blockType, optionIndex, tagIndex } = pendingMainContentMaskTarget;
     if (blockType === 'title') setTitle(maskedValue);
     else if (blockType === 'option' && optionIndex !== undefined) {
       setOptions(prev => {
@@ -192,23 +191,26 @@ const CreateTopicPage = () => {
         return next;
       });
     } else if (blockType === 'category') setCategory(maskedValue);
-    setMainContentMaskOpen(false);
-    setMainContentMaskInfo(null);
+    mainContentModeration.closeMask();
+    setPendingMainContentMaskTarget(null);
     toast.info(getText('topic.mask.applied', '敏感字已替換，請確認後重新送出'));
+  };
+
+  const handleMainContentMaskCancel = () => {
+    mainContentModeration.closeMask();
+    setPendingMainContentMaskTarget(null);
   };
 
   const handleMainContentReviewConfirm = async () => {
     const submission = mainContentPendingSubmission;
-    setMainContentReviewOpen(false);
-    setMainContentReviewInfo(null);
+    mainContentModeration.closeReview();
     setMainContentPendingSubmission(null);
     if (!submission) return;
     await checkDescriptionAndSubmit(submission.options, submission.tags);
   };
 
   const handleMainContentReviewCancel = () => {
-    setMainContentReviewOpen(false);
-    setMainContentReviewInfo(null);
+    mainContentModeration.closeReview();
     setMainContentPendingSubmission(null);
   };
   const [title, setTitle] = useState("");
@@ -230,23 +232,14 @@ const CreateTopicPage = () => {
   };
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasFreeCreateQualification, setHasFreeCreateQualification] = useState(false);
-  const [maskDialogOpen, setMaskDialogOpen] = useState(false);
-  const [maskDialogInfo, setMaskDialogInfo] = useState<{ keyword: string; maskedDescription: string } | null>(null);
-  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
-  const [reviewDialogInfo, setReviewDialogInfo] = useState<{ keyword: string } | null>(null);
   const [pendingSubmission, setPendingSubmission] = useState<{ options: string[]; tags: string[] } | null>(null);
-  /** 標題／選項／標籤／分類 的 mask 對話框 */
-  const [mainContentMaskOpen, setMainContentMaskOpen] = useState(false);
-  const [mainContentMaskInfo, setMainContentMaskInfo] = useState<{
-    keyword: string;
-    maskedValue: string;
+  /** 標題／選項／標籤／分類 遮罩命中時，記住要套用到哪個欄位 */
+  const [pendingMainContentMaskTarget, setPendingMainContentMaskTarget] = useState<{
+    value: string;
     blockType: 'title' | 'option' | 'tag' | 'category';
     optionIndex?: number;
     tagIndex?: number;
   } | null>(null);
-  /** 標題／選項／標籤／分類 的 review 對話框 */
-  const [mainContentReviewOpen, setMainContentReviewOpen] = useState(false);
-  const [mainContentReviewInfo, setMainContentReviewInfo] = useState<{ keyword: string } | null>(null);
   const [mainContentPendingSubmission, setMainContentPendingSubmission] = useState<{ options: string[]; tags: string[] } | null>(null);
   const [isDailyDiscountEligible, setIsDailyDiscountEligible] = useState(false);
 
@@ -285,14 +278,9 @@ const CreateTopicPage = () => {
     setIsRewriting(true);
     setShowPaymentConfirm(false);
 
-    // 樂觀更新：如果本次需要付費，立即扣除代幣
     const rewriteCost = dailyRewriteCount > 0 ? 5 : 0;
-    if (rewriteCost > 0) {
-      updateTokensOptimistically(-rewriteCost);
-      void playTokenAmountHaptic(rewriteCost, 'spend');
-    }
 
-    try {
+    const runRewrite = async () => {
       const { data, error } = await supabase.functions.invoke('ai-chaos-rewrite', {
         body: {
           title: title,
@@ -309,12 +297,25 @@ const CreateTopicPage = () => {
       setDailyRewriteCount(data.usage.count);
       setRewriteConfirmOpen(true);
       refreshStats(); // Update token count immediately (實時訂閱會確保最終一致性)
+    };
+
+    try {
+      if (rewriteCost > 0) {
+        // 樂觀更新：本次需要付費，立即扣除代幣；run() 拋錯則回滾一次
+        const mutateResult = await optimisticMutate({
+          apply: () => {
+            updateTokensOptimistically(-rewriteCost);
+            void playTokenAmountHaptic(rewriteCost, 'spend');
+          },
+          rollback: () => updateTokensOptimistically(rewriteCost),
+          run: runRewrite,
+        });
+        if (!mutateResult.ok) throw mutateResult.error;
+      } else {
+        await runRewrite();
+      }
     } catch (error: any) {
       console.error('Rewrite error:', error);
-      // 如果失敗，回滾樂觀更新
-      if (rewriteCost > 0) {
-        updateTokensOptimistically(rewriteCost);
-      }
       const msg = error?.message ?? (typeof error?.error === "string" ? error.error : "");
       if (msg && isPromptConfigError(msg)) {
         const key = getPromptConfigKeyFromError(msg);
@@ -577,7 +578,8 @@ const CreateTopicPage = () => {
     );
 
     if (bannedCheck.found) {
-      if (bannedCheck.action === 'block') {
+      const decision = mainContentModeration.evaluate(bannedCheck);
+      if (decision === 'block') {
         toast.error(getBannedWordErrorMessage(bannedCheck), {
           description: getText('topic.banned.description', '發現禁字：{{keyword}}（級別：{{level}}）')
             .replace('{{keyword}}', bannedCheck.keyword || '')
@@ -585,34 +587,19 @@ const CreateTopicPage = () => {
         });
         return;
       }
-      if (bannedCheck.action === 'mask' && bannedCheck.keyword && bannedCheck.blockType && bannedCheck.blockValue !== undefined) {
-        const masked = maskMatchedKeyword(bannedCheck.blockValue, bannedCheck.keyword);
-        const bt = bannedCheck.blockType;
-        if (bt === 'title' || bt === 'option' || bt === 'tag' || bt === 'category') {
-          setMainContentMaskInfo({
-            keyword: bannedCheck.keyword,
-            maskedValue: masked,
-            blockType: bt,
-            optionIndex: bannedCheck.optionIndex,
-            tagIndex: bannedCheck.tagIndex,
-          });
-          setMainContentMaskOpen(true);
-        }
+      if (decision === 'mask') {
+        setPendingMainContentMaskTarget({
+          value: bannedCheck.blockValue || '',
+          blockType: (bannedCheck.blockType || 'title') as 'title' | 'option' | 'tag' | 'category',
+          optionIndex: bannedCheck.optionIndex,
+          tagIndex: bannedCheck.tagIndex,
+        });
         return;
       }
-      if (bannedCheck.action === 'review') {
-        setMainContentReviewInfo({ keyword: bannedCheck.keyword || '' });
+      if (decision === 'review') {
         setMainContentPendingSubmission({ options: trimmedOptions, tags: sanitizedTags });
-        setMainContentReviewOpen(true);
         return;
       }
-      // 其他或未設定 action 時視為 block
-      toast.error(getBannedWordErrorMessage(bannedCheck), {
-        description: getText('topic.banned.description', '發現禁字：{{keyword}}（級別：{{level}}）')
-          .replace('{{keyword}}', bannedCheck.keyword || '')
-          .replace('{{level}}', bannedCheck.level || '')
-      });
-      return;
     }
 
     await checkDescriptionAndSubmit(trimmedOptions, sanitizedTags);
@@ -623,28 +610,18 @@ const CreateTopicPage = () => {
       ? await checkBannedWords(description, (topicDescriptionBannedLevels ?? ['A', 'B', 'C', 'D', 'E']) as string[])
       : { found: false };
 
-    if (descriptionCheck.found) {
-      if (descriptionCheck.action === 'block') {
-        toast.error(getText('topic.description.blocked', '詳述包含禁止使用的字詞，請修改後重試'), {
-          description: getText('topic.description.blockedDesc', '敏感字詞：{{keyword}}').replace('{{keyword}}', descriptionCheck.keyword || '')
-        });
-        return;
-      }
-      if (descriptionCheck.action === 'mask') {
-        const masked = maskMatchedKeyword(description, descriptionCheck.keyword || '');
-        setMaskDialogInfo({ keyword: descriptionCheck.keyword || '', maskedDescription: masked });
-        setMaskDialogOpen(true);
-        return;
-      }
-      if (descriptionCheck.action === 'review') {
-        setReviewDialogInfo({ keyword: descriptionCheck.keyword || '' });
-        setPendingSubmission({ options: optionsForSubmit, tags: tagsForSubmit });
-        setReviewDialogOpen(true);
-        return;
-      }
+    const decision = descriptionModeration.evaluate(descriptionCheck);
+    if (decision === 'block') {
       toast.error(getText('topic.description.blocked', '詳述包含禁止使用的字詞，請修改後重試'), {
         description: getText('topic.description.blockedDesc', '敏感字詞：{{keyword}}').replace('{{keyword}}', descriptionCheck.keyword || '')
       });
+      return;
+    }
+    if (decision === 'mask') {
+      return; // 遮罩確認彈窗已開，等使用者操作
+    }
+    if (decision === 'review') {
+      setPendingSubmission({ options: optionsForSubmit, tags: tagsForSubmit });
       return;
     }
 
@@ -663,12 +640,12 @@ const CreateTopicPage = () => {
 
   return (
     <>
-      <AlertDialog open={maskDialogOpen} onOpenChange={(open) => { if (!open) handleMaskCancel(); }}>
+      <AlertDialog open={descriptionModeration.maskState.open} onOpenChange={(open) => { if (!open) handleMaskCancel(); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{maskDialogTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              {maskDialogMessageTemplate.replace('{{keyword}}', maskDialogInfo?.keyword || '')}
+              {maskDialogMessageTemplate.replace('{{keyword}}', descriptionModeration.maskState.keyword)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -678,12 +655,12 @@ const CreateTopicPage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={reviewDialogOpen} onOpenChange={(open) => { if (!open) handleReviewCancel(); }}>
+      <AlertDialog open={descriptionModeration.reviewState.open} onOpenChange={(open) => { if (!open) handleReviewCancel(); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{reviewDialogTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              {reviewDialogMessageTemplate.replace('{{keyword}}', reviewDialogInfo?.keyword || '')}
+              {reviewDialogMessageTemplate.replace('{{keyword}}', descriptionModeration.reviewState.keyword)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -693,27 +670,27 @@ const CreateTopicPage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={mainContentMaskOpen} onOpenChange={(open) => { if (!open) { setMainContentMaskOpen(false); setMainContentMaskInfo(null); } }}>
+      <AlertDialog open={mainContentModeration.maskState.open} onOpenChange={(open) => { if (!open) handleMainContentMaskCancel(); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{getText('topic.mask.contentTitle', '內容含敏感字詞')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {getText('topic.mask.contentMessage', '發現敏感字詞「{{keyword}}」，將替換為星號。是否套用？').replace('{{keyword}}', mainContentMaskInfo?.keyword || '')}
+              {getText('topic.mask.contentMessage', '發現敏感字詞「{{keyword}}」，將替換為星號。是否套用？').replace('{{keyword}}', mainContentModeration.maskState.keyword)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{getText('common.button.cancel', '取消')}</AlertDialogCancel>
+            <AlertDialogCancel onClick={handleMainContentMaskCancel}>{getText('common.button.cancel', '取消')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleMainContentMaskConfirm}>{getText('topic.description.maskConfirm', '替換為星號')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={mainContentReviewOpen} onOpenChange={(open) => { if (!open) handleMainContentReviewCancel(); }}>
+      <AlertDialog open={mainContentModeration.reviewState.open} onOpenChange={(open) => { if (!open) handleMainContentReviewCancel(); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{getText('topic.review.contentTitle', '內容需經審核')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {getText('topic.review.contentMessage', '發現敏感字詞「{{keyword}}」，送出後將進入審核流程。仍要送出嗎？').replace('{{keyword}}', mainContentReviewInfo?.keyword || '')}
+              {getText('topic.review.contentMessage', '發現敏感字詞「{{keyword}}」，送出後將進入審核流程。仍要送出嗎？').replace('{{keyword}}', mainContentModeration.reviewState.keyword)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

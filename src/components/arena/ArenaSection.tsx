@@ -1,8 +1,12 @@
-import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, type ReactNode } from "react";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
+import { useServerTime } from "@/contexts/ServerTimeContext";
+import { useArenaBoard } from "@/hooks/useArenaBoard";
+import { useModerationGate } from "@/hooks/useModerationGate";
+import { getStableRecycledVariant } from "@/lib/arena/arenaRanking";
+import type { ArenaMessage } from "@/lib/arena/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -16,7 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { checkBannedWords, getBannedWordErrorMessage, maskMatchedKeyword } from "@/lib/bannedWords";
+import { checkBannedWords, getBannedWordErrorMessage } from "@/lib/bannedWords";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -24,27 +28,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Coins, Crown, Info, Loader2, ThumbsDown, ThumbsUp } from "lucide-react";
-import { useServerTime } from "@/contexts/ServerTimeContext";
-
-export type ArenaMessage = {
-  id: string;
-  topic_id: string;
-  user_id: string;
-  content: string;
-  ttl_minutes: number;
-  shield_until: string | null;
-  upvote_count: number;
-  downvote_count: number;
-  is_legacy: boolean;
-  created_at: string;
-  /** 最後一次 TTL／互動更新時間（自然衰減推算用） */
-  updated_at: string;
-  /** 後端軟回收時間；僅作者可查詢該列（RLS） */
-  recycled_at?: string | null;
-  recycled_body_snapshot?: string | null;
-  recycled_approver_name_snapshot?: string | null;
-  message_language?: string | null;
-};
 
 export function ArenaSection({
   topicId,
@@ -60,22 +43,12 @@ export function ArenaSection({
   const { language } = useLanguage();
   const { getText } = useUIText(language);
   const { getConfig } = useSystemConfigCache();
-  const [messages, setMessages] = useState<ArenaMessage[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { getNowMs } = useServerTime();
   const [inputOpen, setInputOpen] = useState(false);
   const [inputText, setInputText] = useState("");
   const [buyShield, setBuyShield] = useState(false);
-  const [posting, setPosting] = useState(false);
-  const [maskOpen, setMaskOpen] = useState(false);
-  const [reviewOpen, setReviewOpen] = useState(false);
-  const [maskKeyword, setMaskKeyword] = useState("");
-  const [reviewKeyword, setReviewKeyword] = useState("");
-  const [voteIds, setVoteIds] = useState<Set<string>>(new Set());
+  const moderation = useModerationGate();
   const [showAllMessages, setShowAllMessages] = useState(false);
-  /** 留言 user_id → profiles.nickname（暱稱，單次批次查詢） */
-  const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
-  /** 回收留言 id → 最後按下斥責者暱稱 */
-  const [lastDownvoterNames, setLastDownvoterNames] = useState<Record<string, string>>({});
 
   /** DB value 若為 null / 非數字，不可直接當門檻：`0 >= null` 在 JS 會變成 0>=0 為 true，導致淨贊同 0 仍進「精英」樣式 */
   const coerceArenaThreshold = (raw: unknown, fallback: number) => {
@@ -92,237 +65,68 @@ export function ArenaSection({
   const downPenalty = getConfig("arena_downvote_time_penalty", 12) as number;
   /** 每分鐘自然消耗分鐘數（與 decay_arena_ttl 一致；畫面即時推算，不依賴僅 cron 寫回 DB） */
   const decayRate = Number(getConfig("arena_natural_decay_rate", 1)) || 1;
-  const { getNow, getNowMs, offsetMs } = useServerTime();
 
-  /** 定時觸發重繪，使「存在週期剩餘」隨時間遞減 */
-  const [ttlTick, setTtlTick] = useState(0);
-  useEffect(() => {
-    if (messages.length === 0) return undefined;
-    const id = window.setInterval(() => setTtlTick((n) => n + 1), 10000);
-    return () => window.clearInterval(id);
-  }, [messages.length, topicId]);
+  const fallbackAuthorName = getText("arena.userFallback", "用戶");
+  const {
+    messages,
+    loading,
+    posting,
+    voteIds,
+    authorNames,
+    lastDownvoterNames,
+    core,
+    elite,
+    nonEliteSortedByTime,
+    isRecycledView,
+    isShielded,
+    displayTtlMinutes,
+    vote,
+    post,
+  } = useArenaBoard({
+    topicId,
+    userId,
+    fallbackAuthorName,
+    coreThreshold: x,
+    eliteThreshold: y,
+    decayRate,
+  });
 
-  const fetchMessages = useCallback(
-    async (opts?: { silent?: boolean }) => {
-      if (!topicId) {
-        setLoading(false);
-        return;
-      }
-      if (!opts?.silent) setLoading(true);
-      // 先同步後端衰減／軟回收，避免畫面已顯示 0 分鐘但列上 TTL 尚未寫回
-      try {
-        await (supabase as any).rpc("decay_arena_ttl", { p_minutes: opts?.silent ? 10 : 30 });
-      } catch (e) {
-        console.warn("[arena] decay_arena_ttl:", e);
-      }
-      const { data, error } = await (supabase as any)
-        .from("topic_arena_messages")
-        .select("id, topic_id, user_id, content, ttl_minutes, shield_until, upvote_count, downvote_count, is_legacy, created_at, updated_at, recycled_at, recycled_body_snapshot, recycled_approver_name_snapshot, message_language")
-        .eq("topic_id", topicId)
-        .order("created_at", { ascending: true });
-      if (!opts?.silent) setLoading(false);
-      if (error) {
-        toast.error(getText("arena.toast.loadFailed", "載入失敗"));
-        return;
-      }
-      const rows = (data as ArenaMessage[]) || [];
-      setMessages(rows);
-      if (rows.length === 0) {
-        setAuthorNames({});
-        setLastDownvoterNames({});
-        return;
-      }
-      const uids = [...new Set(rows.map((r) => r.user_id))];
-      const { data: profs, error: profErr } = await supabase
-        .from("profiles")
-        .select("id, nickname")
-        .in("id", uids);
-      if (profErr) {
-        console.warn("[arena] profiles batch:", profErr.message);
-      }
-      const next: Record<string, string> = {};
-      const fallback = getText("arena.userFallback", "用戶");
-      profs?.forEach((p) => {
-        const row = p as { id: string; nickname: string | null };
-        const n = row.nickname;
-        next[row.id] = (n && String(n).trim()) || fallback;
-      });
-      uids.forEach((uid) => {
-        if (!next[uid]) next[uid] = fallback;
-      });
-      setAuthorNames(next);
+  const collapsedNonElite = nonEliteSortedByTime.slice(0, 3);
+  const displayedNonElite = showAllMessages ? nonEliteSortedByTime : collapsedNonElite;
+  const hasHiddenMessages = nonEliteSortedByTime.length > collapsedNonElite.length;
 
-      const messageIds = rows.map((r) => r.id);
-      const { data: votes, error: votesErr } = await (supabase as any)
-        .from("topic_arena_votes")
-        .select("message_id, user_id, created_at")
-        .in("message_id", messageIds)
-        .eq("vote_type", "downvote")
-        .order("created_at", { ascending: false });
-      if (votesErr) {
-        console.warn("[arena] latest downvoters:", votesErr.message);
-        setLastDownvoterNames({});
-        return;
-      }
-
-      const latestDownvoterByMessage: Record<string, string> = {};
-      for (const v of votes || []) {
-        const messageId = String((v as { message_id: string }).message_id);
-        if (!latestDownvoterByMessage[messageId]) {
-          latestDownvoterByMessage[messageId] = String((v as { user_id: string }).user_id);
-        }
-      }
-
-      const downvoterIds = [...new Set(Object.values(latestDownvoterByMessage))];
-      if (downvoterIds.length === 0) {
-        setLastDownvoterNames({});
-        return;
-      }
-
-      const { data: downvoterProfiles, error: downvoterProfilesErr } = await supabase
-        .from("profiles")
-        .select("id, nickname")
-        .in("id", downvoterIds);
-      if (downvoterProfilesErr) {
-        console.warn("[arena] downvoter profiles:", downvoterProfilesErr.message);
-        setLastDownvoterNames({});
-        return;
-      }
-
-      const downvoterNameById: Record<string, string> = {};
-      downvoterProfiles?.forEach((p) => {
-        const row = p as { id: string; nickname: string | null };
-        downvoterNameById[row.id] = (row.nickname && row.nickname.trim()) || fallback;
-      });
-
-      const lastByMessageName: Record<string, string> = {};
-      Object.entries(latestDownvoterByMessage).forEach(([messageId, downvoterId]) => {
-        lastByMessageName[messageId] = downvoterNameById[downvoterId] || fallback;
-      });
-      setLastDownvoterNames(lastByMessageName);
-
-      const snapshotTargetIds = rows
-        .filter((m) => {
-          const snapshotReady =
-            Boolean(m.recycled_body_snapshot && String(m.recycled_body_snapshot).trim()) &&
-            Boolean(m.recycled_approver_name_snapshot && String(m.recycled_approver_name_snapshot).trim());
-          if (snapshotReady) return false;
-          if (m.recycled_at) return true;
-          if (m.shield_until && new Date(m.shield_until) > getNow()) return false;
-          const base = Math.max(0, Number(m.ttl_minutes) || 0);
-          const anchor = m.updated_at || m.created_at;
-          const t0 = new Date(anchor).getTime();
-          if (Number.isNaN(t0)) return false;
-          const elapsedMin = (getNowMs() - t0) / 60000;
-          const effective = Math.max(0, Math.floor(base - decayRate * elapsedMin));
-          return effective <= 0;
-        })
-        .map((m) => m.id);
-
-      if (snapshotTargetIds.length > 0) {
-        try {
-          await (supabase as any).rpc("finalize_arena_recycled_snapshots", {
-            p_message_ids: snapshotTargetIds,
-          });
-          const { data: refreshedRows } = await (supabase as any)
-            .from("topic_arena_messages")
-            .select("id, recycled_body_snapshot, recycled_approver_name_snapshot")
-            .in("id", snapshotTargetIds);
-
-          if (refreshedRows && Array.isArray(refreshedRows) && refreshedRows.length > 0) {
-            const refreshedMap = new Map<string, { body?: string | null; approver?: string | null }>();
-            refreshedRows.forEach((r) => {
-              const row = r as {
-                id: string;
-                recycled_body_snapshot?: string | null;
-                recycled_approver_name_snapshot?: string | null;
-              };
-              refreshedMap.set(String(row.id), {
-                body: row.recycled_body_snapshot ?? null,
-                approver: row.recycled_approver_name_snapshot ?? null,
-              });
-            });
-            setMessages((prev) =>
-              prev.map((m) => {
-                const snap = refreshedMap.get(String(m.id));
-                if (!snap) return m;
-                return {
-                  ...m,
-                  recycled_body_snapshot: snap.body ?? m.recycled_body_snapshot ?? null,
-                  recycled_approver_name_snapshot: snap.approver ?? m.recycled_approver_name_snapshot ?? null,
-                };
-              })
-            );
-          }
-        } catch (snapshotError) {
-          console.warn("[arena] finalize snapshot:", snapshotError);
-        }
-      }
-    },
-    [topicId, getText, decayRate]
-  );
-
-  const fetchMyVotes = useCallback(async () => {
-    if (!userId || messages.length === 0) return;
-    const ids = messages.map((m) => m.id);
-    const { data } = await (supabase as any)
-      .from("topic_arena_votes")
-      .select("message_id")
-      .eq("user_id", userId)
-      .in("message_id", ids);
-    setVoteIds(new Set((data || []).map((r) => String(r.message_id))));
-  }, [userId, messages]);
-
-  useEffect(() => {
-    fetchMessages();
-  }, [fetchMessages]);
-
-  useEffect(() => {
-    fetchMyVotes();
-  }, [fetchMyVotes]);
-
-  useEffect(() => {
-    setShowAllMessages(false);
-  }, [topicId]);
-
-  const doPost = async (content: string) => {
+  const submitPost = async (content: string) => {
     if (!userId) return;
-    setPosting(true);
-    try {
-      const { error } = await (supabase as any).rpc("post_arena_message", {
-        p_topic_id: topicId,
-        p_content: content,
-        p_buy_shield: buyShield,
-        p_language: language,
-      });
-      if (error) throw error;
-      setInputOpen(false);
-      setInputText("");
-      setBuyShield(false);
-      toast.success(getText("arena.toast.postSuccess", "已發表"));
-      await fetchMessages({ silent: true });
-    } catch (e: unknown) {
-      const raw =
-        (e as { message?: string })?.message || (e as { details?: string })?.details || String(e);
-      if (/One message per topic allowed/i.test(raw)) {
-        toast.error(getText("arena.toast.onePerTopic", "每個主題僅限發表一則觀點"));
-      } else if (/Insufficient vote participation/i.test(raw)) {
-        const required = Number(getConfig("arena_mundane_access_votes", 5)) || 5;
-        toast.error(
-          getText(
-            "arena.toast.insufficientVoteParticipation",
-            "在本主題累積投票參與度需達 {{required}}（付費票加總＋免費票次）才能發表觀點"
-          ).replace("{{required}}", String(required))
-        );
-      } else if (/Content contains banned word/i.test(raw)) {
-        toast.error(getText("arena.toast.bannedWord", "留言包含禁字，請修改後再送出"));
-      } else {
-        const msg = raw || getText("arena.toast.postFailed", "發表失敗");
-        toast.error(msg);
+    const result = await post(content, { buyShield, language });
+    // 注意：本專案 tsconfig 關閉了 strictNullChecks，`if (result.ok)` 無法可靠縮窄聯合型別；
+    // 改用 `"error" in result` 這種 in 運算子縮窄，才能讓 TypeScript 正確推導出錯誤分支的型別。
+    if ("error" in result) {
+      switch (result.error.code) {
+        case "one_message_per_topic":
+          toast.error(getText("arena.toast.onePerTopic", "每個主題僅限發表一則觀點"));
+          break;
+        case "insufficient_vote_participation": {
+          const required = Number(getConfig("arena_mundane_access_votes", 5)) || 5;
+          toast.error(
+            getText(
+              "arena.toast.insufficientVoteParticipation",
+              "在本主題累積投票參與度需達 {{required}}（付費票加總＋免費票次）才能發表觀點"
+            ).replace("{{required}}", String(required))
+          );
+          break;
+        }
+        case "banned_word":
+          toast.error(getText("arena.toast.bannedWord", "留言包含禁字，請修改後再送出"));
+          break;
+        default:
+          toast.error(result.error.raw || getText("arena.toast.postFailed", "發表失敗"));
       }
-    } finally {
-      setPosting(false);
+      return;
     }
+    setInputOpen(false);
+    setInputText("");
+    setBuyShield(false);
+    toast.success(getText("arena.toast.postSuccess", "已發表"));
   };
 
   const handlePost = async () => {
@@ -335,52 +139,29 @@ export function ArenaSection({
     }
     const bannedLevels = getConfig("arena_banned_check_levels", ["A", "B", "C", "D", "E"]) as string[];
     const bannedCheck = await checkBannedWords(t, bannedLevels);
-    if (bannedCheck.found) {
-      if (bannedCheck.action === "block") {
-        toast.error(getBannedWordErrorMessage(bannedCheck), {
-          description: getText("topic.banned.description", "發現禁字：{{keyword}}（級別：{{level}}）")
-            .replace("{{keyword}}", bannedCheck.keyword || "")
-            .replace("{{level}}", bannedCheck.level || ""),
-        });
-        return;
-      }
-      if (bannedCheck.action === "mask") {
-        setMaskKeyword(bannedCheck.keyword || "");
-        setMaskOpen(true);
-        return;
-      }
-      if (bannedCheck.action === "review") {
-        setReviewKeyword(bannedCheck.keyword || "");
-        setReviewOpen(true);
-        return;
-      }
+    const decision = moderation.evaluate(bannedCheck);
+    if (decision === "block") {
+      toast.error(getBannedWordErrorMessage(bannedCheck), {
+        description: getText("topic.banned.description", "發現禁字：{{keyword}}（級別：{{level}}）")
+          .replace("{{keyword}}", bannedCheck.keyword || "")
+          .replace("{{level}}", bannedCheck.level || ""),
+      });
+      return;
     }
-    await doPost(t);
+    if (decision !== "pass") return; // mask/review 彈窗已開，等使用者操作
+    await submitPost(t);
   };
 
   const handleVote = async (messageId: string, voteType: "upvote" | "downvote") => {
-    if (!userId) {
+    const result = await vote(messageId, voteType);
+    if (!("reason" in result) || result.reason === "duplicate") return;
+    if (result.reason === "not_logged_in") {
       toast.error(getText("arena.needLoginVote", "請先登入後再互動"));
       return;
     }
-    const mid = String(messageId);
-    if (voteIds.has(mid)) return;
-    try {
-      const { error } = await (supabase as any).rpc("cast_arena_vote", {
-        p_message_id: mid,
-        p_vote_type: voteType,
-      });
-      if (error) throw error;
-      setVoteIds((s) => new Set([...s, mid]));
-      await fetchMessages({ silent: true });
-    } catch (e: unknown) {
-      toast.error((e as { message?: string })?.message || getText("arena.toast.voteFailed", "投票失敗"));
-    }
+    toast.error(result.message || getText("arena.toast.voteFailed", "投票失敗"));
   };
 
-  const net = (m: ArenaMessage) =>
-    (Number(m.upvote_count) || 0) - (Number(m.downvote_count) || 0);
-  const isShielded = (m: ArenaMessage) => Boolean(m.shield_until && new Date(m.shield_until) > getNow());
   const shieldRemainingText = (m: ArenaMessage) => {
     if (!m.shield_until) return "";
     const diffMs = new Date(m.shield_until).getTime() - getNowMs();
@@ -396,65 +177,6 @@ export function ArenaSection({
     return getText("arena.shieldRemainingMinutes", "剩餘 {{minutes}} 分鐘")
       .replace("{{minutes}}", String(min));
   };
-
-  /** 畫面顯示用剩餘分鐘：依 updated_at 推算自然衰減；鎖定中與後端相同不扣時間 */
-  const displayTtlMinutes = (m: ArenaMessage) => {
-    const base = Math.max(0, m.ttl_minutes);
-    if (isShielded(m)) return base;
-    const anchor = m.updated_at || m.created_at;
-    const t0 = new Date(anchor).getTime();
-    if (Number.isNaN(t0)) return base;
-    const elapsedMin = (getNowMs() - t0) / 60000;
-    return Math.max(0, Math.floor(base - decayRate * elapsedMin));
-  };
-
-  /** 回收留言也保留在列表，改為以回收卡呈現 */
-  const visibleMessages = useMemo(() => messages, [messages]);
-
-  /** 顯示灰色回收卡（後端已回收或前端推算 TTL 已歸零） */
-  const isRecycledView = (m: ArenaMessage) => {
-    if (m.recycled_at) return true;
-    return !isShielded(m) && displayTtlMinutes(m) <= 0;
-  };
-
-  const activeMessages = useMemo(
-    () => visibleMessages.filter((m) => !isRecycledView(m)),
-    [visibleMessages, ttlTick, decayRate, userId, offsetMs]
-  );
-  const core = activeMessages.filter((m) => net(m) >= x).sort((a, b) => net(b) - net(a))[0];
-  const elite = useMemo(() => {
-    return activeMessages
-      .filter((m) => m.id !== core?.id && net(m) >= y)
-      .sort((a, b) => net(b) - net(a))
-      .slice(0, 3);
-  }, [activeMessages, core?.id, y]);
-  const eliteIdSet = useMemo(() => new Set(elite.map((m) => m.id)), [elite]);
-  const nonEliteSortedByTime = useMemo(() => {
-    return visibleMessages
-      .filter((m) => m.id !== core?.id && !eliteIdSet.has(m.id))
-      .sort((a, b) => {
-        const aRecycled = isRecycledView(a);
-        const bRecycled = isRecycledView(b);
-        if (aRecycled !== bRecycled) return aRecycled ? 1 : -1;
-        const aTime = new Date(a.updated_at || a.created_at).getTime();
-        const bTime = new Date(b.updated_at || b.created_at).getTime();
-        if (bTime !== aTime) return bTime - aTime;
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      });
-  }, [visibleMessages, core?.id, eliteIdSet, ttlTick, decayRate, userId, offsetMs]);
-  const collapsedNonElite = nonEliteSortedByTime.slice(0, 3);
-  const displayedNonElite = showAllMessages ? nonEliteSortedByTime : collapsedNonElite;
-  const hasHiddenMessages = nonEliteSortedByTime.length > collapsedNonElite.length;
-  const collapsedDisplayCount = core ? 4 : 3;
-  const recycledVariantCount = 20;
-
-  const getStableRecycledVariant = useCallback((seed: string) => {
-    let hash = 0;
-    for (let i = 0; i < seed.length; i += 1) {
-      hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-    }
-    return (hash % recycledVariantCount) + 1;
-  }, []);
 
   /** 贊同／斥責：僅 icon + (±X min)，靠右下；完整說明放 aria-label */
   const renderArenaMessageBlock = (m: ArenaMessage, variant: "core" | "elite" | "card") => {
@@ -722,22 +444,22 @@ export function ArenaSection({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <AlertDialog open={maskOpen} onOpenChange={setMaskOpen}>
+      <AlertDialog open={moderation.maskState.open} onOpenChange={(open) => !open && moderation.closeMask()}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{getText("topic.mask.title", "內容包含敏感字詞")}</AlertDialogTitle>
             <AlertDialogDescription>
               {getText("topic.mask.description", "發現敏感字詞「{{keyword}}」，將依規則遮罩後再送出。是否確認？")
-                .replace("{{keyword}}", maskKeyword)}
+                .replace("{{keyword}}", moderation.maskState.keyword)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 sm:gap-2">
             <AlertDialogCancel>{getText("arena.cancel", "取消")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                const masked = maskMatchedKeyword(inputText, maskKeyword);
+                const masked = moderation.applyMask(inputText);
                 setInputText(masked);
-                setMaskOpen(false);
+                moderation.closeMask();
               }}
             >
               {getText("topic.mask.confirm", "確認遮罩")}
@@ -745,21 +467,21 @@ export function ArenaSection({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <AlertDialog open={reviewOpen} onOpenChange={setReviewOpen}>
+      <AlertDialog open={moderation.reviewState.open} onOpenChange={(open) => !open && moderation.closeReview()}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{getText("topic.review.title", "內容需經審核")}</AlertDialogTitle>
             <AlertDialogDescription>
               {getText("topic.review.description", "發現需審核字詞「{{keyword}}」。仍要送出嗎？送出後將進入審核流程。")
-                .replace("{{keyword}}", reviewKeyword)}
+                .replace("{{keyword}}", moderation.reviewState.keyword)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 sm:gap-2">
             <AlertDialogCancel>{getText("arena.cancel", "取消")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                setReviewOpen(false);
-                void doPost(inputText.trim());
+                moderation.closeReview();
+                void submitPost(inputText.trim());
               }}
             >
               {getText("topic.review.confirm", "仍要送出")}

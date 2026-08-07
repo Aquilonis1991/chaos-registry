@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { isNative } from '@/lib/capacitor';
 import { devLog } from '@/lib/devLog';
+import { exchangeLineCodeForSession, verifyLineHashedToken } from '@/lib/auth/lineEdgeAuth';
 
 /**
  * OAuthCallbackPage - 處理 Web URL OAuth 回調
@@ -109,160 +110,60 @@ export const OAuthCallbackPage = () => {
       }
       devLog('[OAuthCallbackPage] Code and state found for LINE, no access_token - forwarding to Edge Function');
       // 只對 LINE 使用 Edge Function，Twitter 使用 Supabase 內建流程
-      const functionName = 'line-auth';
-      
-      // 對於 LINE，使用 fetch 調用 Edge Function（因為直接重定向會被 Supabase 路由層級攔截）
-      if (functionName === 'line-auth') {
-        console.log('[OAuthCallbackPage] LINE callback detected, calling Edge Function via fetch');
-        
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://epyykzxxglkjombvozhr.supabase.co';
-        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-        
-        // 使用 POST 請求調用 Edge Function 的回調處理邏輯
-        // 構建 Edge Function URL（使用 POST 到根路徑，避免 GET 被攔截）
-        const edgeFunctionUrl = `${supabaseUrl}/functions/v1/${functionName}/callback`;
-        
-        // 使用 fetch 調用 Edge Function
-        fetch(edgeFunctionUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': supabaseAnonKey || '',
-            'Authorization': `Bearer ${supabaseAnonKey || ''}`,
-          },
-          body: JSON.stringify({
-            code,
-            state,
-            error: error || null,
-          }),
-        })
-        .then(async (response) => {
-          if (response.status >= 300 && response.status < 400) {
-            // 重定向響應（Edge Function 返回 magic link）
-            const redirectUrl = response.headers.get('location');
-            if (redirectUrl) {
-              console.log('[OAuthCallbackPage] Edge Function returned redirect:', redirectUrl);
-              window.location.href = redirectUrl;
-              return;
-            }
-          } else if (response.ok) {
-            const responseText = await response.text();
-            console.log('[OAuthCallbackPage] Edge Function response text (first 200 chars):', responseText.substring(0, 200));
-            
-            let data: any = null;
-            try {
-              data = JSON.parse(responseText);
-              console.log('[OAuthCallbackPage] Edge Function response parsed successfully');
-            } catch (parseError) {
-              console.error('[OAuthCallbackPage] Failed to parse Edge Function response as JSON:', parseError);
-            }
-            
-            if (data?.redirectUrl) {
-              const redirectUrl = data.redirectUrl;
-              devLog('[OAuthCallbackPage] Edge Function returned redirect URL (LINE):', redirectUrl.substring(0, 100) + '...');
-              devLog('[OAuthCallbackPage] Edge Function returned hashedToken:', !!data.hashedToken, data.hashedToken ? `length: ${data.hashedToken.length}` : 'missing');
-              
-              // 在 App 環境中，如果有 hashedToken，直接驗證並創建 session
-              if (isNative() && data.hashedToken) {
-                devLog('[OAuthCallbackPage] Native app detected, verifying token directly with hashed_token');
-                devLog('[OAuthCallbackPage] Hashed token length:', data.hashedToken.length);
-                try {
-                  const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
-                    token_hash: data.hashedToken,
-                    type: 'email', // 使用 'email' 類型（Supabase 已棄用 'magiclink' 類型）
-                  });
-                  
-                  console.log('[OAuthCallbackPage] verifyOtp result:', {
-                    hasSession: !!verifyData?.session,
-                    hasUser: !!verifyData?.user,
-                    hasError: !!verifyError,
-                    errorMessage: verifyError?.message,
-                    errorCode: verifyError?.code
-                  });
-                  
-                  if (verifyError) {
-                    console.error('[OAuthCallbackPage] Failed to verify token:', verifyError);
-                    console.error('[OAuthCallbackPage] Error details:', {
-                      message: verifyError.message,
-                      code: verifyError.code,
-                      status: verifyError.status
-                    });
-                    // 如果驗證失敗，嘗試打開 magic link（讓 Supabase 處理）
-                    devLog('[OAuthCallbackPage] Token verification failed, falling back to opening magic link');
-                    handleRedirectUrl(redirectUrl);
-                    return;
-                  }
-                  
-                  if (verifyData.session) {
-                    devLog('[OAuthCallbackPage] ✅ Token verified, session created');
-                    devLog('[OAuthCallbackPage] Session details:', {
-                      userId: verifyData.session.user.id,
-                      accessTokenPrefix: verifyData.session.access_token.substring(0, 20) + '...',
-                      hasRefreshToken: !!verifyData.session.refresh_token
-                    });
-                    
-                    // ✅ 確認 session 已正確設置
-                    const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
-                    if (currentSession) {
-                      console.log('[OAuthCallbackPage] ✅ Confirmed: Supabase session is active');
-                    } else {
-                      console.error('[OAuthCallbackPage] ⚠️ Warning: verifyOtp returned session but getSession() returned null');
-                      // 手動設置 session 作為後備
-                      await supabase.auth.setSession({
-                        access_token: verifyData.session.access_token,
-                        refresh_token: verifyData.session.refresh_token || ''
-                      });
-                    }
-                    
-                    // Session 已設置，導航到首頁
-                    toast.success('登入成功');
-                    navigate('/home', { replace: true });
-                    return;
-                  } else {
-                    console.warn('[OAuthCallbackPage] ⚠️ Token verified but no session returned');
-                    console.warn('[OAuthCallbackPage] Verify data:', verifyData);
-                    // 如果沒有 session，嘗試打開 magic link
-                    handleRedirectUrl(redirectUrl);
-                    return;
-                  }
-                } catch (verifyErr) {
-                  console.error('[OAuthCallbackPage] Error verifying token:', verifyErr);
-                  console.error('[OAuthCallbackPage] Exception details:', {
-                    message: verifyErr instanceof Error ? verifyErr.message : String(verifyErr),
-                    stack: verifyErr instanceof Error ? verifyErr.stack : undefined
-                  });
-                  // 如果驗證出錯，嘗試打開 magic link
-                  handleRedirectUrl(redirectUrl);
-                  return;
-                }
-              } else {
-                // 沒有 hashedToken 或不是 App 環境，使用 magic link
-                console.log('[OAuthCallbackPage] No hashedToken or not native, using magic link');
-                handleRedirectUrl(redirectUrl);
-                return;
-              }
-            } else {
-              console.error('[OAuthCallbackPage] Edge Function response missing redirectUrl');
-              console.error('[OAuthCallbackPage] Response data:', data);
-              toast.error('登入失敗', {
-                description: 'Edge Function 返回的數據不完整'
-              });
-              navigate('/auth', { replace: true });
-              return;
-            }
-          }
-          throw new Error(`Edge Function error: ${response.status}`);
-        })
-        .catch((err) => {
-          console.error('[OAuthCallbackPage] Error calling Edge Function (LINE):', err);
+      console.log('[OAuthCallbackPage] LINE callback detected, calling Edge Function via fetch');
+
+      (async () => {
+        const exchangeResult = await exchangeLineCodeForSession({ code, state, error });
+
+        if (exchangeResult.kind === 'redirect') {
+          // 重定向響應（Edge Function 返回 magic link）
+          console.log('[OAuthCallbackPage] Edge Function returned redirect:', exchangeResult.location);
+          window.location.href = exchangeResult.location;
+          return;
+        }
+
+        if (exchangeResult.kind === 'error') {
+          console.error('[OAuthCallbackPage] Error calling Edge Function (LINE):', exchangeResult.message);
           toast.error('登入失敗', {
-            description: '無法處理登入回調'
+            description: exchangeResult.message
           });
           navigate('/auth', { replace: true });
-        });
-        
-        return;
-      }
+          return;
+        }
+
+        const { redirectUrl, hashedToken } = exchangeResult;
+        devLog('[OAuthCallbackPage] Edge Function returned redirect URL (LINE):', redirectUrl.substring(0, 100) + '...');
+        devLog('[OAuthCallbackPage] Edge Function returned hashedToken:', !!hashedToken, hashedToken ? `length: ${hashedToken.length}` : 'missing');
+
+        // 在 App 環境中，如果有 hashedToken，直接驗證並創建 session
+        if (isNative() && hashedToken) {
+          devLog('[OAuthCallbackPage] Native app detected, verifying token directly with hashed_token');
+          devLog('[OAuthCallbackPage] Hashed token length:', hashedToken.length);
+
+          const verifyResult = await verifyLineHashedToken(hashedToken);
+          if ('error' in verifyResult) {
+            console.error('[OAuthCallbackPage] Failed to verify token:', verifyResult.error);
+            // 如果驗證失敗（或驗證成功但沒有 session），嘗試打開 magic link（讓 Supabase 處理）
+            devLog('[OAuthCallbackPage] Token verification failed, falling back to opening magic link');
+            handleRedirectUrl(redirectUrl);
+            return;
+          }
+
+          devLog('[OAuthCallbackPage] ✅ Token verified, session created');
+          console.log('[OAuthCallbackPage] ✅ Confirmed: Supabase session is active');
+          // Session 已設置，導航到首頁
+          toast.success('登入成功');
+          navigate('/home', { replace: true });
+          return;
+        } else {
+          // 沒有 hashedToken 或不是 App 環境，使用 magic link
+          console.log('[OAuthCallbackPage] No hashedToken or not native, using magic link');
+          handleRedirectUrl(redirectUrl);
+          return;
+        }
+      })();
+
+      return;
     }
     
     const handleCallback = async () => {

@@ -12,12 +12,23 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Edit, Loader2, Plus, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { validateTopicContent, getBannedWordErrorMessage } from "@/lib/bannedWords";
+import { useModerationGate } from "@/hooks/useModerationGate";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 
@@ -56,6 +67,12 @@ export const EditTopicDialog = ({
   const [newOptions, setNewOptions] = useState<string[]>([]);
   const [newOptionInput, setNewOptionInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const moderation = useModerationGate();
+  const [pendingMaskTarget, setPendingMaskTarget] = useState<{
+    blockType?: 'title' | 'description' | 'option' | 'tag' | 'category';
+    optionIndex?: number;
+    value: string;
+  } | null>(null);
 
   // 計算是否還能編輯（發布後 60 分鐘內）
   // 注意：不要用 differenceInHours（只回傳整數小時，導致剩餘分鐘不會遞減）
@@ -121,59 +138,12 @@ export const EditTopicDialog = ({
     setNewOptions(newOptions.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async () => {
-    // 驗證
+  // 實際送出更新（禁字檢查通過、或使用者確認送審後才會呼叫）
+  const performUpdate = async () => {
     const trimmedTitle = title.trim();
-    
-    if (!trimmedTitle) {
-      toast.error(getText('editTopic.error.titleEmpty', '標題不能為空'));
-      return;
-    }
-
-    if (trimmedTitle.length < 5) {
-      toast.error(getText('editTopic.error.titleMinLength', '標題至少需要 5 個字元'));
-      return;
-    }
-
-    if (trimmedTitle.length > 80) {
-      toast.error(getText('editTopic.error.titleMaxLength', '標題不能超過 80 個字元'));
-      return;
-    }
-
-    if (description.length > 500) {
-      toast.error(getText('editTopic.error.descriptionMaxLength', '說明不能超過 500 個字元'));
-      return;
-    }
-
-    // 檢查禁字
-    const bannedCheck = await validateTopicContent(
-      trimmedTitle,
-      description.trim() || undefined,
-      newOptions.length > 0 ? newOptions : undefined,
-      undefined, // 編輯時不檢查標籤
-      undefined  // 編輯時不檢查分類
-    );
-
-    if (bannedCheck.found) {
-      if (bannedCheck.action === 'block') {
-        const bannedWordDesc = getText('editTopic.error.bannedWord', '發現禁字：{{keyword}}（級別：{{level}}）')
-          .replace('{{keyword}}', bannedCheck.keyword || '')
-          .replace('{{level}}', bannedCheck.level || '');
-        toast.error(getBannedWordErrorMessage(bannedCheck), {
-          description: bannedWordDesc
-        });
-        return;
-      } else if (bannedCheck.action === 'review') {
-        const reviewDesc = getText('editTopic.warning.review', '發現敏感字詞：{{keyword}}')
-          .replace('{{keyword}}', bannedCheck.keyword || '');
-        toast.warning(getText('editTopic.warning.needsReview', '內容需要人工審核'), {
-          description: reviewDesc
-        });
-      }
-    }
 
     // 檢查是否有變更
-    const hasChanges = 
+    const hasChanges =
       trimmedTitle !== currentTitle ||
       description.trim() !== currentDescription ||
       newOptions.length > 0;
@@ -188,7 +158,7 @@ export const EditTopicDialog = ({
     try {
       // 準備更新資料
       const updates: any = {};
-      
+
       if (trimmedTitle !== currentTitle) {
         updates.title = trimmedTitle;
       }
@@ -224,7 +194,7 @@ export const EditTopicDialog = ({
 
       if (error) throw error;
 
-      const successDesc = newOptions.length > 0 
+      const successDesc = newOptions.length > 0
         ? getText('editTopic.success.optionsAdded', '新增了 {{count}} 個選項').replace('{{count}}', newOptions.length.toString())
         : undefined;
       toast.success(getText('editTopic.success.updated', '主題已更新'), {
@@ -232,7 +202,7 @@ export const EditTopicDialog = ({
       });
 
       setOpen(false);
-      
+
       if (onEditSuccess) {
         onEditSuccess();
       }
@@ -244,6 +214,98 @@ export const EditTopicDialog = ({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleMaskCancel = () => {
+    moderation.closeMask();
+    setPendingMaskTarget(null);
+  };
+
+  const handleMaskConfirm = () => {
+    if (!pendingMaskTarget) {
+      handleMaskCancel();
+      return;
+    }
+    const masked = moderation.applyMask(pendingMaskTarget.value);
+    if (pendingMaskTarget.blockType === 'title') {
+      setTitle(masked);
+    } else if (pendingMaskTarget.blockType === 'description') {
+      setDescription(masked);
+    } else if (pendingMaskTarget.blockType === 'option' && pendingMaskTarget.optionIndex !== undefined) {
+      const idx = pendingMaskTarget.optionIndex;
+      setNewOptions((prev) => prev.map((opt, i) => (i === idx ? masked : opt)));
+    }
+    moderation.closeMask();
+    setPendingMaskTarget(null);
+    toast.info(getText('editTopic.mask.applied', '已套用遮罩後文字，請確認內容後再次點擊「確認更新」'));
+  };
+
+  const handleReviewCancel = () => {
+    moderation.closeReview();
+  };
+
+  const handleReviewConfirm = async () => {
+    moderation.closeReview();
+    await performUpdate();
+  };
+
+  const handleSubmit = async () => {
+    // 驗證
+    const trimmedTitle = title.trim();
+
+    if (!trimmedTitle) {
+      toast.error(getText('editTopic.error.titleEmpty', '標題不能為空'));
+      return;
+    }
+
+    if (trimmedTitle.length < 5) {
+      toast.error(getText('editTopic.error.titleMinLength', '標題至少需要 5 個字元'));
+      return;
+    }
+
+    if (trimmedTitle.length > 80) {
+      toast.error(getText('editTopic.error.titleMaxLength', '標題不能超過 80 個字元'));
+      return;
+    }
+
+    if (description.length > 500) {
+      toast.error(getText('editTopic.error.descriptionMaxLength', '說明不能超過 500 個字元'));
+      return;
+    }
+
+    // 檢查禁字
+    const bannedCheck = await validateTopicContent(
+      trimmedTitle,
+      description.trim() || undefined,
+      newOptions.length > 0 ? newOptions : undefined,
+      undefined, // 編輯時不檢查標籤
+      undefined  // 編輯時不檢查分類
+    );
+
+    const decision = moderation.evaluate(bannedCheck);
+    if (decision === 'block') {
+      const bannedWordDesc = getText('editTopic.error.bannedWord', '發現禁字：{{keyword}}（級別：{{level}}）')
+        .replace('{{keyword}}', bannedCheck.keyword || '')
+        .replace('{{level}}', bannedCheck.level || '');
+      toast.error(getBannedWordErrorMessage(bannedCheck), {
+        description: bannedWordDesc
+      });
+      return;
+    }
+    if (decision === 'mask') {
+      // 記住命中的是哪個欄位（標題／說明／新選項），供確認遮罩後套用到正確欄位
+      setPendingMaskTarget({
+        blockType: bannedCheck.blockType,
+        optionIndex: bannedCheck.optionIndex,
+        value: bannedCheck.blockValue || '',
+      });
+      return;
+    }
+    if (decision === 'review') {
+      return; // 送審確認彈窗已開，等使用者操作
+    }
+
+    await performUpdate();
   };
 
   // 如果超過 1 小時，禁用編輯
@@ -262,6 +324,7 @@ export const EditTopicDialog = ({
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button
@@ -429,6 +492,39 @@ export const EditTopicDialog = ({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={moderation.maskState.open} onOpenChange={(o) => !o && handleMaskCancel()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{getText('topic.mask.title', '內容包含敏感字詞')}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {getText('topic.mask.description', '發現敏感字詞「{{keyword}}」，將依規則遮罩後再送出。是否確認？')
+              .replace('{{keyword}}', moderation.maskState.keyword)}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={handleMaskCancel}>{getText('arena.cancel', '取消')}</AlertDialogCancel>
+          <AlertDialogAction onClick={handleMaskConfirm}>{getText('topic.mask.confirm', '確認遮罩')}</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    <AlertDialog open={moderation.reviewState.open} onOpenChange={(o) => !o && handleReviewCancel()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{getText('topic.review.title', '內容需經審核')}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {getText('topic.review.description', '發現需審核字詞「{{keyword}}」。仍要送出嗎？送出後將進入審核流程。')
+              .replace('{{keyword}}', moderation.reviewState.keyword)}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={handleReviewCancel} disabled={submitting}>{getText('arena.cancel', '取消')}</AlertDialogCancel>
+          <AlertDialogAction onClick={handleReviewConfirm} disabled={submitting}>{getText('topic.review.confirm', '仍要送出')}</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 };
 

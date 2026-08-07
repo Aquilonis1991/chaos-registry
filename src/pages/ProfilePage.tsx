@@ -49,12 +49,14 @@ import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserStats } from "@/hooks/useUserStats";
 import { cn } from "@/lib/utils";
+import { getTaipeiWeekStartUtc } from "@/lib/taipeiCalendar";
 import { supabase } from "@/integrations/supabase/client";
 import { profileUpdateSchema } from "@/lib/validationSchemas";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { ErrorFeedback } from "@/components/ErrorFeedback";
 import { validateNickname, getBannedWordErrorMessage } from "@/lib/bannedWords";
+import { useModerationGate } from "@/hooks/useModerationGate";
 import { formatCompactNumber } from "@/lib/numberFormat";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
 import { isPromptConfigError, getPromptConfigKeyFromError } from "@/lib/promptConfigError";
@@ -78,9 +80,9 @@ const ProfilePage = () => {
   const [tempNickname, setTempNickname] = useState("");
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
-  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const moderation = useModerationGate();
   const [pendingNickname, setPendingNickname] = useState<string | null>(null);
-  const [pendingReviewKeyword, setPendingReviewKeyword] = useState<string | null>(null);
+  const [pendingMaskedNickname, setPendingMaskedNickname] = useState<string | null>(null);
   const [assessmentLoading, setAssessmentLoading] = useState(false);
   const [assessmentResult, setAssessmentResult] = useState<{ title: string; description: string } | null>(null);
   const [isAssessmentDialogOpen, setIsAssessmentDialogOpen] = useState(false);
@@ -114,22 +116,8 @@ const ProfilePage = () => {
   useEffect(() => {
     if (user?.id) {
       const fetchAssessment = async () => {
-        // Calculate Start of Current Week (Monday 00:00 Taiwan Time)
-        const now = new Date();
-        const taiwanOffset = 8 * 60; // UTC+8 in minutes
-        // Get current time in Taiwan
-        const taiwanTime = new Date(now.getTime() + (now.getTimezoneOffset() + taiwanOffset) * 60000);
-
-        const dayOfWeek = taiwanTime.getDay(); // 0 (Sun) - 6 (Sat)
-        // Calculate days to subtract to get to Monday (Monday=0 in our logic for calculation)
-        // If Sun(0), subtract 6 days. If Mon(1), subtract 0. If Tue(2), subtract 1...
-        const daysSinceMonday = (dayOfWeek + 6) % 7;
-
-        taiwanTime.setHours(0, 0, 0, 0);
-        const startOfWeekTaiwan = new Date(taiwanTime.getTime() - daysSinceMonday * 24 * 60 * 60 * 1000);
-
-        // Convert back to UTC to compare with DB created_at (which is UTC)
-        const startOfWeekUTC = new Date(startOfWeekTaiwan.getTime() - (taiwanOffset * 60000));
+        // Start of Current Week (Monday 00:00 Taiwan Time), as a UTC Date to compare with DB created_at
+        const startOfWeekUTC = getTaipeiWeekStartUtc(new Date());
 
         const { data, error } = await (supabase as any)
           .from('user_assessments')
@@ -257,9 +245,8 @@ const ProfilePage = () => {
   };
 
   const handleReviewCancel = () => {
-    setReviewDialogOpen(false);
+    moderation.closeReview();
     setPendingNickname(null);
-    setPendingReviewKeyword(null);
   };
 
   const handleReviewConfirm = async () => {
@@ -268,7 +255,7 @@ const ProfilePage = () => {
       return;
     }
 
-    setReviewDialogOpen(false);
+    moderation.closeReview();
     setIsUpdatingProfile(true);
 
     try {
@@ -278,7 +265,30 @@ const ProfilePage = () => {
     } finally {
       setIsUpdatingProfile(false);
       setPendingNickname(null);
-      setPendingReviewKeyword(null);
+    }
+  };
+
+  const handleMaskCancel = () => {
+    moderation.closeMask();
+    setPendingMaskedNickname(null);
+  };
+
+  const handleMaskConfirm = async () => {
+    if (!pendingMaskedNickname) {
+      handleMaskCancel();
+      return;
+    }
+
+    moderation.closeMask();
+    setIsUpdatingProfile(true);
+
+    try {
+      await finalizeNicknameUpdate(pendingMaskedNickname);
+    } catch (error: any) {
+      handleNicknameUpdateError(error);
+    } finally {
+      setIsUpdatingProfile(false);
+      setPendingMaskedNickname(null);
     }
   };
 
@@ -356,32 +366,44 @@ const ProfilePage = () => {
       const nicknameBannedLevels = getConfig('nickname_banned_check_levels', ['A', 'B', 'C', 'D', 'E']);
       const bannedCheck = await validateNickname(trimmedNickname, nicknameBannedLevels);
       console.log('[ProfilePage] handleSaveName: Banned words check result', bannedCheck);
-      if (bannedCheck.found) {
-        if (bannedCheck.action === 'block' || bannedCheck.action === 'mask') {
-          const bannedWordFoundTemplate = getText('profile.error.bannedWordFound', '發現禁字：{{keyword}}（級別：{{level}}）');
-          const bannedWordDescription = bannedWordFoundTemplate
-            .replace('{{keyword}}', bannedCheck.keyword || '')
-            .replace('{{level}}', bannedCheck.level || '');
+      const bannedDecision = moderation.evaluate(bannedCheck);
+      if (bannedDecision === 'block') {
+        const bannedWordFoundTemplate = getText('profile.error.bannedWordFound', '發現禁字：{{keyword}}（級別：{{level}}）');
+        const bannedWordDescription = bannedWordFoundTemplate
+          .replace('{{keyword}}', bannedCheck.keyword || '')
+          .replace('{{level}}', bannedCheck.level || '');
+        toast.error(getBannedWordErrorMessage(bannedCheck), {
+          description: bannedWordDescription
+        });
+        setIsUpdatingProfile(false);
+        return;
+      } else if (bannedDecision === 'mask') {
+        const masked = moderation.applyMask(trimmedNickname);
+        const maskedLengthCheck = profileUpdateSchema.shape.nickname.safeParse(masked);
+        if (!maskedLengthCheck.success) {
+          // 遮罩後長度超出限制：不提供一個註定送出會失敗的選項，退回當作禁字錯誤處理
+          moderation.closeMask();
           toast.error(getBannedWordErrorMessage(bannedCheck), {
-            description: bannedWordDescription
+            description: getText('profile.error.maskTooLong', '遮罩後名稱長度超出限制，請直接修改後重試'),
           });
-          setIsUpdatingProfile(false);
-          return;
-        } else if (bannedCheck.action === 'review') {
-          const reviewTitle = getText('profile.warning.nameReviewTitle', '名稱包含敏感字詞');
-          const reviewDescriptionTemplate = getText('profile.warning.nameReviewDesc', '發現敏感字詞：{{keyword}}');
-          const reviewDescription = reviewDescriptionTemplate.replace('{{keyword}}', bannedCheck.keyword || '');
-
-          toast.warning(reviewTitle, {
-            description: reviewDescription
-          });
-
-          setPendingNickname(trimmedNickname);
-          setPendingReviewKeyword(bannedCheck.keyword || '');
-          setReviewDialogOpen(true);
           setIsUpdatingProfile(false);
           return;
         }
+        setPendingMaskedNickname(masked);
+        setIsUpdatingProfile(false);
+        return;
+      } else if (bannedDecision === 'review') {
+        const reviewTitle = getText('profile.warning.nameReviewTitle', '名稱包含敏感字詞');
+        const reviewDescriptionTemplate = getText('profile.warning.nameReviewDesc', '發現敏感字詞：{{keyword}}');
+        const reviewDescription = reviewDescriptionTemplate.replace('{{keyword}}', bannedCheck.keyword || '');
+
+        toast.warning(reviewTitle, {
+          description: reviewDescription
+        });
+
+        setPendingNickname(trimmedNickname);
+        setIsUpdatingProfile(false);
+        return;
       }
 
       console.log('[ProfilePage] handleSaveName: All checks passed, calling finalizeNicknameUpdate');
@@ -503,14 +525,46 @@ const ProfilePage = () => {
     'profile.confirm.nameReview',
     '名稱包含敏感字詞（{{keyword}}），管理員可能會強制更名。仍要使用這個名稱嗎？'
   );
-  const reviewDialogMessage = reviewDialogTemplate.replace('{{keyword}}', pendingReviewKeyword || '');
+  const reviewDialogMessage = reviewDialogTemplate.replace('{{keyword}}', moderation.reviewState.keyword);
   const reviewDialogCancelText = getText('common.button.cancel', '取消');
   const reviewDialogConfirmText = getText('common.button.confirm', '確認');
+
+  const maskDialogTitle = getText('profile.confirm.nameMaskTitle', '敏感字遮罩確認');
+  const maskDialogTemplate = getText(
+    'profile.confirm.nameMask',
+    '名稱包含敏感字詞（{{keyword}}），系統將遮罩後套用為「{{masked}}」。確認使用這個名稱嗎？'
+  );
+  const maskDialogMessage = maskDialogTemplate
+    .replace('{{keyword}}', moderation.maskState.keyword)
+    .replace('{{masked}}', pendingMaskedNickname || '');
+  const maskDialogCancelText = getText('common.button.cancel', '取消');
+  const maskDialogConfirmText = getText('common.button.confirm', '確認');
   // 已依需求移除個人頁「修改暱稱操作提示」文案顯示（不影響改名功能）
 
   return (
     <>
-      <AlertDialog open={reviewDialogOpen} onOpenChange={(open) => {
+      <AlertDialog open={moderation.maskState.open} onOpenChange={(open) => {
+        if (!open) {
+          handleMaskCancel();
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{maskDialogTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{maskDialogMessage}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleMaskCancel} disabled={isUpdatingProfile}>
+              {maskDialogCancelText}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleMaskConfirm} disabled={isUpdatingProfile}>
+              {maskDialogConfirmText}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={moderation.reviewState.open} onOpenChange={(open) => {
         if (!open) {
           handleReviewCancel();
         }

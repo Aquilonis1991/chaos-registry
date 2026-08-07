@@ -56,6 +56,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { useAdmin } from "@/hooks/useAdmin";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
+import { timedRpc } from "@/lib/timedRpc";
 import { Badge } from "@/components/ui/badge";
 
 interface UserProfile {
@@ -119,21 +121,30 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
-  const [showRewardDialog, setShowRewardDialog] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const rewardDialog = useConfirmDialog<UserProfile>();
   const [rewardType, setRewardType] = useState<'tokens' | 'free_create'>('tokens');
   const [rewardAmount, setRewardAmount] = useState("");
   const [rewardReason, setRewardReason] = useState("");
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<UserProfile | null>(null);
+  const deleteDialog = useConfirmDialog<UserProfile>();
   const [deleteReason, setDeleteReason] = useState("");
-  const [showDetailDialog, setShowDetailDialog] = useState(false);
-  const [detailUser, setDetailUser] = useState<UserProfile | null>(null);
-  const [showRestoreDialog, setShowRestoreDialog] = useState(false);
-  const [restoreTarget, setRestoreTarget] = useState<UserProfile | null>(null);
-  const [showForceNicknameDialog, setShowForceNicknameDialog] = useState(false);
-  const [forceNicknameTarget, setForceNicknameTarget] = useState<UserProfile | null>(null);
+  const detailDialog = useConfirmDialog<UserProfile>();
+  const restoreDialog = useConfirmDialog<UserProfile>();
+  const forceNicknameDialog = useConfirmDialog<UserProfile>();
   const [forceNicknameValue, setForceNicknameValue] = useState("");
+
+  const closeRewardDialog = () => {
+    rewardDialog.close();
+    setRewardAmount("");
+    setRewardReason("");
+  };
+  const closeDeleteDialog = () => {
+    deleteDialog.close();
+    setDeleteReason("");
+  };
+  const closeForceNicknameDialog = () => {
+    forceNicknameDialog.close();
+    setForceNicknameValue("");
+  };
 
   // 獲取用戶列表
   const { language } = useLanguage();
@@ -167,9 +178,12 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
     return map;
   }, [adminList]);
 
-  const [showSuspendDialog, setShowSuspendDialog] = useState(false);
-  const [suspendTarget, setSuspendTarget] = useState<UserProfile | null>(null);
+  const suspendDialog = useConfirmDialog<UserProfile>();
   const [suspendReason, setSuspendReason] = useState("");
+  const closeSuspendDialog = () => {
+    suspendDialog.close();
+    setSuspendReason("");
+  };
 
   const titleText = getText('admin.userManager.title', '用戶管理');
   const subtitleText = getText('admin.userManager.subtitle', '查看和管理所有用戶，派發獎勵和設置限制');
@@ -266,41 +280,33 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
 
   // 獲取用戶統計（當選擇用戶時）
   const { data: userStats } = useQuery({
-    queryKey: ['admin-user-stats', selectedUser?.id],
+    queryKey: ['admin-user-stats', rewardDialog.target?.id],
     queryFn: async () => {
-      if (!selectedUser) return null;
+      if (!rewardDialog.target) return null;
       const { data, error } = await (supabase as any).rpc('get_user_stats', {
-        p_user_id: selectedUser.id
+        p_user_id: rewardDialog.target.id
       });
       if (error) throw error;
       return data?.[0] as UserStats | null;
     },
-    enabled: !!selectedUser,
+    enabled: !!rewardDialog.target,
   });
 
   // 獲取詳細用戶信息（用於詳細對話框）
   const { data: detailUserStats, isLoading: detailStatsLoading, error: detailStatsError } = useQuery({
-    queryKey: ['admin-user-detail-stats', detailUser?.id],
+    queryKey: ['admin-user-detail-stats', detailDialog.target?.id],
     queryFn: async () => {
+      const detailUser = detailDialog.target;
       if (!detailUser) return null;
 
       console.log('[UserManager] Fetching user stats for:', detailUser.id);
 
-      // 添加超時處理（30秒，增加時間以處理複雜查詢）
-      const rpcPromise = (supabase as any).rpc('get_user_stats', {
-        p_user_id: detailUser.id
-      });
-
-      const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) =>
-        setTimeout(() => reject(new Error('查詢超時（30秒）')), 30000)
-      );
-
       let result: { data: any; error: any };
       try {
-        result = await Promise.race([
-          rpcPromise,
-          timeoutPromise
-        ]) as { data: any; error: any };
+        result = await timedRpc(
+          () => (supabase as any).rpc('get_user_stats', { p_user_id: detailUser.id }),
+          { timeoutMessage: '查詢超時（30秒）' }
+        );
       } catch (timeoutError: any) {
         console.error('[UserManager] RPC timeout:', timeoutError);
         throw new Error('查詢統計數據超時，請稍後再試');
@@ -338,37 +344,32 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
       console.log('[UserManager] Parsed stats:', stats);
       return stats;
     },
-    enabled: !!detailUser,
+    enabled: !!detailDialog.target,
     retry: 1,
     staleTime: 30000, // 30秒內不重新查詢
   });
 
   // 獲取用戶代幣交易記錄（最近 20 筆）
   const { data: tokenTransactions, isLoading: transactionsLoading, error: transactionsError } = useQuery({
-    queryKey: ['admin-user-token-transactions', detailUser?.id],
+    queryKey: ['admin-user-token-transactions', detailDialog.target?.id],
     queryFn: async () => {
+      const detailUser = detailDialog.target;
       if (!detailUser) return null;
 
       console.log('[UserManager] Fetching token transactions for:', detailUser.id);
 
-      // 添加超時處理（30秒，增加時間以處理大量數據）
-      const queryPromise = supabase
-        .from('token_transactions')
-        .select('id, amount, transaction_type, description, reference_id, created_at')
-        .eq('user_id', detailUser.id)
-        .order('created_at', { ascending: false })
-        .limit(50); // 增加顯示數量到50筆
-
-      const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) =>
-        setTimeout(() => reject(new Error('查詢超時（30秒）')), 30000)
-      );
-
       let result: { data: any; error: any };
       try {
-        result = await Promise.race([
-          queryPromise,
-          timeoutPromise
-        ]) as { data: any; error: any };
+        result = await timedRpc(
+          () =>
+            supabase
+              .from('token_transactions')
+              .select('id, amount, transaction_type, description, reference_id, created_at')
+              .eq('user_id', detailUser.id)
+              .order('created_at', { ascending: false })
+              .limit(50), // 增加顯示數量到50筆
+          { timeoutMessage: '查詢超時（30秒）' }
+        );
       } catch (timeoutError: any) {
         console.error('[UserManager] Token transactions query timeout:', timeoutError);
         throw new Error('查詢交易記錄超時，請稍後再試');
@@ -389,23 +390,36 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
 
       return data || [];
     },
-    enabled: !!detailUser,
+    enabled: !!detailDialog.target,
     retry: 1,
     staleTime: 30000,
   });
 
   // 獲取用戶創建的主題（最近 10 個）
   const { data: userTopics, isLoading: topicsLoading, error: topicsError } = useQuery({
-    queryKey: ['admin-user-topics', detailUser?.id],
+    queryKey: ['admin-user-topics', detailDialog.target?.id],
     queryFn: async () => {
+      const detailUser = detailDialog.target;
       if (!detailUser) return null;
 
       console.log('[UserManager] Fetching user topics with stats for:', detailUser.id);
 
-      const { data, error } = await (supabase as any).rpc('get_user_topics_with_stats', {
-        p_user_id: detailUser.id,
-        p_limit: 20,
-      });
+      let result: { data: any; error: any };
+      try {
+        result = await timedRpc(
+          () =>
+            (supabase as any).rpc('get_user_topics_with_stats', {
+              p_user_id: detailUser.id,
+              p_limit: 20,
+            }),
+          { timeoutMessage: '查詢超時（30秒）' }
+        );
+      } catch (timeoutError: any) {
+        console.error('[UserManager] User topics query timeout:', timeoutError);
+        throw new Error('查詢主題列表超時，請稍後再試');
+      }
+
+      const { data, error } = result;
 
       if (error) {
         console.error('[UserManager] Error fetching user topics via RPC:', error);
@@ -415,28 +429,40 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
       console.log('[UserManager] User topics fetched via RPC:', data?.length || 0, 'topics');
       return (data || []) as UserTopicDetail[];
     },
-    enabled: !!detailUser,
+    enabled: !!detailDialog.target,
     retry: 1,
     staleTime: 30000,
   });
 
   // 獲取用戶原始角鬥場留言與狀態
   const { data: userArenaMessages, isLoading: arenaMessagesLoading, error: arenaMessagesError } = useQuery({
-    queryKey: ['admin-user-arena-messages', detailUser?.id],
+    queryKey: ['admin-user-arena-messages', detailDialog.target?.id],
     queryFn: async () => {
+      const detailUser = detailDialog.target;
       if (!detailUser) return null;
 
-      const { data, error } = await supabase
-        .from('topic_arena_messages' as any)
-        .select('id, topic_id, content, ttl_minutes, upvote_count, downvote_count, shield_until, recycled_at, created_at, updated_at')
-        .eq('user_id', detailUser.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
+      let result: { data: any; error: any };
+      try {
+        result = await timedRpc(
+          () =>
+            supabase
+              .from('topic_arena_messages' as any)
+              .select('id, topic_id, content, ttl_minutes, upvote_count, downvote_count, shield_until, recycled_at, created_at, updated_at')
+              .eq('user_id', detailUser.id)
+              .order('created_at', { ascending: false })
+              .limit(50),
+          { timeoutMessage: '查詢超時（30秒）' }
+        );
+      } catch (timeoutError: any) {
+        console.error('[UserManager] User arena messages query timeout:', timeoutError);
+        throw new Error('查詢角鬥場留言超時，請稍後再試');
+      }
 
+      const { data, error } = result;
       if (error) throw error;
       return (data || []) as UserArenaMessageDetail[];
     },
-    enabled: !!detailUser,
+    enabled: !!detailDialog.target,
     retry: 1,
     staleTime: 30000,
   });
@@ -444,7 +470,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   // 派發獎勵
   const rewardMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedUser) throw new Error(noUserSelectedError);
+      if (!rewardDialog.target) throw new Error(noUserSelectedError);
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error(notLoggedInError);
@@ -456,7 +482,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
         }
 
         const { data, error } = await (supabase as any).rpc('admin_grant_tokens', {
-          p_user_id: selectedUser.id,
+          p_user_id: rewardDialog.target.id,
           p_amount: amount,
           p_admin_id: user.id,
           p_reason: rewardReason.trim() || null
@@ -469,7 +495,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
         return data?.[0];
       } else {
         const { data, error } = await (supabase as any).rpc('admin_grant_free_create', {
-          p_user_id: selectedUser.id,
+          p_user_id: rewardDialog.target.id,
           p_admin_id: user.id,
           p_reason: rewardReason.trim() || null
         });
@@ -490,9 +516,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
       } else {
         toast.success(freeCreateSuccessText);
       }
-      setShowRewardDialog(false);
-      setRewardAmount("");
-      setRewardReason("");
+      closeRewardDialog();
     },
     onError: (error: any) => {
       const errorMessage = error.message || unknownErrorText;
@@ -510,8 +534,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
       toast.error(deletedUserActionError);
       return;
     }
-    setSelectedUser(user);
-    setShowRewardDialog(true);
+    rewardDialog.openWith(user);
     setRewardType('tokens');
     setRewardAmount("");
     setRewardReason("");
@@ -526,18 +549,16 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
       return;
     }
     // [MODIFIED] Allow opening dialog even if is_deleted is true (for hard delete)
-    setDeleteTarget(user);
+    deleteDialog.openWith(user);
     setDeleteReason("");
-    setShowDeleteDialog(true);
   };
 
   const handleOpenDetailDialog = (user: UserProfile) => {
-    setDetailUser(user);
-    setShowDetailDialog(true);
+    detailDialog.openWith(user);
   };
 
   const handleSubmitReward = () => {
-    if (!selectedUser) return;
+    if (!rewardDialog.target) return;
     if (rewardType === 'tokens' && (!rewardAmount.trim() || parseInt(rewardAmount) <= 0)) {
       toast.error(invalidTokenAmountText);
       return;
@@ -547,11 +568,11 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      if (!deleteTarget) throw new Error(noUserSelectedError);
+      if (!deleteDialog.target) throw new Error(noUserSelectedError);
 
       // [MODIFIED] Use the new unified RPC handling both soft and hard deletes
       const { data, error } = await (supabase as any).rpc('admin_delete_user', {
-        p_user_id: deleteTarget.id,
+        p_user_id: deleteDialog.target.id,
         p_reason: deleteReason.trim() || null
       });
 
@@ -571,9 +592,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
       } else {
         toast.success(deleteSuccessText);
       }
-      setShowDeleteDialog(false);
-      setDeleteTarget(null);
-      setDeleteReason("");
+      closeDeleteDialog();
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
     },
     onError: (error: any) => {
@@ -585,11 +604,11 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   // 暫停管理員權限
   const suspendAdminMutation = useMutation({
     mutationFn: async () => {
-      if (!suspendTarget) throw new Error('未選擇要暫停的管理員');
+      if (!suspendDialog.target) throw new Error('未選擇要暫停的管理員');
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('未登入');
       const { data, error } = await (supabase as any).rpc('suspend_admin', {
-        p_target_user_id: suspendTarget.id,
+        p_target_user_id: suspendDialog.target.id,
         p_suspending_admin_id: user.id,
         p_reason: suspendReason.trim() || null
       });
@@ -602,9 +621,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
     },
     onSuccess: () => {
       toast.success('已暫停管理員權限');
-      setShowSuspendDialog(false);
-      setSuspendTarget(null);
-      setSuspendReason("");
+      closeSuspendDialog();
       queryClient.invalidateQueries({ queryKey: ['admin-list'] });
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
     },
@@ -643,8 +660,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
 
   // 打開暫停對話框
   const handleOpenSuspendDialog = (user: UserProfile) => {
-    setSuspendTarget(user);
-    setShowSuspendDialog(true);
+    suspendDialog.openWith(user);
   };
 
   // 恢復管理員權限
@@ -655,10 +671,10 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   // 還原用戶 Mutation
   const restoreMutation = useMutation({
     mutationFn: async () => {
-      if (!restoreTarget) throw new Error(noUserSelectedError);
+      if (!restoreDialog.target) throw new Error(noUserSelectedError);
 
       const { data, error } = await (supabase as any).rpc('admin_restore_user', {
-        p_user_id: restoreTarget.id
+        p_user_id: restoreDialog.target.id
       });
 
       if (error) throw error;
@@ -669,8 +685,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
     },
     onSuccess: (data: any) => {
       toast.success(restoreSuccessText);
-      setShowRestoreDialog(false);
-      setRestoreTarget(null);
+      restoreDialog.close();
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
     },
     onError: (error: any) => {
@@ -680,8 +695,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
   });
 
   const handleOpenRestoreDialog = (user: UserProfile) => {
-    setRestoreTarget(user);
-    setShowRestoreDialog(true);
+    restoreDialog.openWith(user);
   };
 
   const setUserNicknameMutation = useMutation({
@@ -699,9 +713,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
     },
     onSuccess: () => {
       toast.success(forceRenameOkText);
-      setShowForceNicknameDialog(false);
-      setForceNicknameTarget(null);
-      setForceNicknameValue("");
+      closeForceNicknameDialog();
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
     },
     onError: (e: unknown) => {
@@ -715,21 +727,21 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
       toast.error(deletedUserActionError);
       return;
     }
-    setForceNicknameTarget(user);
+    forceNicknameDialog.openWith(user);
     setForceNicknameValue(user.nickname);
-    setShowForceNicknameDialog(true);
   };
 
   const handleSubmitForceNickname = () => {
-    if (!forceNicknameTarget) return;
+    if (!forceNicknameDialog.target) return;
     const trimmed = forceNicknameValue.trim();
     if (!trimmed) {
       toast.error(getText('admin.userManager.error.forceRenameEmpty', '請輸入新暱稱'));
       return;
     }
-    setUserNicknameMutation.mutate({ userId: forceNicknameTarget.id, nickname: trimmed });
+    setUserNicknameMutation.mutate({ userId: forceNicknameDialog.target.id, nickname: trimmed });
   };
 
+  const detailUser = detailDialog.target;
   const totalPages = Math.ceil((usersData?.total || 0) / pageSize);
   const paginationSummary = paginationTemplate
     .replace('{{total}}', (usersData?.total || 0).toLocaleString())
@@ -931,7 +943,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                   onClick={() => {
-                                    setSelectedUser(user);
+                                    rewardDialog.openWith(user);
                                     queryClient.invalidateQueries({ queryKey: ['admin-user-stats'] });
                                   }}
                                 >
@@ -1001,12 +1013,12 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
       </Card>
 
       {/* 派發獎勵對話框 */}
-      <Dialog open={showRewardDialog} onOpenChange={setShowRewardDialog}>
+      <Dialog open={rewardDialog.open} onOpenChange={(o) => !o && closeRewardDialog()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{rewardDialogTitle}</DialogTitle>
             <DialogDescription>
-              {rewardDialogDescriptionTemplate.replace('{{nickname}}', selectedUser?.nickname || '')}
+              {rewardDialogDescriptionTemplate.replace('{{nickname}}', rewardDialog.target?.nickname || '')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1042,16 +1054,16 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
                 onChange={(e) => setRewardReason(e.target.value)}
               />
             </div>
-            {selectedUser && userStats && (
+            {rewardDialog.target && userStats && (
               <div className="p-3 bg-muted rounded-lg space-y-1 text-sm">
-                <div>{rewardStatsTokensTemplate.replace('{{amount}}', (selectedUser.tokens || 0).toLocaleString())}</div>
+                <div>{rewardStatsTokensTemplate.replace('{{amount}}', (rewardDialog.target.tokens || 0).toLocaleString())}</div>
                 <div>{rewardStatsTopicsTemplate.replace('{{count}}', (userStats.total_topics || 0).toLocaleString())}</div>
                 <div>{rewardStatsVotesTemplate.replace('{{count}}', (userStats.total_votes + userStats.total_free_votes || 0).toLocaleString())}</div>
               </div>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRewardDialog(false)}>
+            <Button variant="outline" onClick={closeRewardDialog}>
               {dialogCancelText}
             </Button>
             <Button onClick={handleSubmitReward} disabled={rewardMutation.isPending}>
@@ -1073,14 +1085,8 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
 
       {/* 後台強制修改暱稱 */}
       <Dialog
-        open={showForceNicknameDialog}
-        onOpenChange={(open) => {
-          setShowForceNicknameDialog(open);
-          if (!open) {
-            setForceNicknameTarget(null);
-            setForceNicknameValue("");
-          }
-        }}
+        open={forceNicknameDialog.open}
+        onOpenChange={(o) => !o && closeForceNicknameDialog()}
       >
         <DialogContent>
           <DialogHeader>
@@ -1088,10 +1094,10 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
             <DialogDescription>{forceRenameDialogDesc}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {forceNicknameTarget && (
+            {forceNicknameDialog.target && (
               <div className="p-3 bg-muted rounded text-sm">
-                <div className="font-semibold">{forceNicknameTarget.nickname}</div>
-                <div className="text-muted-foreground text-xs truncate">{forceNicknameTarget.email}</div>
+                <div className="font-semibold">{forceNicknameDialog.target.nickname}</div>
+                <div className="text-muted-foreground text-xs truncate">{forceNicknameDialog.target.email}</div>
               </div>
             )}
             <div>
@@ -1107,7 +1113,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowForceNicknameDialog(false)}>
+            <Button variant="outline" onClick={closeForceNicknameDialog}>
               {dialogCancelText}
             </Button>
             <Button onClick={handleSubmitForceNickname} disabled={setUserNicknameMutation.isPending}>
@@ -1128,27 +1134,21 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
       </Dialog>
 
       {/* 刪除用戶對話框 */}
-      <Dialog open={showDeleteDialog} onOpenChange={(open) => {
-        setShowDeleteDialog(open);
-        if (!open) {
-          setDeleteTarget(null);
-          setDeleteReason("");
-        }
-      }}>
+      <Dialog open={deleteDialog.open} onOpenChange={(o) => !o && closeDeleteDialog()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{deleteDialogTitle}</DialogTitle>
-            <DialogDescription className={deleteTarget?.is_deleted ? "text-destructive font-bold" : ""}>
-              {deleteTarget?.is_deleted
-                ? `警告：此用戶 ${deleteTarget.nickname} 已處於刪除狀態。再次執行將【永久刪除】此帳號且無法復原！`
-                : deleteDialogDescriptionTemplate.replace('{{nickname}}', deleteTarget?.nickname || '')
+            <DialogDescription className={deleteDialog.target?.is_deleted ? "text-destructive font-bold" : ""}>
+              {deleteDialog.target?.is_deleted
+                ? `警告：此用戶 ${deleteDialog.target.nickname} 已處於刪除狀態。再次執行將【永久刪除】此帳號且無法復原！`
+                : deleteDialogDescriptionTemplate.replace('{{nickname}}', deleteDialog.target?.nickname || '')
               }
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="p-3 bg-muted rounded text-sm">
-              <div className="font-semibold">{deleteTarget?.nickname}</div>
-              <div className="text-muted-foreground text-xs">{deleteTarget?.id}</div>
+              <div className="font-semibold">{deleteDialog.target?.nickname}</div>
+              <div className="text-muted-foreground text-xs">{deleteDialog.target?.id}</div>
             </div>
             <div>
               <Label>{deleteReasonLabel}</Label>
@@ -1161,13 +1161,13 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+            <Button variant="outline" onClick={closeDeleteDialog}>
               {dialogCancelText}
             </Button>
             <Button
               variant="destructive"
               onClick={() => deleteMutation.mutate()}
-              disabled={deleteMutation.isPending || !deleteTarget}
+              disabled={deleteMutation.isPending || !deleteDialog.target}
             >
               {deleteMutation.isPending ? (
                 <>
@@ -1186,12 +1186,12 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
       </Dialog>
 
       {/* 暫停管理員權限對話框 */}
-      <Dialog open={showSuspendDialog} onOpenChange={setShowSuspendDialog}>
+      <Dialog open={suspendDialog.open} onOpenChange={(o) => !o && closeSuspendDialog()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>暫停管理員權限</DialogTitle>
             <DialogDescription>
-              確定要暫停 {suspendTarget?.nickname} 的管理員權限嗎？
+              確定要暫停 {suspendDialog.target?.nickname} 的管理員權限嗎？
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1209,11 +1209,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => {
-                setShowSuspendDialog(false);
-                setSuspendTarget(null);
-                setSuspendReason("");
-              }}
+              onClick={closeSuspendDialog}
             >
               取消
             </Button>
@@ -1235,7 +1231,7 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
       </Dialog>
 
       {/* 用戶詳細信息對話框 */}
-      <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
+      <Dialog open={detailDialog.open} onOpenChange={(o) => !o && detailDialog.close()}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{getText('admin.userManager.detail.title', '用戶詳細信息')}</DialogTitle>
@@ -1671,14 +1667,14 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDetailDialog(false)}>
+            <Button variant="outline" onClick={() => detailDialog.close()}>
               {dialogCancelText}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
       {/* 還原確認對話框 */}
-      <Dialog open={showRestoreDialog} onOpenChange={setShowRestoreDialog}>
+      <Dialog open={restoreDialog.open} onOpenChange={(o) => !o && restoreDialog.close()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{restoreDialogTitle}</DialogTitle>
@@ -1690,12 +1686,12 @@ export const UserManager = ({ onSetRestriction }: UserManagerProps) => {
             <p className="text-sm text-muted-foreground">
               將會嘗試將 Email 恢復為：
               <span className="font-mono font-medium text-foreground ml-1">
-                {restoreTarget?.email?.replace(/^deleted_\d+_/, '（原始 Email）') || '未知'}
+                {restoreDialog.target?.email?.replace(/^deleted_\d+_/, '（原始 Email）') || '未知'}
               </span>
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRestoreDialog(false)}>
+            <Button variant="outline" onClick={() => restoreDialog.close()}>
               {dialogCancelText}
             </Button>
             <Button

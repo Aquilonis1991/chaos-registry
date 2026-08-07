@@ -762,53 +762,18 @@ export const usePurchase = () => {
     }
   };
 
-  // 處理 Web 版購買（暫時使用模擬，未來可整合 Stripe）
+  // 處理 Web 版購買（尚未整合真實支付，例如 Stripe）
   const handleWebPurchase = async (
-    packageId: number,
-    productInfo: { tokens: number; bonus: number }
+    _packageId: number,
+    _productInfo: { tokens: number; bonus: number }
   ) => {
-    // Web 版暫時使用模擬購買
-    // 未來可以整合 Stripe 或其他支付服務
+    // 安全修正：這裡原本會直接呼叫 add_tokens 免費發放代幣（僅用於測試，且該 RPC
+    // 對已登入用戶開放執行權限，等同任何人都能無限刷代幣）。add_tokens 已收回
+    // authenticated 執行權限，且 Web 版本來就沒有真正的支付整合，故直接移除發放邏輯，
+    // 只顯示尚未支援的提示，不再假裝購買成功。
     toast.info(
       getText('recharge.web.notImplemented', 'Web 版內購功能開發中，請使用 App 版進行購買')
     );
-
-    // 暫時：直接發放代幣（僅用於測試）
-    // 生產環境應該移除這段，改為整合真實支付
-    const totalTokens = productInfo.tokens + productInfo.bonus;
-    const { error } = await supabase.rpc('add_tokens', {
-      user_id: user!.id,
-      token_amount: totalTokens,
-    });
-
-    if (error) throw error;
-
-    // 記錄交易
-    await supabase.from('token_transactions').insert({
-      user_id: user!.id,
-      amount: totalTokens,
-      transaction_type: 'deposit',
-      description: `Web 測試購買 - 方案 ${packageId}`,
-    });
-
-    toast.success(
-      getText('recharge.toast.success.title', '購買成功！'),
-      {
-        description: getText('recharge.toast.success.desc', '已獲得 {{amount}} 失序值')
-          .replace('{{amount}}', totalTokens.toLocaleString()),
-      }
-    );
-
-    // 在代幣刷新前顯示遮罩
-    // 確保 isProcessing 保持為 true，直到 refreshProfile 完成
-    setIsRefreshingProfile(true);
-    try {
-      await refreshProfile();
-    } finally {
-      setIsRefreshingProfile(false);
-      // 在 refreshProfile 完成後才設置 isProcessing = false
-      setIsProcessing(false);
-    }
   };
 
   return {

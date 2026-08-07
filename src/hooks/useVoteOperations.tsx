@@ -4,6 +4,8 @@ import { useProfile } from "@/hooks/useProfile";
 import { useUIText } from "@/hooks/useUIText";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { playTokenAmountHaptic } from "@/lib/tokenHaptics";
+import { optimisticMutate } from "@/lib/optimisticMutate";
+import { getUtcDayStartIso } from "@/lib/taipeiCalendar";
 
 const stringifyError = (error: any) => {
   if (!error) return "undefined";
@@ -43,54 +45,55 @@ export const useVoteOperations = () => {
         throw new Error('Insufficient tokens');
       }
 
-      // 先進行樂觀更新，立即反映在 UI 上（在投票操作之前）
-      updateTokensOptimistically(-amount);
+      // 先進行樂觀更新，立即反映在 UI 上（在投票操作之前）；
+      // run() 中任一步驟拋錯都只會觸發一次 rollback（恢復 amount）
+      const mutateResult = await optimisticMutate({
+        apply: () => updateTokensOptimistically(-amount),
+        rollback: () => updateTokensOptimistically(amount),
+        run: async () => {
+          // 使用安全的資料庫函數來更新票數（防止直接操作 options）
+          const { error: functionErr } = await supabase.rpc('increment_option_votes', {
+            p_topic_id: topicId,
+            p_option_id: option,
+            p_vote_amount: amount
+          });
 
-      try {
-        // 使用安全的資料庫函數來更新票數（防止直接操作 options）
-        const { error: functionErr } = await supabase.rpc('increment_option_votes', {
-          p_topic_id: topicId,
-          p_option_id: option,
-          p_vote_amount: amount
-        });
-
-        if (functionErr) {
-          updateTokensOptimistically(amount);
-          const msg = functionErr.message ?? String(functionErr);
-          if (msg.includes('Topic not found')) {
-            throw new Error('主題不存在');
+          if (functionErr) {
+            const msg = functionErr.message ?? String(functionErr);
+            if (msg.includes('Topic not found')) {
+              throw new Error('主題不存在');
+            }
+            if (msg.includes('Topic has ended')) {
+              throw new Error('投票已結束');
+            }
+            if (msg.includes('Option not found') || msg.includes('option')) {
+              throw new Error('選項不存在');
+            }
+            console.error('[Vote] increment_option_votes error:', functionErr.code, msg);
+            throw new Error(msg || '投票失敗');
           }
-          if (msg.includes('Topic has ended')) {
-            throw new Error('投票已結束');
-          }
-          if (msg.includes('Option not found') || msg.includes('option')) {
-            throw new Error('選項不存在');
-          }
-          console.error('[Vote] increment_option_votes error:', functionErr.code, msg);
-          throw new Error(msg || '投票失敗');
-        }
 
-        // 扣代幣（已通過 RLS 驗證，只能更新自己的）
-        const { error: updateTokensErr } = await supabase
-          .from('profiles')
-          .update({ tokens: (profile.tokens || 0) - amount })
-          .eq('id', user.id);
-        if (updateTokensErr) {
-          updateTokensOptimistically(amount);
-          const msg = updateTokensErr.message ?? String(updateTokensErr);
-          console.error('[Vote] profiles update (deduct tokens) error:', updateTokensErr.code, msg);
-          throw new Error(msg || '扣款失敗，請稍後再試');
-        }
+          // 扣代幣（已通過 RLS 驗證，只能更新自己的）
+          const { error: updateTokensErr } = await supabase
+            .from('profiles')
+            .update({ tokens: (profile.tokens || 0) - amount })
+            .eq('id', user.id);
+          if (updateTokensErr) {
+            const msg = updateTokensErr.message ?? String(updateTokensErr);
+            console.error('[Vote] profiles update (deduct tokens) error:', updateTokensErr.code, msg);
+            throw new Error(msg || '扣款失敗，請稍後再試');
+          }
+        },
+        reconcile: () => {
+          // 後台刷新以確保數據一致性（實時訂閱也會自動更新）
+          void refreshProfile();
+          // 扣代幣成功後提供觸覺反饋（不阻塞主流程）
+          void playTokenAmountHaptic(amount, "spend");
+        },
+      });
 
-        // 後台刷新以確保數據一致性（實時訂閱也會自動更新）
-        void refreshProfile();
-        // 扣代幣成功後提供觸覺反饋（不阻塞主流程）
-        void playTokenAmountHaptic(amount, "spend");
-      } catch (error) {
-        // 如果任何步驟失敗，確保回滾樂觀更新
-        // 注意：如果已經在 catch 中回滾過，這裡不會重複回滾
-        // 因為 updateTokensOptimistically 是基於當前 state 的
-        throw error;
+      if (!mutateResult.ok) {
+        throw mutateResult.error;
       }
 
       // 獲取主題標題用於記錄
@@ -380,8 +383,7 @@ export const useVoteOperations = () => {
       if (!user) return false;
 
       // 檢查今日是否已使用免費票（與 DB increment_free_vote 的 CURRENT_DATE 一致，使用 UTC 當日 0 點）
-      const now = new Date();
-      const startOfUTCDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+      const startOfUTCDay = getUtcDayStartIso();
 
       const { data, error } = await supabase
         .from('free_votes')

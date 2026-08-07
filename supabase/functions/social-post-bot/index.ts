@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
     }
     const trendingTopics = (hotTopics || []).filter((t: any) => t?.id && t?.title);
     const trendHint = trendingTopics.length > 0
-      ? `\n\n[搭上潮流]目前 App 內討論度最高的話題如下，請從中挑一個最適合、最有梗的話題自然帶入文案（提到話題重點並附上對應連結，連結直接照抄，不要竄改）：\n${trendingTopics
+      ? `\n\n[參考靈感，非必須]以下是目前 App 內討論度最高的話題，僅供靈感參考。如果剛好有哪個話題適合自然融入、能讓文案更好笑更有梗，可以帶到（順便附上對應連結，連結要照抄不要竄改）；如果都不適合硬塞，就維持原本的品牌語氣自由發揮，不要為了提到話題而讓文案變生硬或制式：\n${trendingTopics
           .map((t: any) => `- 「${t.title}」（目前 ${t.total_votes ?? 0} 票）：${SITE_BASE_URL}/vote/${t.id}`)
           .join("\n")}`
       : "";

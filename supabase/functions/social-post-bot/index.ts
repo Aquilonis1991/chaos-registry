@@ -123,12 +123,30 @@ Deno.serve(async (req) => {
           .join("\n")}`
       : "";
 
+    // 讓發文有連貫感：抓最近幾則「真的發布成功」的貼文（只看 live，不看 test，避免拿測試帳號的
+    // 內容當記憶），給 AI 當作近期記憶，避免炒冷飯、也讓它有機會自然呼應之前的哏。
+    const { data: recentPosts, error: recentPostsError } = await supabaseAdmin
+      .from("social_bot_posts")
+      .select("platform, content, created_at")
+      .eq("mode", "live")
+      .eq("status", "posted")
+      .order("created_at", { ascending: false })
+      .limit(5);
+    if (recentPostsError) {
+      console.error("[social-post-bot] fetch recent posts error:", recentPostsError);
+    }
+    const historyHint = recentPosts && recentPosts.length > 0
+      ? `\n\n[近期發文記憶]以下是最近幾則已經正式發布過的貼文，請避免重複一樣的哏、句型或用字；如果適合可以自然呼應、延續之前提過的梗或話題，讓帳號整體風格有連貫感，但不用每篇都硬要接續：\n${recentPosts
+          .map((p: any) => `- [${p.platform}] ${p.content}`)
+          .join("\n")}`
+      : "";
+
     const aiData = await xaiChatCompletion({
       messages: [
         { role: "system", content: systemPrompt },
         {
           role: "user",
-          content: `請針對以下平台各寫一篇推廣貼文，長度限制：\n${lengthRules}${trendHint}\n\n只輸出 JSON，格式為 {${outputSchema}}，不要有其他說明文字或 markdown 標記。`,
+          content: `請針對以下平台各寫一篇推廣貼文，長度限制：\n${lengthRules}${trendHint}${historyHint}\n\n只輸出 JSON，格式為 {${outputSchema}}，不要有其他說明文字或 markdown 標記。`,
         },
       ],
       temperature: 0.9,

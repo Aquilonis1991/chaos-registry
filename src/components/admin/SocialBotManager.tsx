@@ -5,6 +5,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   AlertDialog,
@@ -17,7 +19,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Save, Send, Megaphone } from "lucide-react";
+import { Loader2, Save, Sparkles, Megaphone, FlaskConical, Clock } from "lucide-react";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -52,24 +54,32 @@ function parsePromptValue(value: unknown): PromptByLang {
   return { zh: "", en: "", ja: "" };
 }
 
+type PostStatus = "generated" | "blocked" | "posted" | "failed";
+
 type PostLogRow = {
   id: string;
   platform: Platform;
   mode: "test" | "live";
   content: string;
-  status: "generated" | "blocked" | "posted" | "failed";
+  status: PostStatus;
   error: string | null;
   created_at: string;
 };
 
-type RunResult = {
+type DraftEntry = {
+  content: string;
+  status: PostStatus;
+  error?: string;
+};
+
+type PublishResult = {
   platform: Platform;
-  status: "generated" | "blocked" | "posted" | "failed";
+  status: PostStatus;
   content: string;
   error?: string;
 };
 
-const STATUS_VARIANT: Record<PostLogRow["status"], "default" | "secondary" | "destructive" | "outline"> = {
+const STATUS_VARIANT: Record<PostStatus, "default" | "secondary" | "destructive" | "outline"> = {
   posted: "default",
   generated: "secondary",
   blocked: "outline",
@@ -81,10 +91,15 @@ export const SocialBotManager = () => {
   const [platformToggles, setPlatformToggles] = useState<Record<Platform, boolean>>({ x: true, threads: true, facebook: true });
   const [promptByLang, setPromptByLang] = useState<PromptByLang>({ zh: "", en: "", ja: "" });
   const [isSaving, setIsSaving] = useState(false);
-  const [isRunning, setIsRunning] = useState(false);
-  const [isLiveRunning, setIsLiveRunning] = useState(false);
-  const [lastResults, setLastResults] = useState<RunResult[] | null>(null);
-  const [lastRunMode, setLastRunMode] = useState<"test" | "live" | null>(null);
+
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [draft, setDraft] = useState<Partial<Record<Platform, DraftEntry>> | null>(null);
+
+  const [isPublishingTest, setIsPublishingTest] = useState(false);
+  const [isPublishingLive, setIsPublishingLive] = useState(false);
+  const [publishResults, setPublishResults] = useState<PublishResult[] | null>(null);
+  const [lastPublishMode, setLastPublishMode] = useState<"test" | "live" | null>(null);
+
   const [logRows, setLogRows] = useState<PostLogRow[]>([]);
   const [logsLoading, setLogsLoading] = useState(true);
 
@@ -145,9 +160,10 @@ export const SocialBotManager = () => {
     }
   };
 
-  const handleTestRun = async () => {
-    setIsRunning(true);
-    setLastResults(null);
+  const handleGenerateDraft = async () => {
+    setIsGenerating(true);
+    setDraft(null);
+    setPublishResults(null);
     try {
       const enabledPlatforms = PLATFORMS.filter((p) => platformToggles[p.key]).map((p) => p.key);
       if (enabledPlatforms.length === 0) {
@@ -156,50 +172,63 @@ export const SocialBotManager = () => {
       }
 
       const { data, error } = await supabase.functions.invoke("social-post-bot", {
-        body: { mode: "test", platforms: enabledPlatforms },
+        body: { action: "generate", platforms: enabledPlatforms },
       });
 
       if (error) throw error;
       if (data.error) throw new Error(data.error);
 
-      setLastResults(data.results as RunResult[]);
-      setLastRunMode("test");
-      toast.success("測試發文完成，請查看下方結果與紀錄");
-      fetchLogs();
+      const next: Partial<Record<Platform, DraftEntry>> = {};
+      for (const r of data.results as PublishResult[]) {
+        next[r.platform] = { content: r.content, status: r.status, error: r.error };
+      }
+      setDraft(next);
+      toast.success("草稿已產生，確認內容沒問題後再按下方按鈕發布");
     } catch (err) {
-      console.error("[SocialBotManager] test run error:", err);
-      toast.error(err instanceof Error ? err.message : "測試發文失敗");
+      console.error("[SocialBotManager] generate draft error:", err);
+      toast.error(err instanceof Error ? err.message : "產生草稿失敗");
     } finally {
-      setIsRunning(false);
+      setIsGenerating(false);
     }
   };
 
-  const handleLiveRun = async () => {
-    setIsLiveRunning(true);
-    setLastResults(null);
+  const updateDraftContent = (platform: Platform, content: string) => {
+    setDraft((prev) => (prev ? { ...prev, [platform]: { ...prev[platform]!, content } } : prev));
+  };
+
+  const handlePublish = async (mode: "test" | "live") => {
+    if (!draft) return;
+    const setBusy = mode === "test" ? setIsPublishingTest : setIsPublishingLive;
+    setBusy(true);
+    setPublishResults(null);
     try {
-      const enabledPlatforms = PLATFORMS.filter((p) => platformToggles[p.key]).map((p) => p.key);
-      if (enabledPlatforms.length === 0) {
-        toast.error("請至少啟用一個平台");
+      const platformsToPublish = (Object.keys(draft) as Platform[]).filter(
+        (p) => draft[p] && draft[p]!.content.trim() && draft[p]!.status !== "blocked"
+      );
+      if (platformsToPublish.length === 0) {
+        toast.error("沒有可發布的草稿內容（可能都被違禁字擋下或是空的）");
         return;
       }
 
+      const content: Partial<Record<Platform, string>> = {};
+      for (const p of platformsToPublish) content[p] = draft[p]!.content;
+
       const { data, error } = await supabase.functions.invoke("social-post-bot", {
-        body: { mode: "live", platforms: enabledPlatforms },
+        body: { action: "publish", mode, platforms: platformsToPublish, content },
       });
 
       if (error) throw error;
       if (data.error) throw new Error(data.error);
 
-      setLastResults(data.results as RunResult[]);
-      setLastRunMode("live");
-      toast.success("正式發文完成，請查看下方結果與紀錄");
+      setPublishResults(data.results as PublishResult[]);
+      setLastPublishMode(mode);
+      toast.success(mode === "live" ? "正式發布完成，請查看下方結果與紀錄" : "測試發布完成，請查看下方結果與紀錄");
       fetchLogs();
     } catch (err) {
-      console.error("[SocialBotManager] live run error:", err);
-      toast.error(err instanceof Error ? err.message : "正式發文失敗");
+      console.error("[SocialBotManager] publish error:", err);
+      toast.error(err instanceof Error ? err.message : "發布失敗");
     } finally {
-      setIsLiveRunning(false);
+      setBusy(false);
     }
   };
 
@@ -213,13 +242,16 @@ export const SocialBotManager = () => {
     );
   }
 
+  const draftPlatforms = draft ? (Object.keys(draft) as Platform[]) : [];
+  const hasPublishableDraft = draftPlatforms.some((p) => draft?.[p]?.content.trim() && draft[p]?.status !== "blocked");
+
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>宣傳機器人 — 平台設定</CardTitle>
           <CardDescription>
-            控制哪些平台啟用，以及 AI 生成貼文所用的品牌語氣 prompt。目前僅支援手動觸發「測試發文」（打真實 API、使用 TEST_ 開頭的沙盒帳號憑證），尚未接上排程自動發布。
+            控制哪些平台啟用，以及 AI 生成貼文所用的品牌語氣 prompt。流程是「產生草稿 → 人工確認/編輯 → 按按鈕才會真的發布」，AI 生成的內容不會自動送出。
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -277,48 +309,92 @@ export const SocialBotManager = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>產生貼文</CardTitle>
+          <CardTitle>1. 產生草稿</CardTitle>
           <CardDescription>
-            會呼叫 Grok 依上方 prompt 生成各平台文案，通過禁字檢查後發布。「產生測試貼文」用 <code>TEST_</code> 開頭的沙盒帳號憑證；「正式發文」用不加前綴的正式帳號憑證，會真的發布到官方帳號，請先確認品牌語氣 prompt 沒問題再按。憑證設定見 docs/SOCIAL_BOT_SETUP.md。
+            呼叫 Grok 依上方 prompt 生成各平台文案、跑過違禁字檢查，但**不會發文**。生成後可以直接編輯下方文字框的內容，滿意了再到步驟 2 發布。
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Button onClick={handleGenerateDraft} disabled={isGenerating}>
+            {isGenerating ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1" />}
+            產生草稿
+          </Button>
+
+          {draftPlatforms.length > 0 && (
+            <div className="space-y-3">
+              {draftPlatforms.map((p) => {
+                const entry = draft![p]!;
+                return (
+                  <div key={p} className="border rounded-md p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant={STATUS_VARIANT[entry.status]}>{p}</Badge>
+                      <Badge variant={STATUS_VARIANT[entry.status]}>{entry.status}</Badge>
+                    </div>
+                    {entry.error && <p className="text-xs text-destructive">{entry.error}</p>}
+                    <Textarea
+                      value={entry.content}
+                      onChange={(e) => updateDraftContent(p, e.target.value)}
+                      className="text-sm w-full"
+                      style={{ minHeight: "100px" }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>2. 確認並發布</CardTitle>
+          <CardDescription>
+            確認上方草稿內容後才會真的呼叫平台 API 發文。「測試發布」用 <code>TEST_</code> 開頭的沙盒帳號憑證；「正式發布」用不加前綴的正式帳號憑證，會真的發布到官方帳號。憑證設定見 docs/SOCIAL_BOT_SETUP.md。
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-3">
-            <Button onClick={handleTestRun} disabled={isRunning || isLiveRunning}>
-              {isRunning ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Send className="w-4 h-4 mr-1" />}
-              產生測試貼文
+            <Button
+              variant="outline"
+              onClick={() => handlePublish("test")}
+              disabled={!hasPublishableDraft || isPublishingTest || isPublishingLive}
+            >
+              {isPublishingTest ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <FlaskConical className="w-4 h-4 mr-1" />}
+              測試發布
             </Button>
 
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" disabled={isRunning || isLiveRunning}>
-                  {isLiveRunning ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Megaphone className="w-4 h-4 mr-1" />}
-                  正式發文
+                <Button variant="destructive" disabled={!hasPublishableDraft || isPublishingTest || isPublishingLive}>
+                  {isPublishingLive ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Megaphone className="w-4 h-4 mr-1" />}
+                  正式發布
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>確定要正式發文嗎？</AlertDialogTitle>
+                  <AlertDialogTitle>確定要正式發布嗎？</AlertDialogTitle>
                   <AlertDialogDescription>
-                    這會用正式帳號憑證，把 AI 生成的內容真的發布到目前勾選啟用的平台官方帳號上，公開可見且無法透過這個後台撤回。請先確認上方的品牌語氣 prompt 內容沒問題。
+                    這會用正式帳號憑證，把上方草稿目前的內容（含你手動編輯過的部分）真的發布到官方帳號上，公開可見且無法透過這個後台撤回。
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>取消</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleLiveRun}>確定發文</AlertDialogAction>
+                  <AlertDialogAction onClick={() => handlePublish("live")}>確定發布</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
           </div>
 
-          {lastResults && (
+          {!draft && <p className="text-sm text-muted-foreground">請先在步驟 1 產生草稿。</p>}
+
+          {publishResults && (
             <div className="space-y-2">
-              {lastRunMode && (
+              {lastPublishMode && (
                 <p className="text-xs text-muted-foreground">
-                  以下是「{lastRunMode === "live" ? "正式發文" : "測試發文"}」的結果：
+                  以下是「{lastPublishMode === "live" ? "正式發布" : "測試發布"}」的結果：
                 </p>
               )}
-              {lastResults.map((r) => (
+              {publishResults.map((r) => (
                 <div key={r.platform} className="border rounded-md p-3">
                   <div className="flex items-center gap-2 mb-1">
                     <Badge variant={STATUS_VARIANT[r.status]}>{r.platform}</Badge>
@@ -333,10 +409,45 @@ export const SocialBotManager = () => {
         </CardContent>
       </Card>
 
+      <Card className="opacity-70">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            <CardTitle>排程自動發文</CardTitle>
+            <Badge variant="outline">Phase 2 · 尚未開放</Badge>
+          </div>
+          <CardDescription>
+            預留區塊：之後會用 pg_cron 排程（跟 process-ended-topics-closing 同一套機制）定期呼叫 <code>action: "publish", mode: "live"</code>，不需要人工每次手動按。下面的控制項目前是停用的示意，實際邏輯還沒開發。
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 pointer-events-none select-none">
+          <div className="flex items-center gap-3">
+            <Switch checked={false} disabled />
+            <Label>啟用排程自動發文</Label>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Label className="text-sm text-muted-foreground">發文頻率</Label>
+            <Select disabled>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="每天 1 次" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="daily-1">每天 1 次</SelectItem>
+                <SelectItem value="daily-3">每天 3 次</SelectItem>
+                <SelectItem value="weekly-3">每週 3 次</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            下次排程時間：—（尚未啟用）
+          </p>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>發文紀錄</CardTitle>
-          <CardDescription>最近 20 筆（測試與正式）</CardDescription>
+          <CardDescription>最近 20 筆（測試與正式，只有真的呼叫過發布 API 的才會出現在這裡）</CardDescription>
         </CardHeader>
         <CardContent>
           {logsLoading ? (

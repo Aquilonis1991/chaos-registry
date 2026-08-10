@@ -1,8 +1,11 @@
 // Social Bot Phase 1: AI-generate promo copy for X / Threads / Facebook, moderate it,
-// then post it — to sandbox/test credentials when mode="test", to prod credentials when
-// mode="live". Manually triggered from the admin "社群機器人" tab (SocialBotManager.tsx).
-// Phase 2 (not built yet) will call this with mode="live" from a pg_cron job, the same
-// way process-ended-topics-closing is scheduled.
+// then post it. Split into two explicit steps so an admin reviews before anything goes
+// out: action="generate" drafts content only (no posting, no DB log); action="publish"
+// takes the (possibly admin-edited) draft text and actually posts it — to sandbox/test
+// credentials when mode="test", to prod credentials when mode="live". Manually triggered
+// from the admin "宣傳機器人" tab (SocialBotManager.tsx).
+// Phase 2 (not built yet) will call action="publish" with mode="live" from a pg_cron job,
+// the same way process-ended-topics-closing is scheduled.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { xaiChatCompletion } from "../_shared/xai.ts";
@@ -59,6 +62,19 @@ type ResultRow = {
   error?: string;
 };
 
+async function checkBanned(supabaseAdmin: ReturnType<typeof createClient>, content: string): Promise<{ blocked: boolean; reason?: string }> {
+  const { data: bannedRows, error: bannedError } = await supabaseAdmin.rpc("check_banned_words", {
+    p_text: content,
+    p_check_levels: ["A", "B", "C", "D", "E", "F"],
+  });
+  const hit = Array.isArray(bannedRows) && bannedRows.length > 0 ? bannedRows[0] as any : null;
+  if (bannedError) return { blocked: true, reason: `違禁字檢查失敗：${bannedError.message}` };
+  if (hit?.found && (hit.action === "block" || hit.action === "review")) {
+    return { blocked: true, reason: `含${hit.action === "block" ? "禁止" : "需審核"}字詞：${hit.keyword}` };
+  }
+  return { blocked: false };
+}
+
 Deno.serve(async (req) => {
   const preflight = handleCorsPreFlight(req);
   if (preflight) return preflight;
@@ -66,10 +82,13 @@ Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req.headers.get("origin"));
 
   try {
-    const { mode, platforms, lang = "zh" } = await req.json();
+    const { action = "generate", mode, platforms, content: providedContent, lang = "zh" } = await req.json();
 
-    if (mode !== "test" && mode !== "live") {
-      throw new Error('mode 必須是 "test" 或 "live"');
+    if (action !== "generate" && action !== "publish") {
+      throw new Error('action 必須是 "generate" 或 "publish"');
+    }
+    if (action === "publish" && mode !== "test" && mode !== "live") {
+      throw new Error('publish 時 mode 必須是 "test" 或 "live"');
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
@@ -121,94 +140,110 @@ Deno.serve(async (req) => {
       throw new Error("沒有任何已啟用的平台可以發文（請檢查 social_bot_platforms 設定）");
     }
 
-    const systemPrompt = promptByLang[lang] || promptByLang.zh || promptByLang.en || "";
-    if (!systemPrompt) {
-      throw new Error("social_bot_prompt 尚未設定，請先在後台「AI 管理」或社群機器人分頁填寫");
+    // ── action = "generate"：只生成草稿、跑違禁字檢查，不發文、不寫入 social_bot_posts ──
+    if (action === "generate") {
+      const systemPrompt = promptByLang[lang] || promptByLang.zh || promptByLang.en || "";
+      if (!systemPrompt) {
+        throw new Error("social_bot_prompt 尚未設定，請先在後台「AI 管理」或社群機器人分頁填寫");
+      }
+
+      const lengthRules = targetPlatforms
+        .map((p) => `- ${p}: ${PLATFORM_LENGTH_HINT[p]}`)
+        .join("\n");
+      const outputSchema = targetPlatforms.map((p) => `"${p}": "string"`).join(", ");
+
+      // 搭上潮流：從目前 App 內討論度最高的話題取幾則，讓 AI 從中挑一個自然帶入文案，
+      // 而不是單純寫空泛的品牌推廣文。沿用首頁「熱門」分頁同一套排序（get_hot_topics_with_exposure），
+      // 該 RPC 不依賴 auth.uid()，service role 可直接呼叫。
+      const { data: hotTopics, error: hotTopicsError } = await supabaseAdmin.rpc(
+        "get_hot_topics_with_exposure",
+        { p_limit: 3, p_offset: 0, p_grace_days: null }
+      );
+      if (hotTopicsError) {
+        console.error("[social-post-bot] get_hot_topics_with_exposure error:", hotTopicsError);
+      }
+      const trendingTopics = (hotTopics || []).filter((t: any) => t?.id && t?.title);
+      const trendHint = trendingTopics.length > 0
+        ? `\n\n[參考靈感，非必須]以下是目前 App 內討論度最高的話題，僅供靈感參考。如果剛好有哪個話題適合自然融入、能讓文案更好笑更有梗，可以帶到（順便附上對應連結，連結要照抄不要竄改）；如果都不適合硬塞，就維持原本的品牌語氣自由發揮，不要為了提到話題而讓文案變生硬或制式：\n${trendingTopics
+            .map((t: any) => `- 「${t.title}」（目前 ${t.total_votes ?? 0} 票）：${SITE_BASE_URL}/vote/${t.id}`)
+            .join("\n")}`
+        : "";
+
+      // 讓發文有連貫感：抓最近幾則「真的發布成功」的貼文（只看 live，不看 test，避免拿測試帳號的
+      // 內容當記憶），給 AI 當作近期記憶，避免炒冷飯、也讓它有機會自然呼應之前的哏。
+      const { data: recentPosts, error: recentPostsError } = await supabaseAdmin
+        .from("social_bot_posts")
+        .select("platform, content, created_at")
+        .eq("mode", "live")
+        .eq("status", "posted")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (recentPostsError) {
+        console.error("[social-post-bot] fetch recent posts error:", recentPostsError);
+      }
+      const historyHint = recentPosts && recentPosts.length > 0
+        ? `\n\n[近期發文記憶]以下是最近幾則已經正式發布過的貼文，請避免重複一樣的哏、句型或用字；如果適合可以自然呼應、延續之前提過的梗或話題，讓帳號整體風格有連貫感，但不用每篇都硬要接續：\n${recentPosts
+            .map((p: any) => `- [${p.platform}] ${p.content}`)
+            .join("\n")}`
+        : "";
+
+      // 固定人設：不管品牌語氣文字怎麼調，這條規則都要套用，確保帳號讀起來像同一個角色在講話。
+      const personaHint = "\n\n[人設一致性，強制規則]想像自己是同一個固定角色在經營這個帳號——語氣、口頭禪、態度前後要一致，不要這篇正經、下一篇又變成完全不同的人格。";
+
+      // 輪替內容角度：隨機挑一個，寫進 prompt 指定這次要用的角度。
+      const chosenAngle = CONTENT_ANGLES[Math.floor(Math.random() * CONTENT_ANGLES.length)];
+      const angleHint = `\n\n[本次內容角度]${chosenAngle}。`;
+
+      const aiData = await xaiChatCompletion({
+        messages: [
+          { role: "system", content: systemPrompt },
+          {
+            role: "user",
+            content: `請針對以下平台各寫一篇推廣貼文，長度限制：\n${lengthRules}\n\n${STRUCTURE_RULE}\n\n${FEW_SHOT_EXAMPLES}${trendHint}${historyHint}${personaHint}${angleHint}\n\n只輸出 JSON，格式為 {${outputSchema}}，不要有其他說明文字或 markdown 標記。`,
+          },
+        ],
+        temperature: 0.9,
+        response_format: { type: "json_object" },
+      });
+      if (aiData.error) throw new Error(aiData.error.message);
+
+      let resultText = aiData.choices?.[0]?.message?.content;
+      if (!resultText) throw new Error(`Invalid AI response structure (Raw: ${JSON.stringify(aiData)})`);
+      resultText = resultText.replace(/```json\n?|```/g, "").trim();
+      const generated: Record<string, string> = JSON.parse(resultText);
+
+      const results: ResultRow[] = [];
+      for (const platform of targetPlatforms) {
+        const content = (generated[platform] || "").trim();
+        if (!content) {
+          results.push({ platform, status: "failed", content: "", error: "AI 未產生此平台的內容" });
+          continue;
+        }
+        const { blocked, reason } = await checkBanned(supabaseAdmin, content);
+        results.push({ platform, content, status: blocked ? "blocked" : "generated", error: reason });
+      }
+
+      return new Response(JSON.stringify({ success: true, action: "generate", results }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const lengthRules = targetPlatforms
-      .map((p) => `- ${p}: ${PLATFORM_LENGTH_HINT[p]}`)
-      .join("\n");
-    const outputSchema = targetPlatforms.map((p) => `"${p}": "string"`).join(", ");
-
-    // 搭上潮流：從目前 App 內討論度最高的話題取幾則，讓 AI 從中挑一個自然帶入文案，
-    // 而不是單純寫空泛的品牌推廣文。沿用首頁「熱門」分頁同一套排序（get_hot_topics_with_exposure），
-    // 該 RPC 不依賴 auth.uid()，service role 可直接呼叫。
-    const { data: hotTopics, error: hotTopicsError } = await supabaseAdmin.rpc(
-      "get_hot_topics_with_exposure",
-      { p_limit: 3, p_offset: 0, p_grace_days: null }
-    );
-    if (hotTopicsError) {
-      console.error("[social-post-bot] get_hot_topics_with_exposure error:", hotTopicsError);
+    // ── action = "publish"：拿已審過（可能被管理員編輯過）的草稿內容，重新過一次違禁字檢查
+    // 後才真的發文，並寫入 social_bot_posts 留紀錄。 ──
+    if (!providedContent || typeof providedContent !== "object") {
+      throw new Error("publish 需要提供 content（每個平台已確認要發布的文字）");
     }
-    const trendingTopics = (hotTopics || []).filter((t: any) => t?.id && t?.title);
-    const trendHint = trendingTopics.length > 0
-      ? `\n\n[參考靈感，非必須]以下是目前 App 內討論度最高的話題，僅供靈感參考。如果剛好有哪個話題適合自然融入、能讓文案更好笑更有梗，可以帶到（順便附上對應連結，連結要照抄不要竄改）；如果都不適合硬塞，就維持原本的品牌語氣自由發揮，不要為了提到話題而讓文案變生硬或制式：\n${trendingTopics
-          .map((t: any) => `- 「${t.title}」（目前 ${t.total_votes ?? 0} 票）：${SITE_BASE_URL}/vote/${t.id}`)
-          .join("\n")}`
-      : "";
-
-    // 讓發文有連貫感：抓最近幾則「真的發布成功」的貼文（只看 live，不看 test，避免拿測試帳號的
-    // 內容當記憶），給 AI 當作近期記憶，避免炒冷飯、也讓它有機會自然呼應之前的哏。
-    const { data: recentPosts, error: recentPostsError } = await supabaseAdmin
-      .from("social_bot_posts")
-      .select("platform, content, created_at")
-      .eq("mode", "live")
-      .eq("status", "posted")
-      .order("created_at", { ascending: false })
-      .limit(5);
-    if (recentPostsError) {
-      console.error("[social-post-bot] fetch recent posts error:", recentPostsError);
-    }
-    const historyHint = recentPosts && recentPosts.length > 0
-      ? `\n\n[近期發文記憶]以下是最近幾則已經正式發布過的貼文，請避免重複一樣的哏、句型或用字；如果適合可以自然呼應、延續之前提過的梗或話題，讓帳號整體風格有連貫感，但不用每篇都硬要接續：\n${recentPosts
-          .map((p: any) => `- [${p.platform}] ${p.content}`)
-          .join("\n")}`
-      : "";
-
-    // 固定人設：不管品牌語氣文字怎麼調，這條規則都要套用，確保帳號讀起來像同一個角色在講話。
-    const personaHint = "\n\n[人設一致性，強制規則]想像自己是同一個固定角色在經營這個帳號——語氣、口頭禪、態度前後要一致，不要這篇正經、下一篇又變成完全不同的人格。";
-
-    // 輪替內容角度：隨機挑一個，寫進 prompt 指定這次要用的角度。
-    const chosenAngle = CONTENT_ANGLES[Math.floor(Math.random() * CONTENT_ANGLES.length)];
-    const angleHint = `\n\n[本次內容角度]${chosenAngle}。`;
-
-    const aiData = await xaiChatCompletion({
-      messages: [
-        { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: `請針對以下平台各寫一篇推廣貼文，長度限制：\n${lengthRules}\n\n${STRUCTURE_RULE}\n\n${FEW_SHOT_EXAMPLES}${trendHint}${historyHint}${personaHint}${angleHint}\n\n只輸出 JSON，格式為 {${outputSchema}}，不要有其他說明文字或 markdown 標記。`,
-        },
-      ],
-      temperature: 0.9,
-      response_format: { type: "json_object" },
-    });
-    if (aiData.error) throw new Error(aiData.error.message);
-
-    let resultText = aiData.choices?.[0]?.message?.content;
-    if (!resultText) throw new Error(`Invalid AI response structure (Raw: ${JSON.stringify(aiData)})`);
-    resultText = resultText.replace(/```json\n?|```/g, "").trim();
-    const generated: Record<string, string> = JSON.parse(resultText);
 
     const results: ResultRow[] = [];
-
     for (const platform of targetPlatforms) {
-      const content = (generated[platform] || "").trim();
+      const content = (providedContent[platform] || "").trim();
       if (!content) {
-        results.push({ platform, status: "failed", content: "", error: "AI 未產生此平台的內容" });
+        results.push({ platform, status: "failed", content: "", error: "沒有可發布的內容" });
         continue;
       }
 
-      const { data: bannedRows, error: bannedError } = await supabaseAdmin.rpc("check_banned_words", {
-        p_text: content,
-        p_check_levels: ["A", "B", "C", "D", "E", "F"],
-      });
-      const hit = Array.isArray(bannedRows) && bannedRows.length > 0 ? bannedRows[0] : null;
-      const blocked = bannedError || (hit?.found && (hit.action === "block" || hit.action === "review"));
-
+      const { blocked, reason } = await checkBanned(supabaseAdmin, content);
       if (blocked) {
-        const reason = bannedError ? `違禁字檢查失敗：${bannedError.message}` : `含${hit.action === "block" ? "禁止" : "需審核"}字詞：${hit.keyword}`;
         results.push({ platform, status: "blocked", content, error: reason });
         await supabaseAdmin.from("social_bot_posts").insert({
           platform, mode, content, status: "blocked", error: reason, created_by: user.id,
@@ -227,7 +262,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ success: true, mode, results }), {
+    return new Response(JSON.stringify({ success: true, action: "publish", mode, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: any) {

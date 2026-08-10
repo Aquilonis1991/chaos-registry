@@ -13,6 +13,16 @@ import { postToFacebook } from "../_shared/facebookPost.ts";
 
 const SITE_BASE_URL = "https://chaosregistry.com";
 
+// 輪替內容角度：每次生成隨機挑一個，避免每篇貼文都長得一樣、也讓帳號內容有變化。
+const CONTENT_ANGLES = [
+  "吐槽時事：拿最近大家在討論的現象開玩笑，順勢帶到投票",
+  "荒謬二選一：用誇張、非黑即白的方式描述選擇困難，邀請大家來投票解套",
+  "戰貼引戰：故意講一個有爭議、容易讓人想留言反駁的立場",
+  "深夜廢話：像是半夜睡不著隨口碎念的語氣，突然話鋒一轉帶到投票",
+  "自嘲耍廢：拿自己（帳號本身）的耍廢、廢文屬性開玩笑",
+  "匿名爆料感：用「聽說」「內部消息」這種吊胃口的語氣包裝話題",
+];
+
 type Platform = "x" | "threads" | "facebook";
 const ALL_PLATFORMS: Platform[] = ["x", "threads", "facebook"];
 const PLATFORM_LENGTH_HINT: Record<Platform, string> = {
@@ -141,12 +151,22 @@ Deno.serve(async (req) => {
           .join("\n")}`
       : "";
 
+    // 固定人設：不管品牌語氣文字怎麼調，這條規則都要套用，確保帳號讀起來像同一個角色在講話。
+    const personaHint = "\n\n[人設一致性，強制規則]想像自己是同一個固定角色在經營這個帳號——語氣、口頭禪、態度前後要一致，不要這篇正經、下一篇又變成完全不同的人格。";
+
+    // 提問鉤子開場：用疑問句/引發好奇心的句子開頭，取代平鋪直敘的宣傳句。
+    const hookHint = "\n\n[開場鉤子，強制規則]每篇貼文開頭盡量用一句疑問句、或會讓人想點進來看的懸念句，不要用「快來投票！」「馬上參與！」這種直接宣告式的開頭。";
+
+    // 輪替內容角度：隨機挑一個，寫進 prompt 指定這次要用的角度。
+    const chosenAngle = CONTENT_ANGLES[Math.floor(Math.random() * CONTENT_ANGLES.length)];
+    const angleHint = `\n\n[本次內容角度]${chosenAngle}。`;
+
     const aiData = await xaiChatCompletion({
       messages: [
         { role: "system", content: systemPrompt },
         {
           role: "user",
-          content: `請針對以下平台各寫一篇推廣貼文，長度限制：\n${lengthRules}${trendHint}${historyHint}\n\n只輸出 JSON，格式為 {${outputSchema}}，不要有其他說明文字或 markdown 標記。`,
+          content: `請針對以下平台各寫一篇推廣貼文，長度限制：\n${lengthRules}${trendHint}${historyHint}${personaHint}${hookHint}${angleHint}\n\n只輸出 JSON，格式為 {${outputSchema}}，不要有其他說明文字或 markdown 標記。`,
         },
       ],
       temperature: 0.9,

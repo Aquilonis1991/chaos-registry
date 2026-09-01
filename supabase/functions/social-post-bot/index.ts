@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
         .map((p) => `- ${p}: ${PLATFORM_LENGTH_HINT[p]}（如果有填 topic_id，系統會在文末額外附加一則約 40-50 字元的連結，這個長度不算在上面限制內，但寫 content 時請留一點餘裕，不要卡在上限）`)
         .join("\n");
       const outputSchema = targetPlatforms
-        .map((p) => `"${p}": {"content": "string，不要自己加連結，連結由系統自動附加", "topic_id": "string 或 null"}`)
+        .map((p) => `"${p}": {"content": "string，不要自己加連結，連結由系統自動附加", "topic_id": number 或 null}`)
         .join(", ");
 
       // 搭上潮流：從目前 App 內討論度最高的話題取幾則，讓 AI 從中挑一個自然帶入文案，
@@ -179,9 +179,9 @@ Deno.serve(async (req) => {
         })
         .slice(0, 3);
       const trendHint = trendingTopics.length > 0
-        ? `\n\n[參考靈感，是否引用非必須]以下是目前 App 內討論度最高的話題，僅供靈感參考：\n${trendingTopics
-            .map((t: any) => `- topic_id="${t.id}"：「${t.title}」（目前 ${t.total_votes ?? 0} 票）`)
-            .join("\n")}\n要不要提到這些話題完全隨意，不適合就別硬塞，維持原本品牌語氣自由發揮即可。連結不用你自己寫，系統會依你回傳的 topic_id 自動附加在貼文最後，所以 content 欄位裡絕對不要自己寫任何網址。【規則】如果這篇文案的內容有引用、暗示、或改寫上面任何一個話題，就把該話題的 topic_id 填進對應的 "topic_id" 欄位；完全沒引用任何話題就填 null。`
+        ? `\n\n[參考靈感，是否引用非必須]以下是目前 App 內討論度最高的話題，僅供靈感參考，每行格式是「編號 | 話題標題（票數）」：\n${trendingTopics
+            .map((t: any, i: number) => `${i + 1} | ${t.title}（目前 ${t.total_votes ?? 0} 票）`)
+            .join("\n")}\n要不要提到這些話題完全隨意，不適合就別硬塞，維持原本品牌語氣自由發揮即可。連結不用你自己寫，系統會自動附加在貼文最後，所以 content 欄位裡絕對不要自己寫任何網址、也不要在文字裡寫「1」「2」這種編號。【規則】如果這篇文案的內容有引用、暗示、或改寫上面任何一則，就在 "topic_id" 欄位填入該話題前面的編號（純數字，例如 1、2 或 3，不要加任何文字或符號）；完全沒引用任何一則就填 null。`
         : "";
 
       // 讓發文有連貫感：抓最近幾則「真的發布成功」的貼文（只看 live，不看 test，避免拿測試帳號的
@@ -225,8 +225,7 @@ Deno.serve(async (req) => {
       let resultText = aiData.choices?.[0]?.message?.content;
       if (!resultText) throw new Error(`Invalid AI response structure (Raw: ${JSON.stringify(aiData)})`);
       resultText = resultText.replace(/```json\n?|```/g, "").trim();
-      const generated: Record<string, { content?: string; topic_id?: string | null }> = JSON.parse(resultText);
-      const topicById = new Map(trendingTopics.map((t: any) => [String(t.id), t]));
+      const generated: Record<string, { content?: string; topic_id?: string | number | null }> = JSON.parse(resultText);
 
       const results: ResultRow[] = [];
       for (const platform of targetPlatforms) {
@@ -236,9 +235,13 @@ Deno.serve(async (req) => {
           results.push({ platform, status: "failed", content: "", error: "AI 未產生此平台的內容" });
           continue;
         }
-        // 連結由程式碼依 AI 回傳的 topic_id 決定性地附加，不依賴 AI 有沒有把連結寫進文字本身
-        // ——AI 幾乎都是改寫話題內容而非逐字引用，光靠比對文字判斷「有沒有提到話題」並不可靠。
-        const referencedTopic = entry?.topic_id ? topicById.get(String(entry.topic_id)) : undefined;
+        // 連結由程式碼依 AI 回傳的 topic_id（清單裡的 1-based 編號，不是話題的真實 UUID——
+        // UUID 太長太容易被 AI 抄錯/截斷，改用簡單數字大幅降低出錯機率）決定性地附加，
+        // 不依賴 AI 有沒有把連結寫進文字本身。
+        const idx = entry?.topic_id != null ? Number(entry.topic_id) : NaN;
+        const referencedTopic = Number.isInteger(idx) && idx >= 1 && idx <= trendingTopics.length
+          ? trendingTopics[idx - 1]
+          : undefined;
         if (referencedTopic) {
           content = `${content}\n${SITE_BASE_URL}/vote/${referencedTopic.id}`;
         }

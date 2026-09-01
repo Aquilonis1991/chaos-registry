@@ -155,14 +155,27 @@ Deno.serve(async (req) => {
       // 搭上潮流：從目前 App 內討論度最高的話題取幾則，讓 AI 從中挑一個自然帶入文案，
       // 而不是單純寫空泛的品牌推廣文。沿用首頁「熱門」分頁同一套排序（get_hot_topics_with_exposure），
       // 該 RPC 不依賴 auth.uid()，service role 可直接呼叫。
+      // 注意：這支 RPC 是給首頁「熱門」分頁用的，status 會包含 'active' 跟 'ended'（含寬限期），
+      // 熱度分數看的是累積票數，快結束但票數多的主題反而容易排前面——這對「邀請大家來投票」
+      // 的宣傳用途是反效果（來不及投票）。所以多抓一些候選（15 筆），篩掉已結束、或剩不到
+      // 2 小時就要結束的主題，再從篩完的結果取前 3 個。
       const { data: hotTopics, error: hotTopicsError } = await supabaseAdmin.rpc(
         "get_hot_topics_with_exposure",
-        { p_limit: 3, p_offset: 0, p_grace_days: null }
+        { p_limit: 15, p_offset: 0, p_grace_days: null }
       );
       if (hotTopicsError) {
         console.error("[social-post-bot] get_hot_topics_with_exposure error:", hotTopicsError);
       }
-      const trendingTopics = (hotTopics || []).filter((t: any) => t?.id && t?.title);
+      const MIN_HOURS_REMAINING = 2;
+      const now = Date.now();
+      const trendingTopics = (hotTopics || [])
+        .filter((t: any) => t?.id && t?.title && t.status === "active")
+        .filter((t: any) => {
+          if (!t.end_at) return true;
+          const hoursLeft = (new Date(t.end_at).getTime() - now) / (1000 * 60 * 60);
+          return hoursLeft >= MIN_HOURS_REMAINING;
+        })
+        .slice(0, 3);
       const trendHint = trendingTopics.length > 0
         ? `\n\n[參考靈感，非必須]以下是目前 App 內討論度最高的話題，僅供靈感參考。如果剛好有哪個話題適合自然融入、能讓文案更好笑更有梗，可以帶到（順便附上對應連結，連結要照抄不要竄改）；如果都不適合硬塞，就維持原本的品牌語氣自由發揮，不要為了提到話題而讓文案變生硬或制式：\n${trendingTopics
             .map((t: any) => `- 「${t.title}」（目前 ${t.total_votes ?? 0} 票）：${SITE_BASE_URL}/vote/${t.id}`)

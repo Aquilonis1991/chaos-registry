@@ -1,12 +1,20 @@
 # 社群機器人 — 平台申請與憑證設定
 
-Phase 1 的社群機器人（`supabase/functions/social-post-bot`）會用 Grok 生成推廣文案，再透過各平台的真實 API 發文。目前這些憑證一個都還沒申請，這份文件列出每個平台要申請什麼、憑證要放進哪個 Edge Function Secret 名稱。
+Phase 1 的社群機器人（`supabase/functions/social-post-bot`）會用 Grok 生成推廣文案，再透過各平台的真實 API 發文。這份文件列出每個平台要申請什麼、憑證要放進哪個 Edge Function Secret 名稱。
 
 所有憑證都要設定在：**Supabase Dashboard → Project Settings → Edge Functions → Secrets**（這個專案沒有連線到正式資料庫的直接存取權，所以這一步必須由你自己在 Dashboard 操作，跟現有的 `XAI_API_KEY`、`TWITTER_CLIENT_ID` 是同一個設定位置）。
 
+## 目前進度（2026-08-29）
+
+| 平台 | 狀態 | 備註 |
+|---|---|---|
+| Threads | ✅ 正式帳號可用 | 已用「正式發布」實測成功，貼文內容與連結預覽確認正常 |
+| X (Twitter) | ⚠️ 憑證已設定，額度用完 | 「正式發布」回傳 `credits depleted`（402）——X API 已改成 pay-per-use 計費，需到 developer.x.com 的 Developer Console 加值，見下方 X 章節新增的說明 |
+| Facebook 粉專 | 🔄 申請中 | 粉專用另一個帳號申請，跟 Meta App 開發者帳號不同，需注意下方 Facebook 章節新增的跨帳號設定 |
+
 ## 憑證命名總表
 
-每個平台都需要**兩組**憑證：一組給「測試/沙盒帳號」用（`TEST_` 開頭，後台按「產生測試貼文」時用這組)，一組給「正式帳號」用（不加前綴，等 Phase 2 排程自動發文接上後才會用到，現在還不會用）。
+每個平台都需要**兩組**憑證：一組給「測試/沙盒帳號」用（`TEST_` 開頭，後台按「產生測試貼文」時用這組)，一組給「正式帳號」用（不加前綴）。**正式帳號憑證現在已經在用**——`/admin` 「社群機器人」分頁的「正式發布」按鈕會直接呼叫這組憑證真的發到官方帳號，不是只留給未來 Phase 2 排程用。
 
 **建議先只申請一個平台的 `TEST_` 那組就好，跑通之後再擴展其他平台。**
 
@@ -34,6 +42,7 @@ Phase 1 的社群機器人（`supabase/functions/social-post-bot`）會用 Grok 
    - 「Access Token and Secret」→ 對應 `TWITTER_POST_ACCESS_TOKEN` / `TWITTER_POST_ACCESS_SECRET`
    - **重要**：Access Token 一定要在把 Permission 改成 Read and Write **之後**重新產生，不然舊 token 沒有寫入權限。
 4. 測試帳號：另外申請一個沒在正式使用的 X 帳號（或把它加成同一個 Project 的 collaborator），用它產生自己的一組 Token，四個值都加上 `TEST_` 前綴存進去。
+5. **計費（2026 改制後）**：X API 已經沒有免費額度，Basic（$200/月）已停售、Pro（$5000/月）也關閉新申請，新開發者只剩 **pay-per-use**（用多少扣多少），要到 Developer Console 裡加值 credits 才能發文。收費重點：純文字貼文 $0.015/則，**含連結的貼文 $0.20/則**——我們的貼文一定帶投票頁連結，所以實際成本是每則 $0.20。額度用完會回傳 `credits depleted`（402），要重新加值。建議先加值 US$20-30，以目前手動觸發的頻率可以用一兩個月。
 
 ## 2. Threads
 
@@ -48,6 +57,10 @@ Phase 1 的社群機器人（`supabase/functions/social-post-bot`）會用 Grok 
 2. 建立或使用一個現有粉專，透過 Graph API Explorer（或正式的粉專登入流程）產生有 `pages_manage_posts` 權限的 Page Access Token——**記得要換成長效 token**，不要用預設 1 小時就過期的那種。
 3. 記下粉專的數字 Page ID。
 4. 測試帳號：另外開一個沒公開、專門拿來測試的粉專，走同一套流程，存成 `TEST_` 前綴。
+5. **粉專帳號跟 Meta App 開發者帳號不同時**（例如粉專是用另一個帳號申請的）：Graph API Explorer 只能選到「登入帳號自己管理的粉專」，所以要嘛把粉專那個帳號加進 Meta App 的 App roles（App Dashboard → App roles → Roles → Add People，設成 Developer 即可），要嘛乾脆用粉專那個帳號自己去 developers.facebook.com 建 App，權限天生就對得上。
+6. **長效 token 的兩種做法**：
+   - 快速：用 [Access Token Debugger](https://developers.facebook.com/tools/debug/accesstoken/) 把 Graph API Explorer 給的短效 token 貼上去做 Extend Access Token，效期會延長到約 60 天，但到期還是要手動重新產生。
+   - 正式建議：透過 Business Manager 建立 System User，指派這個粉專給它，產生的 Page token **永久不過期**，適合排程機器人長期使用。
 
 ---
 

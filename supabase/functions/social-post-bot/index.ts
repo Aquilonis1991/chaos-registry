@@ -75,23 +75,6 @@ async function checkBanned(supabaseAdmin: ReturnType<typeof createClient>, conte
   return { blocked: false };
 }
 
-// 保險機制：AI 有時會提到話題內容卻忘記附連結（即使 prompt 有強制規則）。這裡用粗略字串比對
-// 補救——如果文案裡出現了某個熱門話題標題的開頭幾個字、但沒有附上對應連結，就自動補在文末。
-function ensureTopicLinks(content: string, topics: Array<{ id: string; title: string }>): string {
-  let result = content;
-  for (const t of topics) {
-    const url = `${SITE_BASE_URL}/vote/${t.id}`;
-    if (result.includes(url)) continue;
-    const title = String(t.title || "").trim();
-    if (title.length < 4) continue;
-    const probe = title.slice(0, Math.min(6, title.length));
-    if (result.includes(probe)) {
-      result = `${result}\n${url}`;
-    }
-  }
-  return result;
-}
-
 Deno.serve(async (req) => {
   const preflight = handleCorsPreFlight(req);
   if (preflight) return preflight;
@@ -165,9 +148,11 @@ Deno.serve(async (req) => {
       }
 
       const lengthRules = targetPlatforms
-        .map((p) => `- ${p}: ${PLATFORM_LENGTH_HINT[p]}`)
+        .map((p) => `- ${p}: ${PLATFORM_LENGTH_HINT[p]}（如果有填 topic_id，系統會在文末額外附加一則約 40-50 字元的連結，這個長度不算在上面限制內，但寫 content 時請留一點餘裕，不要卡在上限）`)
         .join("\n");
-      const outputSchema = targetPlatforms.map((p) => `"${p}": "string"`).join(", ");
+      const outputSchema = targetPlatforms
+        .map((p) => `"${p}": {"content": "string，不要自己加連結，連結由系統自動附加", "topic_id": "string 或 null"}`)
+        .join(", ");
 
       // 搭上潮流：從目前 App 內討論度最高的話題取幾則，讓 AI 從中挑一個自然帶入文案，
       // 而不是單純寫空泛的品牌推廣文。沿用首頁「熱門」分頁同一套排序（get_hot_topics_with_exposure），
@@ -194,9 +179,9 @@ Deno.serve(async (req) => {
         })
         .slice(0, 3);
       const trendHint = trendingTopics.length > 0
-        ? `\n\n[參考靈感，是否引用非必須，但引用了就一定要附連結]以下是目前 App 內討論度最高的話題，僅供靈感參考：\n${trendingTopics
-            .map((t: any) => `- 「${t.title}」（目前 ${t.total_votes ?? 0} 票）：${SITE_BASE_URL}/vote/${t.id}`)
-            .join("\n")}\n要不要提到這些話題完全隨意，不適合就別硬塞，維持原本品牌語氣自由發揮即可。但【強制規則】只要文案內容提到了上面任何一個話題的名稱或內容（哪怕只是暗示、改寫、不是逐字照抄標題），就一定要把該話題對應的連結原封不動放進貼文裡，不能只提話題卻不附連結——沒有連結，讀者沒辦法點進去參與，這則貼文就失去意義了。連結不能竄改、不能縮短、不能省略 https://。`
+        ? `\n\n[參考靈感，是否引用非必須]以下是目前 App 內討論度最高的話題，僅供靈感參考：\n${trendingTopics
+            .map((t: any) => `- topic_id="${t.id}"：「${t.title}」（目前 ${t.total_votes ?? 0} 票）`)
+            .join("\n")}\n要不要提到這些話題完全隨意，不適合就別硬塞，維持原本品牌語氣自由發揮即可。連結不用你自己寫，系統會依你回傳的 topic_id 自動附加在貼文最後，所以 content 欄位裡絕對不要自己寫任何網址。【規則】如果這篇文案的內容有引用、暗示、或改寫上面任何一個話題，就把該話題的 topic_id 填進對應的 "topic_id" 欄位；完全沒引用任何話題就填 null。`
         : "";
 
       // 讓發文有連貫感：抓最近幾則「真的發布成功」的貼文（只看 live，不看 test，避免拿測試帳號的
@@ -240,16 +225,23 @@ Deno.serve(async (req) => {
       let resultText = aiData.choices?.[0]?.message?.content;
       if (!resultText) throw new Error(`Invalid AI response structure (Raw: ${JSON.stringify(aiData)})`);
       resultText = resultText.replace(/```json\n?|```/g, "").trim();
-      const generated: Record<string, string> = JSON.parse(resultText);
+      const generated: Record<string, { content?: string; topic_id?: string | null }> = JSON.parse(resultText);
+      const topicById = new Map(trendingTopics.map((t: any) => [String(t.id), t]));
 
       const results: ResultRow[] = [];
       for (const platform of targetPlatforms) {
-        let content = (generated[platform] || "").trim();
+        const entry = generated[platform];
+        let content = (entry?.content || "").trim();
         if (!content) {
           results.push({ platform, status: "failed", content: "", error: "AI 未產生此平台的內容" });
           continue;
         }
-        content = ensureTopicLinks(content, trendingTopics);
+        // 連結由程式碼依 AI 回傳的 topic_id 決定性地附加，不依賴 AI 有沒有把連結寫進文字本身
+        // ——AI 幾乎都是改寫話題內容而非逐字引用，光靠比對文字判斷「有沒有提到話題」並不可靠。
+        const referencedTopic = entry?.topic_id ? topicById.get(String(entry.topic_id)) : undefined;
+        if (referencedTopic) {
+          content = `${content}\n${SITE_BASE_URL}/vote/${referencedTopic.id}`;
+        }
         const { blocked, reason } = await checkBanned(supabaseAdmin, content);
         results.push({ platform, content, status: blocked ? "blocked" : "generated", error: reason });
       }

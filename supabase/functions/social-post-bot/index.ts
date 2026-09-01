@@ -75,6 +75,23 @@ async function checkBanned(supabaseAdmin: ReturnType<typeof createClient>, conte
   return { blocked: false };
 }
 
+// 保險機制：AI 有時會提到話題內容卻忘記附連結（即使 prompt 有強制規則）。這裡用粗略字串比對
+// 補救——如果文案裡出現了某個熱門話題標題的開頭幾個字、但沒有附上對應連結，就自動補在文末。
+function ensureTopicLinks(content: string, topics: Array<{ id: string; title: string }>): string {
+  let result = content;
+  for (const t of topics) {
+    const url = `${SITE_BASE_URL}/vote/${t.id}`;
+    if (result.includes(url)) continue;
+    const title = String(t.title || "").trim();
+    if (title.length < 4) continue;
+    const probe = title.slice(0, Math.min(6, title.length));
+    if (result.includes(probe)) {
+      result = `${result}\n${url}`;
+    }
+  }
+  return result;
+}
+
 Deno.serve(async (req) => {
   const preflight = handleCorsPreFlight(req);
   if (preflight) return preflight;
@@ -177,9 +194,9 @@ Deno.serve(async (req) => {
         })
         .slice(0, 3);
       const trendHint = trendingTopics.length > 0
-        ? `\n\n[參考靈感，非必須]以下是目前 App 內討論度最高的話題，僅供靈感參考。如果剛好有哪個話題適合自然融入、能讓文案更好笑更有梗，可以帶到（順便附上對應連結，連結要照抄不要竄改）；如果都不適合硬塞，就維持原本的品牌語氣自由發揮，不要為了提到話題而讓文案變生硬或制式：\n${trendingTopics
+        ? `\n\n[參考靈感，是否引用非必須，但引用了就一定要附連結]以下是目前 App 內討論度最高的話題，僅供靈感參考：\n${trendingTopics
             .map((t: any) => `- 「${t.title}」（目前 ${t.total_votes ?? 0} 票）：${SITE_BASE_URL}/vote/${t.id}`)
-            .join("\n")}`
+            .join("\n")}\n要不要提到這些話題完全隨意，不適合就別硬塞，維持原本品牌語氣自由發揮即可。但【強制規則】只要文案內容提到了上面任何一個話題的名稱或內容（哪怕只是暗示、改寫、不是逐字照抄標題），就一定要把該話題對應的連結原封不動放進貼文裡，不能只提話題卻不附連結——沒有連結，讀者沒辦法點進去參與，這則貼文就失去意義了。連結不能竄改、不能縮短、不能省略 https://。`
         : "";
 
       // 讓發文有連貫感：抓最近幾則「真的發布成功」的貼文（只看 live，不看 test，避免拿測試帳號的
@@ -227,11 +244,12 @@ Deno.serve(async (req) => {
 
       const results: ResultRow[] = [];
       for (const platform of targetPlatforms) {
-        const content = (generated[platform] || "").trim();
+        let content = (generated[platform] || "").trim();
         if (!content) {
           results.push({ platform, status: "failed", content: "", error: "AI 未產生此平台的內容" });
           continue;
         }
+        content = ensureTopicLinks(content, trendingTopics);
         const { blocked, reason } = await checkBanned(supabaseAdmin, content);
         results.push({ platform, content, status: blocked ? "blocked" : "generated", error: reason });
       }

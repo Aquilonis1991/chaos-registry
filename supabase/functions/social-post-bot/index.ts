@@ -27,26 +27,19 @@ const CONTENT_ANGLES = [
   "匿名爆料感：用「聽說」「內部消息」這種吊胃口的語氣包裝話題",
 ];
 
-// 貼文結構規則：Threads 的推播權重看「留言數」遠高於「按讚數」（約 5-10 倍），所以貼文設計
-// 目標是引發留言，不是單純曝光——結尾一定要留一個會讓人想回覆的鉤子，不能只是平鋪直敘介紹。
-const STRUCTURE_RULE = `[貼文結構規則，強制]
-1. 第一句：強 Hook——用逆向觀點、痛點場景、數字/反差衝突，或直接丟一個結論，抓住注意力。不要用「快來投票！」「馬上參與！」這種宣告式開頭。
-2. 中間：2-4 句簡短觀點或場景描述，口語、有畫面感，不要寫成長文或懶人包。
-3. 結尾：開放式問題、或二選一／多選一，一定要讓人「想留言回覆」，因為 Threads 的推播是看留言數決定廣度，遠比按讚重要，貼文目的是引發對話，不是單純曝光。
-4. 禁止：長文、硬廣、過度正式或官腔的品牌口吻、「請問各位覺得呢？」這種空洞的弱問題。`;
-
-// Few-shot 範例：示範上面結構規則實際寫出來長怎樣，幫助模型抓住語感。範例本身不代表真實數據。
-const FEW_SHOT_EXAMPLES = `[範例參考風格，僅供語感參考，不要照抄內容]
-- 荒謬日常：「我發現一件事：很多人下班後第一件事不是滑手機，是先打開冰箱發呆三十秒。你是哪一種？A. 冰箱發呆派 B. 直接躺平派 C. 通勤就已經累到不想動」
-- 時事不理性觀點：「今天又看到一堆人在吵一件事。認真想了三秒，覺得最扯的其實是大家都很認真在吵一件根本不重要的事。你覺得這次吵得有意義，還是純粹解悶？」
-- 導流型：「剛看到 App 裡有人發起一個超扯的投票題，留言已經吵起來了。有時候不理性投票比理性討論好玩多了。你最近最想發起什麼荒謬投票？」`;
+// 補充理由（不是結構規定）：Threads 的推播權重看「留言數」遠高於「按讚數」（約 5-10 倍），
+// 結尾留一個會讓人想回覆的鉤子比單純曝光更重要——但具體怎麼寫、要不要用範例句型，交給
+// system_config 的品牌語氣 prompt 決定，這裡不重複規定結構，避免跟 admin 自訂的寫作規則打架。
+const STRUCTURE_RULE = `[背景知識，非結構規定]Threads 的推播權重看留言數遠高於按讚數，所以貼文的目的是引發對話、讓人想留言回應，不是單純曝光；實際要怎麼開頭、怎麼收尾，照上面 system prompt 的寫作規則走。`;
 
 type Platform = "x" | "threads" | "facebook";
 const ALL_PLATFORMS: Platform[] = ["x", "threads", "facebook"];
+// 只列平台技術上限（超過會直接發文失敗），不規定風格用的建議長度——那個交給 system_config
+// 的品牌語氣 prompt 自己決定（例如目前設定的 80-120 字），避免兩邊長度指示互相矛盾。
 const PLATFORM_LENGTH_HINT: Record<Platform, string> = {
-  x: "280 字元以內（含空白與 hashtag）",
-  threads: "500 字元以內",
-  facebook: "約 150-300 字元，適合閱讀的長度",
+  x: "技術上限 280 字元（系統附加的連結不算在內）",
+  threads: "技術上限 500 字元（系統附加的連結不算在內）",
+  facebook: "無嚴格技術上限，但請以品牌語氣 prompt 指定的長度為準",
 };
 const PLATFORM_POSTERS: Record<Platform, (o: { content: string; testMode: boolean }) => Promise<{ success: boolean; externalId?: string; error?: string }>> = {
   x: postToX,
@@ -181,7 +174,7 @@ Deno.serve(async (req) => {
       const trendHint = trendingTopics.length > 0
         ? `\n\n[參考靈感，是否引用非必須]以下是目前 App 內討論度最高的話題，僅供靈感參考，每行格式是「編號 | 話題標題（票數）」：\n${trendingTopics
             .map((t: any, i: number) => `${i + 1} | ${t.title}（目前 ${t.total_votes ?? 0} 票）`)
-            .join("\n")}\n要不要提到這些話題完全隨意，不適合就別硬塞，維持原本品牌語氣自由發揮即可。連結不用你自己寫，系統會自動附加在貼文最後，所以 content 欄位裡絕對不要自己寫任何網址、也不要在文字裡寫「1」「2」這種編號。【規則】如果這篇文案的內容有引用、暗示、或改寫上面任何一則，就在 "topic_id" 欄位填入該話題前面的編號（純數字，例如 1、2 或 3，不要加任何文字或符號）；完全沒引用任何一則就填 null。`
+            .join("\n")}\n要不要提到這些話題完全隨意，不適合就別硬塞，維持原本品牌語氣自由發揮即可。連結不用你自己寫，系統會自動附加在貼文最後，所以 content 欄位裡絕對不要自己寫任何網址、也不要在文字裡寫「1」「2」這種編號。這則自動附加的純網址不算 CTA 或連結說明句，跟上面「不要寫 CTA」的規則不衝突，不用因此不敢填 topic_id。【規則】如果這篇文案的內容有引用、暗示、或改寫上面任何一則，就在 "topic_id" 欄位填入該話題前面的編號（純數字，例如 1、2 或 3，不要加任何文字或符號）；完全沒引用任何一則就填 null。`
         : "";
 
       // 讓發文有連貫感：抓最近幾則「真的發布成功」的貼文（只看 live，不看 test，避免拿測試帳號的
@@ -214,7 +207,7 @@ Deno.serve(async (req) => {
           { role: "system", content: systemPrompt },
           {
             role: "user",
-            content: `請針對以下平台各寫一篇推廣貼文，長度限制：\n${lengthRules}\n\n${STRUCTURE_RULE}\n\n${FEW_SHOT_EXAMPLES}${trendHint}${historyHint}${personaHint}${angleHint}\n\n只輸出 JSON，格式為 {${outputSchema}}，不要有其他說明文字或 markdown 標記。`,
+            content: `請針對以下平台各寫一篇推廣貼文，長度限制：\n${lengthRules}\n\n${STRUCTURE_RULE}${trendHint}${historyHint}${personaHint}${angleHint}\n\n只輸出 JSON，格式為 {${outputSchema}}，不要有其他說明文字或 markdown 標記。`,
           },
         ],
         temperature: 0.9,

@@ -242,7 +242,16 @@ Deno.serve(async (req) => {
         results.push({ platform, content, status: blocked ? "blocked" : "generated", error: reason });
       }
 
-      return new Response(JSON.stringify({ success: true, action: "generate", results }), {
+      // debug 欄位純粹方便排查「到底有沒有候選熱門話題」，不影響發文邏輯，前端會顯示出來。
+      return new Response(JSON.stringify({
+        success: true,
+        action: "generate",
+        results,
+        debug: {
+          trendingTopicsFound: trendingTopics.length,
+          trendingTopics: trendingTopics.map((t: any) => ({ title: t.title, end_at: t.end_at, total_votes: t.total_votes })),
+        },
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

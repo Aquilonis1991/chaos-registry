@@ -94,6 +94,7 @@ export const SocialBotManager = () => {
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [draft, setDraft] = useState<Partial<Record<Platform, DraftEntry>> | null>(null);
+  const [draftDebug, setDraftDebug] = useState<{ trendingTopicsFound: number; trendingTopics: { title: string; end_at: string; total_votes: number }[] } | null>(null);
 
   const [isPublishingTest, setIsPublishingTest] = useState(false);
   const [isPublishingLive, setIsPublishingLive] = useState(false);
@@ -163,6 +164,7 @@ export const SocialBotManager = () => {
   const handleGenerateDraft = async () => {
     setIsGenerating(true);
     setDraft(null);
+    setDraftDebug(null);
     setPublishResults(null);
     try {
       const enabledPlatforms = PLATFORMS.filter((p) => platformToggles[p.key]).map((p) => p.key);
@@ -183,6 +185,7 @@ export const SocialBotManager = () => {
         next[r.platform] = { content: r.content, status: r.status, error: r.error };
       }
       setDraft(next);
+      if (data.debug) setDraftDebug(data.debug);
       toast.success("草稿已產生，確認內容沒問題後再按下方按鈕發布");
     } catch (err) {
       console.error("[SocialBotManager] generate draft error:", err);
@@ -319,6 +322,23 @@ export const SocialBotManager = () => {
             {isGenerating ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1" />}
             產生草稿
           </Button>
+
+          {draftDebug && (
+            <div className="text-xs text-muted-foreground border rounded-md p-2 bg-muted/30">
+              {draftDebug.trendingTopicsFound === 0 ? (
+                <p>本次沒有找到符合條件的熱門話題（狀態 active 且距結束還有 2 小時以上），所以這次一定不會有連結——這不是 bug，資料庫裡目前沒有可引用的話題。</p>
+              ) : (
+                <>
+                  <p>本次找到 {draftDebug.trendingTopicsFound} 個候選熱門話題（有連結出現的話會是連到這幾個之一）：</p>
+                  <ul className="list-disc list-inside">
+                    {draftDebug.trendingTopics.map((t, i) => (
+                      <li key={i}>{t.title}（{t.total_votes} 票，結束時間 {new Date(t.end_at).toLocaleString()}）</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          )}
 
           {draftPlatforms.length > 0 && (
             <div className="space-y-3">

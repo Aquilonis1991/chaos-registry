@@ -3,7 +3,7 @@
 // 這裡的常數只是後台尚未設定時的預設值。
 export const ANDROID_PACKAGE = "com.votechaos.app";
 export const DEFAULT_ANDROID_STORE_URL = `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE}`;
-export const DEFAULT_IOS_STORE_URL = "https://apps.apple.com/app/id000000000";
+export const DEFAULT_IOS_STORE_URL = "https://apps.apple.com/us/app/chaosregistry/id6759028380";
 
 export function normalizeStoreUrl(raw: unknown): string {
   if (raw == null) return "";

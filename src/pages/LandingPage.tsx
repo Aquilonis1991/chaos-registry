@@ -1,10 +1,16 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Vote, Users, Coins, Shield, ArrowRight, Check } from "lucide-react";
+import { Vote, Users, Coins, Shield, ArrowRight, Check, ExternalLink } from "lucide-react";
 import { Logo } from "@/components/Logo";
+import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
+import { DEFAULT_ANDROID_STORE_URL, DEFAULT_IOS_STORE_URL, normalizeStoreUrl } from "@/lib/appStoreLinks";
 
 const LandingPage = () => {
+  const { getConfig } = useSystemConfigCache();
+  const androidStoreUrl = normalizeStoreUrl(getConfig("app_store_url_android", "")) || DEFAULT_ANDROID_STORE_URL;
+  const iosStoreUrl = normalizeStoreUrl(getConfig("app_store_url_ios", "")) || DEFAULT_IOS_STORE_URL;
+
   return (
     <div className="min-h-screen bg-background pt-[env(safe-area-inset-top,0px)]">
       {/* Hero Section */}
@@ -22,6 +28,26 @@ const LandingPage = () => {
           <p className="text-lg mb-8 opacity-80 max-w-2xl mx-auto">
             提供輕鬆、有趣的投票體驗，讓使用者可以瀏覽主題、參與投票、發起話題，並使用失序值提高主題曝光度
           </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mb-4">
+            <a
+              href={androidStoreUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-md bg-secondary px-4 py-2.5 text-sm font-medium text-secondary-foreground shadow hover:bg-secondary/90 transition-colors"
+            >
+              <ExternalLink className="h-4 w-4 shrink-0" />
+              Google Play 下載
+            </a>
+            <a
+              href={iosStoreUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-md bg-secondary px-4 py-2.5 text-sm font-medium text-secondary-foreground shadow hover:bg-secondary/90 transition-colors"
+            >
+              <ExternalLink className="h-4 w-4 shrink-0" />
+              App Store 下載
+            </a>
+          </div>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/auth">
               <Button size="lg" variant="secondary" className="w-full sm:w-auto">

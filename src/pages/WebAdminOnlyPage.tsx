@@ -4,21 +4,13 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useUIText } from "@/hooks/useUIText";
 import { useAuth } from "@/hooks/useAuth";
 import { useSystemConfigCache } from "@/hooks/useSystemConfigCache";
-
-const ANDROID_PACKAGE = "com.votechaos.app";
-const DEFAULT_ANDROID_STORE_URL = `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE}`;
-const DEFAULT_IOS_STORE_URL = "https://apps.apple.com/app/id000000000";
+import { DEFAULT_ANDROID_STORE_URL, DEFAULT_IOS_STORE_URL, normalizeStoreUrl } from "@/lib/appStoreLinks";
 
 /**
  * 網頁版僅限管理員使用頁面
  *
  * 若用戶使用網頁版登入且非管理員，將被導向此頁面。
  */
-function normalizeStoreUrl(raw: unknown): string {
-  if (raw == null) return "";
-  if (typeof raw === "string") return raw.trim();
-  return String(raw).trim();
-}
 
 export const WebAdminOnlyPage = () => {
   const { language } = useLanguage();

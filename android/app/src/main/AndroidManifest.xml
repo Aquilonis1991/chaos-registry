@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.votechaos.app">
     <application
@@ -21,7 +21,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Deep Link：votechaos://* (第三方登入回調 - 寬鬆匹配) -->
+            <!-- Deep Link嚗otechaos://* (蝚砌??寧?亙?隤?- 撖祇??寥?) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -29,7 +29,28 @@
                 <data android:scheme="votechaos" />
             </intent-filter>
 
+            <!-- Android App Links嚗ttps://chaosregistry.com/vote/* ?湔??App嚗?閬?
+                 /.well-known/assetlinks.json ??蝬脣?撽?嚗utoVerify ????嚗?->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="chaosregistry.com"
+                    android:pathPrefix="/vote" />
+            </intent-filter>
 
+            <!-- www 正式網域（apex 會導向 www，兩邊都需驗證） -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="www.chaosregistry.com"
+                    android:pathPrefix="/vote" />
+            </intent-filter>
 
 
         </activity>
@@ -42,13 +63,13 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- AdMob App ID（正式）-->
+        <!-- AdMob App ID嚗迤撘?-->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-9731699243657023~2885273855"
         />
 
-        <!-- 生產環境請替換為您的實際 App ID -->
+        <!-- ??啣?隢??函?撖阡? App ID -->
         <!-- <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-YOUR_ACTUAL_APP_ID~YOUR_ACTUAL_ID"/> -->

@@ -27,14 +27,20 @@ const FALLBACK_TEMPLATE: Record<TemplateKey, string> = {
   chaos: "世界越快，心則慢... 拜託告訴我這題的正確答案是什麼🤯\n「{{title}}」\n\n{{url}}",
 };
 
+// 固定用真正的公開站台網址，不能用 window.location.origin——原生 App 裡那會是
+// capacitor://localhost（WebView 內部 scheme），分享出去的連結別人根本點不開。
+// 使用 www 正式網域（apex chaosregistry.com 會 307 轉到 www，避免 App Link 攔截被轉址打亂）。
+const PUBLIC_SITE_URL = "https://www.chaosregistry.com";
+
 function buildShareUrl(topicId: string): string {
-  if (typeof window === "undefined") return "";
-  const base = window.location.origin.replace(/\/$/, "");
-  return `${base}/vote/${topicId}`;
+  return `${PUBLIC_SITE_URL}/vote/${topicId}`;
 }
 
 function applyTemplate(raw: string, title: string, url: string): string {
-  return raw.replace(/\{\{title\}\}/g, title).replace(/\{\{url\}\}/g, url);
+  // 防禦性處理：後台如果不小心存進字面上的 "\n"（反斜線+n，而非真正換行字元），
+  // 這裡一併轉換，避免分享文案直接把 \n 印出來給使用者看。
+  const normalized = raw.replace(/\\n/g, "\n");
+  return normalized.replace(/\{\{title\}\}/g, title).replace(/\{\{url\}\}/g, url);
 }
 
 interface TopicShareDialogProps {

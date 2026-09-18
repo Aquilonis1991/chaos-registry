@@ -36,9 +36,25 @@ export const initializeAppLifecycle = () => {
       devLog('[app-lifecycle] URL search:', opened.search);
       devLog('[app-lifecycle] URL hash:', opened.hash);
 
-      // 只處理我們的 Deep Link scheme
+      // Android App Links / iOS Universal Links：真正的 https://(www.)chaosregistry.com/... 網址
+      // （例如分享連結 /vote/{topicId}），跟自訂的 votechaos:// scheme 是兩種不同機制。
+      // 這種網址的路徑本來就跟 App 內路由一致，直接導過去，不用像 votechaos:// 那樣把
+      // hostname 當成路由的第一段。
+      if (scheme === 'https' || scheme === 'http') {
+        const host = opened.hostname.toLowerCase();
+        if (host !== 'chaosregistry.com' && host !== 'www.chaosregistry.com') {
+          devLog('[app-lifecycle] Ignoring universal link for unknown host:', opened.hostname);
+          return;
+        }
+        const slug = `${opened.pathname}${opened.search}`;
+        devLog('[app-lifecycle] Universal link, redirecting to:', slug);
+        window.location.href = slug;
+        return;
+      }
+
+      // 只處理我們自訂的 Deep Link scheme
       if (scheme !== 'votechaos') {
-        devLog('[app-lifecycle] Ignoring non-votechaos deep link:', scheme);
+        devLog('[app-lifecycle] Ignoring unrecognized deep link scheme:', scheme);
         return;
       }
 

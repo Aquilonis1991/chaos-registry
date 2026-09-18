@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.votechaos.app",
+      "sha256_cert_fingerprints": [
+        "0B:3B:58:A4:D9:5A:AD:DD:BD:AF:27:1C:AC:4A:B1:B1:02:C0:30:13:6B:5A:B8:6F:4A:B0:27:C9:83:BB:A7:6C",
+        "37:AA:B7:CF:02:24:4D:04:1C:D3:02:53:6A:51:00:A8:1E:50:47:AF:5C:D4:53:09:6C:3E:BB:FD:AE:53:82:5D"
+      ]
+    }
+  }
+]

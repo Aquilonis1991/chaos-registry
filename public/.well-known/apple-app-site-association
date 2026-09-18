@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "7444X9599R.com.votechaos.app",
+        "paths": ["/vote/*"]
+      }
+    ]
+  }
+}

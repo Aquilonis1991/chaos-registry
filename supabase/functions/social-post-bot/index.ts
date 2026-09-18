@@ -14,7 +14,7 @@ import { postToX } from "../_shared/twitterPost.ts";
 import { postToThreads } from "../_shared/threadsPost.ts";
 import { postToFacebook } from "../_shared/facebookPost.ts";
 
-const SITE_BASE_URL = "https://chaosregistry.com";
+const SITE_BASE_URL = "https://www.chaosregistry.com";
 
 // 輪替內容角度：每次生成隨機挑一個，避免每篇貼文都長得一樣、也讓帳號內容有變化。
 const CONTENT_ANGLES = [

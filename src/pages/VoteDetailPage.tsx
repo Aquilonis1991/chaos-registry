@@ -43,6 +43,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArenaSection } from "@/components/arena/ArenaSection";
 import { useServerTime } from "@/contexts/ServerTimeContext";
 import { TopicShareDialog } from "@/components/TopicShareDialog";
+import { isNative } from "@/lib/capacitor";
+import { navigateBackOrHome } from "@/lib/navigateBackOrHome";
+
+/** 網頁分享連結訪客：導向官網首頁（下載／註冊入口）；App 內仍走 /auth */
+const PUBLIC_LANDING_URL = "https://www.chaosregistry.com/";
 
 const VoteDetailPage = () => {
   const { id } = useParams();
@@ -134,6 +139,13 @@ const VoteDetailPage = () => {
   const unknownOptionText = getText('vote.detail.option.unknown', '未知選項');
   const anonymousCardDescription = getText('vote.detail.anonymous.description', '匿名瀏覽模式下無法投票，請註冊帳號以參與投票活動');
   const anonymousButton = getText('vote.detail.anonymous.button', '前往註冊');
+  const goToRegister = useCallback(() => {
+    if (isNative()) {
+      navigate("/auth");
+      return;
+    }
+    window.location.href = PUBLIC_LANDING_URL;
+  }, [navigate]);
   const freeVoteButtonText = getText('vote.detail.freeVote.button', '免費投票');
   const freeVoteNote = getText('vote.detail.freeVote.note', '每日每主題可免費投票一次');
   const tokenSectionTitle = getText('vote.detail.section.tokens', '投入失序值');
@@ -309,7 +321,7 @@ const VoteDetailPage = () => {
       toast.error(loginRequiredTitle, {
         description: loginRequiredDescription
       });
-      navigate("/auth");
+      goToRegister();
       return;
     }
 
@@ -395,7 +407,7 @@ const VoteDetailPage = () => {
       toast.error(loginRequiredTitle, {
         description: loginRequiredDescription
       });
-      navigate("/auth");
+      goToRegister();
       return;
     }
 
@@ -430,7 +442,7 @@ const VoteDetailPage = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate(-1)}
+                onClick={() => navigateBackOrHome(navigate)}
                 className="text-primary-foreground hover:bg-primary-foreground/20"
               >
                 <ArrowLeft className="w-6 h-6" />
@@ -482,7 +494,7 @@ const VoteDetailPage = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate(-1)}
+                onClick={() => navigateBackOrHome(navigate)}
                 className="text-primary-foreground hover:bg-primary-foreground/20"
               >
                 <ArrowLeft className="w-6 h-6" />
@@ -781,7 +793,7 @@ const VoteDetailPage = () => {
                   {anonymousCardDescription}
                 </p>
                 <Button
-                  onClick={() => navigate("/auth")}
+                  onClick={goToRegister}
                   className="w-full"
                 >
                   {anonymousButton}

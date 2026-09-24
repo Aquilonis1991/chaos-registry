@@ -60,12 +60,6 @@ const LandingPage = () => {
             </div>
           </div>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/auth">
-              <Button size="lg" variant="secondary" className="w-full sm:w-auto">
-                立即登入 / 開始使用
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
             <Link to="/about">
               <Button size="lg" variant="secondary" className="w-full sm:w-auto">
                 了解更多
@@ -213,6 +207,13 @@ const LandingPage = () => {
             <Link to="/privacy">
               <Button size="lg" variant="outline">
                 隱私權政策
+              </Button>
+            </Link>
+          </div>
+          <div className="mt-6 flex justify-center">
+            <Link to="/auth">
+              <Button size="lg" variant="ghost" className="text-muted-foreground">
+                管理員入口
               </Button>
             </Link>
           </div>

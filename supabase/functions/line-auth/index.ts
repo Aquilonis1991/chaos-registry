@@ -719,80 +719,68 @@ async function handleCallback(req: Request, corsHeaders: Record<string, string>)
 
       console.log('Updated existing LINE user:', userId)
     } else {
-      // 檢查 email 是否已存在
-      const { data: existingUserByEmail } = await supabaseAdmin.auth.admin.listUsers()
-      const userWithEmail = existingUserByEmail?.users?.find(u => u.email === userEmail)
+      // 建立新用戶
+      // 建立 auth.users（使用 Admin API）
+      // 注意：不要在 app_metadata 中設置 provider，因為 Supabase 不支援 LINE provider
+      const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email: userEmail,
+        email_confirm: true, // 自動確認 email
+        user_metadata: {
+          line_user_id: lineUserId,
+          nickname: displayName,
+          avatar: pictureUrl,
+        },
+        // 不在 app_metadata 中設置 provider，避免 Supabase 嘗試使用不支援的 provider
+        app_metadata: {},
+      })
 
-      if (userWithEmail) {
-        // Email 已存在，連結 LINE 帳號到現有用戶
-        userId = userWithEmail.id
-
-        await supabaseAdmin
-          .from('profiles')
-          .update({
-            line_user_id: lineUserId,
-            nickname: displayName,
-            avatar: pictureUrl,
-            updated_at: new Date().toISOString(),
-            last_login: new Date().toISOString(),
-          })
-          .eq('id', userId)
-
-        // 更新 user_metadata
-        await supabaseAdmin.auth.admin.updateUserById(userId, {
-          user_metadata: {
-            ...userWithEmail.user_metadata,
-            line_user_id: lineUserId,
-            nickname: displayName,
-            avatar: pictureUrl,
-          }
-        })
-
-        console.log('Linked LINE account to existing user:', userId)
-      } else {
-        // 建立新用戶
-        // 建立 auth.users（使用 Admin API）
-        // 注意：不要在 app_metadata 中設置 provider，因為 Supabase 不支援 LINE provider
-        const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-          email: userEmail,
-          email_confirm: true, // 自動確認 email
-          user_metadata: {
-            line_user_id: lineUserId,
-            nickname: displayName,
-            avatar: pictureUrl,
-          },
-          // 不在 app_metadata 中設置 provider，避免 Supabase 嘗試使用不支援的 provider
-          app_metadata: {},
-        })
-
-        if (authError || !authUser.user) {
-          console.error('Failed to create auth user:', {
-            error: authError,
-            errorMessage: authError?.message,
-            errorDetails: authError,
-            userEmail,
-            lineUserId,
-            authUser
-          })
-          const errorMessage = authError?.message || 'Failed to create user'
-          throw new Error(`Failed to create user: ${errorMessage}`)
+      // email 已被其他帳號使用時不自動綁定 LINE：只憑 email 相同就合併，等於讓 LINE 端的 email
+      // 決定能登入哪個帳號。請使用者改用原本的方式登入。
+      if (authError?.code === 'email_exists') {
+        console.warn('[LINE Auth] Email already registered, refusing to auto-link LINE account:', { lineUserId })
+        const errorUrl = getErrorRedirectUrl(
+          'email_already_registered',
+          '這個 LINE 帳號的 email 已經註冊過 ChaosRegistry，請改用原本的登入方式（例如 Google、Apple 或 email）登入。'
+        )
+        if (req.method === 'POST') {
+          return new Response(
+            JSON.stringify({ redirectUrl: errorUrl }),
+            {
+              status: 200,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          )
         }
-
-        userId = authUser.user.id
-        isNewUser = true
-
-        // 更新 profile 的 line_user_id（handle_new_user trigger 會自動建立 profile）
-        await supabaseAdmin
-          .from('profiles')
-          .update({
-            line_user_id: lineUserId,
-            nickname: displayName,
-            avatar: pictureUrl,
-          })
-          .eq('id', userId)
-
-        console.log('Created new LINE user:', userId)
+        return Response.redirect(errorUrl)
       }
+
+      if (authError || !authUser.user) {
+        console.error('Failed to create auth user:', {
+          error: authError,
+          errorMessage: authError?.message,
+          errorDetails: authError,
+          userEmail,
+          lineUserId,
+          authUser
+        })
+        const errorMessage = authError?.message || 'Failed to create user'
+        throw new Error(`Failed to create user: ${errorMessage}`)
+      }
+
+      userId = authUser.user.id
+      isNewUser = true
+
+      // 更新 profile 的 line_user_id（handle_new_user trigger 會自動建立 profile）
+      await supabaseAdmin
+        .from('profiles')
+        .update({
+          line_user_id: lineUserId,
+          nickname: displayName,
+          avatar: pictureUrl,
+        })
+        .eq('id', userId)
+
+      console.log('Created new LINE user:', userId)
     }
 
     // ✅ Single-use policy: 標記授權碼為已使用（在成功處理後）

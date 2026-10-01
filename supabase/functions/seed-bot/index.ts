@@ -42,7 +42,6 @@ type SeedTopicData = {
   description?: string
   category?: string
   tags?: string[]
-  initial_messages?: string[]
 }
 
 // LLM 即使被要求「純 JSON」，也常把回應包在 ```json ... ``` 這種 markdown code fence 裡，
@@ -65,7 +64,7 @@ async function generateSeedTopic(): Promise<SeedTopicData | null> {
 - title：25 字以內，繁體中文
 - options：正好 4 個選項，每個有 "id" 和 "text"
 - description：50 字以內
-- 返回格式：純 JSON {"title": "...", "options": [{"id":"option-0","text":"..."}, ...], "description": "...", "category": "fun", "tags": ["tag1"], "initial_messages": ["留言1", "留言2"]}`
+- 返回格式：純 JSON {"title": "...", "options": [{"id":"option-0","text":"..."}, ...], "description": "...", "category": "fun", "tags": ["tag1"]}`
 
   try {
     const res = await fetch("https://api.x.ai/v1/chat/completions", {
@@ -168,63 +167,6 @@ serve(async () => {
     })
 
     if (error) throw error
-
-    // 初始留言：add_arena_message 這個 RPC 從來不存在（已用 pg_proc 直接查證過），
-    // 這段程式碼過去一直在對不存在的函數丟請求，外層又是空的 catch(e){}，
-    // 完全靜默失敗，沒有任何 log。改成直接寫 topic_arena_messages，並用真的
-    // 機器人角色（bot_profiles）當作者，讓新主題一開始看起來有真人互動，
-    // 而不是全部掛在同一個 admin 帳號底下。
-    //
-    // 注意：角鬥場「一人一主題限一則」的 DB 限制仍然適用（每個角色最多一則）；
-    // 但不套用一般的投票參與度門檻（arena_mundane_access_votes）——這是系統
-    // 開站用的種子內容，跟真人自然發文是不同情境，此處刻意略過該項門檻。
-    const initialMessages = (topicData.initial_messages || []).filter((m) => m && m.trim())
-    if (initialMessages.length > 0) {
-      const { data: bots, error: botsErr } = await supabase
-        .from('bot_profiles')
-        .select('user_id, bot_name')
-        .limit(initialMessages.length)
-
-      if (botsErr) {
-        console.error('❌ 讀取 bot_profiles 失敗，跳過初始留言：', botsErr.message)
-      } else {
-        const { data: configRows } = await supabase
-          .from('system_config')
-          .select('key, value')
-          .in('key', ['arena_base_data_ttl', 'arena_comment_max_length'])
-        const configMap = new Map((configRows || []).map((r: any) => [r.key, r.value]))
-        const ttlMinutes = Number(configMap.get('arena_base_data_ttl')) || 480
-        const maxLen = Number(configMap.get('arena_comment_max_length')) || 100
-
-        const authorCount = Math.min(initialMessages.length, bots?.length || 0)
-        for (let i = 0; i < authorCount; i++) {
-          const bot = bots![i]
-          const content = initialMessages[i].trim().slice(0, maxLen)
-
-          const { data: bannedRows } = await supabase.rpc('check_banned_words', {
-            p_text: content,
-            p_check_levels: ['A', 'B', 'C', 'D', 'E', 'F'],
-          })
-          const hit = Array.isArray(bannedRows) && bannedRows.length > 0 ? bannedRows[0] : null
-          if (hit?.found && (hit.action === 'block' || hit.action === 'review')) {
-            console.warn(`⚠️ 初始留言（${bot.bot_name}）含違禁字，跳過：${hit.keyword}`)
-            continue
-          }
-
-          const { error: msgErr } = await supabase.from('topic_arena_messages').insert({
-            topic_id: newTopic.id,
-            user_id: bot.user_id,
-            content,
-            ttl_minutes: ttlMinutes,
-          })
-          if (msgErr) {
-            console.error(`❌ 初始留言寫入失敗（${bot.bot_name}）：${msgErr.message}`)
-          } else {
-            console.log(`✅ 初始留言已發布（${bot.bot_name}）：${content}`)
-          }
-        }
-      }
-    }
 
     console.log(`✅ Seed 成功: ${newTopic.title}`)
     return new Response(JSON.stringify({ success: true, title: newTopic.title, id: newTopic.id }), { status: 200 })

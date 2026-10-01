@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="referrer" content="no-referrer" />
+  <meta name="robots" content="noindex" />
+  <title>返回 ChaosRegistry</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #1a2332; color: #e8edf3;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", sans-serif; }
+    main { min-height: 100%; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 20px; padding: 24px; box-sizing: border-box; text-align: center; }
+    img { width: 72px; height: 72px; border-radius: 16px; }
+    h1 { font-size: 20px; margin: 0; }
+    p { margin: 0; color: #9fb0c3; font-size: 15px; line-height: 1.6; }
+    a.btn { display: inline-block; padding: 14px 28px; border-radius: 12px; background: #06c755;
+      color: #fff; font-size: 17px; font-weight: 600; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="/logo.png" alt="ChaosRegistry" />
+    <h1 id="title">LINE 驗證完成</h1>
+    <p id="desc">正在返回 ChaosRegistry…<br />如果沒有自動跳轉，請點下方按鈕。</p>
+    <a id="open" class="btn" href="votechaos://auth/callback">返回 App 完成登入</a>
+  </main>
+  <script>
+    (function () {
+      // iOS 會擋下伺服器 302 直接導到自訂 scheme，必須由這個頁面（最好是使用者點擊）開啟 App
+      var allowed = ['code', 'state', 'error', 'error_description', 'provider', 'platform'];
+      var src = new URLSearchParams(window.location.search);
+      var out = new URLSearchParams();
+      allowed.forEach(function (k) { var v = src.get(k); if (v) out.set(k, v); });
+      if (!out.get('provider')) out.set('provider', 'line');
+
+      var deepLink = 'votechaos://auth/callback?' + out.toString();
+      document.getElementById('open').setAttribute('href', deepLink);
+
+      if (src.get('error')) {
+        document.getElementById('title').textContent = 'LINE 登入未完成';
+        document.getElementById('desc').textContent = '請返回 App 重新嘗試。';
+      }
+
+      window.location.href = deepLink;
+    })();
+  </script>
+</body>
+</html>

@@ -7,6 +7,9 @@ import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts'
 
 const FRONTEND_URL = Deno.env.get('FRONTEND_URL') || 'https://chaos-registry.vercel.app'
 const FRONTEND_DEEP_LINK = Deno.env.get('FRONTEND_DEEP_LINK') || 'votechaos://auth/callback'
+// iOS 的 SFSafariViewController 會擋下 302 直接導到自訂 scheme（頁面卡住或顯示無法開啟），
+// 所以 iOS 先導到網站上的中繼頁，由頁面開啟 App。Edge Function 不能回傳 HTML，中繼頁只能放在前端網站。
+const IOS_RETURN_PAGE_URL = Deno.env.get('LINE_IOS_RETURN_PAGE_URL') || 'https://www.chaosregistry.com/line-return.html'
 
 Deno.serve(async (req) => {
   // 處理 CORS 預檢請求
@@ -44,7 +47,10 @@ Deno.serve(async (req) => {
   // 決定重定向目標
   // LINE 登入目前只支援 APP，所以必須使用 Deep Link，避免網頁與 App 混淆
   // 根據 LINE登入修復完整報告.md 的建議：完全使用 Deep Link，避免 Context 丟失
-  const redirectBase = FRONTEND_DEEP_LINK
+  // iPadOS 的瀏覽器 UA 會偽裝成 Macintosh；LINE 登入只開放 App，所以 Macintosh 只可能來自 iPad
+  const userAgent = req.headers.get('user-agent') || ''
+  const isIOS = /iPhone|iPad|iPod|Macintosh/i.test(userAgent)
+  const redirectBase = isIOS ? IOS_RETURN_PAGE_URL : FRONTEND_DEEP_LINK
 
   // 構建回調 URL
   const targetUrl = new URL(redirectBase)
@@ -57,7 +63,7 @@ Deno.serve(async (req) => {
   const platform = url.searchParams.get('platform')
   if (platform) targetUrl.searchParams.set('platform', platform)
 
-  console.log('[line-auth-callback] Redirecting to:', targetUrl.toString())
+  console.log('[line-auth-callback] Redirecting to:', targetUrl.toString(), { isIOS })
 
   // 重定向到目標 URL
   return Response.redirect(targetUrl.toString(), 302)

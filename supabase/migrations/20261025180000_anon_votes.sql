@@ -174,6 +174,6 @@ BEGIN
     $job$
   );
 EXCEPTION
-  WHEN undefined_function OR invalid_schema_name THEN
+  WHEN undefined_function OR invalid_schema_name OR undefined_table THEN
     RAISE NOTICE 'pg_cron unavailable, skip anon-vote-ip-hash-purge';
 END $$;

@@ -35,7 +35,6 @@ Deno.serve(async (req) => {
 <svg xmlns="http://www.w3.org/2000/svg" width="640" height="${160 + rows.length * 64}" viewBox="0 0 640 ${160 + rows.length * 64}">
   <rect width="100%" height="100%" fill="#1a2332"/>
   <text x="40" y="56" fill="#ffffff" font-size="24" font-family="sans-serif">${escapeXml(topic?.title || "投票結果")}</text>
-  <text x="40" y="86" fill="#9fb0c3" font-size="14" font-family="sans-serif">匿名票＋會員加碼，不含機器人</text>
   ${bars}
 </svg>`;
   return new Response(svg, {

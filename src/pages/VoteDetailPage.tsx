@@ -51,6 +51,7 @@ import {
   trackVoteEvent,
   type VoteBreakdownRow,
 } from "@/lib/anonVote";
+import { DEFAULT_ANDROID_STORE_URL, DEFAULT_IOS_STORE_URL, normalizeStoreUrl } from "@/lib/appStoreLinks";
 import { isNative } from "@/lib/capacitor";
 import { navigateBackOrHome } from "@/lib/navigateBackOrHome";
 
@@ -94,6 +95,7 @@ const VoteDetailPage = () => {
   const [customAmount, setCustomAmount] = useState<string>("");
   const [exposureDialogOpen, setExposureDialogOpen] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [alreadyVotedDialogOpen, setAlreadyVotedDialogOpen] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -436,7 +438,7 @@ const VoteDetailPage = () => {
       });
       if (!result.ok) {
         if (result.error === "already_voted") {
-          toast.error("你已經投過了");
+          setAlreadyVotedDialogOpen(true);
         } else if (result.error === "ip_limited") {
           toast.error("這個網路今天對這題的匿名票已達上限");
         } else {
@@ -450,6 +452,24 @@ const VoteDetailPage = () => {
     } finally {
       setIsVoting(false);
     }
+  };
+
+  const getAppDownloadUrl = () => {
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+    const isIOS = /iPhone|iPad|iPod|Macintosh/i.test(ua);
+    return isIOS
+      ? normalizeStoreUrl(getConfig("app_store_url_ios", "") as string) || DEFAULT_IOS_STORE_URL
+      : normalizeStoreUrl(getConfig("app_store_url_android", "") as string) || DEFAULT_ANDROID_STORE_URL;
+  };
+
+  const handleAlreadyVotedDownload = () => {
+    window.open(getAppDownloadUrl(), "_blank", "noopener,noreferrer");
+    setAlreadyVotedDialogOpen(false);
+  };
+
+  const handleAlreadyVotedShowResults = () => {
+    setAlreadyVotedDialogOpen(false);
+    if (id) fetchVoteBreakdown(id).then(setBreakdown).catch(() => undefined);
   };
 
   const handleFreeVote = async () => {
@@ -1100,6 +1120,22 @@ const VoteDetailPage = () => {
         </AlertDialogContent>
       </AlertDialog>
       )}
+
+      {/* 匿名重複投票：導流 App */}
+      <AlertDialog open={alreadyVotedDialogOpen} onOpenChange={setAlreadyVotedDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>你已經投過一票了，但真的只想投一票嗎？</AlertDialogTitle>
+            <AlertDialogDescription>
+              在 App 裡可以花代幣狂加碼，把你支持的那邊直接灌爆。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleAlreadyVotedShowResults}>先看結果就好</AlertDialogCancel>
+            <AlertDialogAction onClick={handleAlreadyVotedDownload}>下載 App 加碼</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* 延長投票時間：確認彈窗 */}
       {canExtendTime && (

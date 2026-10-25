@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
     const { data: breakdown } = await supabase.rpc("get_topic_vote_breakdown", { p_topic_id: row.topic_id });
     const lines = (breakdown ?? []).map((item: { option_id: string; anon_votes: number; member_votes: number }) => {
       const total = Number(item.anon_votes) + Number(item.member_votes);
-      return `${item.option_id}：匿名 ${item.anon_votes}、會員加碼 ${item.member_votes}（合計 ${total}）`;
+      return `${item.option_id}：${total}`;
     });
     const cardUrl = `${supabaseUrl}/functions/v1/vote-result-card?topic_id=${row.topic_id}`;
     const text = [

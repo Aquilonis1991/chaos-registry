@@ -765,7 +765,6 @@ const VoteDetailPage = () => {
 
                     <div className="text-sm text-muted-foreground">
                       {percentage.toFixed(1)}%
-                      {row ? ` · 匿名 ${row.anon_votes.toLocaleString()} · 會員加碼 ${row.member_votes.toLocaleString()}` : ""}
                     </div>
                     {isSelected && (
                       <div className="text-xs text-primary font-medium mt-2">{selectedMark}</div>

@@ -15,20 +15,19 @@ Deno.serve(async (req) => {
 
   const { data: rows, error } = await supabase
     .from("topic_threads_posts")
-    .select("topic_id, threads_media_id, topics!inner(title, status, end_at)")
+    .select("topic_id, threads_media_id, topics!inner(title, status, end_at, options)")
     .is("replied_at", null);
   if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 });
 
   const results: { topic_id: string; ok: boolean; error?: string }[] = [];
   for (const row of rows ?? []) {
-    const topic = (row as { topics?: { title?: string; status?: string; end_at?: string } }).topics;
+    const topic = (row as { topics?: { title?: string; status?: string; end_at?: string; options?: { text?: string; votes?: number }[] } }).topics;
     const ended = topic?.status === "ended" || (topic?.end_at && new Date(topic.end_at).getTime() <= Date.now());
     if (!ended) continue;
 
-    const { data: breakdown } = await supabase.rpc("get_topic_vote_breakdown", { p_topic_id: row.topic_id });
-    const lines = (breakdown ?? []).map((item: { option_id: string; anon_votes: number; member_votes: number }) => {
-      const total = Number(item.anon_votes) + Number(item.member_votes);
-      return `${item.option_id}：${total}`;
+    const lines = (topic?.options ?? []).map((item, index) => {
+      const label = item?.text || `選項 ${index + 1}`;
+      return `${label}：${Number(item?.votes) || 0}`;
     });
     const cardUrl = `${supabaseUrl}/functions/v1/vote-result-card?topic_id=${row.topic_id}`;
     const text = [

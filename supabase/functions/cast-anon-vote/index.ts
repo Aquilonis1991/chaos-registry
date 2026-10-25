@@ -134,6 +134,18 @@ Deno.serve(async (req) => {
       return json({ error: "insert_failed" }, 500, cors);
     }
 
+    const { error: countErr } = await supabase.rpc("add_topic_option_votes", {
+      p_topic_id: topicId,
+      p_option_id: optionId,
+      p_amount: 1,
+    });
+    if (countErr) {
+      await supabase.from("anon_votes").delete().eq("topic_id", topicId).eq("device_id", deviceId);
+      console.error("[cast-anon-vote] count", countErr.message);
+      return json({ error: "insert_failed" }, 500, cors);
+    }
+    await supabase.from("anon_votes").update({ counted_in_topic: true }).eq("topic_id", topicId).eq("device_id", deviceId);
+
     if (/^\d{5,30}$/.test(threadsPostId)) {
       await supabase.from("topic_threads_posts").upsert(
         { topic_id: topicId, threads_media_id: threadsPostId, updated_at: new Date().toISOString() },

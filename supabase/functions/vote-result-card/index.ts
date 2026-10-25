@@ -15,21 +15,18 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY") ?? "",
   );
   const { data: topic } = await supabase.from("topics").select("title, options").eq("id", topicId).maybeSingle();
-  const { data: breakdown } = await supabase.rpc("get_topic_vote_breakdown", { p_topic_id: topicId });
-  const labels = new Map<string, string>();
-  (topic?.options ?? []).forEach((opt: { id?: string; text?: string }, index: number) => {
-    labels.set(opt?.id != null ? String(opt.id) : `option-${index}`, opt?.text || `選項 ${index + 1}`);
-  });
-  const rows = (breakdown ?? []) as { option_id: string; anon_votes: number; member_votes: number }[];
-  const max = Math.max(1, ...rows.map((row) => Number(row.anon_votes) + Number(row.member_votes)));
+  const rows = ((topic?.options ?? []) as { id?: string; text?: string; votes?: number }[]).map((opt, index) => ({
+    label: opt?.text || `選項 ${index + 1}`,
+    votes: Number(opt?.votes) || 0,
+  }));
+  const max = Math.max(1, ...rows.map((row) => row.votes));
   const bars = rows.map((row, index) => {
-    const total = Number(row.anon_votes) + Number(row.member_votes);
-    const width = Math.round((total / max) * 520);
+    const width = Math.round((row.votes / max) * 520);
     const y = 120 + index * 64;
-    const label = escapeXml(labels.get(row.option_id) || row.option_id);
+    const label = escapeXml(row.label);
     return `<text x="40" y="${y}" fill="#e8edf3" font-size="18" font-family="sans-serif">${label}</text>
       <rect x="40" y="${y + 8}" width="${width}" height="22" rx="6" fill="#06c755"/>
-      <text x="570" y="${y + 25}" fill="#9fb0c3" font-size="14" font-family="sans-serif">${total}</text>`;
+      <text x="570" y="${y + 25}" fill="#9fb0c3" font-size="14" font-family="sans-serif">${row.votes}</text>`;
   }).join("\n");
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="640" height="${160 + rows.length * 64}" viewBox="0 0 640 ${160 + rows.length * 64}">

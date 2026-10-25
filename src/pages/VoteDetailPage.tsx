@@ -45,11 +45,9 @@ import { useServerTime } from "@/contexts/ServerTimeContext";
 import { TopicShareDialog } from "@/components/TopicShareDialog";
 import { TurnstileWidget } from "@/components/TurnstileWidget";
 import {
-  fetchVoteBreakdown,
   rememberVoteSignupSrc,
   submitAnonVote,
   trackVoteEvent,
-  type VoteBreakdownRow,
 } from "@/lib/anonVote";
 import { DEFAULT_ANDROID_STORE_URL, DEFAULT_IOS_STORE_URL, normalizeStoreUrl } from "@/lib/appStoreLinks";
 import { isNative } from "@/lib/capacitor";
@@ -87,7 +85,6 @@ const VoteDetailPage = () => {
 
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isVoting, setIsVoting] = useState(false);
-  const [breakdown, setBreakdown] = useState<VoteBreakdownRow[]>([]);
   const [turnstileToken, setTurnstileToken] = useState("");
   const isGuest = !user || isAnonymous;
   const [freeVoteAvailable, setFreeVoteAvailable] = useState(false);
@@ -101,7 +98,6 @@ const VoteDetailPage = () => {
   useEffect(() => {
     if (!id) return;
     trackVoteEvent("vote_view", voteSrc);
-    fetchVoteBreakdown(id).then(setBreakdown).catch(() => setBreakdown([]));
   }, [id, voteSrc]);
 
   // 參與者付費影響主題（延長時間 / 新增選項）
@@ -446,8 +442,8 @@ const VoteDetailPage = () => {
         }
         return;
       }
-      setBreakdown(result.breakdown);
       trackVoteEvent("anon_vote_submit", voteSrc);
+      refreshTopic();
       toast.success("匿名票已送出");
     } finally {
       setIsVoting(false);
@@ -748,11 +744,8 @@ const VoteDetailPage = () => {
                 ? String(option.id)
                 : `option-${index}`;
               const optionText = option?.text || (typeof option === 'string' ? option : unknownOptionText);
-              const row = breakdown.find((item) => item.option_id === optionId);
-              const publicVotes = row ? row.anon_votes + row.member_votes : (option?.votes || 0);
-              const publicTotal = breakdown.length
-                ? breakdown.reduce((sum, item) => sum + item.anon_votes + item.member_votes, 0)
-                : totalVotes;
+              const publicVotes = option?.votes || 0;
+              const publicTotal = totalVotes;
               const percentage = publicTotal > 0 ? (publicVotes / publicTotal) * 100 : 0;
               const isSelected = selectedOption === optionId;
 

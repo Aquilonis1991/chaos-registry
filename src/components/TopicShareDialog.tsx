@@ -33,7 +33,7 @@ const FALLBACK_TEMPLATE: Record<TemplateKey, string> = {
 const PUBLIC_SITE_URL = "https://www.chaosregistry.com";
 
 function buildShareUrl(topicId: string): string {
-  return `${PUBLIC_SITE_URL}/vote/${topicId}`;
+  return `${PUBLIC_SITE_URL}/vote/${topicId}?src=threads`;
 }
 
 function applyTemplate(raw: string, title: string, url: string): string {

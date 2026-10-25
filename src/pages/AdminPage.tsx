@@ -22,6 +22,7 @@ import LegalContentManager from "@/components/admin/LegalContentManager";
 import { DataExportManager } from "@/components/admin/DataExportManager";
 import { AiPromptManager } from "@/components/admin/AiPromptManager";
 import { SocialBotManager } from "@/components/admin/SocialBotManager";
+import AnonVoteSourceStats from "@/components/admin/AnonVoteSourceStats";
 
 const AdminPage = () => {
   const { isAdmin, isLoading, error: adminError } = useAdmin();
@@ -172,6 +173,7 @@ const AdminPage = () => {
           <TabsTrigger value="legal">{tabLegal}</TabsTrigger>
           <TabsTrigger value="ai">{tabAi}</TabsTrigger>
           <TabsTrigger value="social-bot">{tabSocialBot}</TabsTrigger>
+          <TabsTrigger value="anon-votes">匿名票來源</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users">
@@ -266,6 +268,13 @@ const AdminPage = () => {
 
         <TabsContent value="social-bot">
           <SocialBotManager />
+        </TabsContent>
+
+        <TabsContent value="anon-votes">
+          <Card className="p-6">
+            <h2 className="text-lg font-semibold mb-4">各來源匿名票數</h2>
+            <AnonVoteSourceStats />
+          </Card>
         </TabsContent>
 
       </Tabs>

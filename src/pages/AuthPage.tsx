@@ -29,6 +29,7 @@ import { signupSchema, loginSchema } from "@/lib/validationSchemas";
 import { Logo } from "@/components/Logo";
 import WebAdminOnlyPage from "./WebAdminOnlyPage";
 import { computeAdminGateState } from "@/lib/auth/adminGateState";
+import { consumeVoteSignupSrc, trackVoteEvent } from "@/lib/anonVote";
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -36,6 +37,12 @@ const AuthPage = () => {
   const { language } = useLanguage();
   const { getText, isLoading: textsLoading } = useUIText(language);
   const { user, isAnonymous, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (authLoading || !user || isAnonymous) return;
+    const src = consumeVoteSignupSrc();
+    if (src) trackVoteEvent("signup_from_vote", src);
+  }, [authLoading, user, isAnonymous]);
   const { isAdmin, isLoading: adminLoading } = useAdmin();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

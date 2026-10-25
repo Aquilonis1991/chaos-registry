@@ -98,6 +98,12 @@ export const ProtectedRoute = ({ children, requireAuth = false }: ProtectedRoute
     return <Navigate to="/auth" replace />;
   }
 
+  // 分享連結（Threads 等）允許未登入直接看投票頁
+  const isPublicVotePage = /^\/vote\/[^/]+$/.test(normalizedPath);
+  if (!user && !isAnonymous && isPublicVotePage) {
+    return <>{children}</>;
+  }
+
   // 如果沒有任何用戶狀態（既不是登入也不是匿名），重定向到認證頁面
   if (!user && !isAnonymous) {
     return <Navigate to="/auth" replace />;

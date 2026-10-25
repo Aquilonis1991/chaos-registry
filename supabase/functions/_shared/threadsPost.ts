@@ -12,7 +12,7 @@ import type { PlatformPostResult } from "./twitterPost.ts";
 
 const THREADS_API_BASE = "https://graph.threads.net/v1.0";
 
-export async function postToThreads(options: { content: string; testMode: boolean }): Promise<PlatformPostResult> {
+export async function postToThreads(options: { content: string; testMode: boolean; replyToId?: string }): Promise<PlatformPostResult> {
   const prefix = options.testMode ? "TEST_" : "";
   const accessToken = Deno.env.get(`${prefix}THREADS_ACCESS_TOKEN`);
   const userId = Deno.env.get(`${prefix}THREADS_USER_ID`);
@@ -25,6 +25,7 @@ export async function postToThreads(options: { content: string; testMode: boolea
     const createUrl = new URL(`${THREADS_API_BASE}/${userId}/threads`);
     createUrl.searchParams.set("media_type", "TEXT");
     createUrl.searchParams.set("text", options.content);
+    if (options.replyToId) createUrl.searchParams.set("reply_to_id", options.replyToId);
     createUrl.searchParams.set("access_token", accessToken);
 
     const createRes = await fetch(createUrl.toString(), { method: "POST" });

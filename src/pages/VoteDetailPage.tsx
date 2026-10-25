@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +43,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArenaSection } from "@/components/arena/ArenaSection";
 import { useServerTime } from "@/contexts/ServerTimeContext";
 import { TopicShareDialog } from "@/components/TopicShareDialog";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
+import {
+  fetchVoteBreakdown,
+  rememberVoteSignupSrc,
+  submitAnonVote,
+  trackVoteEvent,
+  type VoteBreakdownRow,
+} from "@/lib/anonVote";
 import { isNative } from "@/lib/capacitor";
 import { navigateBackOrHome } from "@/lib/navigateBackOrHome";
 
@@ -51,6 +59,9 @@ const PUBLIC_LANDING_URL = "https://www.chaosregistry.com/";
 
 const VoteDetailPage = () => {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const voteSrc = searchParams.get("src") || "direct";
+  const threadsPostId = searchParams.get("post") || "";
   const navigate = useNavigate();
   const { profile, loading: profileLoading, refreshProfile } = useProfile();
   const { user, isAnonymous } = useAuth();
@@ -75,12 +86,21 @@ const VoteDetailPage = () => {
 
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isVoting, setIsVoting] = useState(false);
+  const [breakdown, setBreakdown] = useState<VoteBreakdownRow[]>([]);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const isGuest = !user || isAnonymous;
   const [freeVoteAvailable, setFreeVoteAvailable] = useState(false);
   const [checkingFreeVote, setCheckingFreeVote] = useState(false);
   const [customAmount, setCustomAmount] = useState<string>("");
   const [exposureDialogOpen, setExposureDialogOpen] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    trackVoteEvent("vote_view", voteSrc);
+    fetchVoteBreakdown(id).then(setBreakdown).catch(() => setBreakdown([]));
+  }, [id, voteSrc]);
 
   // 參與者付費影響主題（延長時間 / 新增選項）
   const [extendDialogOpen, setExtendDialogOpen] = useState(false);
@@ -137,15 +157,15 @@ const VoteDetailPage = () => {
   const noOptionsText = getText('vote.detail.options.empty', '此主題暫無選項');
   const selectedMark = getText('vote.detail.option.selected', '✓ 已選擇');
   const unknownOptionText = getText('vote.detail.option.unknown', '未知選項');
-  const anonymousCardDescription = getText('vote.detail.anonymous.description', '匿名瀏覽模式下無法投票，請註冊帳號以參與投票活動');
   const anonymousButton = getText('vote.detail.anonymous.button', '前往註冊');
   const goToRegister = useCallback(() => {
+    rememberVoteSignupSrc(voteSrc);
     if (isNative()) {
       navigate("/auth");
       return;
     }
     window.location.href = PUBLIC_LANDING_URL;
-  }, [navigate]);
+  }, [navigate, voteSrc]);
   const freeVoteButtonText = getText('vote.detail.freeVote.button', '免費投票');
   const freeVoteNote = getText('vote.detail.freeVote.note', '每日每主題可免費投票一次');
   const tokenSectionTitle = getText('vote.detail.section.tokens', '投入失序值');
@@ -394,6 +414,42 @@ const VoteDetailPage = () => {
     setConfirmDialogOpen(false);
     setPendingVoteAmount(null);
     setPendingVoteSource(null);
+  };
+
+  const handleAnonVote = async () => {
+    if (!id || !selectedOption) {
+      toast.error(selectOptionText);
+      return;
+    }
+    if (!import.meta.env.VITE_TURNSTILE_SITE_KEY || !turnstileToken) {
+      toast.error("請先完成驗證");
+      return;
+    }
+    setIsVoting(true);
+    try {
+      const result = await submitAnonVote({
+        topicId: id,
+        optionId: selectedOption,
+        src: voteSrc,
+        threadsPostId,
+        turnstileToken,
+      });
+      if (!result.ok) {
+        if (result.error === "already_voted") {
+          toast.error("你已經投過了");
+        } else if (result.error === "ip_limited") {
+          toast.error("這個網路今天對這題的匿名票已達上限");
+        } else {
+          toast.error("匿名投票失敗，請稍後再試");
+        }
+        return;
+      }
+      setBreakdown(result.breakdown);
+      trackVoteEvent("anon_vote_submit", voteSrc);
+      toast.success("匿名票已送出");
+    } finally {
+      setIsVoting(false);
+    }
   };
 
   const handleFreeVote = async () => {
@@ -672,7 +728,12 @@ const VoteDetailPage = () => {
                 ? String(option.id)
                 : `option-${index}`;
               const optionText = option?.text || (typeof option === 'string' ? option : unknownOptionText);
-              const percentage = totalVotes > 0 ? ((option?.votes || 0) / totalVotes) * 100 : 0;
+              const row = breakdown.find((item) => item.option_id === optionId);
+              const publicVotes = row ? row.anon_votes + row.member_votes : (option?.votes || 0);
+              const publicTotal = breakdown.length
+                ? breakdown.reduce((sum, item) => sum + item.anon_votes + item.member_votes, 0)
+                : totalVotes;
+              const percentage = publicTotal > 0 ? (publicVotes / publicTotal) * 100 : 0;
               const isSelected = selectedOption === optionId;
 
               return (
@@ -697,13 +758,14 @@ const VoteDetailPage = () => {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-semibold text-foreground">{optionText}</span>
-                      <span className="text-primary font-bold">{(option?.votes || 0).toLocaleString()}</span>
+                      <span className="text-primary font-bold">{publicVotes.toLocaleString()}</span>
                     </div>
 
                     <Progress value={percentage} className="h-2 mb-1" />
 
                     <div className="text-sm text-muted-foreground">
                       {percentage.toFixed(1)}%
+                      {row ? ` · 匿名 ${row.anon_votes.toLocaleString()} · 會員加碼 ${row.member_votes.toLocaleString()}` : ""}
                     </div>
                     {isSelected && (
                       <div className="text-xs text-primary font-medium mt-2">{selectedMark}</div>
@@ -784,18 +846,23 @@ const VoteDetailPage = () => {
                 </section>
               ) : null}
             </>
-          ) : isAnonymous ? (
+          ) : isGuest ? (
             <Card className="bg-muted/50 border-muted">
-              <CardContent className="p-4 text-center">
-                <User className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                <h3 className="font-semibold text-foreground mb-2">{loginRequiredTitle}</h3>
-                <p className="text-sm text-muted-foreground mb-3">
-                  {anonymousCardDescription}
-                </p>
-                <Button
-                  onClick={goToRegister}
-                  className="w-full"
-                >
+              <CardContent className="p-4 text-center space-y-3">
+                {!isTopicEnded && (
+                  <>
+                    <TurnstileWidget onToken={setTurnstileToken} />
+                    <Button
+                      onClick={handleAnonVote}
+                      className="w-full h-14 text-lg"
+                      disabled={isVoting || !selectedOption}
+                    >
+                      {isVoting ? <Loader2 className="w-5 h-5 animate-spin" /> : "匿名投票"}
+                    </Button>
+                  </>
+                )}
+                <p className="text-sm text-muted-foreground">登入就能加碼買票</p>
+                <Button variant="outline" onClick={goToRegister} className="w-full">
                   {anonymousButton}
                 </Button>
               </CardContent>

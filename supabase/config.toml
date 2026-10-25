@@ -13,3 +13,13 @@ verify_jwt = false
 
 [functions.check-auth-providers]
 verify_jwt = false
+
+# 訪客匿名投票不帶會員 JWT
+[functions.cast-anon-vote]
+verify_jwt = false
+
+[functions.threads-vote-recap]
+verify_jwt = false
+
+[functions.vote-result-card]
+verify_jwt = false

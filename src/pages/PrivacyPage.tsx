@@ -185,6 +185,7 @@ export const DefaultPrivacySections = () => (
         <li><strong>Cookie</strong>：記錄登入狀態與偏好設定。</li>
         <li><strong>分析工具</strong>：Google Analytics、Firebase 用於流量統計與錯誤追蹤。</li>
         <li><strong>廣告識別碼</strong>：Google AdMob 使用廣告 ID 投放個人化廣告（您可在裝置設定中重設或關閉）。</li>
+        <li><strong>匿名投票</strong>：未登入投票時，我們會在你的裝置留下一個裝置識別碼，並計算裝置指紋與 IP 的雜湊值，只用來防止同一主題重複投票。不保存原始 IP，雜湊值 30 天後刪除。匿名票不會對應到任何會員帳號，前台與後台都看不到是誰投的。</li>
       </ul>
     </section>
 
